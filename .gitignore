@@ -1,0 +1,29 @@
+# Flutter
+*.class
+*.log
+*.pyc
+*.swp
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+flutter_*.png
+
+# Android
+*.iml
+.gradle/
+local.properties
+android/app/src/main/res/values/google_maps_api.xml
+
+# IDE
+.idea/
+.vscode/
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
