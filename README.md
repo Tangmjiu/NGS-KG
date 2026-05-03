@@ -97,6 +97,11 @@ https://kugouapi.mjiutang.qzz.io
 └── desktop/          # 桌面端
 ```
 
+## 未来进展
+
+- 开发 Windows 桌面端
+- 开发 HarmonyOS 端（实验性）
+
 ## License
 
 仅供个人学习研究使用。
