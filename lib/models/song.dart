@@ -8,6 +8,7 @@ class Song {
   final String? lyricUrl;
   final String? filePath;
   final String? hash;
+  final Map<String, String>? qualities;
 
   const Song({
     required this.id,
@@ -19,11 +20,22 @@ class Song {
     this.lyricUrl,
     this.filePath,
     this.hash,
+    this.qualities,
   });
 
   bool get isLocal => filePath != null;
 
   String get artistDisplay => artists.join(' / ');
+
+  static const qualityLabels = ['128K', '320K', 'FLAC'];
+  static const qualityKeys = ['128', '320', 'flac'];
+
+  String get currentQualityLabel {
+    if (qualities != null && qualities!.containsKey('128')) return '128K';
+    if (qualities != null && qualities!.containsKey('320')) return '320K';
+    if (qualities != null && qualities!.containsKey('flac')) return 'FLAC';
+    return hash != null && hash!.length > 20 ? '320K' : '128K';
+  }
 
   factory Song.fromJson(Map<String, dynamic> json) {
     return Song(
@@ -58,13 +70,31 @@ class Song {
     final parts = rawName.split(' - ');
     var cover = json['cover'] as String?;
     if (cover != null) cover = cover.replaceAll('{size}', '480');
+    final q = <String, String>{};
+    final hash = json['hash'] as String?;
+    if (hash != null && hash.isNotEmpty) q['128'] = hash;
+    final audioInfo = json['audio_info'];
+    if (audioInfo is Map) {
+      final fields = {
+        '128': 'hash_128',
+        '320': 'hash_320',
+        'flac': 'hash_flac',
+        'high': 'hash_high',
+        'super': 'hash_super',
+      };
+      for (final entry in fields.entries) {
+        final v = audioInfo[entry.value] as String?;
+        if (v != null && v.isNotEmpty) q[entry.key] = v;
+      }
+    }
     return Song(
       id: (json['audio_id'] ?? json['id']) as int,
       name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
       artists: parts.length > 1 ? [parts[0]] : ['未知'],
       albumCoverUrl: cover,
       duration: (json['timelen'] as int? ?? 0) ~/ 1000,
-      hash: json['hash'] as String?,
+      hash: hash,
+      qualities: q.isNotEmpty ? q : null,
     );
   }
 
@@ -75,18 +105,20 @@ class Song {
     if (cover != null) cover = cover.replaceAll('{size}', '480');
     final rawName = json['songname'] as String? ?? '';
     final parts = rawName.split(' - ');
-    // Try to get hash from audio_info or deprecated
     String? hash;
+    final q = <String, String>{};
     final audioInfo = json['audio_info'];
     if (audioInfo is Map) {
-      hash = audioInfo['hash_128'] as String? ??
-          audioInfo['hash_320'] as String?;
+      final v128 = audioInfo['hash_128'] as String?;
+      if (v128 != null && v128.isNotEmpty) { q['128'] = v128; hash = v128; }
+      final v320 = audioInfo['hash_320'] as String?;
+      if (v320 != null && v320.isNotEmpty) q['320'] = v320;
+      final vFlac = audioInfo['hash_flac'] as String?;
+      if (vFlac != null && vFlac.isNotEmpty) q['flac'] = vFlac;
     }
     if (hash == null || hash!.isEmpty) {
       final deprecated = json['deprecated'];
-      if (deprecated is Map) {
-        hash = deprecated['hash'] as String?;
-      }
+      if (deprecated is Map) hash = deprecated['hash'] as String?;
     }
     return Song(
       id: (json['audio_id'] ?? json['album_audio_id'] ?? 0) as int,
@@ -95,6 +127,7 @@ class Song {
       albumCoverUrl: cover,
       duration: _durationFromAudioInfo(json['audio_info']),
       hash: hash,
+      qualities: q.isNotEmpty ? q : null,
     );
   }
 

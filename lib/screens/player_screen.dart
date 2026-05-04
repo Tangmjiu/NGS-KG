@@ -15,6 +15,7 @@ class PlayerScreen extends StatefulWidget {
 
 class _PlayerScreenState extends State<PlayerScreen> {
   bool _showLyrics = false;
+  int _qualityLevel = 0;
   final MusicService _musicService = MusicService();
   List<_LyricLine> _lyrics = [];
   bool _lyricLoading = false;
@@ -238,27 +239,30 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Widget _buildQualityLabel(PlayerProvider player) {
     if (player.currentSong?.isLocal == true) return const SizedBox.shrink();
-    // Determine bitrate from duration vs file size (rough estimate)
-    final duration = player.duration.inSeconds;
-    String label = '128K';
-    if (duration > 0 && player.currentSong != null) {
-      final hash = player.currentSong!.hash;
-      if (hash != null && hash.length > 20) label = '320K'; // rough heuristic
-    }
+    final q = player.currentSong?.qualities;
+    if (q == null || q.isEmpty) return const SizedBox.shrink();
+    final label = ['128K', '320K', 'FLAC'];
+    final keys = ['128', '320', 'flac'];
+    final current = _qualityLevel % label.length;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[600]!),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(label,
-                style: TextStyle(fontSize: 11, color: Colors.grey[400])),
-          ),
+          for (int i = 0; i < keys.length; i++)
+            if (q.containsKey(keys[i]))
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: ChoiceChip(
+                  label: Text(label[i], style: const TextStyle(fontSize: 11)),
+                  selected: i == current,
+                  onSelected: (_) {
+                    _qualityLevel = i;
+                    player.switchQuality();
+                  },
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
         ],
       ),
     );
