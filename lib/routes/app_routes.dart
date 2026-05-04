@@ -11,6 +11,7 @@ import '../screens/sheet_list_screen.dart';
 import '../screens/sheet_detail_screen.dart';
 import '../screens/fm_screen.dart';
 import '../screens/lyrics_screen.dart';
+import '../screens/local_music_screen.dart';
 
 class AppRoutes {
   static const String home = '/';
@@ -25,6 +26,7 @@ class AppRoutes {
   static const String sheetDetail = '/sheet/detail';
   static const String fm = '/fm';
   static const String lyrics = '/lyrics';
+  static const String localMusic = '/local/music';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -82,6 +84,8 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const FmScreen());
       case lyrics:
         return MaterialPageRoute(builder: (_) => const LyricsScreen());
+      case localMusic:
+        return MaterialPageRoute(builder: (_) => const LocalMusicScreen());
       default:
         return MaterialPageRoute(builder: (_) => const HomeScreen());
     }

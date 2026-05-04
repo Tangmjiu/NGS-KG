@@ -73,9 +73,14 @@ class PlayerProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      final songUrl = await _musicService.getSongUrl(_currentSong!.id);
-      if (songUrl.url.isNotEmpty) {
-        await _player.play(UrlSource(songUrl.url));
+      final song = _currentSong!;
+      if (song.isLocal && song.filePath != null) {
+        await _player.play(DeviceFileSource(song.filePath!));
+      } else {
+        final songUrl = await _musicService.getSongUrl(song.id);
+        if (songUrl.url.isNotEmpty) {
+          await _player.play(UrlSource(songUrl.url));
+        }
       }
     } catch (_) {}
     _isLoading = false;
