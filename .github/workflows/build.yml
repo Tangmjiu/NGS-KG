@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [android, windows-desktop, linux-debian-desktop]
+    branches: [android]
   pull_request:
     branches: [android]
 
