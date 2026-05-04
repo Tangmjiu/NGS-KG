@@ -70,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
         pages: [
           _buildPage(AppBar(
-            title: const Text('NGS-KG+'),
+            title: const Text('首页'),
             actions: _appBarActions(context),
           ), _buildHome()),
           _buildPage(null, const DiscoverScreen()),
@@ -82,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: _currentTab == 0
           ? AppBar(
-              title: const Text('NGS-KG+'),
+              title: const Text('首页'),
               actions: _appBarActions(context),
             )
           : null,
