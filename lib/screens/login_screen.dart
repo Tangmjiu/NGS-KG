@@ -307,7 +307,7 @@ class _QrLoginState extends State<_QrLogin> {
 
   void _startPolling() {
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
       if (_qrKey == null) return;
       try {
         final auth = context.read<AuthProvider>();
@@ -316,11 +316,14 @@ class _QrLoginState extends State<_QrLogin> {
           _pollTimer?.cancel();
           if (mounted) {
             setState(() => _statusText = '登录成功');
-            Navigator.pop(context);
+            await Future.delayed(const Duration(milliseconds: 500));
+            if (mounted) Navigator.pop(context);
           }
         } else if (code == 800) {
           setState(() => _statusText = '二维码已过期，请刷新');
           _pollTimer?.cancel();
+        } else if (code == 2 || code == 201) {
+          setState(() => _statusText = '已扫码，请在手机上确认登录');
         } else {
           setState(() => _statusText = '请使用酷狗 App 扫描二维码');
         }
