@@ -31,8 +31,8 @@ class AuthService {
     return res.data as Map<String, dynamic>;
   }
 
-  Future<void> sendCaptcha(String phone) async {
-    await _client.get('/captcha/sent', params: {'phone': phone});
+  Future<void> sendCaptcha(String mobile) async {
+    await _client.get('/captcha/sent', params: {'mobile': mobile});
   }
 
   Future<Map<String, dynamic>> getUserDetail() async {
