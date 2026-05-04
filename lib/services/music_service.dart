@@ -351,8 +351,8 @@ class MusicService {
     return [];
   }
 
-  Future<String> getCloudSongUrl(int songId) async {
-    final res = await _get('/user/cloud/url', params: {'id': songId});
+  Future<String> getCloudSongUrl(String hash) async {
+    final res = await _get('/user/cloud/url', params: {'hash': hash});
     final data = res['data'];
     if (data is Map) return data['url'] as String? ?? '';
     return '';

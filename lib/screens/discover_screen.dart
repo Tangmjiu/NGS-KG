@@ -26,7 +26,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     try {
       final tags = await _musicService.getPlaylistTags();
       if (mounted) setState(() => _playlistTags = tags);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Discover] loadTags error: $e');
+    }
     if (mounted) setState(() => _loadingTags = false);
   }
 
@@ -34,7 +36,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     try {
       final fm = await _musicService.getFmRecommend();
       if (mounted) setState(() => _fmList = fm.take(6).toList());
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Discover] loadFm error: $e');
+    }
     if (mounted) setState(() => _loadingFm = false);
   }
 
@@ -69,24 +73,19 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   style:
                       TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
-            SizedBox(
-              height: 40,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                itemCount: _playlistTags.length,
-                itemBuilder: (_, i) {
-                  final tag = _playlistTags[i];
-                  final name = tag['tag_name'] as String? ?? '';
-                  final id = tag['tag_id'] as int? ?? 0;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ActionChip(
-                      label: Text(name),
-                    onPressed: () {}, // TODO: filter playlists by tag
-                    ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: _playlistTags.map((t) {
+                  final name = t['tag_name'] as String? ?? '';
+                  return ActionChip(
+                    label: Text(name, style: const TextStyle(fontSize: 12)),
+                    onPressed: () {},
+                    visualDensity: VisualDensity.compact,
                   );
-                },
+                }).toList(),
               ),
             ),
           ],

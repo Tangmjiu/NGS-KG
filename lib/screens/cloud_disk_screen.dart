@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../widgets/song_tile.dart';
@@ -26,8 +27,24 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
     try {
       final songs = await _musicService.getUserCloudDisk();
       if (mounted) setState(() => _songs = songs);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[CloudDisk] load error: $e');
+    }
     if (mounted) setState(() => _isLoading = false);
+  }
+
+  Future<void> _playSong(Map<String, dynamic> item) async {
+    final hash = item['hash'] as String?;
+    if (hash == null) return;
+    final song = Song(
+      id: hash.hashCode,
+      name: item['name'] as String? ?? '',
+      artists: [item['author_name'] as String? ?? ''],
+      hash: hash,
+    );
+    if (mounted) {
+      context.read<PlayerProvider>().playSong(song);
+    }
   }
 
   @override
@@ -43,7 +60,8 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                     children: [
                       Icon(Icons.cloud_off, size: 80, color: Colors.grey[600]),
                       const SizedBox(height: 16),
-                      Text('云盘暂无歌曲', style: TextStyle(color: Colors.grey[400])),
+                      Text('云盘暂无歌曲',
+                          style: TextStyle(color: Colors.grey[400])),
                     ],
                   ),
                 )
@@ -53,13 +71,25 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                     padding: const EdgeInsets.only(top: 8),
                     itemCount: _songs.length,
                     itemBuilder: (_, i) {
-                      final s = _songs[i];
+                      final item = _songs[i];
+                      final name = item['name'] as String? ?? '';
+                      final author = item['author_name'] as String? ?? '';
                       return ListTile(
-                        leading: const Icon(Icons.cloud_done),
-                        title: Text(s['name'] as String? ?? ''),
-                        subtitle: Text(s['author'] as String? ?? '',
+                        leading: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[800],
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(Icons.cloud_done, color: Colors.blue),
+                        ),
+                        title: Text(name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                        subtitle: Text(author,
                             style: TextStyle(color: Colors.grey[400])),
-                        onTap: () {},
+                        onTap: () => _playSong(item),
                       );
                     },
                   ),
