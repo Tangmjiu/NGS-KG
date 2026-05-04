@@ -50,17 +50,28 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           if (detail.songs.isEmpty) {
             return const Center(child: Text('暂无歌曲'));
           }
+          final desc = detail.playlist.description;
+          final hasDesc = desc != null && desc.isNotEmpty;
           return ListView.builder(
             padding: const EdgeInsets.only(top: 8),
-            itemCount: detail.songs.length,
-            itemBuilder: (_, i) => SongTile(
-              song: detail.songs[i],
-              onTap: (song) {
-                context
+            itemCount: detail.songs.length + (hasDesc ? 1 : 0),
+            itemBuilder: (_, i) {
+              if (hasDesc && i == 0) {
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Text(desc!,
+                      style: TextStyle(color: Colors.grey[400], fontSize: 13)),
+                );
+              }
+              final si = hasDesc ? i - 1 : i;
+              final song = detail.songs[si];
+              return SongTile(
+                song: song,
+                onTap: (s) => context
                     .read<PlayerProvider>()
-                    .setPlaylist(detail.songs, startIndex: i);
-              },
-            ),
+                    .playSong(s, playlist: detail.songs),
+              );
+            },
           );
         },
       ),
