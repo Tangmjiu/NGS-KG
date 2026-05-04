@@ -1,4 +1,7 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
 
@@ -12,6 +15,41 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoggedIn => _user != null;
   bool get isLoading => _isLoading;
 
+  AuthProvider() {
+    _loadSavedUser();
+  }
+
+  Future<void> _loadSavedUser() async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/user.json');
+      if (await file.exists()) {
+        final data = jsonDecode(await file.readAsString());
+        _user = User.fromJson(data as Map<String, dynamic>);
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveUser() async {
+    if (_user == null) return;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/user.json');
+      await file.writeAsString(jsonEncode(_user!.toJson()));
+    } catch (_) {}
+  }
+
+  Future<void> _clearSavedUser() async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/user.json');
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {}
+  }
+
   Future<bool> loginWithPassword(String username, String password) async {
     _isLoading = true;
     notifyListeners();
@@ -19,6 +57,7 @@ class AuthProvider extends ChangeNotifier {
       _user = await _authService.loginWithPassword(username, password);
       _isLoading = false;
       notifyListeners();
+      if (_user != null) await _saveUser();
       return _user != null;
     } catch (e) {
       _isLoading = false;
@@ -34,6 +73,7 @@ class AuthProvider extends ChangeNotifier {
       _user = await _authService.loginWithPhone(phone, code);
       _isLoading = false;
       notifyListeners();
+      if (_user != null) await _saveUser();
       return _user != null;
     } catch (e) {
       _isLoading = false;
@@ -60,6 +100,7 @@ class AuthProvider extends ChangeNotifier {
 
   void logout() {
     _user = null;
+    _clearSavedUser();
     notifyListeners();
   }
 }
