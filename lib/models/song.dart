@@ -50,6 +50,20 @@ class Song {
       duration: (json['Duration'] as int?) ?? 0,
     );
   }
+
+  factory Song.fromTrackJson(Map<String, dynamic> json) {
+    final rawName = (json['name'] as String?) ?? '';
+    final parts = rawName.split(' - ');
+    var cover = json['cover'] as String?;
+    if (cover != null) cover = cover.replaceAll('{size}', '480');
+    return Song(
+      id: (json['audio_id'] ?? json['id']) as int,
+      name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
+      artists: parts.length > 1 ? [parts[0]] : ['未知'],
+      albumCoverUrl: cover,
+      duration: (json['timelen'] as int? ?? 0) ~/ 1000,
+    );
+  }
 }
 
 class SongUrl {

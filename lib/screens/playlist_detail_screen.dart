@@ -5,12 +5,14 @@ import '../providers/player_provider.dart';
 import '../widgets/song_tile.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
-  final int playlistId;
+  final int? playlistId;
+  final String? gcId;
   final String? playlistName;
 
   const PlaylistDetailScreen({
     super.key,
-    required this.playlistId,
+    this.playlistId,
+    this.gcId,
     this.playlistName,
   });
 
@@ -23,7 +25,12 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<PlaylistProvider>().fetchPlaylistDetail(widget.playlistId);
+      final provider = context.read<PlaylistProvider>();
+      if (widget.gcId != null) {
+        provider.fetchPlaylistByGcId(widget.gcId!);
+      } else if (widget.playlistId != null) {
+        provider.fetchPlaylistDetail(widget.playlistId!);
+      }
     });
   }
 
@@ -40,7 +47,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           if (detail == null) {
             return const Center(child: Text('加载失败'));
           }
+          if (detail.songs.isEmpty) {
+            return const Center(child: Text('暂无歌曲'));
+          }
           return ListView.builder(
+            padding: const EdgeInsets.only(top: 8),
             itemCount: detail.songs.length,
             itemBuilder: (_, i) => SongTile(
               song: detail.songs[i],
