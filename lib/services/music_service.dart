@@ -243,19 +243,32 @@ class MusicService {
   }
 
   Future<List<Map<String, dynamic>>> getFmRecommend() async {
-    final res = await _client.get('/fm/recommend');
+    final cookie = await _client.getCookieString();
+    final res = await _client.get('/fm/recommend',
+        params: {'cookie': cookie});
     final raw = res.data['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
   }
 
   Future<List<Song>> getFmSongs(int fmId) async {
-    final res = await _client.get('/fm/songs', params: {'id': fmId});
+    final cookie = await _client.getCookieString();
+    final res = await _client.get('/fm/songs',
+        params: {'fmid': fmId, 'cookie': cookie});
     final raw = res.data['data'];
+    // Songs might be in rcmdlist directly or in data.songs
     if (raw is List) {
       return raw
-          .map((e) => Song.fromJson(e as Map<String, dynamic>))
+          .map((e) => Song.fromTrackJson(e as Map<String, dynamic>))
           .toList();
+    }
+    if (raw is Map) {
+      final songs = raw['songs'] as List<dynamic>?;
+      if (songs != null) {
+        return songs
+            .map((e) => Song.fromTrackJson(e as Map<String, dynamic>))
+            .toList();
+      }
     }
     return [];
   }
