@@ -9,11 +9,13 @@ import 'screens/player_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/api_client.dart';
 import 'services/music_service.dart';
+import 'services/notification_service.dart';
 
 final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
 
 void main() {
   _initDevice();
+  _initNotifications();
   runApp(
     MultiProvider(
       providers: [
@@ -24,6 +26,16 @@ void main() {
       child: const NGSKGApp(),
     ),
   );
+}
+
+Future<void> _initNotifications() async {
+  final notif = NotificationService.instance;
+  await notif.init();
+  notif.onNotificationTap = () {
+    navKey.currentState?.push(
+      MaterialPageRoute(builder: (_) => const PlayerScreen()),
+    );
+  };
 }
 
 Future<void> _initDevice() async {

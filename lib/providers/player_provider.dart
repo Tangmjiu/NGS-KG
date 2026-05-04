@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../models/song.dart';
 import '../services/music_service.dart';
+import '../services/notification_service.dart';
 
 enum PlayMode { sequential, shuffle, repeatOne }
 
@@ -64,6 +65,21 @@ class PlayerProvider extends ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  void _updateNotification() {
+    final song = _currentSong;
+    if (song == null) {
+      NotificationService.instance.cancelMediaNotification();
+      return;
+    }
+    NotificationService.instance.showMediaNotification(
+      title: song.name,
+      artist: song.artistDisplay,
+      isPlaying: _isPlaying,
+      duration: _duration.inSeconds,
+      position: _position.inSeconds,
+    );
   }
 
   void _initShuffle() {
@@ -164,6 +180,7 @@ class PlayerProvider extends ChangeNotifier {
       return;
     }
     _isLoading = false;
+    _updateNotification();
     notifyListeners();
   }
 
@@ -191,6 +208,7 @@ class PlayerProvider extends ChangeNotifier {
       }
     }
     notifyListeners();
+    _updateNotification();
   }
 
   void playNext() {

@@ -1,0 +1,63 @@
+import 'package:flutter/material.dart';
+import '../services/music_service.dart';
+
+class MessagesScreen extends StatefulWidget {
+  const MessagesScreen({super.key});
+
+  @override
+  State<MessagesScreen> createState() => _MessagesScreenState();
+}
+
+class _MessagesScreenState extends State<MessagesScreen> {
+  final MusicService _musicService = MusicService();
+  List<Map<String, dynamic>> _news = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final news = await _musicService.getFollowedArtistNews();
+      if (mounted) setState(() => _news = news);
+    } catch (e) {
+      debugPrint('[Messages] load error: $e');
+    }
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('消息')),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              children: [
+                _sectionTile(Icons.person_add, '关注歌手消息',
+                    subtitle: '${_news.length} 条动态',
+                    onTap: () => Navigator.pushNamed(context, '/artist/followed/news')),
+                const Divider(),
+                _sectionTile(Icons.notifications_outlined, '系统通知',
+                    subtitle: '暂无新通知'),
+                const Divider(),
+                _sectionTile(Icons.favorite_outline, '点赞与收藏',
+                    subtitle: '暂无新消息'),
+              ],
+            ),
+    );
+  }
+
+  Widget _sectionTile(IconData icon, String title, {String? subtitle, VoidCallback? onTap}) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: subtitle != null ? Text(subtitle, style: TextStyle(color: Colors.grey[400], fontSize: 12)) : null,
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
+    );
+  }
+}
