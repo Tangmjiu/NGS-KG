@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
-import '../widgets/song_tile.dart';
 
 class CloudDiskScreen extends StatefulWidget {
   const CloudDiskScreen({super.key});
@@ -16,6 +15,7 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
   final MusicService _musicService = MusicService();
   List<Map<String, dynamic>> _songs = [];
   bool _isLoading = true;
+  int? _playingIndex;
 
   @override
   void initState() {
@@ -33,23 +33,29 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
     if (mounted) setState(() => _isLoading = false);
   }
 
-  Future<void> _playSong(Map<String, dynamic> item) async {
+  Future<void> _playSong(int index, Map<String, dynamic> item) async {
+    setState(() => _playingIndex = index);
     final hash = item['hash'] as String?;
-    if (hash == null) return;
+    if (hash == null) { setState(() => _playingIndex = null); return; }
     try {
       final url = await _musicService.getCloudSongUrl(hash);
-      if (url.isEmpty) return;
-      if (!mounted) return;
+      if (!mounted) { return; }
+      if (url.isEmpty) {
+        if (mounted) { setState(() => _playingIndex = null); }
+        return;
+      }
       final song = Song(
         id: hash.hashCode,
         name: item['name'] as String? ?? '',
         artists: [item['author_name'] as String? ?? ''],
         filePath: url,
       );
-      context.read<PlayerProvider>().playSong(song);
+      if (!mounted) { return; }
+      await context.read<PlayerProvider>().playSong(song);
     } catch (e) {
       debugPrint('[CloudDisk] play error: $e');
     }
+    if (mounted) setState(() => _playingIndex = null);
   }
 
   @override
@@ -65,8 +71,7 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                     children: [
                       Icon(Icons.cloud_off, size: 80, color: Colors.grey[600]),
                       const SizedBox(height: 16),
-                      Text('云盘暂无歌曲',
-                          style: TextStyle(color: Colors.grey[400])),
+                      Text('云盘暂无歌曲', style: TextStyle(color: Colors.grey[400])),
                     ],
                   ),
                 )
@@ -79,6 +84,7 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                       final item = _songs[i];
                       final name = item['name'] as String? ?? '';
                       final author = item['author_name'] as String? ?? '';
+                      final isPlaying = _playingIndex == i;
                       return ListTile(
                         leading: Container(
                           width: 44,
@@ -87,14 +93,17 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                             color: Colors.grey[800],
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Icon(Icons.cloud_done, color: Colors.blue),
+                          child: isPlaying
+                              ? const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.cloud_done, color: Colors.blue),
                         ),
-                        title: Text(name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                        subtitle: Text(author,
-                            style: TextStyle(color: Colors.grey[400])),
-                        onTap: () => _playSong(item),
+                        title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(author, style: TextStyle(color: Colors.grey[400])),
+                        enabled: !isPlaying,
+                        onTap: isPlaying ? null : () => _playSong(i, item),
                       );
                     },
                   ),
