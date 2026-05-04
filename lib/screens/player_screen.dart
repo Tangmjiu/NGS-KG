@@ -280,8 +280,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
         final key = c['accesskey'] as String? ?? '';
         final content = await _musicService.fetchLyricContent(id, key);
         if (content.isNotEmpty) {
-          final decoded = utf8.decode(base64Decode(content));
-          _lyrics = _parseLyrics(decoded);
+          try {
+            final decoded = utf8.decode(base64Decode(content));
+            _lyrics = _parseLyrics(decoded);
+          } catch (e) {
+            debugPrint('[PlayerScreen] lyrics decode failed: $e');
+          }
         }
       }
     } catch (_) {}

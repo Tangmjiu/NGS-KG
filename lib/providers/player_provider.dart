@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../models/song.dart';
@@ -9,6 +10,7 @@ enum PlayMode { sequential, shuffle, repeatOne }
 class PlayerProvider extends ChangeNotifier {
   final MusicService _musicService = MusicService();
   final AudioPlayer _player = AudioPlayer();
+  final Random _random = Random();
 
   Song? _currentSong;
   List<Song> _playlist = [];
@@ -18,6 +20,12 @@ class PlayerProvider extends ChangeNotifier {
   bool _isLoading = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
+  String? _error;
+  List<int> _shuffleOrder = [];
+  int _shufflePos = 0;
+  int _playAttempts = 0;
+  static const int _maxRetries = 2;
+
   StreamSubscription? _positionSub;
   StreamSubscription? _durationSub;
   StreamSubscription? _stateSub;
@@ -30,6 +38,7 @@ class PlayerProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   Duration get position => _position;
   Duration get duration => _duration;
+  String? get error => _error;
   double get progress =>
       _duration.inMilliseconds > 0 ? _position.inMilliseconds / _duration.inMilliseconds : 0.0;
 
@@ -45,21 +54,58 @@ class PlayerProvider extends ChangeNotifier {
     _stateSub = _player.onPlayerComplete.listen((_) => _onComplete());
   }
 
+  void _setError(String msg) {
+    _error = msg;
+    debugPrint('[PlayerProvider] $msg');
+    notifyListeners();
+  }
+
+  void clearError() {
+    _error = null;
+    notifyListeners();
+  }
+
+  void _initShuffle() {
+    _shuffleOrder = List.generate(_playlist.length, (i) => i);
+    _shuffleOrder.shuffle(_random);
+    final currentPos = _shuffleOrder.indexOf(_currentIndex);
+    if (currentPos >= 0) {
+      _shuffleOrder.removeAt(currentPos);
+      _shuffleOrder.insert(0, _currentIndex);
+      _shufflePos = 0;
+    } else {
+      _shufflePos = -1;
+    }
+  }
+
+  int _nextShuffleIndex() {
+    if (_shuffleOrder.isEmpty) _initShuffle();
+    _shufflePos = (_shufflePos + 1) % _shuffleOrder.length;
+    if (_shufflePos == 0 && _shuffleOrder.length > 1) {
+      final last = _shuffleOrder.last;
+      _shuffleOrder.shuffle(_random);
+      if (_shuffleOrder[0] == last && _shuffleOrder.length > 1) {
+        _shuffleOrder[0] = _shuffleOrder[1];
+        _shuffleOrder[1] = last;
+      }
+    }
+    return _shuffleOrder[_shufflePos];
+  }
+
   void _onComplete() {
     switch (_playMode) {
       case PlayMode.repeatOne:
         playIndex(_currentIndex);
         break;
       case PlayMode.shuffle:
-        final next = DateTime.now().microsecondsSinceEpoch % _playlist.length;
-        playIndex(next);
+        playIndex(_nextShuffleIndex());
         break;
       case PlayMode.sequential:
         if (_currentIndex + 1 < _playlist.length) {
           playIndex(_currentIndex + 1);
         } else {
           _isPlaying = false;
-          notifyListeners();
+          _setError('播放列表已结束');
         }
         break;
     }
@@ -71,7 +117,18 @@ class PlayerProvider extends ChangeNotifier {
     _currentSong = _playlist[index];
     _isPlaying = true;
     _isLoading = true;
+    _error = null;
+    _playAttempts = 0;
     notifyListeners();
+    await _doPlay();
+  }
+
+  Future<void> _doPlay() async {
+    if (_playAttempts > _maxRetries) {
+      _isLoading = false;
+      _setError('播放失败: 已重试 $_maxRetries 次');
+      return;
+    }
     try {
       final song = _currentSong!;
       if (song.isLocal && song.filePath != null) {
@@ -80,17 +137,34 @@ class PlayerProvider extends ChangeNotifier {
         final songUrl = await _musicService.getSongUrl(song.id, hash: song.hash);
         if (songUrl.url.isNotEmpty) {
           await _player.play(UrlSource(songUrl.url));
+        } else {
+          _playAttempts++;
+          await _doPlay();
+          return;
         }
       }
-    } catch (_) {}
+    } catch (e, s) {
+      _playAttempts++;
+      debugPrint('[PlayerProvider] play error (attempt $_playAttempts): $e');
+      if (_playAttempts <= _maxRetries) {
+        await _doPlay();
+        return;
+      }
+      _isLoading = false;
+      _setError('播放失败: $e');
+      debugPrint('[PlayerProvider] $e\n$s');
+      return;
+    }
     _isLoading = false;
     notifyListeners();
   }
 
   Future<void> playSong(Song song, {List<Song>? playlist}) async {
+    _error = null;
     if (playlist != null) {
       _playlist = playlist;
       _currentIndex = playlist.indexWhere((s) => s.id == song.id);
+      if (_playMode == PlayMode.shuffle) _initShuffle();
     }
     await playIndex(_currentIndex);
   }
@@ -114,12 +188,11 @@ class PlayerProvider extends ChangeNotifier {
   void playNext() {
     if (_playlist.isEmpty) return;
     switch (_playMode) {
+      case PlayMode.shuffle:
+        playIndex(_nextShuffleIndex());
+        break;
       case PlayMode.sequential:
         playIndex((_currentIndex + 1) % _playlist.length);
-        break;
-      case PlayMode.shuffle:
-        final next = DateTime.now().microsecondsSinceEpoch % _playlist.length;
-        playIndex(next);
         break;
       case PlayMode.repeatOne:
         playIndex(_currentIndex);
@@ -133,8 +206,13 @@ class PlayerProvider extends ChangeNotifier {
       seek(Duration.zero);
       return;
     }
-    final prev = (_currentIndex - 1 + _playlist.length) % _playlist.length;
-    playIndex(prev);
+    if (_playMode == PlayMode.shuffle) {
+      _shufflePos = (_shufflePos - 1 + _shuffleOrder.length) % _shuffleOrder.length;
+      playIndex(_shuffleOrder[_shufflePos]);
+    } else {
+      final prev = (_currentIndex - 1 + _playlist.length) % _playlist.length;
+      playIndex(prev);
+    }
   }
 
   void seek(Duration pos) {
@@ -144,6 +222,7 @@ class PlayerProvider extends ChangeNotifier {
   void setPlaylist(List<Song> songs, {int startIndex = 0}) {
     _playlist = songs;
     _currentIndex = startIndex;
+    _shuffleOrder = [];
     if (songs.isNotEmpty) {
       _currentSong = songs[startIndex];
     }
@@ -152,6 +231,7 @@ class PlayerProvider extends ChangeNotifier {
 
   void setPlayMode(PlayMode mode) {
     _playMode = mode;
+    if (mode == PlayMode.shuffle) _initShuffle();
     notifyListeners();
   }
 
