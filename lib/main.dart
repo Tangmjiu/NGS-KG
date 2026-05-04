@@ -28,16 +28,6 @@ void main() {
   );
 }
 
-Future<void> _initNotifications() async {
-  final notif = NotificationService.instance;
-  await notif.init();
-  notif.onNotificationTap = () {
-    navKey.currentState?.push(
-      MaterialPageRoute(builder: (_) => const PlayerScreen()),
-    );
-  };
-}
-
 Future<void> _initDevice() async {
   try {
     final dfid = await MusicService().registerDevice();
@@ -45,21 +35,20 @@ Future<void> _initDevice() async {
   } catch (_) {}
 }
 
+Future<void> _initNotifications() async {
+  final notif = NotificationService.instance;
+  await notif.init();
+  notif.onNotificationTap = () {};
+}
+
 class NGSKGApp extends StatefulWidget {
   const NGSKGApp({super.key});
-
   @override
   State<NGSKGApp> createState() => _NGSKGAppState();
 }
 
 class _NGSKGAppState extends State<NGSKGApp> {
   ThemeMode _themeMode = ThemeMode.dark;
-
-  @override
-  void initState() {
-    super.initState();
-    // Load saved theme preference
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +61,6 @@ class _NGSKGAppState extends State<NGSKGApp> {
       themeMode: _themeMode,
       initialRoute: AppRoutes.home,
       onGenerateRoute: (settings) {
-        // Intercept settings route to pass theme callback
         if (settings.name == AppRoutes.settings) {
           return MaterialPageRoute(
             builder: (_) => SettingsScreen(
@@ -103,7 +91,7 @@ class _PlayerBarBottom extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<PlayerProvider>(
       builder: (_, player, __) {
-        if (player.currentSong == null) return const SizedBox.shrink();
+        if (player.currentSong == null || player.isPlayerScreenVisible) return const SizedBox.shrink();
         return Positioned(
           left: 0, right: 0, bottom: 0,
           child: Column(
@@ -126,37 +114,32 @@ class _PlayerBarBottom extends StatelessWidget {
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => navKey.currentState?.push(
-                          MaterialPageRoute(builder: (_) => const PlayerScreen()),
-                        ),
+                        onTap: () {
+                          player.setPlayerScreenVisible(true);
+                          navKey.currentState?.push(
+                            MaterialPageRoute(builder: (_) => const PlayerScreen()),
+                          )?.then((_) => player.setPlayerScreenVisible(false));
+                        },
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(player.currentSong!.name,
-                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                            Text(player.currentSong!.name, maxLines: 1, overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                            Text(player.currentSong!.artistDisplay,
-                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                            Text(player.currentSong!.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis,
                                 style: TextStyle(fontSize: 11, color: Colors.grey[400])),
                           ],
                         ),
                       ),
                     ),
                     if (player.isLoading)
-                      const Padding(
-                        padding: EdgeInsets.all(8),
-                        child: SizedBox(width: 18, height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2)),
-                      )
+                      const Padding(padding: EdgeInsets.all(8),
+                        child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
                     else ...[
-                      IconButton(icon: const Icon(Icons.skip_previous, size: 20),
-                          onPressed: player.playPrevious,
+                      IconButton(icon: const Icon(Icons.skip_previous, size: 20), onPressed: player.playPrevious,
                           padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36)),
                       IconButton(icon: Icon(player.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled, size: 28),
-                          onPressed: player.togglePlayPause,
-                          padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36)),
-                      IconButton(icon: const Icon(Icons.skip_next, size: 20),
-                          onPressed: player.playNext,
+                          onPressed: player.togglePlayPause, padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36)),
+                      IconButton(icon: const Icon(Icons.skip_next, size: 20), onPressed: player.playNext,
                           padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36)),
                     ],
                   ],
