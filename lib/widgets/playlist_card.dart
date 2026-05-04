@@ -13,8 +13,12 @@ class PlaylistCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.pushNamed(context, '/playlist/detail',
-            arguments: {'id': playlist.id, 'name': playlist.name}),
+        onTap: () {
+          final args = playlist.globalCollectionId != null
+              ? {'gcId': playlist.globalCollectionId, 'name': playlist.name}
+              : {'id': playlist.id, 'name': playlist.name};
+          Navigator.pushNamed(context, '/playlist/detail', arguments: args);
+        },
         child: Padding(
           padding: const EdgeInsets.all(8),
           child: Row(

@@ -44,9 +44,31 @@ class MusicService {
   }
 
   Future<PlaylistDetail> getPlaylistDetail(int playlistId) async {
-    final res =
-        await _client.get('/playlist/detail', params: {'id': playlistId});
+    final cookie = await _client.getCookieString();
+    final res = await _client.get('/playlist/detail',
+        params: {'id': playlistId, 'cookie': cookie});
     return PlaylistDetail.fromJson(res.data['data'] as Map<String, dynamic>);
+  }
+
+  Future<PlaylistDetail> getPlaylistDetailByGcId(String gcId) async {
+    final cookie = await _client.getCookieString();
+    final res = await _client.get('/playlist/detail',
+        params: {'ids': gcId, 'cookie': cookie});
+    final list = res.data['data'];
+    if (list is List && list.isNotEmpty) {
+      return PlaylistDetail.fromKugouJson(list[0] as Map<String, dynamic>);
+    }
+    throw Exception('Playlist not found');
+  }
+
+  Future<List<Song>> getPlaylistTracks(String gcId,
+      {int page = 1, int pageSize = 30}) async {
+    final cookie = await _client.getCookieString();
+    final res = await _client.get('/playlist/track/all',
+        params: {'id': gcId, 'page': page, 'pagesize': pageSize, 'cookie': cookie});
+    final raw = res.data['data'];
+    final songs = (raw as Map<String, dynamic>)['songs'] as List<dynamic>;
+    return songs.map((e) => Song.fromTrackJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<List<Playlist>> getUserPlaylist({int? userId}) async {
@@ -63,18 +85,26 @@ class MusicService {
   }
 
   Future<List<Playlist>> getTopPlaylists(
-      {int limit = 30, int offset = 0}) async {
+      {int limit = 30, int offset = 0, int categoryId = 0}) async {
+    final cookie = await _client.getCookieString();
     final res = await _client.get('/top/playlist',
-        params: {'limit': limit, 'offset': offset});
+        params: {
+          'category_id': categoryId,
+          'limit': limit,
+          'offset': offset,
+          'withsong': 1,
+          'cookie': cookie,
+        });
     final raw = res.data['data'];
     if (raw is List) {
       return raw
           .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
           .toList();
     }
-    final list = (raw as Map<String, dynamic>)['playlists'] as List<dynamic>?;
-    if (list != null) {
-      return list
+    final specialList =
+        (raw as Map<String, dynamic>)['special_list'] as List<dynamic>?;
+    if (specialList != null) {
+      return specialList
           .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
           .toList();
     }
