@@ -145,19 +145,36 @@ class MusicService {
   }
 
   Future<List<Map<String, dynamic>>> getRankList() async {
-    final res = await _client.get('/rank/list');
+    final cookie = await _client.getCookieString();
+    final res = await _client.get('/rank/list',
+        params: {'cookie': cookie});
     final raw = res.data['data'];
+    if (raw is Map) {
+      final info = raw['info'] as List<dynamic>?;
+      if (info != null) return info.cast<Map<String, dynamic>>();
+    }
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
   }
 
   Future<List<Song>> getRankAudios(int rankId) async {
-    final res = await _client.get('/rank/audio', params: {'id': rankId});
+    final cookie = await _client.getCookieString();
+    final res = await _client.get('/rank/audio',
+        params: {'rankid': rankId, 'cookie': cookie});
     final raw = res.data['data'];
-    if (raw is Map && raw['songs'] is List) {
-      return (raw['songs'] as List)
-          .map((e) => Song.fromJson(e as Map<String, dynamic>))
-          .toList();
+    if (raw is Map) {
+      final songlist = raw['songlist'] as List<dynamic>?;
+      if (songlist != null) {
+        return songlist
+            .map((e) => Song.fromRankJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      final songs = raw['songs'] as List<dynamic>?;
+      if (songs != null) {
+        return songs
+            .map((e) => Song.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
     }
     return [];
   }

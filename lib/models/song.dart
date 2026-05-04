@@ -67,6 +67,34 @@ class Song {
       hash: json['hash'] as String?,
     );
   }
+
+  factory Song.fromRankJson(Map<String, dynamic> json) {
+    var cover = json['trans_param'] is Map
+        ? (json['trans_param'] as Map)['union_cover'] as String?
+        : null;
+    if (cover != null) cover = cover.replaceAll('{size}', '480');
+    final rawName = json['songname'] as String? ?? '';
+    final parts = rawName.split(' - ');
+    return Song(
+      id: (json['audio_id'] ?? json['album_audio_id'] ?? 0) as int,
+      name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
+      artists: [json['author_name'] as String? ?? ''],
+      albumCoverUrl: cover,
+      duration: _durationFromAudioInfo(json['audio_info']),
+      hash: json['trans_param'] is Map
+          ? (json['trans_param'] as Map)['hash_multitrack'] as String?
+          : null,
+    );
+  }
+
+  static int _durationFromAudioInfo(dynamic audioInfo) {
+    if (audioInfo is Map) {
+      final d = audioInfo['duration_128'];
+      if (d is int) return d ~/ 1000;
+      if (d is double) return (d / 1000).round();
+    }
+    return 0;
+  }
 }
 
 class SongUrl {

@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
+import '../widgets/song_tile.dart';
+
 class RankDetailScreen extends StatefulWidget {
   final int rankId;
   final String? rankName;
@@ -17,6 +19,7 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
   final MusicService _musicService = MusicService();
   List<Song>? _songs;
   bool _isLoading = true;
+  int _total = 0;
 
   @override
   void initState() {
@@ -27,34 +30,65 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
   Future<void> _load() async {
     try {
       final songs = await _musicService.getRankAudios(widget.rankId);
-      if (mounted) setState(() => _songs = songs);
-    } catch (_) {}
-    if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() {
+        _songs = songs;
+        _total = songs.length;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.rankName ?? '排行榜')),
+      appBar: AppBar(
+        title: Text(widget.rankName ?? '排行榜'),
+        bottom: _songs != null
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(24),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text('共 $_total 首',
+                      style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                ),
+              )
+            : null,
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _songs == null || _songs!.isEmpty
               ? const Center(child: Text('暂无歌曲'))
               : ListView.builder(
+                  padding: const EdgeInsets.only(top: 8),
                   itemCount: _songs!.length,
                   itemBuilder: (_, i) {
                     final song = _songs![i];
-                    return ListTile(
-                      leading: CircleAvatar(
-                        child: Text('${i + 1}'),
-                      ),
-                      title: Text(song.name),
-                      subtitle: Text(song.artistDisplay),
-                      onTap: () {
-                        context
-                            .read<PlayerProvider>()
-                            .playSong(song, playlist: _songs);
-                      },
+                    return Row(
+                      children: [
+                        SizedBox(
+                          width: 40,
+                          child: Center(
+                            child: Text('${i + 1}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: i < 3
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Colors.grey,
+                                )),
+                          ),
+                        ),
+                        Expanded(
+                          child: SongTile(
+                            song: song,
+                            onTap: (s) => context
+                                .read<PlayerProvider>()
+                                .playSong(s, playlist: _songs),
+                          ),
+                        ),
+                      ],
                     );
                   },
                 ),
