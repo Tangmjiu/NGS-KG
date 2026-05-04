@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -287,9 +288,9 @@ class _QrLoginState extends State<_QrLogin> {
     try {
       final auth = context.read<AuthProvider>();
       final keyData = await auth.getQrKey();
-      _qrKey = keyData['key'] as String?;
+      _qrKey = keyData['qrcode'] as String?;
+      _qrUrl = keyData['qrcode_img'] as String?;
       if (_qrKey != null) {
-        _qrUrl = await auth.getQrCreate(_qrKey!);
         setState(() {
           _isLoading = false;
           _statusText = '请使用酷狗 App 扫描二维码';
@@ -327,6 +328,29 @@ class _QrLoginState extends State<_QrLogin> {
     });
   }
 
+  Widget _buildQrImage() {
+    final b64 = _qrUrl!;
+    if (b64.startsWith('data:image')) {
+      final data = b64.split(',')[1];
+      try {
+        return Image.memory(
+          base64Decode(data),
+          width: 176,
+          height: 176,
+          fit: BoxFit.contain,
+        );
+      } catch (_) {}
+    }
+    return Image.network(
+      b64,
+      width: 176,
+      height: 176,
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) =>
+          const Icon(Icons.qr_code, size: 100, color: Colors.black),
+    );
+  }
+
   void _refresh() {
     _pollTimer?.cancel();
     _loadQr();
@@ -352,14 +376,7 @@ class _QrLoginState extends State<_QrLogin> {
                 ),
                 padding: const EdgeInsets.all(12),
                 child: _qrUrl != null
-                    ? Image.network(
-                        _qrUrl!,
-                        width: 176,
-                        height: 176,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) =>
-                            const Icon(Icons.qr_code, size: 100, color: Colors.black),
-                      )
+                    ? _buildQrImage()
                     : const Icon(Icons.qr_code, size: 100, color: Colors.black),
               ),
               const SizedBox(height: 20),
