@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../widgets/playlist_card.dart';
+import '../widgets/tablet_scaffold.dart';
+import '../utils/responsive.dart';
 import 'discover_screen.dart';
 import 'profile_screen.dart';
 
@@ -26,27 +28,33 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isTabletLand = Responsive.isTabletLandscape(context);
+
+    if (isTabletLand) {
+      return TabletScaffold(
+        currentIndex: _currentTab,
+        onTabChanged: (i) => setState(() => _currentTab = i),
+        tabs: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
+          BottomNavigationBarItem(icon: Icon(Icons.explore), label: '发现'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: '我的'),
+        ],
+        pages: [
+          _buildPage(AppBar(
+            title: const Text('NGS-KG+'),
+            actions: _appBarActions(context),
+          ), _buildHome()),
+          _buildPage(null, const DiscoverScreen()),
+          _buildPage(null, const ProfileScreen()),
+        ],
+      );
+    }
+
     return Scaffold(
       appBar: _currentTab == 0
           ? AppBar(
               title: const Text('NGS-KG+'),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: () => Navigator.pushNamed(context, '/search'),
-                ),
-                Consumer<AuthProvider>(
-                  builder: (_, auth, __) => IconButton(
-                    icon: Icon(
-                        auth.isLoggedIn ? Icons.person : Icons.person_outline),
-                    onPressed: () {
-                      if (!auth.isLoggedIn) {
-                        Navigator.pushNamed(context, '/login');
-                      }
-                    },
-                  ),
-                ),
-              ],
+              actions: _appBarActions(context),
             )
           : null,
       body: IndexedStack(
@@ -58,15 +66,43 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
-            currentIndex: _currentTab,
-            onTap: (i) => setState(() => _currentTab = i),
-            items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.explore), label: '发现'),
-              BottomNavigationBarItem(icon: Icon(Icons.person), label: '我的'),
-            ],
-          ),
+        currentIndex: _currentTab,
+        onTap: (i) => setState(() => _currentTab = i),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
+          BottomNavigationBarItem(icon: Icon(Icons.explore), label: '发现'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: '我的'),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _appBarActions(BuildContext context) {
+    return [
+      IconButton(
+        icon: const Icon(Icons.search),
+        onPressed: () => Navigator.pushNamed(context, '/search'),
+      ),
+      Consumer<AuthProvider>(
+        builder: (_, auth, __) => IconButton(
+          icon: Icon(auth.isLoggedIn ? Icons.person : Icons.person_outline),
+          onPressed: () {
+            if (!auth.isLoggedIn) {
+              Navigator.pushNamed(context, '/login');
+            }
+          },
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildPage(AppBar? appBar, Widget body) {
+    if (appBar == null) return body;
+    return Column(
+      children: [
+        appBar,
+        Expanded(child: body),
+      ],
     );
   }
 
