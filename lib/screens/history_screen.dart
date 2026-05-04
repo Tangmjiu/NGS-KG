@@ -1,0 +1,75 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../models/song.dart';
+import '../providers/player_provider.dart';
+import '../services/music_service.dart';
+import '../widgets/song_tile.dart';
+
+class HistoryScreen extends StatefulWidget {
+  const HistoryScreen({super.key});
+
+  @override
+  State<HistoryScreen> createState() => _HistoryScreenState();
+}
+
+class _HistoryScreenState extends State<HistoryScreen> {
+  final MusicService _musicService = MusicService();
+  List<Song> _songs = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final raw = await _musicService.getUserHistory();
+      if (mounted) {
+        setState(() {
+          _songs = raw
+              .map((e) => Song.fromTrackJson(e as Map<String, dynamic>))
+              .toList();
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('听歌历史')),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _songs.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.history, size: 80, color: Colors.grey[600]),
+                      const SizedBox(height: 16),
+                      Text('暂无听歌历史',
+                          style: TextStyle(color: Colors.grey[400])),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.only(top: 8),
+                    itemCount: _songs.length,
+                    itemBuilder: (_, i) => SongTile(
+                      song: _songs[i],
+                      onTap: (s) => context
+                          .read<PlayerProvider>()
+                          .playSong(s, playlist: _songs),
+                    ),
+                  ),
+                ),
+    );
+  }
+}

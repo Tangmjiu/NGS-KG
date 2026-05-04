@@ -115,6 +115,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onTap: () => Navigator.pushNamed(context, '/local/music'),
               ),
             ),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.history),
+                title: const Text('听歌历史'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.pushNamed(context, '/history'),
+              ),
+            ),
             if (auth.isLoggedIn) ...[
               const SizedBox(height: 16),
               ElevatedButton.icon(
