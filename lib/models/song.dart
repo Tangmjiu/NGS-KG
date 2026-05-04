@@ -7,6 +7,7 @@ class Song {
   final int duration;
   final String? lyricUrl;
   final String? filePath;
+  final String? hash;
 
   const Song({
     required this.id,
@@ -17,6 +18,7 @@ class Song {
     this.duration = 0,
     this.lyricUrl,
     this.filePath,
+    this.hash,
   });
 
   bool get isLocal => filePath != null;
@@ -62,6 +64,7 @@ class Song {
       artists: parts.length > 1 ? [parts[0]] : ['未知'],
       albumCoverUrl: cover,
       duration: (json['timelen'] as int? ?? 0) ~/ 1000,
+      hash: json['hash'] as String?,
     );
   }
 }

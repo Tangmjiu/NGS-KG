@@ -39,8 +39,29 @@ class MusicService {
   }
 
   Future<Map<String, dynamic>> getLyric(int songId) async {
-    final res = await _client.get('/lyric', params: {'id': songId});
-    return res.data['data'] as Map<String, dynamic>;
+    final cookie = await _client.getCookieString();
+    final res = await _client.get('/lyric', params: {'id': songId, 'cookie': cookie});
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> searchLyricByHash(String hash) async {
+    final cookie = await _client.getCookieString();
+    final res = await _client.get('/search/lyric',
+        params: {'hash': hash, 'cookie': cookie});
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<String> fetchLyricContent(int lyricId, String accessKey) async {
+    final cookie = await _client.getCookieString();
+    final res = await _client.get('/lyric',
+        params: {
+          'id': lyricId,
+          'accesskey': accessKey,
+          'fmt': 'lrc',
+          'decode': 'true',
+          'cookie': cookie,
+        });
+    return res.data['content'] as String? ?? '';
   }
 
   Future<PlaylistDetail> getPlaylistDetail(int playlistId) async {
