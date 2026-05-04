@@ -19,6 +19,7 @@ class PlayerProvider extends ChangeNotifier {
   PlayMode _playMode = PlayMode.sequential;
   bool _isPlaying = false;
   bool _isLoading = false;
+  bool _isPlayerScreenVisible = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   String? _error;
@@ -38,6 +39,7 @@ class PlayerProvider extends ChangeNotifier {
   PlayMode get playMode => _playMode;
   bool get isPlaying => _isPlaying;
   bool get isLoading => _isLoading;
+  bool get isPlayerScreenVisible => _isPlayerScreenVisible;
   Duration get position => _position;
   Duration get duration => _duration;
   String? get error => _error;
@@ -258,6 +260,11 @@ class PlayerProvider extends ChangeNotifier {
   void setPlayMode(PlayMode mode) {
     _playMode = mode;
     if (mode == PlayMode.shuffle) _initShuffle();
+    notifyListeners();
+  }
+
+  void setPlayerScreenVisible(bool v) {
+    _isPlayerScreenVisible = v;
     notifyListeners();
   }
 

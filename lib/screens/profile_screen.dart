@@ -144,10 +144,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final userId = auth.user?.userId;
 
     for (final pl in playlistProv.userPlaylists) {
-      // API doesn't directly tell us ownership, use a heuristic:
-      // personal playlists tend to be created by the user
-      // For now, show all as "my playlists" since the API separates by list vs collect counts
-      personal.add(pl);
+      if (pl.createUserId != null && pl.createUserId == userId) {
+        personal.add(pl);
+      } else {
+        collected.add(pl);
+      }
     }
 
     return Column(

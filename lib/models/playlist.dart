@@ -8,6 +8,7 @@ class Playlist {
   final int trackCount;
   final List<Song>? songs;
   final String? globalCollectionId;
+  final int? createUserId;
 
   const Playlist({
     required this.id,
@@ -17,6 +18,7 @@ class Playlist {
     this.trackCount = 0,
     this.songs,
     this.globalCollectionId,
+    this.createUserId,
   });
 
   factory Playlist.fromJson(Map<String, dynamic> json) {
@@ -27,6 +29,7 @@ class Playlist {
       description: json['intro'] as String? ?? json['description'] as String?,
       trackCount: json['songcount'] as int? ?? json['trackCount'] as int? ?? json['count'] as int? ?? 0,
       globalCollectionId: json['global_collection_id'] as String?,
+      createUserId: json['list_create_userid'] as int? ?? json['create_userid'] as int?,
     );
   }
 

@@ -62,6 +62,7 @@ class Song {
       albumName: json['AlbumName'] as String?,
       albumCoverUrl: cover,
       duration: (json['Duration'] as int?) ?? 0,
+      hash: json['FileHash'] as String?,
     );
   }
 
