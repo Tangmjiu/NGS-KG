@@ -111,6 +111,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.pushNamed(context, '/history'),
           ),
+          ListTile(
+            leading: const Icon(Icons.message),
+            title: const Text('消息'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.pushNamed(context, '/messages'),
+          ),
           if (auth.isLoggedIn) ...[
             ListTile(
               leading: const Icon(Icons.cloud),
