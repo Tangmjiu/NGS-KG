@@ -40,18 +40,26 @@ class PlaylistProvider extends ChangeNotifier {
     notifyListeners();
     try {
       _currentPlaylist = await _musicService.getPlaylistDetailByGcId(gcId);
+      // If detail has no songs, fetch tracks directly
+      if (_currentPlaylist!.songs.isEmpty) {
+        await _fetchTracksFallback(gcId);
+      }
     } catch (e) {
-      // Fallback: fetch tracks directly
-      try {
-        final songs = await _musicService.getPlaylistTracks(gcId);
-        _currentPlaylist = PlaylistDetail(
-          playlist: Playlist(id: 0, name: '', globalCollectionId: gcId),
-          songs: songs,
-        );
-      } catch (_) {}
+      await _fetchTracksFallback(gcId);
     }
     _isLoading = false;
     notifyListeners();
+  }
+
+  Future<void> _fetchTracksFallback(String gcId) async {
+    try {
+      final songs = await _musicService.getPlaylistTracks(gcId);
+      _currentPlaylist = PlaylistDetail(
+        playlist: _currentPlaylist?.playlist ??
+            Playlist(id: 0, name: '', globalCollectionId: gcId),
+        songs: songs,
+      );
+    } catch (_) {}
   }
 
   Future<void> fetchUserPlaylist(int? userId) async {
