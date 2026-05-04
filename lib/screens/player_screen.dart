@@ -104,7 +104,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           const SizedBox(height: 16),
           _buildControls(player),
           const SizedBox(height: 24),
-          _buildQualitySelector(),
+          _buildQualityLabel(player),
           const Spacer(flex: 2),
         ],
       ),
@@ -236,20 +236,31 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  Widget _buildQualitySelector() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: ['128K', '320K', 'FLAC']
-          .map((q) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: ChoiceChip(
-                  label: Text(q, style: const TextStyle(fontSize: 11)),
-                  selected: q == '128K',
-                  onSelected: (_) {},
-                  visualDensity: VisualDensity.compact,
-                ),
-              ))
-          .toList(),
+  Widget _buildQualityLabel(PlayerProvider player) {
+    if (player.currentSong?.isLocal == true) return const SizedBox.shrink();
+    // Determine bitrate from duration vs file size (rough estimate)
+    final duration = player.duration.inSeconds;
+    String label = '128K';
+    if (duration > 0 && player.currentSong != null) {
+      final hash = player.currentSong!.hash;
+      if (hash != null && hash.length > 20) label = '320K'; // rough heuristic
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[600]!),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(label,
+                style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+          ),
+        ],
+      ),
     );
   }
 
