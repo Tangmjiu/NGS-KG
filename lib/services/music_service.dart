@@ -1,3 +1,4 @@
+import 'cache_service.dart';
 import 'api_client.dart';
 import '../models/song.dart';
 import '../models/playlist.dart';
@@ -13,6 +14,27 @@ class MusicService {
     }
     final res = await _client.get(path, params: p);
     return res.data as Map<String, dynamic>;
+  }
+
+  String _cacheKey(String path, Map<String, dynamic>? params) {
+    final buf = StringBuffer(path);
+    if (params != null) {
+      final keys = params.keys.toList()..sort();
+      for (final k in keys) {
+        if (k != 'cookie') buf.write('|$k=${params[k]}');
+      }
+    }
+    return buf.toString();
+  }
+
+  Future<Map<String, dynamic>> _cachedGet(String path,
+      {Map<String, dynamic>? params, bool withAuth = true, Duration? ttl}) async {
+    final key = _cacheKey(path, params);
+    final cached = await CacheService.instance.getJson(key);
+    if (cached != null) return cached as Map<String, dynamic>;
+    final res = await _get(path, params: params, withAuth: withAuth);
+    await CacheService.instance.putJson(key, res, ttl: ttl ?? const Duration(hours: 2));
+    return res;
   }
 
   Future<List<Song>> search(String keyword,
@@ -49,7 +71,7 @@ class MusicService {
   }
 
   Future<List<Map<String, dynamic>>> getHotSearch() async {
-    final res = await _get('/search/hot');
+    final res = await _cachedGet('/search/hot', ttl: const Duration(minutes: 30));
     final data = res['data'];
     if (data is Map) {
       final list = data['list'] as List<dynamic>?;
@@ -177,7 +199,7 @@ class MusicService {
   }
 
   Future<List<Map<String, dynamic>>> getRankList() async {
-    final res = await _get('/rank/list');
+    final res = await _cachedGet('/rank/list', ttl: const Duration(minutes: 30));
     final raw = res['data'];
     if (raw is Map) {
       final info = raw['info'] as List<dynamic>?;
@@ -262,14 +284,14 @@ class MusicService {
   }
 
   Future<List<Map<String, dynamic>>> getFmRecommend() async {
-    final res = await _get('/fm/recommend');
+    final res = await _cachedGet('/fm/recommend', ttl: const Duration(minutes: 30));
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
   }
 
   Future<List<Map<String, dynamic>>> getPlaylistTags() async {
-    final res = await _get('/playlist/tags');
+    final res = await _cachedGet('/playlist/tags', ttl: const Duration(hours: 24));
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
