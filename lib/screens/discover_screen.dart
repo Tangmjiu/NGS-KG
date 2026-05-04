@@ -80,7 +80,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 runSpacing: 4,
                 children: _playlistTags.map((t) {
                   final name = t['tag_name'] as String? ?? '';
-                  final id = t['tag_id'] as int? ?? 0;
+                  final id = t['tag_id'] is int ? t['tag_id'] as int : int.tryParse(t['tag_id']?.toString() ?? '') ?? 0;
                   return ActionChip(
                     label: Text(name, style: const TextStyle(fontSize: 12)),
                     onPressed: () {
