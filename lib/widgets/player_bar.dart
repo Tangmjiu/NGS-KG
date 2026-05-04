@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
-import '../screens/lyrics_screen.dart';
+import '../screens/player_screen.dart';
 
 class PlayerBar extends StatelessWidget {
   const PlayerBar({super.key});
@@ -17,7 +17,7 @@ class PlayerBar extends StatelessWidget {
         return GestureDetector(
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const LyricsScreen()),
+            MaterialPageRoute(builder: (_) => const PlayerScreen()),
           ),
           child: Container(
             decoration: BoxDecoration(
