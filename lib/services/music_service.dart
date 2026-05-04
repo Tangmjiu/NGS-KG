@@ -18,7 +18,7 @@ class MusicService {
   Future<List<Song>> search(String keyword,
       {int limit = 30, int offset = 0}) async {
     final res = await _get('/search', params: {
-      'keyword': keyword,
+      'keywords': keyword,
       'limit': limit,
       'offset': offset,
     });
@@ -32,8 +32,20 @@ class MusicService {
 
   Future<List<String>> getSearchSuggest(String keyword) async {
     final res = await _get('/search/suggest', params: {'keywords': keyword});
-    final list = res['data'] as List<dynamic>;
-    return list.map((e) => e.toString()).toList();
+    final raw = res['data'];
+    if (raw is List) {
+      return raw.map((e) {
+        if (e is String) return e;
+        if (e is Map) {
+          final records = e['RecordDatas'] as List<dynamic>?;
+          if (records != null && records.isNotEmpty) {
+            return records[0]['HintInfo'] as String? ?? e.toString();
+          }
+        }
+        return e.toString();
+      }).toList();
+    }
+    return [];
   }
 
   Future<List<Map<String, dynamic>>> getHotSearch() async {
