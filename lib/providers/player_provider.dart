@@ -271,14 +271,14 @@ class PlayerProvider extends ChangeNotifier {
   String? get _qualityHash {
     final q = _currentSong?.qualities;
     if (q == null || q.isEmpty) return null;
-    final keys = ['128', '320', 'flac'];
+    final keys = ['128', '320', 'high'];
     return q[keys[_qualityLevel % keys.length]];
   }
 
   Future<void> switchQuality() async {
     final q = _currentSong?.qualities;
     if (q == null || q.isEmpty) return;
-    _qualityLevel = (_qualityLevel + 1) % ['128', '320', 'flac'].length;
+    _qualityLevel = (_qualityLevel + 1) % ['128', '320', 'high'].length;
     if (_isPlaying) {
       await playIndex(_currentIndex);
     } else {

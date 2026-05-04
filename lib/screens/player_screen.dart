@@ -318,8 +318,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (player.currentSong?.isLocal == true) return const SizedBox.shrink();
     final q = player.currentSong?.qualities;
     if (q == null || q.isEmpty) return const SizedBox.shrink();
-    final label = ['128K', '320K', 'FLAC'];
-    final keys = ['128', '320', 'flac'];
+    final label = ['128K', '320K', 'Hi-Res'];
+    final keys = ['128', '320', 'high'];
     final current = _qualityLevel % label.length;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
