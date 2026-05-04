@@ -46,14 +46,7 @@ class TabletScaffold extends StatelessWidget {
           selectedIndex: currentIndex,
           onDestinationSelected: onTabChanged,
           labelType: NavigationRailLabelType.all,
-          leading: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text('NGS-KG+',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary)),
-          ),
+          leading: const SizedBox.shrink(),
           destinations: tabs
               .map((t) => NavigationRailDestination(
                     icon: t.icon,
