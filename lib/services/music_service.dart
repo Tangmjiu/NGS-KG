@@ -33,9 +33,16 @@ class MusicService {
     return [];
   }
 
-  Future<SongUrl> getSongUrl(int songId) async {
-    final res = await _client.get('/song/url', params: {'id': songId});
-    return SongUrl.fromJson(res.data['data'] as Map<String, dynamic>);
+  Future<SongUrl> getSongUrl(int songId, {String? hash}) async {
+    final cookie = await _client.getCookieString();
+    final params = <String, dynamic>{'cookie': cookie};
+    if (hash != null) {
+      params['hash'] = hash;
+    } else {
+      params['id'] = songId;
+    }
+    final res = await _client.get('/song/url', params: params);
+    return SongUrl.fromJson(res.data as Map<String, dynamic>);
   }
 
   Future<Map<String, dynamic>> getLyric(int songId) async {
