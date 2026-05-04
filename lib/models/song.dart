@@ -37,6 +37,19 @@ class Song {
       lyricUrl: json['lyricUrl'] as String?,
     );
   }
+
+  factory Song.fromKugouJson(Map<String, dynamic> json) {
+    var cover = json['Image'] as String?;
+    if (cover != null) cover = cover.replaceAll('{size}', '480');
+    return Song(
+      id: (json['Audioid'] ?? json['id']) as int,
+      name: (json['OriSongName'] ?? json['SongName'] ?? json['name'] ?? '') as String,
+      artists: [(json['SingerName'] ?? '') as String],
+      albumName: json['AlbumName'] as String?,
+      albumCoverUrl: cover,
+      duration: (json['Duration'] as int?) ?? 0,
+    );
+  }
 }
 
 class SongUrl {
