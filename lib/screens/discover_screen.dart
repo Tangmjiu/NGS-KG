@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../models/song.dart';
-import '../providers/player_provider.dart';
 import '../services/music_service.dart';
-import '../widgets/song_tile.dart';
 
 class DiscoverScreen extends StatefulWidget {
   const DiscoverScreen({super.key});
@@ -14,39 +10,39 @@ class DiscoverScreen extends StatefulWidget {
 
 class _DiscoverScreenState extends State<DiscoverScreen> {
   final MusicService _musicService = MusicService();
-  List<Map<String, dynamic>> _ranks = [];
-  List<Song>? _newSongs;
-  bool _loadingRanks = true;
-  bool _loadingNewSongs = true;
+  List<Map<String, dynamic>> _playlistTags = [];
+  List<Map<String, dynamic>> _fmList = [];
+  bool _loadingTags = true;
+  bool _loadingFm = true;
 
   @override
   void initState() {
     super.initState();
-    _loadRanks();
-    _loadNewSongs();
+    _loadTags();
+    _loadFm();
   }
 
-  Future<void> _loadRanks() async {
+  Future<void> _loadTags() async {
     try {
-      final ranks = await _musicService.getRankList();
-      if (mounted) setState(() => _ranks = ranks);
+      final tags = await _musicService.getPlaylistTags();
+      if (mounted) setState(() => _playlistTags = tags);
     } catch (_) {}
-    if (mounted) setState(() => _loadingRanks = false);
+    if (mounted) setState(() => _loadingTags = false);
   }
 
-  Future<void> _loadNewSongs() async {
+  Future<void> _loadFm() async {
     try {
-      final songs = await _musicService.getTopSongs();
-      if (mounted) setState(() => _newSongs = songs);
+      final fm = await _musicService.getFmRecommend();
+      if (mounted) setState(() => _fmList = fm.take(6).toList());
     } catch (_) {}
-    if (mounted) setState(() => _loadingNewSongs = false);
+    if (mounted) setState(() => _loadingFm = false);
   }
 
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: () async {
-        await Future.wait([_loadRanks(), _loadNewSongs()]);
+        await Future.wait([_loadTags(), _loadFm()]);
       },
       child: ListView(
         padding: const EdgeInsets.all(8),
@@ -56,55 +52,91 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             child: Text('发现',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           ),
-          _buildQuickLinks(),
-          const SizedBox(height: 8),
-          const Padding(
-            padding: EdgeInsets.all(12),
-            child: Text('排行榜',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          // 快捷入口
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _quickLink(Icons.radio, '电台', '/fm'),
+              _quickLink(Icons.music_note, '曲谱', '/sheet/list'),
+            ],
           ),
-          if (_loadingRanks)
-            const SizedBox(
-                height: 80,
-                child: Center(child: CircularProgressIndicator()))
-          else
+          const SizedBox(height: 16),
+          // 歌单分类
+          if (!_loadingTags && _playlistTags.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text('歌单分类',
+                  style:
+                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+            SizedBox(
+              height: 40,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                itemCount: _playlistTags.length,
+                itemBuilder: (_, i) {
+                  final tag = _playlistTags[i];
+                  final name = tag['tag_name'] as String? ?? '';
+                  final id = tag['tag_id'] as int? ?? 0;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ActionChip(
+                      label: Text(name),
+                      onPressed: () => Navigator.pushNamed(
+                          context, '/playlist/tag',
+                          arguments: {'tagId': id, 'name': name}),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          // 推荐电台
+          if (!_loadingFm && _fmList.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text('推荐电台',
+                  style:
+                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
             SizedBox(
               height: 100,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: _ranks.length,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                itemCount: _fmList.length,
                 itemBuilder: (_, i) {
-                  final rank = _ranks[i];
-                  final name = rank['rankname'] as String? ?? '';
-                  final img = rank['imgurl'] as String? ?? rank['img_9'] as String? ?? rank['banner_9'] as String?;
+                  final fm = _fmList[i];
+                  final name = fm['fmname'] as String? ?? '';
+                  final img = (fm['imgurl'] as String? ?? '').replaceAll(
+                      '{size}', '240');
                   return GestureDetector(
-                    onTap: () => _openRank(rank),
+                    onTap: () => Navigator.pushNamed(context, '/fm'),
                     child: Container(
-                      width: 80,
+                      width: 100,
                       margin: const EdgeInsets.only(right: 8),
                       child: Column(
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: img != null
-                                ? Image.network(
-                                    img.replaceAll('{size}', '240'),
-                                    width: 72,
-                                    height: 72,
+                            child: img.isNotEmpty
+                                ? Image.network(img,
+                                    width: 80,
+                                    height: 80,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      width: 72,
-                                      height: 72,
-                                      color: Colors.grey[800],
-                                      child: const Icon(Icons.music_note),
-                                    ),
-                                  )
+                                    errorBuilder: (_, __, ___) =>
+                                        Container(
+                                            width: 80,
+                                            height: 80,
+                                            color: Colors.grey[800],
+                                            child: const Icon(Icons.radio)))
                                 : Container(
-                                    width: 72,
-                                    height: 72,
+                                    width: 80,
+                                    height: 80,
                                     color: Colors.grey[800],
-                                    child: const Icon(Icons.music_note),
-                                  ),
+                                    child: const Icon(Icons.radio)),
                           ),
                           const SizedBox(height: 4),
                           Text(name,
@@ -118,62 +150,25 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 },
               ),
             ),
-          const Padding(
-            padding: EdgeInsets.all(12),
-            child: Text('新歌速递',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ),
-          if (_loadingNewSongs)
-            const Center(child: CircularProgressIndicator())
-          else if (_newSongs == null || _newSongs!.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(child: Text('暂无数据')),
-            )
-          else
-            ..._newSongs!.map<Widget>((s) => SongTile(
-                  song: s,
-                  onTap: (song) {
-                    context
-                        .read<PlayerProvider>()
-                        .playSong(song, playlist: _newSongs);
-                  },
-                )),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildQuickLinks() {
-    final links = [
-      ('歌手', Icons.person, '/artist/list'),
-      ('电台', Icons.radio, '/fm'),
-      ('曲谱', Icons.music_note, '/sheet/list'),
-    ];
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: links
-          .map((e) => Column(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pushNamed(context, e.$3),
-                    icon: Icon(e.$2, size: 32),
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.grey[800],
-                      fixedSize: const Size(56, 56),
-                    ),
-                  ),
-                  Text(e.$1, style: const TextStyle(fontSize: 12)),
-                ],
-              ))
-          .toList(),
+  Widget _quickLink(IconData icon, String label, String route) {
+    return Column(
+      children: [
+        IconButton(
+          onPressed: () => Navigator.pushNamed(context, route),
+          icon: Icon(icon, size: 32),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.grey[800],
+            fixedSize: const Size(56, 56),
+          ),
+        ),
+        Text(label, style: const TextStyle(fontSize: 12)),
+      ],
     );
-  }
-
-  void _openRank(Map<String, dynamic> rank) {
-    final id = rank['rankid'] as int? ?? rank['rankId'] as int?;
-    if (id == null) return;
-    Navigator.pushNamed(context, '/rank/detail',
-        arguments: {'id': id, 'name': rank['rankname'] as String?});
   }
 }

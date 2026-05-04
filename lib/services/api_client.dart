@@ -9,6 +9,7 @@ class ApiClient {
   late final CookieJar _cookieJar;
   static String? _authToken;
   static String? _authUserId;
+  static String? _dfid;
 
   static void setAuth(String? token, String? userId) {
     _authToken = token;
@@ -18,6 +19,10 @@ class ApiClient {
   static void clearAuth() {
     _authToken = null;
     _authUserId = null;
+  }
+
+  static void setDfid(String? dfid) {
+    _dfid = dfid;
   }
 
   ApiClient._() {
@@ -61,6 +66,7 @@ class ApiClient {
     final parts = cookies.map((c) => '${c.name}=${c.value}').toList();
     if (_authToken != null) parts.add('token=$_authToken');
     if (_authUserId != null) parts.add('userid=$_authUserId');
+    if (_dfid != null) parts.add('dfid=$_dfid');
     return parts.join(';');
   }
 }
