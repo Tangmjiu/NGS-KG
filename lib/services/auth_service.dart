@@ -4,9 +4,9 @@ import '../models/user.dart';
 class AuthService {
   final ApiClient _client = ApiClient.instance;
 
-  Future<User?> loginWithPhone(String phone, String code) async {
+  Future<User?> loginWithPhone(String mobile, String code) async {
     final res = await _client.get('/login/cellphone',
-        params: {'phone': phone, 'code': code});
+        params: {'mobile': mobile, 'code': code});
     return User.fromJson(res.data['data']);
   }
 
