@@ -15,6 +15,9 @@ import '../screens/local_music_screen.dart';
 import '../screens/player_screen.dart';
 import '../screens/history_screen.dart';
 import '../screens/cloud_disk_screen.dart';
+import '../screens/sheet_collection_screen.dart';
+import '../screens/sheet_collection_detail_screen.dart';
+import '../screens/artist_followed_news_screen.dart';
 
 class AppRoutes {
   static const String home = '/';
@@ -33,6 +36,9 @@ class AppRoutes {
   static const String player = '/player';
   static const String history = '/history';
   static const String cloud = '/cloud';
+  static const String sheetCollection = '/sheet/collection';
+  static const String sheetCollectionDetail = '/sheet/collection/detail';
+  static const String artistFollowedNews = '/artist/followed/news';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -99,6 +105,18 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const HistoryScreen());
       case cloud:
         return MaterialPageRoute(builder: (_) => const CloudDiskScreen());
+      case sheetCollection:
+        return MaterialPageRoute(builder: (_) => const SheetCollectionScreen());
+      case sheetCollectionDetail:
+        final args = settings.arguments as Map<String, dynamic>;
+        return MaterialPageRoute(
+          builder: (_) => SheetCollectionDetailScreen(
+            id: args['id'] as int,
+            name: args['name'] as String?,
+          ),
+        );
+      case artistFollowedNews:
+        return MaterialPageRoute(builder: (_) => const ArtistFollowedNewsScreen());
       default:
         return MaterialPageRoute(builder: (_) => const HomeScreen());
     }

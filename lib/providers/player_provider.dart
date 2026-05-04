@@ -140,6 +140,7 @@ class PlayerProvider extends ChangeNotifier {
             hash: playHash ?? song.hash);
         if (songUrl.url.isNotEmpty) {
           await _player.play(UrlSource(songUrl.url));
+          _musicService.uploadPlayHistory(song.id, duration: song.duration);
         } else {
           _playAttempts++;
           await _doPlay();
