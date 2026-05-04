@@ -52,6 +52,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       if (auth.user!.userId != null)
                         Text('ID: ${auth.user!.userId}',
                             style: TextStyle(color: Colors.grey[400])),
+                      if (auth.user!.isVipActive)
+                        Container(
+                          margin: const EdgeInsets.only(top: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1DB954),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            auth.user!.vipLevelDisplay,
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.white),
+                          ),
+                        ),
                     ],
                   ),
                 ],
