@@ -24,6 +24,7 @@ class PlayerProvider extends ChangeNotifier {
   List<int> _shuffleOrder = [];
   int _shufflePos = 0;
   int _playAttempts = 0;
+  int _qualityLevel = 0;
   static const int _maxRetries = 2;
 
   StreamSubscription? _positionSub;
@@ -134,7 +135,9 @@ class PlayerProvider extends ChangeNotifier {
       if (song.isLocal && song.filePath != null) {
         await _player.play(DeviceFileSource(song.filePath!));
       } else {
-        final songUrl = await _musicService.getSongUrl(song.id, hash: song.hash);
+        final playHash = _qualityHash;
+        final songUrl = await _musicService.getSongUrl(song.id,
+            hash: playHash ?? song.hash);
         if (songUrl.url.isNotEmpty) {
           await _player.play(UrlSource(songUrl.url));
         } else {
@@ -233,6 +236,24 @@ class PlayerProvider extends ChangeNotifier {
     _playMode = mode;
     if (mode == PlayMode.shuffle) _initShuffle();
     notifyListeners();
+  }
+
+  String? get _qualityHash {
+    final q = _currentSong?.qualities;
+    if (q == null || q.isEmpty) return null;
+    final keys = ['128', '320', 'flac'];
+    return q[keys[_qualityLevel % keys.length]];
+  }
+
+  Future<void> switchQuality() async {
+    final q = _currentSong?.qualities;
+    if (q == null || q.isEmpty) return;
+    _qualityLevel = (_qualityLevel + 1) % ['128', '320', 'flac'].length;
+    if (_isPlaying) {
+      await playIndex(_currentIndex);
+    } else {
+      notifyListeners();
+    }
   }
 
   @override
