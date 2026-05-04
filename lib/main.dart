@@ -10,12 +10,14 @@ import 'screens/settings_screen.dart';
 import 'services/api_client.dart';
 import 'services/music_service.dart';
 import 'services/notification_service.dart';
+import 'services/cache_service.dart';
 
 final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
 
 void main() {
   _initDevice();
   _initNotifications();
+  CacheService.instance.init();
   runApp(
     MultiProvider(
       providers: [
