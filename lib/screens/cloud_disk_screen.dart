@@ -36,14 +36,19 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
   Future<void> _playSong(Map<String, dynamic> item) async {
     final hash = item['hash'] as String?;
     if (hash == null) return;
-    final song = Song(
-      id: hash.hashCode,
-      name: item['name'] as String? ?? '',
-      artists: [item['author_name'] as String? ?? ''],
-      hash: hash,
-    );
-    if (mounted) {
+    try {
+      final url = await _musicService.getCloudSongUrl(hash);
+      if (url.isEmpty) return;
+      if (!mounted) return;
+      final song = Song(
+        id: hash.hashCode,
+        name: item['name'] as String? ?? '',
+        artists: [item['author_name'] as String? ?? ''],
+        filePath: url,
+      );
       context.read<PlayerProvider>().playSong(song);
+    } catch (e) {
+      debugPrint('[CloudDisk] play error: $e');
     }
   }
 

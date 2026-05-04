@@ -133,7 +133,11 @@ class PlayerProvider extends ChangeNotifier {
     try {
       final song = _currentSong!;
       if (song.isLocal && song.filePath != null) {
-        await _player.play(DeviceFileSource(song.filePath!));
+        if (song.filePath!.startsWith('http')) {
+          await _player.play(UrlSource(song.filePath!));
+        } else {
+          await _player.play(DeviceFileSource(song.filePath!));
+        }
       } else {
         final playHash = _qualityHash;
         final songUrl = await _musicService.getSongUrl(song.id,
