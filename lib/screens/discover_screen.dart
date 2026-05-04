@@ -75,9 +75,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 itemCount: _ranks.length,
                 itemBuilder: (_, i) {
                   final rank = _ranks[i];
-                  final name = rank['name'] as String? ?? '';
-                  final img = rank['coverImgUrl'] as String? ??
-                      rank['imgUrl'] as String?;
+                  final name = rank['rankname'] as String? ?? '';
+                  final img = rank['imgurl'] as String? ?? rank['img_9'] as String? ?? rank['banner_9'] as String?;
                   return GestureDetector(
                     onTap: () => _openRank(rank),
                     child: Container(
@@ -87,18 +86,25 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              img ?? '',
-                              width: 72,
-                              height: 72,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                width: 72,
-                                height: 72,
-                                color: Colors.grey[800],
-                                child: const Icon(Icons.music_note),
-                              ),
-                            ),
+                            child: img != null
+                                ? Image.network(
+                                    img.replaceAll('{size}', '240'),
+                                    width: 72,
+                                    height: 72,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      width: 72,
+                                      height: 72,
+                                      color: Colors.grey[800],
+                                      child: const Icon(Icons.music_note),
+                                    ),
+                                  )
+                                : Container(
+                                    width: 72,
+                                    height: 72,
+                                    color: Colors.grey[800],
+                                    child: const Icon(Icons.music_note),
+                                  ),
                           ),
                           const SizedBox(height: 4),
                           Text(name,
@@ -165,9 +171,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   void _openRank(Map<String, dynamic> rank) {
-    final id = rank['id'] as int?;
+    final id = rank['rankid'] as int? ?? rank['rankId'] as int?;
     if (id == null) return;
     Navigator.pushNamed(context, '/rank/detail',
-        arguments: {'id': id, 'name': rank['name'] as String?});
+        arguments: {'id': id, 'name': rank['rankname'] as String?});
   }
 }
