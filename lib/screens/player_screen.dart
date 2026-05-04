@@ -276,6 +276,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
             ),
           const Divider(height: 1),
           ListTile(
+            leading: const Icon(Icons.playlist_add),
+            title: const Text('收藏到歌单'),
+            onTap: () {
+              Navigator.pop(context);
+              _showAddToPlaylist(player);
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.delete_sweep),
             title: const Text('清空列表'),
             onTap: () {
@@ -283,6 +291,24 @@ class _PlayerScreenState extends State<PlayerScreen> {
               Navigator.pop(context);
             },
           ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddToPlaylist(PlayerProvider player) {
+    final song = player.currentSong;
+    if (song == null) return;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('收藏到歌单'),
+        content: const Text('输入歌单ID:'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+          FilledButton(onPressed: () {
+            Navigator.pop(context);
+          }, child: const Text('确定')),
         ],
       ),
     );

@@ -17,6 +17,7 @@ import '../screens/history_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/user_profile_screen.dart';
 import '../screens/messages_screen.dart';
+import '../screens/videos_screen.dart';
 import '../screens/cloud_disk_screen.dart';
 import '../screens/sheet_collection_screen.dart';
 import '../screens/sheet_collection_detail_screen.dart';
@@ -44,6 +45,8 @@ class AppRoutes {
   static const String settings = '/settings';
   static const String userProfile = '/user/profile';
   static const String messages = '/messages';
+  static const String favoriteVideos = '/videos/favorite';
+  static const String likedVideos = '/videos/liked';
   static const String artistFollowedNews = '/artist/followed/news';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -117,6 +120,10 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const UserProfileScreen());
       case AppRoutes.messages:
         return MaterialPageRoute(builder: (_) => const MessagesScreen());
+      case AppRoutes.favoriteVideos:
+        return MaterialPageRoute(builder: (_) => const VideosScreen());
+      case AppRoutes.likedVideos:
+        return MaterialPageRoute(builder: (_) => const VideosScreen(showLiked: true));
       case sheetCollection:
         return MaterialPageRoute(builder: (_) => const SheetCollectionScreen());
       case sheetCollectionDetail:
