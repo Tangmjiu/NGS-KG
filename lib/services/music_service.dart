@@ -16,7 +16,7 @@ class MusicService {
   }
 
   Future<List<Song>> search(String keyword,
-      {int limit = 30, int offset = 0}) async {
+      {int limit = 100, int offset = 0}) async {
     final res = await _get('/search', params: {
       'keywords': keyword,
       'limit': limit,
@@ -115,7 +115,7 @@ class MusicService {
   }
 
   Future<List<Song>> getPlaylistTracks(String gcId,
-      {int page = 1, int pageSize = 30}) async {
+      {int page = 1, int pageSize = 1000}) async {
     final res = await _get('/playlist/track/all',
         params: {'id': gcId, 'page': page, 'pagesize': pageSize});
     final songs =
@@ -148,7 +148,7 @@ class MusicService {
   }
 
   Future<List<Playlist>> getTopPlaylists(
-      {int limit = 30, int offset = 0, int categoryId = 0}) async {
+      {int limit = 200, int offset = 0, int categoryId = 0}) async {
     final res = await _get('/top/playlist', params: {
       'category_id': categoryId,
       'limit': limit,
@@ -220,7 +220,7 @@ class MusicService {
   }
 
   Future<List<Map<String, dynamic>>> getArtistList(
-      {int limit = 30, int offset = 0}) async {
+      {int limit = 100, int offset = 0}) async {
     final res =
         await _get('/artist/list', params: {'limit': limit, 'offset': offset});
     final raw = res['data'];
@@ -244,7 +244,7 @@ class MusicService {
   }
 
   Future<List<Map<String, dynamic>>> getMusicComments(int songId,
-      {int limit = 20, int offset = 0}) async {
+      {int limit = 100, int offset = 0}) async {
     final res = await _get('/comment/music',
         params: {'id': songId, 'limit': limit, 'offset': offset});
     final raw = res['data'];
@@ -254,7 +254,7 @@ class MusicService {
     return [];
   }
 
-  Future<List<Map<String, dynamic>>> getSheetList({int limit = 30}) async {
+  Future<List<Map<String, dynamic>>> getSheetList({int limit = 100}) async {
     final res = await _get('/sheet/list', params: {'limit': limit});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
@@ -309,7 +309,7 @@ class MusicService {
   }
 
   Future<List<Map<String, dynamic>>> getPlaylistComments(int playlistId,
-      {int limit = 20, int offset = 0}) async {
+      {int limit = 100, int offset = 0}) async {
     final res = await _get('/comment/playlist',
         params: {'id': playlistId, 'limit': limit, 'offset': offset});
     final raw = res['data'];
