@@ -100,7 +100,8 @@ class MusicService {
   }
 
   Future<List<Playlist>> getUserPlaylist({int? userId}) async {
-    final params = <String, dynamic>{};
+    final cookie = await _client.getCookieString();
+    final params = <String, dynamic>{'cookie': cookie};
     if (userId != null) params['userId'] = userId;
     final res = await _client.get('/user/playlist', params: params);
     final raw = res.data['data'];
@@ -109,6 +110,14 @@ class MusicService {
           .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
           .toList();
     }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getUserHistory() async {
+    final cookie = await _client.getCookieString();
+    final res = await _client.get('/user/history', params: {'cookie': cookie});
+    final raw = res.data['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
   }
 

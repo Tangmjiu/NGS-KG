@@ -75,15 +75,26 @@ class Song {
     if (cover != null) cover = cover.replaceAll('{size}', '480');
     final rawName = json['songname'] as String? ?? '';
     final parts = rawName.split(' - ');
+    // Try to get hash from audio_info or deprecated
+    String? hash;
+    final audioInfo = json['audio_info'];
+    if (audioInfo is Map) {
+      hash = audioInfo['hash_128'] as String? ??
+          audioInfo['hash_320'] as String?;
+    }
+    if (hash == null || hash!.isEmpty) {
+      final deprecated = json['deprecated'];
+      if (deprecated is Map) {
+        hash = deprecated['hash'] as String?;
+      }
+    }
     return Song(
       id: (json['audio_id'] ?? json['album_audio_id'] ?? 0) as int,
       name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
       artists: [json['author_name'] as String? ?? ''],
       albumCoverUrl: cover,
       duration: _durationFromAudioInfo(json['audio_info']),
-      hash: json['trans_param'] is Map
-          ? (json['trans_param'] as Map)['hash_multitrack'] as String?
-          : null,
+      hash: hash,
     );
   }
 
