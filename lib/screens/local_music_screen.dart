@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/local_song.dart';
 import '../services/local_music_service.dart';
 import '../providers/player_provider.dart';
@@ -16,6 +17,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
   final LocalMusicService _service = LocalMusicService();
   List<LocalSong> _songs = [];
   bool _isScanning = false;
+  bool _permissionDenied = false;
   String _status = '';
 
   @override
@@ -25,6 +27,15 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
   }
 
   Future<void> _startScan() async {
+    final status = await Permission.audio.status;
+    if (!status.isGranted) {
+      final result = await Permission.audio.request();
+      if (!result.isGranted && mounted) {
+        setState(() => _permissionDenied = true);
+        return;
+      }
+    }
+    _permissionDenied = false;
     setState(() {
       _isScanning = true;
       _status = '正在扫描...';
@@ -54,12 +65,14 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
       name: localSong.displayName,
       artists: localSong.artist != null ? [localSong.artist!] : ['本地音乐'],
       albumName: localSong.album,
+      filePath: localSong.filePath,
     );
     final playlist = _songs.map((s) => Song(
       id: s.filePath.hashCode,
       name: s.displayName,
       artists: s.artist != null ? [s.artist!] : ['本地音乐'],
       albumName: s.album,
+      filePath: s.filePath,
     )).toList();
     context.read<PlayerProvider>().playSong(song, playlist: playlist);
   }
@@ -86,7 +99,23 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
             ),
         ],
       ),
-      body: _isScanning
+      body: _permissionDenied
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.lock, size: 80, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  const Text('需要存储权限才能扫描本地音乐'),
+                  const SizedBox(height: 24),
+                  FilledButton.tonal(
+                    onPressed: openAppSettings,
+                    child: const Text('去设置开启'),
+                  ),
+                ],
+              ),
+            )
+          : _isScanning
           ? const Center(child: CircularProgressIndicator())
           : _songs.isEmpty
               ? Center(
