@@ -6,6 +6,7 @@ class Song {
   final String? albumCoverUrl;
   final int duration;
   final String? lyricUrl;
+  final String? filePath;
 
   const Song({
     required this.id,
@@ -15,7 +16,10 @@ class Song {
     this.albumCoverUrl,
     this.duration = 0,
     this.lyricUrl,
+    this.filePath,
   });
+
+  bool get isLocal => filePath != null;
 
   String get artistDisplay => artists.join(' / ');
 
