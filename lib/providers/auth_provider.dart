@@ -106,7 +106,12 @@ class AuthProvider extends ChangeNotifier {
     final res = await _authService.checkQrStatus(key);
     final status = res['data'] is Map ? (res['data'] as Map)['status'] : null;
     if (status == 200 && res['data'] is Map) {
-      final userData = (res['data'] as Map)['user'] as Map<String, dynamic>?;
+      final data = res['data'] as Map;
+      // Try nested 'user' field first, then direct data fields
+      Map<String, dynamic>? userData = data['user'] as Map<String, dynamic>?;
+      if (userData == null && data['nickname'] != null) {
+        userData = Map<String, dynamic>.from(data);
+      }
       if (userData != null) {
         _user = User.fromJson(userData);
         ApiClient.setAuth(_user!.token, _user!.userId?.toString());
