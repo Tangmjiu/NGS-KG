@@ -83,9 +83,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     padding: const EdgeInsets.only(right: 8),
                     child: ActionChip(
                       label: Text(name),
-                      onPressed: () => Navigator.pushNamed(
-                          context, '/playlist/tag',
-                          arguments: {'tagId': id, 'name': name}),
+                    onPressed: () {}, // TODO: filter playlists by tag
                     ),
                   );
                 },

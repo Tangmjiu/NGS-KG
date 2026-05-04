@@ -320,4 +320,158 @@ class MusicService {
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
   }
+
+  // ─── 用户/VIP/云盘 ───
+
+  Future<Map<String, dynamic>> getUserDetail() async {
+    return _get('/user/detail');
+  }
+
+  Future<Map<String, dynamic>> getVipInfo() async {
+    return _get('/vip/info');
+  }
+
+  Future<List<Map<String, dynamic>>> getUserCloudDisk() async {
+    final res = await _get('/user/cloud');
+    final raw = res['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<String> getCloudSongUrl(int songId) async {
+    final res = await _get('/user/cloud/url', params: {'id': songId});
+    final data = res['data'];
+    if (data is Map) return data['url'] as String? ?? '';
+    return '';
+  }
+
+  Future<List<Map<String, dynamic>>> getUserHistoryRank() async {
+    final res = await _get('/user/history/rank');
+    final raw = res['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<Map<String, dynamic>> getContinuePlayInfo() async {
+    return _get('/continue/play');
+  }
+
+  // ─── 歌手 ───
+
+  Future<Map<String, dynamic>> followArtist(int artistId) async {
+    return _get('/artist/follow', params: {'id': artistId});
+  }
+
+  Future<Map<String, dynamic>> unfollowArtist(int artistId) async {
+    return _get('/artist/unfollow', params: {'id': artistId});
+  }
+
+  Future<List<Map<String, dynamic>>> getArtistNewSongs(int artistId) async {
+    final res = await _get('/artist/songs/new', params: {'id': artistId});
+    final raw = res['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  // ─── 曲谱合集 ───
+
+  Future<List<Map<String, dynamic>>> getSheetCollections() async {
+    final res = await _get('/sheet/collection/list');
+    final raw = res['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<Map<String, dynamic>> getSheetCollectionDetail(int id) async {
+    return _get('/sheet/collection/detail', params: {'id': id});
+  }
+
+  // ─── 提交听歌历史 ───
+
+  Future<void> uploadPlayHistory(int songId, {int? duration}) async {
+    final params = <String, dynamic>{'id': songId};
+    if (duration != null) params['duration'] = duration;
+    await _get('/playhistory/upload', params: params);
+  }
+
+  // ─── 服务器时间 ───
+
+  Future<Map<String, dynamic>> getServerTime() async {
+    return _get('/server/now', withAuth: false);
+  }
+
+  // ─── 乐库 ───
+
+  Future<List<Map<String, dynamic>>> getYuekuBanner() async {
+    final res = await _get('/yueku/banner');
+    final raw = res['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getYuekuRadio() async {
+    final res = await _get('/yueku/radio');
+    final raw = res['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  // ─── 电台 ───
+
+  Future<List<Map<String, dynamic>>> getRadioImages() async {
+    final res = await _get('/radio/image');
+    final raw = res['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  // ─── 歌单管理 ───
+
+  Future<Map<String, dynamic>> createPlaylist(String name,
+      {String? description}) async {
+    final params = <String, dynamic>{'name': name};
+    if (description != null) params['description'] = description;
+    return _get('/playlist/add', params: params);
+  }
+
+  Future<Map<String, dynamic>> deletePlaylist(int playlistId) async {
+    return _get('/playlist/del', params: {'id': playlistId});
+  }
+
+  Future<Map<String, dynamic>> addTracksToPlaylist(
+      int playlistId, List<int> songIds) async {
+    return _get('/playlist/tracks/add',
+        params: {'id': playlistId, 'songIds': songIds.join(',')});
+  }
+
+  Future<Map<String, dynamic>> removeTracksFromPlaylist(
+      int playlistId, List<int> songIds) async {
+    return _get('/playlist/tracks/del',
+        params: {'id': playlistId, 'songIds': songIds.join(',')});
+  }
+
+  // ─── 收藏视频 ───
+
+  Future<List<Map<String, dynamic>>> getFavoriteVideos() async {
+    final res = await _get('/user/favorite/video');
+    final raw = res['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getLikedVideos() async {
+    final res = await _get('/user/liked/video');
+    final raw = res['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  // ─── 关注歌手消息 ───
+
+  Future<List<Map<String, dynamic>>> getFollowedArtistNews() async {
+    final res = await _get('/artist/followed/news');
+    final raw = res['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
 }
