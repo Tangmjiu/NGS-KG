@@ -5,10 +5,11 @@ import 'providers/player_provider.dart';
 import 'providers/playlist_provider.dart';
 import 'routes/app_routes.dart';
 import 'utils/theme.dart';
-import 'widgets/player_bar.dart';
 import 'screens/player_screen.dart';
 import 'services/api_client.dart';
 import 'services/music_service.dart';
+
+final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
 
 void main() {
   _initDevice();
@@ -27,9 +28,7 @@ void main() {
 Future<void> _initDevice() async {
   try {
     final dfid = await MusicService().registerDevice();
-    if (dfid.isNotEmpty) {
-      ApiClient.setDfid(dfid);
-    }
+    if (dfid.isNotEmpty) ApiClient.setDfid(dfid);
   } catch (_) {}
 }
 
@@ -39,6 +38,7 @@ class NGSKGApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navKey,
       title: 'NGS-KG+',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
@@ -47,10 +47,11 @@ class NGSKGApp extends StatelessWidget {
       initialRoute: AppRoutes.home,
       onGenerateRoute: AppRoutes.generateRoute,
       builder: (context, child) {
-        return Column(
+        return Stack(
           children: [
-            Expanded(child: child ?? const SizedBox.shrink()),
+            child ?? const SizedBox.shrink(),
             const _PlayerBarBottom(),
+            const _ContinuePlayOverlay(),
           ],
         );
       },
@@ -66,94 +67,66 @@ class _PlayerBarBottom extends StatelessWidget {
     return Consumer<PlayerProvider>(
       builder: (_, player, __) {
         if (player.currentSong == null) return const SizedBox.shrink();
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (player.progress > 0)
-              LinearProgressIndicator(
-                value: player.progress,
-                backgroundColor: Colors.grey[850],
-                color: Theme.of(context).colorScheme.primary,
-                minHeight: 1.5,
-              ),
-            Container(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              padding: EdgeInsets.only(
-                left: 12,
-                right: 4,
-                top: 6,
-                bottom: MediaQuery.of(context).padding.bottom + 4,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const PlayerScreen()),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            player.currentSong!.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.w500),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            player.currentSong!.artistDisplay,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                fontSize: 11, color: Colors.grey[400]),
-                          ),
-                        ],
+        return Positioned(
+          left: 0, right: 0, bottom: 0,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (player.progress > 0)
+                LinearProgressIndicator(
+                  value: player.progress,
+                  backgroundColor: Colors.grey[850],
+                  color: Theme.of(context).colorScheme.primary,
+                  minHeight: 1.5,
+                ),
+              Container(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                padding: EdgeInsets.only(
+                  left: 12, right: 4, top: 6,
+                  bottom: MediaQuery.of(context).padding.bottom + 4,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => navKey.currentState?.push(
+                          MaterialPageRoute(builder: (_) => const PlayerScreen()),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(player.currentSong!.name,
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                            Text(player.currentSong!.artistDisplay,
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  if (player.isLoading)
-                    const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child:
-                            CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  else ...[
-                    IconButton(
-                      icon: const Icon(Icons.skip_previous, size: 20),
-                      onPressed: player.playPrevious,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 36),
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        player.isPlaying
-                            ? Icons.pause_circle_filled
-                            : Icons.play_circle_filled,
-                        size: 28,
-                      ),
-                      onPressed: player.togglePlayPause,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 36),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.skip_next, size: 20),
-                      onPressed: player.playNext,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 36),
-                    ),
+                    if (player.isLoading)
+                      const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: SizedBox(width: 18, height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2)),
+                      )
+                    else ...[
+                      IconButton(icon: const Icon(Icons.skip_previous, size: 20),
+                          onPressed: player.playPrevious,
+                          padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36)),
+                      IconButton(icon: Icon(player.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled, size: 28),
+                          onPressed: player.togglePlayPause,
+                          padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36)),
+                      IconButton(icon: const Icon(Icons.skip_next, size: 20),
+                          onPressed: player.playNext,
+                          padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36)),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -162,7 +135,6 @@ class _PlayerBarBottom extends StatelessWidget {
 
 class _ContinuePlayOverlay extends StatefulWidget {
   const _ContinuePlayOverlay();
-
   @override
   State<_ContinuePlayOverlay> createState() => _ContinuePlayOverlayState();
 }
@@ -179,28 +151,17 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
       final info = await MusicService().getContinuePlayInfo();
       if (!mounted) return;
       final data = info['data'] as Map<String, dynamic>? ?? info;
-      final show = data['show'] as bool? ?? data['status'] == 1;
-      if (show && data['song'] != null) {
+      if ((data['show'] as bool? ?? data['status'] == 1) && data['song'] != null) {
         final song = data['song'] as Map<String, dynamic>;
         if (!mounted) return;
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('继续播放'),
-            content: Text(
-                '检测到在其他设备播放了\n${song['name'] ?? ''}，是否继续？'),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('取消')),
-              FilledButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text('继续')),
-            ],
-          ),
-        );
+        showDialog(context: context, builder: (_) => AlertDialog(
+          title: const Text('继续播放'),
+          content: Text('检测到在其他设备播放了\n${song['name'] ?? ''}，是否继续？'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+            FilledButton(onPressed: () => Navigator.pop(context), child: const Text('继续')),
+          ],
+        ));
       }
     } catch (_) {}
   }

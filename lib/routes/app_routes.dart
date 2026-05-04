@@ -14,6 +14,7 @@ import '../screens/lyrics_screen.dart';
 import '../screens/local_music_screen.dart';
 import '../screens/player_screen.dart';
 import '../screens/history_screen.dart';
+import '../screens/settings_screen.dart';
 import '../screens/cloud_disk_screen.dart';
 import '../screens/sheet_collection_screen.dart';
 import '../screens/sheet_collection_detail_screen.dart';
@@ -38,6 +39,7 @@ class AppRoutes {
   static const String cloud = '/cloud';
   static const String sheetCollection = '/sheet/collection';
   static const String sheetCollectionDetail = '/sheet/collection/detail';
+  static const String settings = '/settings';
   static const String artistFollowedNews = '/artist/followed/news';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -103,8 +105,10 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const PlayerScreen());
       case history:
         return MaterialPageRoute(builder: (_) => const HistoryScreen());
-      case cloud:
+      case AppRoutes.cloud:
         return MaterialPageRoute(builder: (_) => const CloudDiskScreen());
+      case AppRoutes.settings:
+        return MaterialPageRoute(builder: (_) => const SettingsScreen());
       case sheetCollection:
         return MaterialPageRoute(builder: (_) => const SheetCollectionScreen());
       case sheetCollectionDetail:
