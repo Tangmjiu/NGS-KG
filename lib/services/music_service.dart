@@ -333,8 +333,12 @@ class MusicService {
 
   Future<List<Map<String, dynamic>>> getUserCloudDisk() async {
     final res = await _get('/user/cloud');
-    final raw = res['data'];
-    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    final data = res['data'];
+    if (data is Map) {
+      final list = data['list'] as List<dynamic>?;
+      if (list != null) return list.cast<Map<String, dynamic>>();
+    }
+    if (data is List) return data.cast<Map<String, dynamic>>();
     return [];
   }
 

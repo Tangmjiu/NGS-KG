@@ -19,6 +19,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
   final MusicService _musicService = MusicService();
   List<Song>? _songs;
   bool _isLoading = true;
+  bool _isFollowing = false;
 
   @override
   void initState() {
@@ -34,10 +35,29 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
     if (mounted) setState(() => _isLoading = false);
   }
 
+  Future<void> _toggleFollow() async {
+    try {
+      if (_isFollowing) {
+        await _musicService.unfollowArtist(widget.artistId);
+      } else {
+        await _musicService.followArtist(widget.artistId);
+      }
+      if (mounted) setState(() => _isFollowing = !_isFollowing);
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.artistName ?? '歌手详情')),
+      appBar: AppBar(
+        title: Text(widget.artistName ?? '歌手详情'),
+        actions: [
+          IconButton(
+            icon: Icon(_isFollowing ? Icons.favorite : Icons.favorite_border),
+            onPressed: _toggleFollow,
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _songs == null || _songs!.isEmpty

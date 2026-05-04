@@ -50,6 +50,7 @@ class NGSKGApp extends StatelessWidget {
           children: [
             child ?? const SizedBox.shrink(),
             const _GlobalPlayerBar(),
+            const _ContinuePlayOverlay(),
           ],
         );
       },
@@ -76,4 +77,48 @@ class _GlobalPlayerBar extends StatelessWidget {
       },
     );
   }
+}
+
+class _ContinuePlayOverlay extends StatefulWidget {
+  const _ContinuePlayOverlay();
+
+  @override
+  State<_ContinuePlayOverlay> createState() => _ContinuePlayOverlayState();
+}
+
+class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _check());
+  }
+
+  Future<void> _check() async {
+    try {
+      final info = await MusicService().getContinuePlayInfo();
+      if (!mounted) return;
+      final data = info['data'] as Map<String, dynamic>? ?? info;
+      final show = data['show'] as bool? ?? data['status'] == 1;
+      if (show && data['song'] != null) {
+        final song = data['song'] as Map<String, dynamic>;
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('继续播放'),
+            content: Text('检测到在其他设备播放了\n${song['name'] ?? ''}，是否继续？'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+              FilledButton(onPressed: () {
+                Navigator.pop(context);
+              }, child: const Text('继续')),
+            ],
+          ),
+        );
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
