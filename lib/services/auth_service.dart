@@ -26,9 +26,9 @@ class AuthService {
     return res.data['data']['qrUrl'] as String;
   }
 
-  Future<int> checkQrStatus(String key) async {
+  Future<Map<String, dynamic>> checkQrStatus(String key) async {
     final res = await _client.get('/login/qr/check', params: {'key': key});
-    return res.data['code'] as int;
+    return res.data as Map<String, dynamic>;
   }
 
   Future<void> sendCaptcha(String phone) async {

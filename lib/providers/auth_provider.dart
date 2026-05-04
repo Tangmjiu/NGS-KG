@@ -95,7 +95,17 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<int> checkQrStatus(String key) async {
-    return _authService.checkQrStatus(key);
+    final res = await _authService.checkQrStatus(key);
+    final status = res['data'] is Map ? (res['data'] as Map)['status'] : null;
+    if (status == 200 && res['data'] is Map) {
+      final userData = (res['data'] as Map)['user'] as Map<String, dynamic>?;
+      if (userData != null) {
+        _user = User.fromJson(userData);
+        _saveUser();
+        notifyListeners();
+      }
+    }
+    return (status as int?) ?? 0;
   }
 
   void logout() {
