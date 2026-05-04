@@ -34,6 +34,14 @@ class _LyricsScreenState extends State<LyricsScreen> {
                   '${_currentLine + 1}/${_lyrics.length}',
                   style: const TextStyle(fontSize: 12),
                 ),
+              IconButton(
+                icon: const Icon(Icons.comment, size: 20),
+                onPressed: () => Navigator.pushNamed(context, '/comments',
+                    arguments: {
+                      'type': 'music',
+                      'id': player.currentSong!.id,
+                    }),
+              ),
             ],
           ),
           body: _buildBody(player),

@@ -3,8 +3,6 @@ import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
-import '../widgets/song_tile.dart';
-
 class RankDetailScreen extends StatefulWidget {
   final int rankId;
   final String? rankName;

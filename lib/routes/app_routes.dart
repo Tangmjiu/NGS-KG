@@ -4,6 +4,13 @@ import '../screens/login_screen.dart';
 import '../screens/playlist_detail_screen.dart';
 import '../screens/search_screen.dart';
 import '../screens/rank_detail_screen.dart';
+import '../screens/artist_list_screen.dart';
+import '../screens/artist_detail_screen.dart';
+import '../screens/comments_screen.dart';
+import '../screens/sheet_list_screen.dart';
+import '../screens/sheet_detail_screen.dart';
+import '../screens/fm_screen.dart';
+import '../screens/lyrics_screen.dart';
 
 class AppRoutes {
   static const String home = '/';
@@ -11,6 +18,13 @@ class AppRoutes {
   static const String playlistDetail = '/playlist/detail';
   static const String search = '/search';
   static const String rankDetail = '/rank/detail';
+  static const String artistList = '/artist/list';
+  static const String artistDetail = '/artist/detail';
+  static const String comments = '/comments';
+  static const String sheetList = '/sheet/list';
+  static const String sheetDetail = '/sheet/detail';
+  static const String fm = '/fm';
+  static const String lyrics = '/lyrics';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -26,6 +40,8 @@ class AppRoutes {
             playlistName: args['name'] as String?,
           ),
         );
+      case search:
+        return MaterialPageRoute(builder: (_) => const SearchScreen());
       case rankDetail:
         final args = settings.arguments as Map<String, dynamic>;
         return MaterialPageRoute(
@@ -34,8 +50,38 @@ class AppRoutes {
             rankName: args['name'] as String?,
           ),
         );
-      case search:
-        return MaterialPageRoute(builder: (_) => const SearchScreen());
+      case artistList:
+        return MaterialPageRoute(builder: (_) => const ArtistListScreen());
+      case artistDetail:
+        final args = settings.arguments as Map<String, dynamic>;
+        return MaterialPageRoute(
+          builder: (_) => ArtistDetailScreen(
+            artistId: args['id'] as int,
+            artistName: args['name'] as String?,
+          ),
+        );
+      case comments:
+        final args = settings.arguments as Map<String, dynamic>;
+        return MaterialPageRoute(
+          builder: (_) => CommentsScreen(
+            type: args['type'] as String? ?? 'music',
+            id: args['id'] as int,
+          ),
+        );
+      case sheetList:
+        return MaterialPageRoute(builder: (_) => const SheetListScreen());
+      case sheetDetail:
+        final args = settings.arguments as Map<String, dynamic>;
+        return MaterialPageRoute(
+          builder: (_) => SheetDetailScreen(
+            sheetId: args['id'] as int? ?? 0,
+            sheetName: args['name'] as String?,
+          ),
+        );
+      case fm:
+        return MaterialPageRoute(builder: (_) => const FmScreen());
+      case lyrics:
+        return MaterialPageRoute(builder: (_) => const LyricsScreen());
       default:
         return MaterialPageRoute(builder: (_) => const HomeScreen());
     }

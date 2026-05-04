@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/music_service.dart';
 import '../models/song.dart';
+import '../providers/player_provider.dart';
 import '../widgets/song_tile.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -18,7 +20,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   List<Song> _results = [];
   List<String> _suggestions = [];
-  List<String> _hotSearch = [];
+  List<Map<String, dynamic>> _hotSearch = [];
   bool _isLoading = false;
   bool _showResult = false;
   Timer? _debounce;
@@ -39,7 +41,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Future<void> _loadHotSearch() async {
     try {
-      _hotSearch = await _musicService.getHotSearch();
+      final raw = await _musicService.getHotSearch();
+      _hotSearch = raw;
       if (mounted) setState(() {});
     } catch (_) {}
   }
@@ -112,7 +115,12 @@ class _SearchScreenState extends State<SearchScreen> {
           ? const Center(child: Text('未找到结果'))
           : ListView.builder(
               itemCount: _results.length,
-              itemBuilder: (_, i) => SongTile(song: _results[i]),
+              itemBuilder: (_, i) => SongTile(
+                    song: _results[i],
+                    onTap: (s) => context
+                        .read<PlayerProvider>()
+                        .playSong(s, playlist: _results),
+                  ),
             );
     }
 
@@ -155,10 +163,11 @@ class _SearchScreenState extends State<SearchScreen> {
                           : Colors.grey,
                     )),
               ),
-              title: Text(_hotSearch[i]),
+              title: Text(_hotSearch[i]['text'] as String? ?? ''),
               onTap: () {
-                _searchCtrl.text = _hotSearch[i];
-                _doSearch(_hotSearch[i]);
+                final text = _hotSearch[i]['text'] as String? ?? '';
+                _searchCtrl.text = text;
+                _doSearch(text);
               },
             ),
           ),
