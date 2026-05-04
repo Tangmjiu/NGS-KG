@@ -21,11 +21,11 @@ class Playlist {
 
   factory Playlist.fromJson(Map<String, dynamic> json) {
     return Playlist(
-      id: (json['specialid'] ?? json['id']) as int,
-      name: (json['specialname'] ?? json['name']) as String? ?? '',
-      coverUrl: _fixCover(json['imgurl'] as String? ?? json['coverImgUrl'] as String?),
+      id: (json['specialid'] ?? json['id'] ?? 0) as int,
+      name: (json['specialname'] ?? json['name'] ?? '') as String? ?? '',
+      coverUrl: _fixCover(json['imgurl'] as String? ?? json['coverImgUrl'] as String? ?? json['pic'] as String?),
       description: json['intro'] as String? ?? json['description'] as String?,
-      trackCount: json['songcount'] as int? ?? json['trackCount'] as int? ?? 0,
+      trackCount: json['songcount'] as int? ?? json['trackCount'] as int? ?? json['count'] as int? ?? 0,
       globalCollectionId: json['global_collection_id'] as String?,
     );
   }

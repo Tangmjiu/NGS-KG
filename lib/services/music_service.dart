@@ -129,9 +129,18 @@ class MusicService {
     final params = <String, dynamic>{};
     if (userId != null) params['userId'] = userId;
     final res = await _get('/user/playlist', params: params);
-    final raw = res['data'];
-    if (raw is List) {
-      return raw
+    final data = res['data'];
+    if (data is Map) {
+      final info = data['info'] as List<dynamic>?;
+      if (info != null) {
+        return info
+            .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
+            .where((p) => p.id != 0 && p.name.isNotEmpty)
+            .toList();
+      }
+    }
+    if (data is List) {
+      return data
           .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
           .toList();
     }
