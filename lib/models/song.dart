@@ -77,10 +77,14 @@ class SongUrl {
   const SongUrl({required this.id, required this.url, this.type = 'mp3'});
 
   factory SongUrl.fromJson(Map<String, dynamic> json) {
+    final urls = json['url'];
+    final firstUrl = urls is List
+        ? (urls.isNotEmpty ? urls[0].toString() : '')
+        : (urls as String? ?? '');
     return SongUrl(
-      id: json['id'] as int,
-      url: json['url'] as String? ?? '',
-      type: json['type'] as String? ?? 'mp3',
+      id: json['hash']?.hashCode ?? 0,
+      url: firstUrl,
+      type: json['extName'] as String? ?? 'mp3',
     );
   }
 }

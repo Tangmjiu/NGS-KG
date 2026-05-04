@@ -77,7 +77,7 @@ class PlayerProvider extends ChangeNotifier {
       if (song.isLocal && song.filePath != null) {
         await _player.play(DeviceFileSource(song.filePath!));
       } else {
-        final songUrl = await _musicService.getSongUrl(song.id);
+        final songUrl = await _musicService.getSongUrl(song.id, hash: song.hash);
         if (songUrl.url.isNotEmpty) {
           await _player.play(UrlSource(songUrl.url));
         }
