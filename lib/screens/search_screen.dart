@@ -20,8 +20,10 @@ class _SearchScreenState extends State<SearchScreen> {
 
   List<Song> _results = [];
   List<String> _suggestions = [];
-  List<Map<String, dynamic>> _hotSearch = [];
+  List<_HotItem> _hotSearch = [];
+  List<Map<String, dynamic>> _ranks = [];
   bool _isLoading = false;
+  bool _isLoadingRanks = true;
   bool _showResult = false;
   Timer? _debounce;
 
@@ -29,6 +31,7 @@ class _SearchScreenState extends State<SearchScreen> {
   void initState() {
     super.initState();
     _loadHotSearch();
+    _loadRanks();
   }
 
   @override
@@ -42,9 +45,20 @@ class _SearchScreenState extends State<SearchScreen> {
   Future<void> _loadHotSearch() async {
     try {
       final raw = await _musicService.getHotSearch();
-      _hotSearch = raw;
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() => _hotSearch = raw
+            .map((e) => _HotItem(e['keyword'] as String? ?? '', e['reason'] as String? ?? ''))
+            .toList());
+      }
     } catch (_) {}
+  }
+
+  Future<void> _loadRanks() async {
+    try {
+      final ranks = await _musicService.getRankList();
+      if (mounted) setState(() => _ranks = ranks);
+    } catch (_) {}
+    if (mounted) setState(() => _isLoadingRanks = false);
   }
 
   void _onSearchChanged(String keyword) {
@@ -74,7 +88,7 @@ class _SearchScreenState extends State<SearchScreen> {
     try {
       _results = await _musicService.search(keyword);
     } catch (_) {}
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
   }
 
   @override
@@ -86,7 +100,7 @@ class _SearchScreenState extends State<SearchScreen> {
           focusNode: _focusNode,
           autofocus: true,
           decoration: InputDecoration(
-            hintText: '搜索歌曲...',
+            hintText: '搜索歌曲、歌单...',
             border: InputBorder.none,
             suffixIcon: _searchCtrl.text.isNotEmpty
                 ? IconButton(
@@ -124,7 +138,6 @@ class _SearchScreenState extends State<SearchScreen> {
             );
     }
 
-    // 搜索建议
     if (_suggestions.isNotEmpty) {
       return ListView.builder(
         itemCount: _suggestions.length,
@@ -139,19 +152,84 @@ class _SearchScreenState extends State<SearchScreen> {
       );
     }
 
-    // 热搜榜
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text('热搜榜',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: _hotSearch.length,
-            itemBuilder: (_, i) => ListTile(
+    return RefreshIndicator(
+      onRefresh: () async {
+        await Future.wait([_loadHotSearch(), _loadRanks()]);
+      },
+      child: ListView(
+        children: [
+          // 排行榜
+          if (!_isLoadingRanks && _ranks.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text('排行榜',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+            SizedBox(
+              height: 100,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: _ranks.length,
+                itemBuilder: (_, i) {
+                  final rank = _ranks[i];
+                  final name = rank['rankname'] as String? ?? '';
+                  final img = rank['imgurl'] as String? ?? rank['img_9'] as String? ?? rank['banner_9'] as String?;
+                  return GestureDetector(
+                    onTap: () {
+                      final id = rank['rankid'] as int?;
+                      if (id != null) {
+                        Navigator.pushNamed(context, '/rank/detail',
+                            arguments: {'id': id, 'name': name});
+                      }
+                    },
+                    child: Container(
+                      width: 80,
+                      margin: const EdgeInsets.only(right: 8),
+                      child: Column(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: img != null
+                                ? Image.network(
+                                    img.replaceAll('{size}', '240'),
+                                    width: 72, height: 72,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      width: 72, height: 72,
+                                      color: Colors.grey[800],
+                                      child: const Icon(Icons.music_note),
+                                    ),
+                                  )
+                                : Container(
+                                    width: 72, height: 72,
+                                    color: Colors.grey[800],
+                                    child: const Icon(Icons.music_note),
+                                  ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+
+          // 热搜榜
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text('热搜榜',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ),
+          ...List.generate(_hotSearch.length, (i) {
+            final item = _hotSearch[i];
+            return ListTile(
               leading: SizedBox(
                 width: 28,
                 child: Text('${i + 1}',
@@ -163,16 +241,25 @@ class _SearchScreenState extends State<SearchScreen> {
                           : Colors.grey,
                     )),
               ),
-              title: Text(_hotSearch[i]['text'] as String? ?? ''),
+              title: Text(item.text),
+              subtitle: item.reason.isNotEmpty && item.reason != item.text
+                  ? Text(item.reason,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500]))
+                  : null,
               onTap: () {
-                final text = _hotSearch[i]['text'] as String? ?? '';
-                _searchCtrl.text = text;
-                _doSearch(text);
+                _searchCtrl.text = item.text;
+                _doSearch(item.text);
               },
-            ),
-          ),
-        ),
-      ],
+            );
+          }),
+        ],
+      ),
     );
   }
+}
+
+class _HotItem {
+  final String text;
+  final String reason;
+  const _HotItem(this.text, this.reason);
 }

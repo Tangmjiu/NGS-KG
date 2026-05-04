@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../widgets/playlist_card.dart';
-import '../widgets/player_bar.dart';
 import 'discover_screen.dart';
 import 'profile_screen.dart';
 
@@ -58,11 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const ProfileScreen(),
         ],
       ),
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          PlayerBar(),
-          BottomNavigationBar(
+      bottomNavigationBar: BottomNavigationBar(
             currentIndex: _currentTab,
             onTap: (i) => setState(() => _currentTab = i),
             items: const [
@@ -72,8 +67,6 @@ class _HomeScreenState extends State<HomeScreen> {
               BottomNavigationBarItem(icon: Icon(Icons.person), label: '我的'),
             ],
           ),
-        ],
-      ),
     );
   }
 

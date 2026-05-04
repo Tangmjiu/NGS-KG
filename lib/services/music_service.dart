@@ -50,8 +50,23 @@ class MusicService {
 
   Future<List<Map<String, dynamic>>> getHotSearch() async {
     final res = await _get('/search/hot');
-    final raw = res['data'];
-    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    final data = res['data'];
+    if (data is Map) {
+      final list = data['list'] as List<dynamic>?;
+      if (list != null) {
+        final keywords = <Map<String, dynamic>>[];
+        for (final category in list) {
+          final kwds = (category as Map)['keywords'] as List<dynamic>?;
+          if (kwds != null) {
+            for (final kw in kwds) {
+              keywords.add(Map<String, dynamic>.from(kw as Map));
+            }
+          }
+        }
+        return keywords;
+      }
+    }
+    if (data is List) return data.cast<Map<String, dynamic>>();
     return [];
   }
 
@@ -242,6 +257,20 @@ class MusicService {
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getPlaylistTags() async {
+    final res = await _get('/playlist/tags');
+    final raw = res['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<String> registerDevice() async {
+    final res = await _get('/register/dev', withAuth: false);
+    final data = res['data'] as Map<String, dynamic>? ?? {};
+    final dfid = data['dfid'] as String? ?? '';
+    return dfid;
   }
 
   Future<List<Song>> getFmSongs(int fmId) async {
