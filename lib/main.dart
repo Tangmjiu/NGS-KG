@@ -6,6 +6,7 @@ import 'providers/playlist_provider.dart';
 import 'routes/app_routes.dart';
 import 'utils/theme.dart';
 import 'screens/player_screen.dart';
+import 'screens/settings_screen.dart';
 import 'services/api_client.dart';
 import 'services/music_service.dart';
 
@@ -32,8 +33,21 @@ Future<void> _initDevice() async {
   } catch (_) {}
 }
 
-class NGSKGApp extends StatelessWidget {
+class NGSKGApp extends StatefulWidget {
   const NGSKGApp({super.key});
+
+  @override
+  State<NGSKGApp> createState() => _NGSKGAppState();
+}
+
+class _NGSKGAppState extends State<NGSKGApp> {
+  ThemeMode _themeMode = ThemeMode.dark;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load saved theme preference
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,9 +57,20 @@ class NGSKGApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark,
+      themeMode: _themeMode,
       initialRoute: AppRoutes.home,
-      onGenerateRoute: AppRoutes.generateRoute,
+      onGenerateRoute: (settings) {
+        // Intercept settings route to pass theme callback
+        if (settings.name == AppRoutes.settings) {
+          return MaterialPageRoute(
+            builder: (_) => SettingsScreen(
+              currentTheme: _themeMode,
+              onThemeChanged: (mode) => setState(() => _themeMode = mode),
+            ),
+          );
+        }
+        return AppRoutes.generateRoute(settings);
+      },
       builder: (context, child) {
         return Stack(
           children: [

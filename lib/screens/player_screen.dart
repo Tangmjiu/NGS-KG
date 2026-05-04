@@ -202,12 +202,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
             player.setPlayMode(next);
           },
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.skip_previous, size: 32),
           onPressed: player.playPrevious,
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 8),
         Container(
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.primary,
@@ -219,21 +219,72 @@ class _PlayerScreenState extends State<PlayerScreen> {
             onPressed: player.togglePlayPause,
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.skip_next, size: 32),
           onPressed: player.playNext,
         ),
-        const SizedBox(width: 16),
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert, size: 24),
-          onSelected: (v) {},
-          itemBuilder: (_) => [
-            const PopupMenuItem(value: 'next', child: Text('下一首播放')),
-            const PopupMenuItem(value: 'add', child: Text('加入歌单')),
-          ],
+        const SizedBox(width: 8),
+        IconButton(
+          icon: const Icon(Icons.playlist_play, size: 24),
+          onPressed: () => _showPlaylist(player),
         ),
       ],
+    );
+  }
+
+  void _showPlaylist(PlayerProvider player) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            title: const Text('播放列表'),
+            trailing: Text('${player.playlist.length} 首'),
+          ),
+          const Divider(height: 1),
+          if (player.playlist.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Text('列表为空'),
+            )
+          else
+            SizedBox(
+              height: 300,
+              child: ListView.builder(
+                itemCount: player.playlist.length,
+                itemBuilder: (_, i) {
+                  final s = player.playlist[i];
+                  return ListTile(
+                    leading: Text('${i + 1}',
+                        style: TextStyle(
+                            color: i == player.currentIndex
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.grey)),
+                    title: Text(s.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    subtitle: Text(s.artistDisplay,
+                        style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+                    selected: i == player.currentIndex,
+                    onTap: () {
+                      Navigator.pop(context);
+                      player.playIndex(i);
+                    },
+                  );
+                },
+              ),
+            ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.delete_sweep),
+            title: const Text('清空列表'),
+            onTap: () {
+              player.setPlaylist([]);
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
     );
   }
 

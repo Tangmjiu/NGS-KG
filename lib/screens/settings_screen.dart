@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../services/api_client.dart';
 import '../utils/constants.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  final ValueChanged<ThemeMode>? onThemeChanged;
+  final ThemeMode currentTheme;
+
+  const SettingsScreen({super.key, this.onThemeChanged, this.currentTheme = ThemeMode.dark});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -16,7 +18,6 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final MusicService _musicService = MusicService();
   String? _serverTime;
-  int _cacheCount = 0;
 
   @override
   void initState() {
@@ -43,24 +44,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
         children: [
-          // 播放设置
-          const _SectionHeader('播放'),
-          Consumer<PlayerProvider>(
-            builder: (_, player, __) => SwitchListTile(
-              title: const Text('随机播放'),
-              subtitle: Text('当前: ${player.playMode.name}'),
-              value: player.playMode == PlayMode.shuffle,
-              onChanged: (v) => player.setPlayMode(v ? PlayMode.shuffle : PlayMode.sequential),
-            ),
+          // 主题
+          const _SectionHeader('主题'),
+          RadioListTile<ThemeMode>(
+            title: const Text('跟随系统'),
+            value: ThemeMode.system,
+            groupValue: widget.currentTheme,
+            onChanged: (v) { widget.onThemeChanged?.call(v!); Navigator.pop(context); },
           ),
-          ListTile(
-            title: const Text('清空播放列表'),
-            onTap: () {
-              context.read<PlayerProvider>().setPlaylist([]);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('播放列表已清空'), duration: Duration(seconds: 1)),
-              );
-            },
+          RadioListTile<ThemeMode>(
+            title: const Text('浅色模式'),
+            value: ThemeMode.light,
+            groupValue: widget.currentTheme,
+            onChanged: (v) { widget.onThemeChanged?.call(v!); Navigator.pop(context); },
+          ),
+          RadioListTile<ThemeMode>(
+            title: const Text('深色模式'),
+            value: ThemeMode.dark,
+            groupValue: widget.currentTheme,
+            onChanged: (v) { widget.onThemeChanged?.call(v!); Navigator.pop(context); },
           ),
           const Divider(),
 
@@ -107,14 +109,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // 关于
           const _SectionHeader('关于'),
-          const ListTile(
-            title: Text('版本'),
-            subtitle: Text('1.0.0+1'),
-          ),
-          const ListTile(
-            title: Text('API'),
-            subtitle: Text(AppConstants.baseUrl),
-          ),
+          const ListTile(title: Text('版本'), subtitle: Text('1.0.0+1')),
+          const ListTile(title: Text('API'), subtitle: Text(AppConstants.baseUrl)),
         ],
       ),
     );
