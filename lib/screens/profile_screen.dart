@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../services/music_service.dart';
 import '../widgets/playlist_card.dart';
+import '../widgets/create_playlist_dialog.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -155,7 +156,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (personal.isNotEmpty) ...[
-          const Text('我的歌单', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('我的歌单', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              TextButton.icon(
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('新建'),
+                onPressed: () => showDialog(context: context, builder: (_) => const CreatePlaylistDialog()),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           ...personal.map((pl) => PlaylistCard(playlist: pl)),
         ],

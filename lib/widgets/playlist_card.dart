@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/playlist.dart';
+import '../services/music_service.dart';
 
 class PlaylistCard extends StatelessWidget {
   final Playlist playlist;
@@ -18,6 +19,26 @@ class PlaylistCard extends StatelessWidget {
               ? {'gcId': playlist.globalCollectionId, 'name': playlist.name}
               : {'id': playlist.id, 'name': playlist.name};
           Navigator.pushNamed(context, '/playlist/detail', arguments: args);
+        },
+        onLongPress: () {
+          showModalBottomSheet(
+            context: context,
+            builder: (_) => SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: Icon(Icons.delete, color: Colors.red[400]),
+                    title: Text('删除歌单', style: TextStyle(color: Colors.red[400])),
+                    onTap: () {
+                      Navigator.pop(context);
+                      MusicService().deletePlaylist(playlist.id);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
         },
         child: Padding(
           padding: const EdgeInsets.all(8),

@@ -45,7 +45,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     subtitle: '暂无新通知'),
                 const Divider(),
                 _sectionTile(Icons.favorite_outline, '点赞与收藏',
-                    subtitle: '暂无新消息'),
+                    subtitle: '暂无新消息',
+                    onTap: () => Navigator.pushNamed(context, '/messages')), // Placeholder
+                const Divider(),
+                _sectionTile(Icons.video_library, '收藏的视频',
+                    onTap: () => Navigator.pushNamed(context, '/videos/favorite')),
+                const Divider(),
+                _sectionTile(Icons.thumb_up, '喜欢的视频',
+                    onTap: () => Navigator.pushNamed(context, '/videos/liked')),
               ],
             ),
     );
