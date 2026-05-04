@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../widgets/song_tile.dart';
@@ -52,8 +53,15 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         children: [
           const Padding(
             padding: EdgeInsets.all(12),
-            child: Text('排行榜',
+            child: Text('发现',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          ),
+          _buildQuickLinks(),
+          const SizedBox(height: 8),
+          const Padding(
+            padding: EdgeInsets.all(12),
+            child: Text('排行榜',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ),
           if (_loadingRanks)
             const SizedBox(
@@ -107,7 +115,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           const Padding(
             padding: EdgeInsets.all(12),
             child: Text('新歌速递',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ),
           if (_loadingNewSongs)
             const Center(child: CircularProgressIndicator())
@@ -117,10 +125,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               child: Center(child: Text('暂无数据')),
             )
           else
-            ..._newSongs!.map((s) => SongTile(
+            ..._newSongs!.map<Widget>((s) => SongTile(
                   song: s,
-                  onTap: () {
-                    context.read<PlayerProvider>().playSong(s, playlist: _newSongs);
+                  onTap: (song) {
+                    context
+                        .read<PlayerProvider>()
+                        .playSong(song, playlist: _newSongs);
                   },
                 )),
         ],
@@ -128,9 +138,36 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     );
   }
 
+  Widget _buildQuickLinks() {
+    final links = [
+      ('歌手', Icons.person, '/artist/list'),
+      ('电台', Icons.radio, '/fm'),
+      ('曲谱', Icons.music_note, '/sheet/list'),
+    ];
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: links
+          .map((e) => Column(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pushNamed(context, e.$3),
+                    icon: Icon(e.$2, size: 32),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.grey[800],
+                      fixedSize: const Size(56, 56),
+                    ),
+                  ),
+                  Text(e.$1, style: const TextStyle(fontSize: 12)),
+                ],
+              ))
+          .toList(),
+    );
+  }
+
   void _openRank(Map<String, dynamic> rank) {
     final id = rank['id'] as int?;
     if (id == null) return;
-    Navigator.pushNamed(context, '/rank/detail', arguments: {'id': id, 'name': rank['name'] as String?});
+    Navigator.pushNamed(context, '/rank/detail',
+        arguments: {'id': id, 'name': rank['name'] as String?});
   }
 }

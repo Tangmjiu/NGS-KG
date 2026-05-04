@@ -25,10 +25,11 @@ class MusicService {
     return list.map((e) => e.toString()).toList();
   }
 
-  Future<List<String>> getHotSearch() async {
+  Future<List<Map<String, dynamic>>> getHotSearch() async {
     final res = await _client.get('/search/hot');
-    final list = res.data['data'] as List<dynamic>;
-    return list.map((e) => e['text'] as String).toList();
+    final raw = res.data['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
   }
 
   Future<SongUrl> getSongUrl(int songId) async {
@@ -87,9 +88,7 @@ class MusicService {
   Future<List<Map<String, dynamic>>> getRankList() async {
     final res = await _client.get('/rank/list');
     final raw = res.data['data'];
-    if (raw is List) {
-      return raw.cast<Map<String, dynamic>>();
-    }
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
   }
 
@@ -110,6 +109,144 @@ class MusicService {
     if (raw is List) {
       return raw
           .map((e) => Song.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getArtistList(
+      {int limit = 30, int offset = 0}) async {
+    final res = await _client.get('/artist/list',
+        params: {'limit': limit, 'offset': offset});
+    final raw = res.data['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<Map<String, dynamic>> getArtistDetail(int artistId) async {
+    final res = await _client.get('/artist/detail', params: {'id': artistId});
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> getArtistAlbums(int artistId) async {
+    final res =
+        await _client.get('/artist/albums', params: {'id': artistId});
+    final raw = res.data['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<List<Song>> getArtistAudios(int artistId) async {
+    final res =
+        await _client.get('/artist/audios', params: {'id': artistId});
+    final raw = res.data['data'];
+    if (raw is List) {
+      return raw
+          .map((e) => Song.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getMusicComments(int songId,
+      {int limit = 20, int offset = 0}) async {
+    final res = await _client.get('/comment/music',
+        params: {'id': songId, 'limit': limit, 'offset': offset});
+    final raw = res.data['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    final list = (raw as Map<String, dynamic>)['comments'] as List<dynamic>?;
+    if (list != null) return list.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getPlaylistComments(int playlistId,
+      {int limit = 20, int offset = 0}) async {
+    final res = await _client.get('/comment/playlist',
+        params: {'id': playlistId, 'limit': limit, 'offset': offset});
+    final raw = res.data['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    final list = (raw as Map<String, dynamic>)['comments'] as List<dynamic>?;
+    if (list != null) return list.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getSheetList({int limit = 30}) async {
+    final res =
+        await _client.get('/sheet/list', params: {'limit': limit});
+    final raw = res.data['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<Map<String, dynamic>> getSheetDetail(int sheetId) async {
+    final res = await _client.get('/sheet/detail', params: {'id': sheetId});
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> getHotSheets() async {
+    final res = await _client.get('/sheet/hot');
+    final raw = res.data['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getFmRecommend() async {
+    final res = await _client.get('/fm/recommend');
+    final raw = res.data['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<List<Song>> getFmSongs(int fmId) async {
+    final res = await _client.get('/fm/songs', params: {'id': fmId});
+    final raw = res.data['data'];
+    if (raw is List) {
+      return raw
+          .map((e) => Song.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getPlaylistTags() async {
+    final res = await _client.get('/playlist/tags');
+    final raw = res.data['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<Map<String, dynamic>> getPersonalFm() async {
+    final res = await _client.get('/personal/fm');
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> getDailyRecommend() async {
+    final res = await _client.get('/everyday/recommend');
+    final raw = res.data['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getYuekuBanner() async {
+    final res = await _client.get('/yueku/banner');
+    final raw = res.data['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getTopIp() async {
+    final res = await _client.get('/top/ip');
+    final raw = res.data['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<List<Playlist>> getIpPlaylist(String ipId) async {
+    final res = await _client.get('/ip/playlist', params: {'id': ipId});
+    final raw = res.data['data'];
+    if (raw is List) {
+      return raw
+          .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
           .toList();
     }
     return [];
