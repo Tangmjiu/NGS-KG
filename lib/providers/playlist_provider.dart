@@ -7,10 +7,12 @@ class PlaylistProvider extends ChangeNotifier {
 
   List<Playlist> _topPlaylists = [];
   PlaylistDetail? _currentPlaylist;
+  List<Playlist> _userPlaylists = [];
   bool _isLoading = false;
 
   List<Playlist> get topPlaylists => _topPlaylists;
   PlaylistDetail? get currentPlaylist => _currentPlaylist;
+  List<Playlist> get userPlaylists => _userPlaylists;
   bool get isLoading => _isLoading;
 
   Future<void> fetchTopPlaylists({int limit = 30}) async {
@@ -28,6 +30,17 @@ class PlaylistProvider extends ChangeNotifier {
     notifyListeners();
     try {
       _currentPlaylist = await _musicService.getPlaylistDetail(id);
+    } catch (_) {}
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> fetchUserPlaylist(int? userId) async {
+    if (userId == null) return;
+    _isLoading = true;
+    notifyListeners();
+    try {
+      _userPlaylists = await _musicService.getUserPlaylist(userId: userId);
     } catch (_) {}
     _isLoading = false;
     notifyListeners();
