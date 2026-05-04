@@ -18,9 +18,9 @@ class TabletScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!Responsive.isTabletLandscape(context)) {
-      return _PhoneLayout();
+      return _phoneLayout(context);
     }
-    return _TabletLayout();
+    return _tabletLayout(context);
   }
 
   Widget _phoneBottomNav() {
@@ -31,19 +31,15 @@ class TabletScaffold extends StatelessWidget {
     );
   }
 
-  Widget _PhoneLayout() {
-    return Builder(
-      builder: (context) {
-        final page = pages[currentIndex];
-        return Scaffold(
-          body: page,
-          bottomNavigationBar: _phoneBottomNav(),
-        );
-      },
+  Widget _phoneLayout(BuildContext context) {
+    final page = pages[currentIndex];
+    return Scaffold(
+      body: page,
+      bottomNavigationBar: _phoneBottomNav(),
     );
   }
 
-  Widget _TabletLayout() {
+  Widget _tabletLayout(BuildContext context) {
     return Row(
       children: [
         NavigationRail(
