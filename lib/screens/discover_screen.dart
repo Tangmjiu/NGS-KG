@@ -80,9 +80,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 runSpacing: 4,
                 children: _playlistTags.map((t) {
                   final name = t['tag_name'] as String? ?? '';
+                  final id = t['tag_id'] as int? ?? 0;
                   return ActionChip(
                     label: Text(name, style: const TextStyle(fontSize: 12)),
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/search');
+                    },
                     visualDensity: VisualDensity.compact,
                   );
                 }).toList(),
