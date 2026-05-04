@@ -7,6 +7,18 @@ class ApiClient {
   static ApiClient? _instance;
   late final Dio _dio;
   late final CookieJar _cookieJar;
+  static String? _authToken;
+  static String? _authUserId;
+
+  static void setAuth(String? token, String? userId) {
+    _authToken = token;
+    _authUserId = userId;
+  }
+
+  static void clearAuth() {
+    _authToken = null;
+    _authUserId = null;
+  }
 
   ApiClient._() {
     _cookieJar = CookieJar();
@@ -43,11 +55,12 @@ class ApiClient {
     return _dio.post(path, data: data);
   }
 
-  /// 从 CookieJar 中提取已登录的 cookie 字符串，格式: key=value;key=value;...
-  /// 供部分需要显式传递 cookie 参数的 API 使用。
   Future<String> getCookieString() async {
     final uri = Uri.parse(AppConstants.baseUrl);
     final cookies = await _cookieJar.loadForRequest(uri);
-    return cookies.map((c) => '${c.name}=${c.value}').join(';');
+    final parts = cookies.map((c) => '${c.name}=${c.value}').toList();
+    if (_authToken != null) parts.add('token=$_authToken');
+    if (_authUserId != null) parts.add('userid=$_authUserId');
+    return parts.join(';');
   }
 }

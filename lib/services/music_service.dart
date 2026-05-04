@@ -14,8 +14,9 @@ class MusicService {
       'offset': offset,
       'cookie': cookie,
     });
-    final list = res.data['data']['songs'] as List<dynamic>;
-    return list.map((e) => Song.fromJson(e as Map<String, dynamic>)).toList();
+    final data = res.data['data'];
+    final list = data['songs'] as List<dynamic>? ?? data['lists'] as List<dynamic>? ?? [];
+    return list.map((e) => Song.fromKugouJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<List<String>> getSearchSuggest(String keyword) async {

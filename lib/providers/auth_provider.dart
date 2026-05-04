@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
+import '../services/api_client.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -26,6 +27,7 @@ class AuthProvider extends ChangeNotifier {
       if (await file.exists()) {
         final data = jsonDecode(await file.readAsString());
         _user = User.fromJson(data as Map<String, dynamic>);
+        ApiClient.setAuth(_user!.token, _user!.userId?.toString());
         notifyListeners();
       }
     } catch (_) {}
@@ -57,7 +59,10 @@ class AuthProvider extends ChangeNotifier {
       _user = await _authService.loginWithPassword(username, password);
       _isLoading = false;
       notifyListeners();
-      if (_user != null) await _saveUser();
+      if (_user != null) {
+        await _saveUser();
+        ApiClient.setAuth(_user!.token, _user!.userId?.toString());
+      }
       return _user != null;
     } catch (e) {
       _isLoading = false;
@@ -66,14 +71,17 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> loginWithPhone(String phone, String code) async {
+  Future<bool> loginWithPhone(String mobile, String code) async {
     _isLoading = true;
     notifyListeners();
     try {
-      _user = await _authService.loginWithPhone(phone, code);
+      _user = await _authService.loginWithPhone(mobile, code);
       _isLoading = false;
       notifyListeners();
-      if (_user != null) await _saveUser();
+      if (_user != null) {
+        await _saveUser();
+        ApiClient.setAuth(_user!.token, _user!.userId?.toString());
+      }
       return _user != null;
     } catch (e) {
       _isLoading = false;
@@ -101,6 +109,7 @@ class AuthProvider extends ChangeNotifier {
       final userData = (res['data'] as Map)['user'] as Map<String, dynamic>?;
       if (userData != null) {
         _user = User.fromJson(userData);
+        ApiClient.setAuth(_user!.token, _user!.userId?.toString());
         _saveUser();
         notifyListeners();
       }
@@ -110,6 +119,7 @@ class AuthProvider extends ChangeNotifier {
 
   void logout() {
     _user = null;
+    ApiClient.clearAuth();
     _clearSavedUser();
     notifyListeners();
   }
