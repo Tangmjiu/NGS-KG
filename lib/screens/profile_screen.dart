@@ -51,10 +51,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 32,
-              backgroundImage: user.avatarUrl != null ? NetworkImage(user.avatarUrl!) : null,
-              child: user.avatarUrl == null ? const Icon(Icons.person, size: 32) : null,
+            GestureDetector(
+              onTap: () => Navigator.pushNamed(context, '/user/profile'),
+              child: CircleAvatar(
+                radius: 32,
+                backgroundImage: user.avatarUrl != null ? NetworkImage(user.avatarUrl!) : null,
+                child: user.avatarUrl == null ? const Icon(Icons.person, size: 32) : null,
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
