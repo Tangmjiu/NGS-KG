@@ -94,12 +94,15 @@ class MusicService {
     return [];
   }
 
-  Future<SongUrl> getSongUrl(int songId, {String? hash}) async {
+  Future<SongUrl> getSongUrl(int songId, {String? hash, String? quality}) async {
     final params = <String, dynamic>{};
     if (hash != null) {
       params['hash'] = hash;
     } else {
       params['id'] = songId;
+    }
+    if (quality != null) {
+      params['quality'] = quality;
     }
     final res = await _get('/song/url', params: params);
     return SongUrl.fromJson(res);
