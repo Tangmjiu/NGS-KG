@@ -116,9 +116,6 @@ http://171.80.2.129:42980
 | | `/artist/audios` | 歌手歌曲 | 正常 |
 | 电台 | `/fm/recommend` | 推荐电台 | 正常 |
 | | `/fm/songs` | 电台歌曲（参数：fmid） | 正常 |
-| 曲谱 | `/sheet/list` | 曲谱列表 | 正常 |
-| | `/sheet/detail` | 曲谱详情 | 正常 |
-| | `/sheet/hot` | 推荐曲谱 | 正常 |
 | 评论 | `/comment/music` | 歌曲评论 | 正常 |
 | | `/comment/playlist` | 歌单评论 | 正常 |
 | 其他 | `/server/now` | 服务器时间 | 正常 |
