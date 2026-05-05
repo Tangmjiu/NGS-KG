@@ -35,7 +35,7 @@ class _LoginScreenState extends State<LoginScreen>
         bottom: TabBar(
           controller: _tabCtrl,
           tabs: const [
-            Tab(text: '密码'),
+            // Tab(text: '密码'),
             Tab(text: '手机'),
             // Tab(text: '二维码'),
           ],
@@ -44,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen>
       body: TabBarView(
         controller: _tabCtrl,
         children: const [
-          _PasswordLogin(),
+          // _PasswordLogin(),
           _PhoneLogin(),
           // _QrLogin(),
         ],
