@@ -52,11 +52,15 @@ class AuthProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<bool> loginWithPassword(String username, String password) async {
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
+
+  Future<bool> loginWithPassword(String username, String password, {String? captcha}) async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
     try {
-      _user = await _authService.loginWithPassword(username, password);
+      _user = await _authService.loginWithPassword(username, password, captcha: captcha);
       _isLoading = false;
       notifyListeners();
       if (_user != null) {
@@ -66,6 +70,7 @@ class AuthProvider extends ChangeNotifier {
       return _user != null;
     } catch (e) {
       _isLoading = false;
+      _errorMessage = e.toString();
       notifyListeners();
       return false;
     }

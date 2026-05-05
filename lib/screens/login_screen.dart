@@ -65,21 +65,44 @@ class _PasswordLogin extends StatefulWidget {
 class _PasswordLoginState extends State<_PasswordLogin> {
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  final _captchaCtrl = TextEditingController();
+  String? _errorMsg;
+  bool _showCaptcha = false;
 
   @override
   void dispose() {
     _usernameCtrl.dispose();
     _passwordCtrl.dispose();
+    _captchaCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _login() async {
+    setState(() => _errorMsg = null);
     final auth = context.read<AuthProvider>();
+    String? captcha;
+    if (_showCaptcha) {
+      captcha = _captchaCtrl.text.trim();
+      if (captcha.isEmpty) {
+        setState(() => _errorMsg = '请输入验证码');
+        return;
+      }
+    }
     final ok = await auth.loginWithPassword(
       _usernameCtrl.text.trim(),
       _passwordCtrl.text.trim(),
+      captcha: captcha,
     );
-    if (ok && mounted) Navigator.pop(context);
+    if (ok && mounted) {
+      Navigator.pop(context);
+    } else if (auth.errorMessage != null) {
+      setState(() {
+        _errorMsg = auth.errorMessage;
+        if (_errorMsg?.contains('验证') == true) {
+          _showCaptcha = true;
+        }
+      });
+    }
   }
 
   @override
@@ -107,6 +130,39 @@ class _PasswordLoginState extends State<_PasswordLogin> {
               border: OutlineInputBorder(),
             ),
           ),
+          if (_showCaptcha) ...[
+            const SizedBox(height: 16),
+            TextField(
+              controller: _captchaCtrl,
+              decoration: const InputDecoration(
+                labelText: '验证码',
+                prefixIcon: Icon(Icons.security),
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+          if (_errorMsg != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withAlpha(26),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning, color: Colors.red, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _errorMsg!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
           Consumer<AuthProvider>(
             builder: (_, auth, __) => SizedBox(
@@ -122,6 +178,12 @@ class _PasswordLoginState extends State<_PasswordLogin> {
                     : const Text('登录'),
               ),
             ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            '提示：密码登录可能需要验证码验证，建议使用手机验证码登录',
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
