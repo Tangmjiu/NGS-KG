@@ -22,6 +22,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   int _currentLine = 0;
   bool _lyricLoading = false;
   String? _lastLoadedHash;
+  final ScrollController _lyricScrollController = ScrollController();
+  bool _lyricAutoScroll = true;
 
   @override
   Widget build(BuildContext context) {
@@ -152,9 +154,63 @@ class _PlayerScreenState extends State<PlayerScreen> {
       lyricWidgets.add(const Expanded(child: Center(child: Text('暂无歌词'))));
     } else {
       lyricWidgets.add(Expanded(
-        child: ListView.builder(
-          itemCount: _lyrics.length,
-          itemBuilder: (_, i) {
+        child: Stack(
+          children: [
+            NotificationListener<ScrollNotification>(
+              onNotification: (n) {
+                if (n is ScrollStartNotification && n.dragDetails != null) {
+                  _lyricAutoScroll = false;
+                  setState(() {});
+                }
+                return false;
+              },
+              child: ListView.builder(
+                controller: _lyricScrollController,
+                itemCount: _lyrics.length,
+                itemBuilder: (_, i) {
+                  final line = _lyrics[i];
+                  final isCurrent = i == _currentLine;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+                    child: Text(
+                      line.text,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: isCurrent ? 17 : 14,
+                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                        color: isCurrent
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.grey[400],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (!_lyricAutoScroll)
+              Positioned(
+                right: 16,
+                bottom: 16,
+                child: FloatingActionButton.small(
+                  heroTag: 'scrollToCurrent',
+                  onPressed: () {
+                    _lyricAutoScroll = true;
+                    _scrollToCurrentLine();
+                    setState(() {});
+                  },
+                  child: const Icon(Icons.skip_next, size: 20),
+                ),
+              ),
+          ],
+        ),
+      ));
+    }
+            return false;
+          },
+          child: ListView.builder(
+            controller: _lyricScrollController,
+            itemCount: _lyrics.length,
+            itemBuilder: (_, i) {
             final line = _lyrics[i];
             final isCurrent = i == _currentLine;
             return Padding(
@@ -174,6 +230,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
           },
         ),
       ));
+      if (!_lyricAutoScroll) {
+        lyricWidgets.add(Positioned(
+          right: 16,
+          bottom: 120,
+          child: FloatingActionButton.small(
+            heroTag: 'scrollToCurrent',
+            onPressed: () {
+              _lyricAutoScroll = true;
+              _scrollToCurrentLine();
+              setState(() {});
+            },
+            child: const Icon(Icons.skip_next, size: 20),
+          ),
+        ));
+      }
     }
     lyricWidgets.add(Padding(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
@@ -367,10 +438,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (_lyrics[i].time.inMilliseconds <= ms) {
         if (_currentLine != i) {
           _currentLine = i;
+          _scrollToCurrentLine();
           if (mounted) setState(() {});
         }
         return;
       }
+    }
+  }
+
+  void _scrollToCurrentLine() {
+    if (!_lyricAutoScroll) return;
+    final offset = _currentLine * 56.0 - 200;
+    if (_lyricScrollController.hasClients) {
+      _lyricScrollController.animateTo(
+        offset.clamp(0, _lyricScrollController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
     }
   }
 
@@ -433,6 +517,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$m:$s';
+  }
+
+  @override
+  void dispose() {
+    _lyricScrollController.dispose();
+    super.dispose();
   }
 }
 
