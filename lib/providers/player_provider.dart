@@ -307,7 +307,7 @@ class PlayerProvider extends ChangeNotifier {
     await session.configure(const AudioSessionConfiguration.music());
     session.interruptionEventStream.listen((event) {
       if (event.begin) {
-        if (_isPlaying) pause();
+        if (_isPlaying) _player.pause();
       }
     });
     session.devicesChangedEventStream.listen((_) {});
@@ -315,9 +315,11 @@ class PlayerProvider extends ChangeNotifier {
 
   void _checkSleepTimer() {
     if (_sleepTimerRemaining != null && _sleepTimerRemaining!.inSeconds <= 0) {
-      pause();
+      _player.pause();
+      _isPlaying = false;
       _sleepTimer?.cancel();
       _sleepTimerRemaining = null;
+      notifyListeners();
     }
   }
 

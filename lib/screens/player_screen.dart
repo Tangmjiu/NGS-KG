@@ -205,47 +205,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
       ));
     }
-            return false;
-          },
-          child: ListView.builder(
-            controller: _lyricScrollController,
-            itemCount: _lyrics.length,
-            itemBuilder: (_, i) {
-            final line = _lyrics[i];
-            final isCurrent = i == _currentLine;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
-              child: Text(
-                line.text,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: isCurrent ? 17 : 14,
-                  fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                  color: isCurrent
-                      ? Theme.of(context).colorScheme.primary
-                      : Colors.grey[400],
-                ),
-              ),
-            );
-          },
-        ),
-      ));
-      if (!_lyricAutoScroll) {
-        lyricWidgets.add(Positioned(
-          right: 16,
-          bottom: 120,
-          child: FloatingActionButton.small(
-            heroTag: 'scrollToCurrent',
-            onPressed: () {
-              _lyricAutoScroll = true;
-              _scrollToCurrentLine();
-              setState(() {});
-            },
-            child: const Icon(Icons.skip_next, size: 20),
-          ),
-        ));
-      }
-    }
     lyricWidgets.add(Padding(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
       child: _buildProgress(player),
@@ -431,7 +390,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  int _currentLine = 0;
   void _updateCurrentLine(Duration pos) {
     final ms = pos.inMilliseconds;
     for (int i = _lyrics.length - 1; i >= 0; i--) {

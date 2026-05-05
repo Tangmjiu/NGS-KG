@@ -62,18 +62,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
             )),
             ListTile(
               title: const Text('当前曲目播放完毕'),
-              onTap: () {
-                Navigator.pop(ctx);
-            },
-          ),
-          ListTile(
-            title: const Text('音效'),
-            subtitle: const Text('音量、播放速度、均衡器'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AudioEffectsScreen()),
+              onTap: () => Navigator.pop(ctx),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('设置')),
+      body: ListView(
+        children: [
+          // 主题
+          const _SectionHeader('主题'),
+          RadioListTile<ThemeMode>(
+            title: const Text('跟随系统'),
+            value: ThemeMode.system,
+            groupValue: widget.currentTheme,
+            onChanged: (v) { widget.onThemeChanged?.call(v!); Navigator.pop(context); },
+          ),
+          RadioListTile<ThemeMode>(
+            title: const Text('浅色模式'),
+            value: ThemeMode.light,
+            groupValue: widget.currentTheme,
+            onChanged: (v) { widget.onThemeChanged?.call(v!); Navigator.pop(context); },
+          ),
+          RadioListTile<ThemeMode>(
+            title: const Text('深色模式'),
+            value: ThemeMode.dark,
+            groupValue: widget.currentTheme,
+            onChanged: (v) { widget.onThemeChanged?.call(v!); Navigator.pop(context); },
           ),
           const Divider(),
 
@@ -145,6 +166,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: remaining != null ? null : () => _showSleepTimerDialog(context),
               );
             },
+          ),
+          ListTile(
+            title: const Text('音效'),
+            subtitle: const Text('音量、播放速度、均衡器'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AudioEffectsScreen()),
+            ),
           ),
           const Divider(),
 
@@ -222,8 +252,8 @@ class _DeveloperScreenState extends State<DeveloperScreen> {
     _loadInfo();
   }
 
-  void _loadInfo() {
-    final cookie = ApiClient.getCookieString();
+  Future<void> _loadInfo() async {
+    final cookie = await ApiClient.instance.getCookieString();
     setState(() {
       _dfid = ApiClient.dfid;
       final tokenMatch = RegExp(r'token=([^;]+)').firstMatch(cookie);
