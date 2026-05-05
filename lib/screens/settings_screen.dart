@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../services/api_client.dart';
 import '../utils/constants.dart';
+import 'audio_effects_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final ValueChanged<ThemeMode>? onThemeChanged;
@@ -40,31 +42,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
-      body: ListView(
-        children: [
-          // 主题
-          const _SectionHeader('主题'),
-          RadioListTile<ThemeMode>(
-            title: const Text('跟随系统'),
-            value: ThemeMode.system,
-            groupValue: widget.currentTheme,
-            onChanged: (v) { widget.onThemeChanged?.call(v!); Navigator.pop(context); },
+  void _showSleepTimerDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('睡眠定时', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+            ...[15, 30, 45, 60].map((m) => ListTile(
+              title: Text('$m 分钟'),
+              onTap: () {
+                context.read<PlayerProvider>().setSleepTimer(Duration(minutes: m));
+                Navigator.pop(ctx);
+              },
+            )),
+            ListTile(
+              title: const Text('当前曲目播放完毕'),
+              onTap: () {
+                Navigator.pop(ctx);
+            },
           ),
-          RadioListTile<ThemeMode>(
-            title: const Text('浅色模式'),
-            value: ThemeMode.light,
-            groupValue: widget.currentTheme,
-            onChanged: (v) { widget.onThemeChanged?.call(v!); Navigator.pop(context); },
-          ),
-          RadioListTile<ThemeMode>(
-            title: const Text('深色模式'),
-            value: ThemeMode.dark,
-            groupValue: widget.currentTheme,
-            onChanged: (v) { widget.onThemeChanged?.call(v!); Navigator.pop(context); },
+          ListTile(
+            title: const Text('音效'),
+            subtitle: const Text('音量、播放速度、均衡器'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AudioEffectsScreen()),
+            ),
           ),
           const Divider(),
 
@@ -104,6 +113,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('缓存已清除'), duration: Duration(seconds: 1)),
+              );
+            },
+          ),
+          const Divider(),
+
+          // 播放设置
+          const _SectionHeader('播放'),
+          Consumer<PlayerProvider>(
+            builder: (_, player, __) => SwitchListTile(
+              title: const Text('跑步模式'),
+              subtitle: const Text('播放时保持屏幕常亮'),
+              value: player.isKeepScreenOn,
+              onChanged: (v) => player.setKeepScreenOn(v),
+            ),
+          ),
+          Consumer<PlayerProvider>(
+            builder: (_, player, __) {
+              final remaining = player.sleepTimerRemaining;
+              return ListTile(
+                title: const Text('睡眠定时'),
+                subtitle: Text(remaining != null
+                    ? '${remaining.inMinutes}分钟后关闭'
+                    : '未设置'),
+                trailing: remaining != null
+                    ? IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: player.cancelSleepTimer,
+                      )
+                    : const Icon(Icons.chevron_right),
+                onTap: remaining != null ? null : () => _showSleepTimerDialog(context),
               );
             },
           ),

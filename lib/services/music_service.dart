@@ -6,6 +6,8 @@ import '../models/playlist.dart';
 class MusicService {
   final ApiClient _client = ApiClient.instance;
 
+  String get _userId => ApiClient.userId ?? '0';
+
   Future<Map<String, dynamic>> _get(String path,
       {Map<String, dynamic>? params, bool withAuth = true}) async {
     final p = Map<String, dynamic>.from(params ?? {});
@@ -463,26 +465,31 @@ class MusicService {
   // ─── 歌单管理 ───
 
   Future<Map<String, dynamic>> createPlaylist(String name,
-      {String? description}) async {
-    final params = <String, dynamic>{'name': name};
-    if (description != null) params['description'] = description;
+      {int type = 0, int isPri = 0, int? listCreateListid}) async {
+    final params = <String, dynamic>{
+      'name': name,
+      'list_create_userid': _userId,
+      'type': type,
+      'is_pri': isPri,
+    };
+    if (listCreateListid != null) params['list_create_listid'] = listCreateListid;
     return _get('/playlist/add', params: params);
   }
 
-  Future<Map<String, dynamic>> deletePlaylist(int playlistId) async {
-    return _get('/playlist/del', params: {'id': playlistId});
+  Future<Map<String, dynamic>> deletePlaylist(int listid) async {
+    return _get('/playlist/del', params: {'listid': listid});
   }
 
   Future<Map<String, dynamic>> addTracksToPlaylist(
-      int playlistId, List<int> songIds) async {
+      int listid, String data) async {
     return _get('/playlist/tracks/add',
-        params: {'id': playlistId, 'songIds': songIds.join(',')});
+        params: {'listid': listid, 'data': data});
   }
 
   Future<Map<String, dynamic>> removeTracksFromPlaylist(
-      int playlistId, List<int> songIds) async {
+      int listid, String fileids) async {
     return _get('/playlist/tracks/del',
-        params: {'id': playlistId, 'songIds': songIds.join(',')});
+        params: {'listid': listid, 'fileids': fileids});
   }
 
   // ─── 收藏视频 ───

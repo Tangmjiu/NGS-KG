@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:audio_session/audio_session.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/song.dart';
 import '../services/music_service.dart';
 import '../services/notification_service.dart';
@@ -28,6 +30,9 @@ class PlayerProvider extends ChangeNotifier {
   int _playAttempts = 0;
   int _qualityLevel = 0;
   static const int _maxRetries = 2;
+  bool _isKeepScreenOn = false;
+  Timer? _sleepTimer;
+  Duration? _sleepTimerRemaining;
 
   StreamSubscription? _positionSub;
   StreamSubscription? _durationSub;
@@ -45,11 +50,15 @@ class PlayerProvider extends ChangeNotifier {
   String? get error => _error;
   double get progress =>
       _duration.inMilliseconds > 0 ? _position.inMilliseconds / _duration.inMilliseconds : 0.0;
+  bool get isKeepScreenOn => _isKeepScreenOn;
+  Duration? get sleepTimerRemaining => _sleepTimerRemaining;
 
   PlayerProvider() {
+    _initAudioSession();
     _positionSub = _player.onPositionChanged.listen((p) {
       _position = p;
       notifyListeners();
+      _checkSleepTimer();
     });
     _durationSub = _player.onDurationChanged.listen((d) {
       _duration = d;
@@ -293,12 +302,70 @@ class PlayerProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _initAudioSession() async {
+    final session = await AudioSession.instance;
+    await session.configure(const AudioSessionConfiguration.music());
+    session.interruptionEventStream.listen((event) {
+      if (event.begin) {
+        if (_isPlaying) pause();
+      }
+    });
+    session.devicesChangedEventStream.listen((_) {});
+  }
+
+  void _checkSleepTimer() {
+    if (_sleepTimerRemaining != null && _sleepTimerRemaining!.inSeconds <= 0) {
+      pause();
+      _sleepTimer?.cancel();
+      _sleepTimerRemaining = null;
+    }
+  }
+
+  Future<void> setKeepScreenOn(bool on) async {
+    _isKeepScreenOn = on;
+    if (on) {
+      await WakelockPlus.enable();
+    } else {
+      await WakelockPlus.disable();
+    }
+    notifyListeners();
+  }
+
+  void setSleepTimer(Duration duration) {
+    _sleepTimer?.cancel();
+    _sleepTimerRemaining = duration;
+    _sleepTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_sleepTimerRemaining != null) {
+        _sleepTimerRemaining = _sleepTimerRemaining! - const Duration(seconds: 1);
+        notifyListeners();
+        _checkSleepTimer();
+      }
+    });
+    notifyListeners();
+  }
+
+  void cancelSleepTimer() {
+    _sleepTimer?.cancel();
+    _sleepTimerRemaining = null;
+    notifyListeners();
+  }
+
+  void setVolume(double volume) {
+    _player.setVolume(volume);
+  }
+
+  void setSpeed(double speed) {
+    _player.setPlaybackRate(speed);
+  }
+
   @override
   void dispose() {
     _positionSub?.cancel();
     _durationSub?.cancel();
     _stateSub?.cancel();
+    _sleepTimer?.cancel();
     _player.dispose();
+    WakelockPlus.disable();
     super.dispose();
   }
 }
