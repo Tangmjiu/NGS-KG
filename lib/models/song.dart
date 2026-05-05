@@ -81,11 +81,14 @@ class Song {
         '320': 'hash_320',
         'flac': 'hash_flac',
         'high': 'hash_high',
-        'super': 'hash_super',
       };
       for (final entry in fields.entries) {
         final v = audioInfo[entry.value] as String?;
         if (v != null && v.isNotEmpty) q[entry.key] = v;
+      }
+      // 兼容：如果有flac但没有high，用flac
+      if (q.containsKey('flac') && !q.containsKey('high')) {
+        q['high'] = q['flac']!;
       }
     }
     return Song(
@@ -116,6 +119,8 @@ class Song {
       if (v320 != null && v320.isNotEmpty) q['320'] = v320;
       final vFlac = audioInfo['hash_flac'] as String?;
       if (vFlac != null && vFlac.isNotEmpty) q['flac'] = vFlac;
+      final vHigh = audioInfo['hash_high'] as String?;
+      if (vHigh != null && vHigh.isNotEmpty) q['high'] = vHigh;
     }
     if (hash == null || hash!.isEmpty) {
       final deprecated = json['deprecated'];
