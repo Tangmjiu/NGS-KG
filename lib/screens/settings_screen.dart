@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:path_provider/path_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/music_service.dart';
 import '../services/api_client.dart';
@@ -110,7 +112,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // 关于
           const _SectionHeader('关于'),
           const ListTile(title: Text('版本'), subtitle: Text('1.0.0+1')),
-          const ListTile(title: Text('API'), subtitle: Text(AppConstants.baseUrl)),
+          ListTile(
+            title: const Text('开发者'),
+            subtitle: const Text('调试功能'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('警告'),
+                  content: const Text('此界面仅供调试使用'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('取消'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const DeveloperScreen()),
+                        );
+                      },
+                      child: const Text('继续'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -130,6 +161,107 @@ class _SectionHeader extends StatelessWidget {
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: Theme.of(context).colorScheme.primary)),
+    );
+  }
+}
+
+class DeveloperScreen extends StatefulWidget {
+  const DeveloperScreen({super.key});
+
+  @override
+  State<DeveloperScreen> createState() => _DeveloperScreenState();
+}
+
+class _DeveloperScreenState extends State<DeveloperScreen> {
+  String? _dfid;
+  String? _token;
+  String? _userId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInfo();
+  }
+
+  void _loadInfo() {
+    final cookie = ApiClient.getCookieString();
+    setState(() {
+      _dfid = ApiClient.dfid;
+      final tokenMatch = RegExp(r'token=([^;]+)').firstMatch(cookie);
+      final userMatch = RegExp(r'userid=([^;]+)').firstMatch(cookie);
+      _token = tokenMatch?.group(1);
+      _userId = userMatch?.group(1);
+    });
+  }
+
+  Future<void> _resetDfid() async {
+    final dfid = await MusicService().registerDevice();
+    if (dfid.isNotEmpty) {
+      ApiClient.setDfid(dfid);
+      _loadInfo();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('dfid 已重置')));
+    }
+  }
+
+  Future<void> _clearCookie() async {
+    ApiClient.clearAuth();
+    _loadInfo();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cookie 已清除')));
+  }
+
+  Future<void> _exportLog() async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/debug_log.txt');
+      final content = '''
+dfid: $_dfid
+token: $_token
+userid: $_userId
+API: ${AppConstants.baseUrl}
+''';
+      await file.writeAsString(content);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('已导出到: ${file.path}')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('导出失败: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('开发者')),
+      body: ListView(
+        children: [
+          ListTile(
+            title: const Text('dfid'),
+            subtitle: Text(_dfid ?? '未知'),
+          ),
+          ListTile(
+            title: const Text('token'),
+            subtitle: Text(_token ?? '未登录'),
+          ),
+          ListTile(
+            title: const Text('userid'),
+            subtitle: Text(_userId ?? '未登录'),
+          ),
+          const Divider(),
+          ListTile(
+            title: const Text('重置 dfid'),
+            subtitle: const Text('重新注册设备'),
+            onTap: _resetDfid,
+          ),
+          ListTile(
+            title: const Text('清除 Cookie'),
+            subtitle: const Text('退出登录并清除认证信息'),
+            onTap: _clearCookie,
+          ),
+          ListTile(
+            title: const Text('导出 Log'),
+            subtitle: const Text('导出当前调试信息'),
+            onTap: _exportLog,
+          ),
+        ],
+      ),
     );
   }
 }

@@ -61,7 +61,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _quickLink(Icons.radio, '电台', '/fm'),
-              _quickLink(Icons.music_note, '曲谱', '/sheet/list'),
             ],
           ),
           const SizedBox(height: 16),
@@ -84,7 +83,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   return ActionChip(
                     label: Text(name, style: const TextStyle(fontSize: 12)),
                     onPressed: () {
-                      Navigator.pushNamed(context, '/search');
+                      if (id > 0) {
+                        Navigator.pushNamed(context, '/playlist/category', arguments: {'id': id, 'name': name});
+                      }
                     },
                     visualDensity: VisualDensity.compact,
                   );
