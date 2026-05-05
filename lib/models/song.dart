@@ -27,14 +27,14 @@ class Song {
 
   String get artistDisplay => artists.join(' / ');
 
-  static const qualityLabels = ['128K', '320K', 'FLAC'];
-  static const qualityKeys = ['128', '320', 'flac'];
+  static const qualityLabels = ['标准', 'HQ', '无损'];
+  static const qualityKeys = ['128', '320', 'high'];
 
   String get currentQualityLabel {
-    if (qualities != null && qualities!.containsKey('128')) return '128K';
-    if (qualities != null && qualities!.containsKey('320')) return '320K';
-    if (qualities != null && qualities!.containsKey('flac')) return 'FLAC';
-    return hash != null && hash!.length > 20 ? '320K' : '128K';
+    if (qualities != null && qualities!.containsKey('128')) return '标准';
+    if (qualities != null && qualities!.containsKey('320')) return 'HQ';
+    if (qualities != null && (qualities!.containsKey('high') || qualities!.containsKey('flac'))) return '无损';
+    return hash != null && hash!.length > 20 ? 'HQ' : '标准';
   }
 
   factory Song.fromJson(Map<String, dynamic> json) {

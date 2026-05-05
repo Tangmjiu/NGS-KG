@@ -166,9 +166,9 @@ class PlayerProvider extends ChangeNotifier {
           await _player.play(DeviceFileSource(song.filePath!));
         }
       } else {
-        final playHash = _qualityHash;
+        final quality = _currentQuality;
         final songUrl = await _musicService.getSongUrl(song.id,
-            hash: playHash ?? song.hash);
+            hash: song.hash, quality: quality);
         if (songUrl.url.isNotEmpty) {
           await _player.play(UrlSource(songUrl.url));
           _musicService.uploadPlayHistory(song.id, duration: song.duration);
@@ -284,11 +284,12 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  String? get _qualityHash {
+  String? get _currentQuality {
     final q = _currentSong?.qualities;
     if (q == null || q.isEmpty) return null;
     final keys = ['128', '320', 'high'];
-    return q[keys[_qualityLevel % keys.length]];
+    final key = keys[_qualityLevel % keys.length];
+    return q.containsKey(key) ? key : null;
   }
 
   Future<void> switchQuality() async {
