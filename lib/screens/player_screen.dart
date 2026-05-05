@@ -54,14 +54,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     arguments: {'type': 'music', 'id': song.id}),
               ),
               Consumer<LikedSongsProvider>(
-                builder: (_, liked, __) {
-                  final likedSongs = liked.likedIds;
-                  return IconButton(
-                    icon: Icon(likedSongs.contains(song.id) ? Icons.favorite : Icons.favorite_border, size: 20),
-                    color: likedSongs.contains(song.id) ? Colors.red : null,
-                    onPressed: () => liked.toggle(song.id),
-                  );
-                },
+                builder: (_, liked, __) => IconButton(
+                  icon: Icon(liked.likedIds.contains(song.id) ? Icons.favorite : Icons.favorite_border, size: 20),
+                  color: liked.likedIds.contains(song.id) ? Colors.red : null,
+                  onPressed: () => liked.toggle(SongInfo(
+                    id: song.id,
+                    name: song.name,
+                    hash: song.hash ?? '',
+                    albumId: 0,
+                    audioId: song.id,
+                  )),
+                ),
               ),
             ],
           ),
