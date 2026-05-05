@@ -149,6 +149,18 @@ class MusicService {
         .toList();
   }
 
+  Future<List<Map<String, dynamic>>> getPlaylistTracksById(int listid,
+      {int page = 1, int pageSize = 1000}) async {
+    final res = await _get('/playlist/track/all',
+        params: {'id': 'collection_3_${_userId}_${listid}_0', 'page': page, 'pagesize': pageSize});
+    final data = res['data'];
+    if (data is Map) {
+      final songs = data['songs'] as List<dynamic>?;
+      if (songs != null) return songs.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
   Future<List<Playlist>> getUserPlaylist({int? userId}) async {
     final params = <String, dynamic>{};
     if (userId != null) params['userId'] = userId;
