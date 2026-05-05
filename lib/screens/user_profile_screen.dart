@@ -98,7 +98,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
                   if (_detail!['sign']?.toString()?.isNotEmpty == true)
                     Card(
                       child: Padding(
@@ -110,27 +109,24 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 8),
                             Text(_detail!['sign'].toString()),
-                ],
-                const SizedBox(height: 12),
-                Consumer<LikedSongsProvider>(
-                  builder: (_, liked, __) => Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.favorite, color: Colors.red),
-                      title: const Text('我喜欢的音乐'),
-                      subtitle: Text('${liked.likedIds.length} 首'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        // TODO: navigate to liked songs screen
-                      },
-                    ),
-                  ),
-                ),
+                          ],
                         ),
                       ),
                     ),
+                  Consumer<LikedSongsProvider>(
+                    builder: (_, liked, __) => Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.favorite, color: Colors.red),
+                        title: const Text('我喜欢的音乐'),
+                        subtitle: Text('${liked.likedIds.length} 首'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {},
+                      ),
+                    ),
+                  ),
                 ],
               ],
-            ),
+          ),
     );
   }
 

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../models/playlist.dart';
-import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 
 class PlaylistCategoryScreen extends StatefulWidget {
@@ -77,11 +75,11 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
                 final p = _playlists[index];
                 return GestureDetector(
                   onTap: () {
-                    if (p.isSpecial == true) {
+                    if (p.globalCollectionId != null) {
                       Navigator.pushNamed(
                         context,
                         '/playlist/detail',
-                        arguments: {'gcId': p.gcId, 'name': p.name},
+                        arguments: {'gcId': p.globalCollectionId, 'name': p.name},
                       );
                     } else {
                       Navigator.pushNamed(
@@ -96,9 +94,9 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: p.imgUrl.isNotEmpty
+                        child: (p.coverUrl != null && p.coverUrl!.isNotEmpty)
                             ? Image.network(
-                                p.imgUrl.replaceAll('{size}', '400'),
+                                p.coverUrl!,
                                 width: double.infinity,
                                 height: 100,
                                 fit: BoxFit.cover,
