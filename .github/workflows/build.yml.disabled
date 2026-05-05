@@ -3,6 +3,10 @@ name: Build Android APK
 on:
   push:
     branches: [android]
+    paths:
+      - 'lib/**'
+      - 'pubspec.yaml'
+      - 'android/**'
   pull_request:
     branches: [android]
 
