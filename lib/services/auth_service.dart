@@ -10,10 +10,18 @@ class AuthService {
     return User.fromJson(res.data['data']);
   }
 
-  Future<User?> loginWithPassword(String username, String password) async {
-    final res = await _client
-        .get('/login', params: {'username': username, 'password': password});
-    return User.fromJson(res.data['data']);
+  Future<User?> loginWithPassword(String username, String password, {String? captcha}) async {
+    final params = <String, dynamic>{'username': username, 'password': password};
+    if (captcha != null && captcha.isNotEmpty) {
+      params['captcha'] = captcha;
+    }
+    final res = await _client.get('/login', params: params);
+    final data = res.data;
+    if (data['error_code'] != 0) {
+      final msg = data['data']?.toString() ?? '登录失败';
+      throw Exception(msg);
+    }
+    return User.fromJson(data['data']);
   }
 
   Future<Map<String, dynamic>> getQrKey() async {
