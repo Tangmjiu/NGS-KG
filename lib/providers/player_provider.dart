@@ -191,7 +191,14 @@ class PlayerProvider extends ChangeNotifier {
     if (playlist != null) {
       _playlist = playlist;
       _currentIndex = playlist.indexWhere((s) => s.id == song.id);
+      if (_currentIndex < 0) {
+        _playlist = [song];
+        _currentIndex = 0;
+      }
       if (_playMode == PlayMode.shuffle) _initShuffle();
+    } else {
+      _playlist = [song];
+      _currentIndex = 0;
     }
     await playIndex(_currentIndex);
   }
