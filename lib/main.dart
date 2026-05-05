@@ -122,7 +122,7 @@ class _PlayerBarBottom extends StatelessWidget {
                           player.setPlayerScreenVisible(true);
                           navKey.currentState?.push(
                             MaterialPageRoute(builder: (_) => const PlayerScreen()),
-                          )?.then((_) => player.setPlayerScreenVisible(false));
+                          ).then((_) => player.setPlayerScreenVisible(false));
                         },
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
