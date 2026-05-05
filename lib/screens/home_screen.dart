@@ -69,12 +69,9 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.person), label: '我的'),
         ],
         pages: [
-          _buildPage(AppBar(
-            title: const Text('首页'),
-            actions: _appBarActions(context),
-          ), _buildHome()),
-          _buildPage(null, const DiscoverScreen()),
-          _buildPage(null, const ProfileScreen()),
+          _buildHome(),
+          const DiscoverScreen(),
+          const ProfileScreen(),
         ],
       );
     }

@@ -40,23 +40,41 @@ class TabletScaffold extends StatelessWidget {
   }
 
   Widget _tabletLayout(BuildContext context) {
+    final theme = Theme.of(context);
+    final currentPage = pages[currentIndex];
     return Row(
       children: [
-        NavigationRail(
-          selectedIndex: currentIndex,
-          onDestinationSelected: onTabChanged,
-          labelType: NavigationRailLabelType.all,
-          leading: const SizedBox.shrink(),
-          destinations: tabs
-              .map((t) => NavigationRailDestination(
-                    icon: t.icon,
-                    selectedIcon: t.activeIcon,
-                    label: Text(t.label ?? ''),
-                  ))
-              .toList(),
+        Container(
+          width: 80,
+          color: theme.colorScheme.surfaceContainerLow,
+          child: NavigationRail(
+            selectedIndex: currentIndex,
+            onDestinationSelected: onTabChanged,
+            labelType: NavigationRailLabelType.all,
+            backgroundColor: Colors.transparent,
+            leading: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Icon(
+                Icons.music_note,
+                size: 32,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            destinations: tabs
+                .map((t) => NavigationRailDestination(
+                      icon: t.icon,
+                      selectedIcon: t.activeIcon,
+                      label: Text(t.label ?? ''),
+                    ))
+                .toList(),
+          ),
         ),
-        const VerticalDivider(width: 1),
-        Expanded(child: pages[currentIndex]),
+        VerticalDivider(
+          width: 1,
+          thickness: 1,
+          color: theme.colorScheme.outlineVariant,
+        ),
+        Expanded(child: currentPage),
       ],
     );
   }
