@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/liked_songs_provider.dart';
 import '../services/music_service.dart';
 
 class UserProfileScreen extends StatefulWidget {
@@ -109,7 +110,21 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 8),
                             Text(_detail!['sign'].toString()),
-                          ],
+                ],
+                const SizedBox(height: 12),
+                Consumer<LikedSongsProvider>(
+                  builder: (_, liked, __) => Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.favorite, color: Colors.red),
+                      title: const Text('我喜欢的音乐'),
+                      subtitle: Text('${liked.likedIds.length} 首'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        // TODO: navigate to liked songs screen
+                      },
+                    ),
+                  ),
+                ),
                         ),
                       ),
                     ),

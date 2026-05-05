@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
+import '../providers/liked_songs_provider.dart';
 import '../services/music_service.dart';
 
 class PlayerScreen extends StatefulWidget {
@@ -18,6 +19,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   int _qualityLevel = 0;
   final MusicService _musicService = MusicService();
   List<_LyricLine> _lyrics = [];
+  int _currentLine = 0;
   bool _lyricLoading = false;
   String? _lastLoadedHash;
 
@@ -50,6 +52,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 icon: const Icon(Icons.comment, size: 20),
                 onPressed: () => Navigator.pushNamed(context, '/comments',
                     arguments: {'type': 'music', 'id': song.id}),
+              ),
+              Consumer<LikedSongsProvider>(
+                builder: (_, liked, __) {
+                  final likedSongs = liked.likedIds;
+                  return IconButton(
+                    icon: Icon(likedSongs.contains(song.id) ? Icons.favorite : Icons.favorite_border, size: 20),
+                    color: likedSongs.contains(song.id) ? Colors.red : null,
+                    onPressed: () => liked.toggle(song.id),
+                  );
+                },
               ),
             ],
           ),

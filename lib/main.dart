@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/player_provider.dart';
 import 'providers/playlist_provider.dart';
+import 'providers/liked_songs_provider.dart';
 import 'routes/app_routes.dart';
 import 'utils/theme.dart';
 import 'screens/player_screen.dart';
@@ -24,6 +25,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
         ChangeNotifierProvider(create: (_) => PlaylistProvider()),
+        ChangeNotifierProvider(create: (_) => LikedSongsProvider()),
       ],
       child: const NGSKGApp(),
     ),

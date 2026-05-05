@@ -27,6 +27,8 @@ class ApiClient {
 
   static String? get dfid => _dfid;
 
+  static String? get userId => _authUserId;
+
   ApiClient._() {
     _cookieJar = CookieJar();
 
