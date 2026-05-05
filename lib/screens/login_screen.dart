@@ -37,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen>
           tabs: const [
             Tab(text: '密码'),
             Tab(text: '手机'),
-            Tab(text: '二维码'),
+            // Tab(text: '二维码'),
           ],
         ),
       ),
@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen>
         children: const [
           _PasswordLogin(),
           _PhoneLogin(),
-          _QrLogin(),
+          // _QrLogin(),
         ],
       ),
     );
