@@ -10,7 +10,7 @@
 - **主要技术栈**：
   - 移动端：Flutter（Dart）
   - 桌面端：Electron + Vue3/React（待开发）
-  - 音频播放：audioplayers
+  - 音频播放：just_audio
   - 状态管理：Provider
   - 网络请求：Dio + CookieJar
   - 本地存储：sqflite + path_provider
@@ -98,6 +98,8 @@ http://171.80.2.129:42980
 | 用户 | `/user/detail` | 用户详情 | 正常 |
 | | `/user/playlist` | 用户歌单 | 正常 |
 | | `/user/history` | 听歌历史 | 正常 |
+| | `/lastest/songs/listen` | 继续播放信息 | 正常 |
+| | `/user/cloud` | 云盘歌曲 | 正常 |
 | 搜索 | `/search` | 通用搜索（参数：keywords） | 正常 |
 | | `/search/suggest` | 搜索建议 | 正常 |
 | | `/search/hot` | 热搜列表 | 正常 |
@@ -111,6 +113,7 @@ http://171.80.2.129:42980
 | 排行榜 | `/rank/list` | 排行榜列表 | 正常 |
 | | `/rank/audio` | 排行榜歌曲（参数：rankid） | 正常 |
 | | `/top/song` | 新歌速递 | 正常 |
+| | `/top/card` | 推荐卡片（参数：card_id=1-6） | 正常 |
 | 歌手 | `/artist/list` | 歌手列表 | 正常 |
 | | `/artist/detail` | 歌手详情 | 正常 |
 | | `/artist/audios` | 歌手歌曲 | 正常 |
@@ -128,11 +131,12 @@ http://171.80.2.129:42980
 3. User-Agent 需模拟酷狗官方客户端
 4. 存在反爬限制，建议做本地缓存
 5. 接口仅供个人学习研究
+6. 音质切换使用 `/song/url` 的 `quality` 参数：128/320/high/flac
+7. 推荐卡片 `/top/card` 的 card_id：1=私人专属好歌，2=经典怀旧金曲，3=热门好歌精选，4=小众宝藏佳作，5=潮流尝鲜，6=VIP专属推荐
 
 ## 已知问题
 
 - `/song/url` 部分收费歌曲返回 status=3（无权限）
-- 音质切换依赖于不同 hash（128K/320K），未完全实现
 - 无缓存层，重复请求浪费资源
 - 测试覆盖率低
 

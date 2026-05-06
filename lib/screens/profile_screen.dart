@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/playlist.dart';
+import '../models/song.dart';
 import '../providers/auth_provider.dart';
 import '../providers/playlist_provider.dart';
+import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../widgets/playlist_card.dart';
 import '../widgets/create_playlist_dialog.dart';
+import '../widgets/song_tile.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -20,9 +24,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadPlaylists();
+    });
+  }
+
+  void _loadPlaylists() {
+    final auth = context.read<AuthProvider>();
+    if (auth.isLoggedIn && auth.user?.userId != null) {
+      context.read<PlaylistProvider>().fetchUserPlaylist(auth.user!.userId);
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = context.read<AuthProvider>();
-      if (auth.isLoggedIn) {
-        context.read<PlaylistProvider>().fetchUserPlaylist(auth.user?.userId);
+      if (auth.isLoggedIn && auth.user?.userId != null) {
+        final pp = context.read<PlaylistProvider>();
+        if (pp.userPlaylists.isEmpty) {
+          pp.fetchUserPlaylist(auth.user!.userId);
+        }
       }
     });
   }
@@ -120,6 +142,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           if (auth.isLoggedIn) ...[
             ListTile(
+              leading: const Icon(Icons.favorite),
+              title: const Text('我的收藏'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LikedSongsScreen()),
+              ),
+            ),
+          ],
+          if (auth.isLoggedIn) ...[
+            ListTile(
               leading: const Icon(Icons.cloud),
               title: const Text('云盘'),
               trailing: const Icon(Icons.chevron_right),
@@ -140,12 +173,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildPlaylists(PlaylistProvider playlistProv, AuthProvider auth) {
     if (playlistProv.isLoading) return const Center(child: CircularProgressIndicator());
 
-    final List<dynamic> personal = [];
-    final List<dynamic> collected = [];
+    if (playlistProv.userPlaylists.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(child: Text('暂无歌单')),
+      );
+    }
+
     final userId = auth.user?.userId;
+    final List<Playlist> personal = [];
+    final List<Playlist> collected = [];
 
     for (final pl in playlistProv.userPlaylists) {
-      if (pl.createUserId != null && pl.createUserId == userId) {
+      if (pl.createUserId != null && userId != null && pl.createUserId == userId) {
         personal.add(pl);
       } else {
         collected.add(pl);
@@ -176,12 +216,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 8),
           ...collected.map((pl) => PlaylistCard(playlist: pl)),
         ],
-        if (personal.isEmpty && collected.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(child: Text('暂无歌单')),
-          ),
       ],
+    );
+  }
+}
+
+class LikedSongsScreen extends StatefulWidget {
+  const LikedSongsScreen({super.key});
+
+  @override
+  State<LikedSongsScreen> createState() => _LikedSongsScreenState();
+}
+
+class _LikedSongsScreenState extends State<LikedSongsScreen> {
+  final MusicService _musicService = MusicService();
+  List<Map<String, dynamic>> _songs = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final songs = await _musicService.getPlaylistTracksById(1);
+      if (mounted) setState(() => _songs = songs);
+    } catch (_) {}
+    if (mounted) setState(() => _loading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('我的收藏')),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _songs.isEmpty
+              ? const Center(child: Text('暂无收藏'))
+              : ListView.builder(
+                  itemCount: _songs.length,
+                  itemBuilder: (_, i) {
+                    final s = _songs[i];
+                    final song = Song.fromTrackJson(s);
+                    return SongTile(
+                      song: song,
+                      onTap: (s) => context.read<PlayerProvider>().playSong(s, playlist: _songs.map((e) => Song.fromTrackJson(e)).toList()),
+                    );
+                  },
+                ),
     );
   }
 }

@@ -15,7 +15,7 @@ dependencies:
   cookie_jar: ^4.0.8
   dio_cookie_manager: ^3.1.1
   # Audio
-  audioplayers: ^6.1.0
+  just_audio: ^0.9.40
   # State
   provider: ^6.1.1
   # Local storage
@@ -24,7 +24,6 @@ dependencies:
   # UI
   cached_network_image: ^3.3.1
   # Audio
-  audio_session: ^0.1.21
   wakelock_plus: ^1.2.10
   # Utils
   package_info_plus: ^8.0.0

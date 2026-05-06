@@ -5,7 +5,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../providers/liked_songs_provider.dart';
+import '../providers/playlist_provider.dart';
 import '../services/music_service.dart';
+import 'audio_effects_screen.dart';
 
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key});
@@ -274,7 +276,52 @@ class _PlayerScreenState extends State<PlayerScreen> {
           icon: const Icon(Icons.playlist_play, size: 24),
           onPressed: () => _showPlaylist(player),
         ),
+        const SizedBox(width: 8),
+        IconButton(
+          icon: const Icon(Icons.timer, size: 24),
+          onPressed: () => _showSleepTimerDialog(context, player),
+        ),
+        IconButton(
+          icon: Icon(player.isKeepScreenOn ? Icons.directions_run : Icons.directions_run_outlined, size: 24),
+          onPressed: () => player.setKeepScreenOn(!player.isKeepScreenOn),
+        ),
+        IconButton(
+          icon: const Icon(Icons.equalizer, size: 24),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AudioEffectsScreen())),
+        ),
       ],
+    );
+  }
+
+  void _showSleepTimerDialog(BuildContext ctx, PlayerProvider player) {
+    showModalBottomSheet(
+      context: ctx,
+      builder: (c) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('睡眠定时', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+            ...[15, 30, 45, 60].map((m) => ListTile(
+              title: Text('$m 分钟'),
+              onTap: () {
+                player.setSleepTimer(Duration(minutes: m));
+                Navigator.pop(c);
+              },
+            )),
+            if (player.sleepTimerRemaining != null)
+              ListTile(
+                title: const Text('取消定时'),
+                onTap: () {
+                  player.cancelSleepTimer();
+                  Navigator.pop(c);
+                },
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -344,19 +391,51 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _showAddToPlaylist(PlayerProvider player) {
     final song = player.currentSong;
     if (song == null) return;
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('收藏到歌单'),
-        content: const Text('输入歌单ID:'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-          FilledButton(onPressed: () {
-            Navigator.pop(context);
-          }, child: const Text('确定')),
-        ],
+      builder: (_) => Consumer<PlaylistProvider>(
+        builder: (_, pp, __) {
+          final playlists = pp.userPlaylists;
+          if (playlists.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.all(24),
+              child: Text('暂无歌单'),
+            );
+          }
+          return ListView.builder(
+            shrinkWrap: true,
+            itemCount: playlists.length,
+            itemBuilder: (_, i) {
+              final pl = playlists[i];
+              return ListTile(
+                leading: const Icon(Icons.playlist_play),
+                title: Text(pl.name),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _addSongToPlaylist(player, pl.id, song);
+                },
+              );
+            },
+          );
+        },
       ),
     );
+  }
+
+  Future<void> _addSongToPlaylist(PlayerProvider player, int playlistId, Song song) async {
+    try {
+      final data = (song.hash?.isNotEmpty ?? false)
+          ? '${song.name}|${song.hash}|0|${song.id}'
+          : song.name;
+      await MusicService().addTracksToPlaylist(playlistId, data);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已收藏到歌单')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('收藏失败: $e')));
+      }
+    }
   }
 
   Widget _buildQualityLabel(PlayerProvider player) {

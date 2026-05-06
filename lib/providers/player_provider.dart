@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'package:audioplayers/audioplayers.dart';
-import 'package:audio_session/audio_session.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/song.dart';
 import '../services/music_service.dart';
@@ -36,7 +35,8 @@ class PlayerProvider extends ChangeNotifier {
 
   StreamSubscription? _positionSub;
   StreamSubscription? _durationSub;
-  StreamSubscription? _stateSub;
+  StreamSubscription? _playerStateSub;
+  StreamSubscription? _processingStateSub;
 
   Song? get currentSong => _currentSong;
   List<Song> get playlist => _playlist;
@@ -54,17 +54,30 @@ class PlayerProvider extends ChangeNotifier {
   Duration? get sleepTimerRemaining => _sleepTimerRemaining;
 
   PlayerProvider() {
-    _initAudioSession();
-    _positionSub = _player.onPositionChanged.listen((p) {
+    _initPlayer();
+    _positionSub = _player.positionStream.listen((p) {
       _position = p;
       notifyListeners();
       _checkSleepTimer();
     });
-    _durationSub = _player.onDurationChanged.listen((d) {
-      _duration = d;
+    _durationSub = _player.durationStream.listen((d) {
+      if (d != null) {
+        _duration = d;
+        notifyListeners();
+      }
+    });
+    _processingStateSub = _player.processingStateStream.listen((state) {
+      if (state == ProcessingState.completed) {
+        _onComplete();
+      }
+    });
+  }
+
+  void _initPlayer() {
+    _player.playbackEventStream.listen((event) {
+      _isPlaying = _player.playing;
       notifyListeners();
     });
-    _stateSub = _player.onPlayerComplete.listen((_) => _onComplete());
   }
 
   void _setError(String msg) {
@@ -161,16 +174,19 @@ class PlayerProvider extends ChangeNotifier {
       final song = _currentSong!;
       if (song.isLocal && song.filePath != null) {
         if (song.filePath!.startsWith('http')) {
-          await _player.play(UrlSource(song.filePath!));
+          await _player.setUrl(song.filePath!);
+          await _player.play();
         } else {
-          await _player.play(DeviceFileSource(song.filePath!));
+          await _player.setFilePath(song.filePath!);
+          await _player.play();
         }
       } else {
         final quality = _currentQuality;
         final songUrl = await _musicService.getSongUrl(song.id,
             hash: song.hash, quality: quality);
         if (songUrl.url.isNotEmpty) {
-          await _player.play(UrlSource(songUrl.url));
+          await _player.setUrl(songUrl.url);
+          await _player.play();
           _musicService.uploadPlayHistory(song.id, duration: song.duration);
         } else {
           _playAttempts++;
@@ -221,7 +237,7 @@ class PlayerProvider extends ChangeNotifier {
       if (_position == Duration.zero || _position >= _duration) {
         await playIndex(_currentIndex);
       } else {
-        await _player.resume();
+        await _player.play();
         _isPlaying = true;
       }
     }
@@ -259,8 +275,8 @@ class PlayerProvider extends ChangeNotifier {
     }
   }
 
-  void seek(Duration pos) {
-    _player.seek(pos);
+  Future<void> seek(Duration pos) async {
+    await _player.seek(pos);
   }
 
   void setPlaylist(List<Song> songs, {int startIndex = 0}) {
@@ -301,17 +317,6 @@ class PlayerProvider extends ChangeNotifier {
     } else {
       notifyListeners();
     }
-  }
-
-  Future<void> _initAudioSession() async {
-    final session = await AudioSession.instance;
-    await session.configure(const AudioSessionConfiguration.music());
-    session.interruptionEventStream.listen((event) {
-      if (event.begin) {
-        if (_isPlaying) _player.pause();
-      }
-    });
-    session.devicesChangedEventStream.listen((_) {});
   }
 
   void _checkSleepTimer() {
@@ -358,14 +363,15 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   void setSpeed(double speed) {
-    _player.setPlaybackRate(speed);
+    _player.setSpeed(speed);
   }
 
   @override
   void dispose() {
     _positionSub?.cancel();
     _durationSub?.cancel();
-    _stateSub?.cancel();
+    _playerStateSub?.cancel();
+    _processingStateSub?.cancel();
     _sleepTimer?.cancel();
     _player.dispose();
     WakelockPlus.disable();

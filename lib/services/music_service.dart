@@ -235,8 +235,11 @@ class MusicService {
     return [];
   }
 
-  Future<List<Playlist>> getUserPlaylist({int? userId}) async {
-    final params = <String, dynamic>{};
+  Future<List<Playlist>> getUserPlaylist({int? userId, int page = 1, int pageSize = 200}) async {
+    final params = <String, dynamic>{
+      'page': page,
+      'pagesize': pageSize,
+    };
     if (userId != null) params['userId'] = userId;
     final res = await _get('/user/playlist', params: params);
     final data = res['data'];
@@ -286,15 +289,38 @@ class MusicService {
     return res['data'] as Map<String, dynamic>;
   }
 
-  Future<List<Song>> getAlbumSongs(int albumId) async {
-    final res = await _get('/album/songs', params: {'id': albumId});
+  Future<List<Song>> getAlbumSongs(int albumId,
+      {int page = 1, int pageSize = 200}) async {
+    final res = await _get('/album/songs', params: {
+      'id': albumId,
+      'page': page,
+      'pagesize': pageSize,
+    });
     final data = res['data'];
     if (data is Map) {
       final list = data['songs'] as List<dynamic>?;
       if (list != null) {
-        return list
-            .map((e) => Song.fromKugouJson(e as Map<String, dynamic>))
-            .toList();
+        return list.map((e) {
+          final json = e as Map<String, dynamic>;
+          final base = json['base'] as Map<String, dynamic>? ?? {};
+          final audioInfo = json['audio_info'] as Map<String, dynamic>? ?? {};
+          final q = <String, String>{};
+          final h128 = audioInfo['hash_128'] as String?;
+          final h320 = audioInfo['hash_320'] as String?;
+          final hFlac = audioInfo['hash_flac'] as String?;
+          if (h128 != null && h128.isNotEmpty) q['128'] = h128;
+          if (h320 != null && h320.isNotEmpty) q['320'] = h320;
+          if (hFlac != null && hFlac.isNotEmpty) q['flac'] = hFlac;
+          return Song(
+            id: base['audio_id'] as int? ?? 0,
+            name: base['audio_name'] as String? ?? '',
+            artists: [(base['author_name'] as String? ?? '')],
+            albumName: null,
+            duration: ((audioInfo['duration'] as int?) ?? 0) ~/ 1000,
+            hash: audioInfo['hash'] as String?,
+            qualities: q.isNotEmpty ? q : null,
+          );
+        }).toList();
       }
     }
     return [];
@@ -320,9 +346,15 @@ class MusicService {
     return [];
   }
 
-  Future<List<Song>> getRankAudios(int rankId) async {
-    final res =
-        await _get('/rank/audio', params: {'rankid': rankId});
+  Future<List<Song>> getRankAudios(int rankId,
+      {int page = 1, int pageSize = 200, int? rankCid}) async {
+    final params = <String, dynamic>{
+      'rankid': rankId,
+      'page': page,
+      'pagesize': pageSize,
+    };
+    if (rankCid != null) params['rank_cid'] = rankCid;
+    final res = await _get('/rank/audio', params: params);
     final raw = res['data'];
     if (raw is Map) {
       final songlist = raw['songlist'] as List<dynamic>?;
@@ -333,9 +365,17 @@ class MusicService {
       }
       final songs = raw['songs'] as List<dynamic>?;
       if (songs != null) {
-        return songs
-            .map((e) => Song.fromJson(e as Map<String, dynamic>))
-            .toList();
+        return songs.map((e) {
+          final json = e as Map<String, dynamic>;
+          return Song(
+            id: json['audio_id'] as int? ?? json['songid'] as int? ?? 0,
+            name: json['songname'] as String? ?? json['audio_name'] as String? ?? '',
+            artists: [(json['author_name'] as String? ?? '')],
+            albumName: json['album_name'] as String?,
+            duration: ((json['timelength'] as int?) ?? 0) ~/ 1000,
+            hash: json['hash'] as String?,
+          );
+        }).toList();
       }
     }
     return [];
@@ -345,9 +385,17 @@ class MusicService {
     final res = await _get('/top/song');
     final raw = res['data'];
     if (raw is List) {
-      return raw
-          .map((e) => Song.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return raw.map((e) {
+        final json = e as Map<String, dynamic>;
+        return Song(
+          id: json['audio_id'] as int? ?? 0,
+          name: json['songname'] as String? ?? '',
+          artists: [(json['author_name'] as String? ?? '')],
+          albumName: json['album_name'] as String?,
+          duration: (json['timelength'] as int?) ?? 0,
+          hash: json['hash'] as String?,
+        );
+      }).toList();
     }
     return [];
   }
@@ -359,9 +407,17 @@ class MusicService {
       final songList = raw['song_list'] as List? ?? [];
       return {
         'rec_desc': raw['rec_desc'] as String? ?? '',
-        'songs': songList
-            .map((e) => Song.fromJson(e as Map<String, dynamic>))
-            .toList(),
+        'songs': songList.map((e) {
+          final json = e as Map<String, dynamic>;
+          return Song(
+            id: json['songid'] as int? ?? 0,
+            name: json['songname'] as String? ?? '',
+            artists: [(json['author_name'] as String? ?? '')],
+            albumName: json['album_name'] as String?,
+            duration: (json['time_length'] as int?) ?? 0,
+            hash: json['hash'] as String?,
+          );
+        }).toList(),
       };
     }
     return {'rec_desc': '', 'songs': <Song>[]};
@@ -380,21 +436,35 @@ class MusicService {
     return _get('/artist/detail', params: {'id': artistId});
   }
 
-  Future<List<Song>> getArtistAudios(int artistId) async {
-    final res = await _get('/artist/audios', params: {'id': artistId});
+  Future<List<Song>> getArtistAudios(int artistId,
+      {int page = 1, int pageSize = 200, String sort = 'hot'}) async {
+    final res = await _get('/artist/audios', params: {
+      'id': artistId,
+      'page': page,
+      'pagesize': pageSize,
+      'sort': sort,
+    });
     final raw = res['data'];
     if (raw is List) {
-      return raw
-          .map((e) => Song.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return raw.map((e) {
+        final json = e as Map<String, dynamic>;
+        return Song(
+          id: json['audio_id'] as int? ?? 0,
+          name: json['audio_name'] as String? ?? '',
+          artists: [(json['author_name'] as String? ?? '')],
+          albumName: json['album_name'] as String?,
+          duration: ((json['timelength'] as int?) ?? 0) ~/ 1000,
+          hash: json['hash'] as String?,
+        );
+      }).toList();
     }
     return [];
   }
 
   Future<List<Map<String, dynamic>>> getMusicComments(int songId,
-      {int limit = 100, int offset = 0}) async {
+      {int page = 1, int pageSize = 200}) async {
     final res = await _get('/comment/music',
-        params: {'id': songId, 'limit': limit, 'offset': offset});
+        params: {'id': songId, 'page': page, 'pagesize': pageSize});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     final list = (raw as Map<String, dynamic>)['comments'] as List<dynamic>?;
@@ -449,8 +519,8 @@ class MusicService {
     return [];
   }
 
-  Future<List<Map<String, dynamic>>> getUserHistory({int limit = 200}) async {
-    final res = await _get('/user/history');
+  Future<List<Map<String, dynamic>>> getUserHistory({int page = 1, int pageSize = 200}) async {
+    final res = await _get('/user/history', params: {'page': page, 'pagesize': pageSize});
     final raw = res['data'];
     if (raw is Map) {
       final songs = raw['songs'] as List?;
@@ -484,9 +554,9 @@ class MusicService {
   }
 
   Future<List<Map<String, dynamic>>> getPlaylistComments(int playlistId,
-      {int limit = 100, int offset = 0}) async {
+      {int page = 1, int pageSize = 200}) async {
     final res = await _get('/comment/playlist',
-        params: {'id': playlistId, 'limit': limit, 'offset': offset});
+        params: {'id': playlistId, 'page': page, 'pagesize': pageSize});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     final list = (raw as Map<String, dynamic>)['comments'] as List<dynamic>?;
@@ -515,8 +585,8 @@ class MusicService {
     return _get('/vip/info');
   }
 
-  Future<List<Map<String, dynamic>>> getUserCloudDisk() async {
-    final res = await _get('/user/cloud');
+  Future<List<Map<String, dynamic>>> getUserCloudDisk({int page = 1, int pageSize = 200}) async {
+    final res = await _get('/user/cloud', params: {'page': page, 'pagesize': pageSize});
     final data = res['data'];
     if (data is Map) {
       final list = data['list'] as List<dynamic>?;
@@ -554,8 +624,8 @@ class MusicService {
     return _get('/artist/unfollow', params: {'id': artistId});
   }
 
-  Future<List<Map<String, dynamic>>> getArtistNewSongs(int artistId) async {
-    final res = await _get('/artist/songs/new', params: {'id': artistId});
+  Future<List<Map<String, dynamic>>> getArtistNewSongs(int artistId, {int page = 1, int pageSize = 200}) async {
+    final res = await _get('/artist/songs/new', params: {'id': artistId, 'page': page, 'pagesize': pageSize});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
@@ -645,15 +715,15 @@ class MusicService {
 
   // ─── 收藏视频 ───
 
-  Future<List<Map<String, dynamic>>> getFavoriteVideos() async {
-    final res = await _get('/user/favorite/video');
+  Future<List<Map<String, dynamic>>> getFavoriteVideos({int page = 1, int pageSize = 200}) async {
+    final res = await _get('/user/favorite/video', params: {'page': page, 'pagesize': pageSize});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
   }
 
-  Future<List<Map<String, dynamic>>> getLikedVideos() async {
-    final res = await _get('/user/liked/video');
+  Future<List<Map<String, dynamic>>> getLikedVideos({int page = 1, int pageSize = 200}) async {
+    final res = await _get('/user/liked/video', params: {'page': page, 'pagesize': pageSize});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
@@ -661,8 +731,8 @@ class MusicService {
 
   // ─── 关注歌手消息 ───
 
-  Future<List<Map<String, dynamic>>> getFollowedArtistNews() async {
-    final res = await _get('/artist/followed/news');
+  Future<List<Map<String, dynamic>>> getFollowedArtistNews({int page = 1, int pageSize = 200}) async {
+    final res = await _get('/artist/followed/news', params: {'page': page, 'pagesize': pageSize});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
