@@ -40,17 +40,88 @@ class MusicService {
   }
 
   Future<List<Song>> search(String keyword,
-      {int limit = 100, int offset = 0}) async {
+      {int limit = 30, int offset = 0, String type = 'song'}) async {
     final res = await _get('/search', params: {
       'keywords': keyword,
       'limit': limit,
       'offset': offset,
+      'type': type,
     });
     final data = res['data'];
     final list =
         data['songs'] as List<dynamic>? ?? data['lists'] as List<dynamic>? ?? [];
     return list
         .map((e) => Song.fromKugouJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> searchPlaylists(String keyword,
+      {int limit = 30, int offset = 0}) async {
+    final res = await _get('/search', params: {
+      'keywords': keyword,
+      'limit': limit,
+      'offset': offset,
+      'type': 'special',
+    });
+    final data = res['data'];
+    return (data['lists'] as List<dynamic>? ?? [])
+        .map((e) => e as Map<String, dynamic>)
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> searchAlbums(String keyword,
+      {int limit = 30, int offset = 0}) async {
+    final res = await _get('/search', params: {
+      'keywords': keyword,
+      'limit': limit,
+      'offset': offset,
+      'type': 'album',
+    });
+    final data = res['data'];
+    return (data['lists'] as List<dynamic>? ?? [])
+        .map((e) => e as Map<String, dynamic>)
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> searchArtists(String keyword,
+      {int limit = 30, int offset = 0}) async {
+    final res = await _get('/search', params: {
+      'keywords': keyword,
+      'limit': limit,
+      'offset': offset,
+      'type': 'author',
+    });
+    final data = res['data'];
+    return (data['lists'] as List<dynamic>? ?? [])
+        .map((e) => e as Map<String, dynamic>)
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> searchMvs(String keyword,
+      {int limit = 30, int offset = 0}) async {
+    final res = await _get('/search', params: {
+      'keywords': keyword,
+      'limit': limit,
+      'offset': offset,
+      'type': 'mv',
+    });
+    final data = res['data'];
+    return (data['lists'] as List<dynamic>? ?? [])
+        .map((e) => e as Map<String, dynamic>)
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> searchLyrics(String keyword,
+      {int limit = 30, int offset = 0}) async {
+    final res = await _get('/search', params: {
+      'keywords': keyword,
+      'limit': limit,
+      'offset': offset,
+      'type': 'lyric',
+    });
+    final data = res['data'];
+    return (data['lists'] as List<dynamic>? ?? [])
+        .map((e) => e as Map<String, dynamic>)
         .toList();
   }
 
@@ -215,6 +286,29 @@ class MusicService {
     return res['data'] as Map<String, dynamic>;
   }
 
+  Future<List<Song>> getAlbumSongs(int albumId) async {
+    final res = await _get('/album/songs', params: {'id': albumId});
+    final data = res['data'];
+    if (data is Map) {
+      final list = data['songs'] as List<dynamic>?;
+      if (list != null) {
+        return list
+            .map((e) => Song.fromKugouJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    }
+    return [];
+  }
+
+  Future<String?> getMvUrl(String hash) async {
+    final res = await _get('/mv/url', params: {'hash': hash});
+    final data = res['data'];
+    if (data is Map) {
+      return data['url'] as String?;
+    }
+    return null;
+  }
+
   Future<List<Map<String, dynamic>>> getRankList() async {
     final res = await _cachedGet('/rank/list', ttl: const Duration(minutes: 30));
     final raw = res['data'];
@@ -256,6 +350,21 @@ class MusicService {
           .toList();
     }
     return [];
+  }
+
+  Future<Map<String, dynamic>> getCardSongs(int cardId) async {
+    final res = await _get('/top/card', params: {'card_id': cardId});
+    final raw = res['data'];
+    if (raw is Map) {
+      final songList = raw['song_list'] as List? ?? [];
+      return {
+        'rec_desc': raw['rec_desc'] as String? ?? '',
+        'songs': songList
+            .map((e) => Song.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      };
+    }
+    return {'rec_desc': '', 'songs': <Song>[]};
   }
 
   Future<List<Map<String, dynamic>>> getArtistList(
@@ -324,27 +433,54 @@ class MusicService {
   Future<List<Song>> getFmSongs(int fmId) async {
     final res = await _get('/fm/songs', params: {'fmid': fmId});
     final raw = res['data'];
-    if (raw is List) {
-      return raw
+    List<dynamic>? songs;
+    if (raw is List && raw.isNotEmpty) {
+      final first = raw[0];
+      if (first is Map) {
+        songs = first['songs'] as List<dynamic>?;
+      }
+    }
+    if (songs != null) {
+      return songs
           .map((e) => Song.fromTrackJson(e as Map<String, dynamic>))
           .toList();
     }
+    return [];
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getUserHistory({int limit = 200}) async {
+    final res = await _get('/user/history');
+    final raw = res['data'];
     if (raw is Map) {
-      final songs = raw['songs'] as List<dynamic>?;
+      final songs = raw['songs'] as List?;
       if (songs != null) {
         return songs
-            .map((e) => Song.fromTrackJson(e as Map<String, dynamic>))
+            .whereType<Map>()
+            .map((e) => e['info'] as Map<String, dynamic>?)
+            .whereType<Map<String, dynamic>>()
             .toList();
       }
     }
     return [];
   }
 
-  Future<List<Map<String, dynamic>>> getUserHistory() async {
-    final res = await _get('/user/history');
+  Future<Map<String, dynamic>?> getLatestListen() async {
+    final res = await _get('/lastest/songs/listen');
     final raw = res['data'];
-    if (raw is List) return raw.cast<Map<String, dynamic>>();
-    return [];
+    if (raw is Map) {
+      final songs = raw['songs'] as List?;
+      if (songs != null && songs.isNotEmpty) {
+        final first = songs[0];
+        if (first is Map) {
+          return {
+            'info': first['info'] as Map<String, dynamic>?,
+            'position': first['pos'] as int? ?? 0,
+          };
+        }
+      }
+    }
+    return null;
   }
 
   Future<List<Map<String, dynamic>>> getPlaylistComments(int playlistId,

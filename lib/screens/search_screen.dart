@@ -13,23 +13,38 @@ class SearchScreen extends StatefulWidget {
   State<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends State<SearchScreen> {
+class _SearchScreenState extends State<SearchScreen>
+    with SingleTickerProviderStateMixin {
   final _searchCtrl = TextEditingController();
   final _focusNode = FocusNode();
   final _musicService = MusicService();
 
-  List<Song> _results = [];
+  final _tabs = ['单曲', '歌单', '专辑', '歌手', 'MV', '歌词'];
+  final _types = ['song', 'special', 'album', 'author', 'mv', 'lyric'];
+
+  late TabController _tabController;
+
+  List<Song> _songs = [];
+  List<Map<String, dynamic>> _playlists = [];
+  List<Map<String, dynamic>> _albums = [];
+  List<Map<String, dynamic>> _artists = [];
+  List<Map<String, dynamic>> _mvs = [];
+  List<Map<String, dynamic>> _lyrics = [];
+
   List<String> _suggestions = [];
   List<_HotItem> _hotSearch = [];
   List<Map<String, dynamic>> _ranks = [];
   bool _isLoading = false;
   bool _isLoadingRanks = true;
   bool _showResult = false;
+  String _currentKeyword = '';
   Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: _tabs.length, vsync: this);
+    _tabController.addListener(_onTabChanged);
     _loadHotSearch();
     _loadRanks();
   }
@@ -38,8 +53,15 @@ class _SearchScreenState extends State<SearchScreen> {
   void dispose() {
     _searchCtrl.dispose();
     _focusNode.dispose();
+    _tabController.dispose();
     _debounce?.cancel();
     super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (_showResult && _currentKeyword.isNotEmpty) {
+      _doSearch(_currentKeyword);
+    }
   }
 
   Future<void> _loadHotSearch() async {
@@ -81,12 +103,33 @@ class _SearchScreenState extends State<SearchScreen> {
   Future<void> _doSearch(String keyword) async {
     if (keyword.isEmpty) return;
     _focusNode.unfocus();
+    _currentKeyword = keyword;
+    final type = _types[_tabController.index];
     setState(() {
       _isLoading = true;
       _showResult = true;
     });
     try {
-      _results = await _musicService.search(keyword);
+      switch (_tabController.index) {
+        case 0:
+          _songs = await _musicService.search(keyword, type: type);
+          break;
+        case 1:
+          _playlists = await _musicService.searchPlaylists(keyword);
+          break;
+        case 2:
+          _albums = await _musicService.searchAlbums(keyword);
+          break;
+        case 3:
+          _artists = await _musicService.searchArtists(keyword);
+          break;
+        case 4:
+          _mvs = await _musicService.searchMvs(keyword);
+          break;
+        case 5:
+          _lyrics = await _musicService.searchLyrics(keyword);
+          break;
+      }
     } catch (_) {}
     if (mounted) setState(() => _isLoading = false);
   }
@@ -100,7 +143,7 @@ class _SearchScreenState extends State<SearchScreen> {
           focusNode: _focusNode,
           autofocus: true,
           decoration: InputDecoration(
-            hintText: '搜索歌曲、歌单...',
+            hintText: '搜索歌曲、歌单、歌手...',
             border: InputBorder.none,
             suffixIcon: _searchCtrl.text.isNotEmpty
                 ? IconButton(
@@ -115,6 +158,14 @@ class _SearchScreenState extends State<SearchScreen> {
           onChanged: _onSearchChanged,
           onSubmitted: _doSearch,
         ),
+        bottom: _showResult
+            ? TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                tabs: _tabs.map((t) => Tab(text: t)).toList(),
+              )
+            : null,
       ),
       body: _buildBody(),
     );
@@ -125,17 +176,17 @@ class _SearchScreenState extends State<SearchScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_showResult) {
-      return _results.isEmpty
-          ? const Center(child: Text('未找到结果'))
-          : ListView.builder(
-              itemCount: _results.length,
-              itemBuilder: (_, i) => SongTile(
-                    song: _results[i],
-                    onTap: (s) => context
-                        .read<PlayerProvider>()
-                        .playSong(s, playlist: _results),
-                  ),
-            );
+      return TabBarView(
+        controller: _tabController,
+        children: [
+          _buildSongsTab(),
+          _buildPlaylistsTab(),
+          _buildAlbumsTab(),
+          _buildArtistsTab(),
+          _buildMvsTab(),
+          _buildLyricsTab(),
+        ],
+      );
     }
 
     if (_suggestions.isNotEmpty) {
@@ -158,7 +209,6 @@ class _SearchScreenState extends State<SearchScreen> {
       },
       child: ListView(
         children: [
-          // 排行榜
           if (!_isLoadingRanks && _ranks.isNotEmpty) ...[
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -220,8 +270,6 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
           ],
-
-          // 热搜榜
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text('热搜榜',
@@ -254,6 +302,202 @@ class _SearchScreenState extends State<SearchScreen> {
           }),
         ],
       ),
+    );
+  }
+
+  Widget _buildSongsTab() {
+    if (_songs.isEmpty) {
+      return const Center(child: Text('未找到歌曲'));
+    }
+    return ListView.builder(
+      itemCount: _songs.length,
+      itemBuilder: (_, i) => SongTile(
+        song: _songs[i],
+        onTap: (s) => context
+            .read<PlayerProvider>()
+            .playSong(s, playlist: _songs),
+      ),
+    );
+  }
+
+  Widget _buildPlaylistsTab() {
+    if (_playlists.isEmpty) {
+      return const Center(child: Text('未找到歌单'));
+    }
+    return ListView.builder(
+      itemCount: _playlists.length,
+      itemBuilder: (_, i) {
+        final p = _playlists[i];
+        final name = p['specialname'] as String? ?? p['name'] as String? ?? '';
+        final img = p['imgurl'] as String? ?? p['img'] as String? ?? '';
+        final count = p['songcount'] as int? ?? 0;
+        return ListTile(
+          leading: img.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Image.network(img.replaceAll('{size}', '240'),
+                      width: 48, height: 48, fit: BoxFit.cover),
+                )
+              : Container(
+                  width: 48, height: 48,
+                  color: Colors.grey[800],
+                  child: const Icon(Icons.queue_music),
+                ),
+          title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text('$count首歌'),
+          onTap: () {
+            final id = p['id'] ?? p['specialid'];
+            if (id != null) {
+              Navigator.pushNamed(context, '/playlist/detail',
+                  arguments: {'id': 'collection_$id', 'name': name});
+            }
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildAlbumsTab() {
+    if (_albums.isEmpty) {
+      return const Center(child: Text('未找到专辑'));
+    }
+    return ListView.builder(
+      itemCount: _albums.length,
+      itemBuilder: (_, i) {
+        final a = _albums[i];
+        final name = a['albumname'] as String? ?? '';
+        final img = a['imgurl'] as String? ?? a['img'] as String? ?? '';
+        final artist = a['singername'] as String? ?? a['artist'] as String? ?? '';
+        return ListTile(
+          leading: img.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Image.network(img.replaceAll('{size}', '240'),
+                      width: 48, height: 48, fit: BoxFit.cover),
+                )
+              : Container(
+                  width: 48, height: 48,
+                  color: Colors.grey[800],
+                  child: const Icon(Icons.album),
+                ),
+          title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
+          onTap: () {
+            final id = a['albumid'] as int? ?? a['id'] as int?;
+            if (id != null) {
+              Navigator.pushNamed(context, '/album/detail', arguments: {'id': id});
+            }
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildArtistsTab() {
+    if (_artists.isEmpty) {
+      return const Center(child: Text('未找到歌手'));
+    }
+    return ListView.builder(
+      itemCount: _artists.length,
+      itemBuilder: (_, i) {
+        final a = _artists[i];
+        final name = a['AuthorName'] as String? ?? a['singername'] as String? ?? a['name'] as String? ?? '';
+        final img = a['Avatar'] as String? ?? a['imgurl'] as String? ?? a['img'] as String? ?? '';
+        return ListTile(
+          leading: img.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Image.network(img.replaceAll('{size}', '240'),
+                      width: 48, height: 48, fit: BoxFit.cover),
+                )
+              : Container(
+                  width: 48, height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[800],
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.person),
+                ),
+          title: Text(name),
+          onTap: () {
+            final id = a['AuthorId'] as int? ?? a['singermid'] as int? ?? a['id'] as int?;
+            if (id != null) {
+              Navigator.pushNamed(context, '/artist/detail', arguments: {'id': id});
+            }
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildMvsTab() {
+    if (_mvs.isEmpty) {
+      return const Center(child: Text('未找到MV'));
+    }
+    return ListView.builder(
+      itemCount: _mvs.length,
+      itemBuilder: (_, i) {
+        final m = _mvs[i];
+        final name = m['MvName'] as String? ?? m['name'] as String? ?? m['mvname'] as String? ?? '';
+        final img = m['Pic'] as String? ?? m['imgurl'] as String? ?? m['img'] as String? ?? '';
+        final artist = m['SingerName'] as String? ?? m['singername'] as String? ?? '';
+        return ListTile(
+          leading: img.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Image.network(img.replaceAll('{size}', '240'),
+                      width: 48, height: 48, fit: BoxFit.cover),
+                )
+              : Container(
+                  width: 48, height: 48,
+                  color: Colors.grey[800],
+                  child: const Icon(Icons.video_library),
+                ),
+          title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
+          onTap: () {
+            final hash = m['MvHash'] as String? ?? m['hash'] as String?;
+            if (hash != null) {
+              Navigator.pushNamed(context, '/mv', arguments: {'hash': hash});
+            }
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildLyricsTab() {
+    if (_lyrics.isEmpty) {
+      return const Center(child: Text('未找到歌词'));
+    }
+    return ListView.builder(
+      itemCount: _lyrics.length,
+      itemBuilder: (_, i) {
+        final l = _lyrics[i];
+        final songName = l['SongName'] as String? ?? l['songname'] as String? ?? '';
+        final artist = l['SingerName'] as String? ?? l['singername'] as String? ?? '';
+        final content = l['Lyric'] as String? ?? l['lyric'] as String? ?? l['content'] as String? ?? '';
+        return ListTile(
+          title: Text(songName, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(content,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+            ],
+          ),
+          isThreeLine: true,
+          onTap: () {
+            final hash = l['FileHash'] as String? ?? l['hash'] as String?;
+            if (hash != null) {
+              Navigator.pushNamed(context, '/lyric', arguments: {'hash': hash});
+            }
+          },
+        );
+      },
     );
   }
 }
