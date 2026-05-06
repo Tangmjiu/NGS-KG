@@ -387,11 +387,14 @@ class MusicService {
     if (raw is List) {
       return raw.map((e) {
         final json = e as Map<String, dynamic>;
+        var cover = json['album_sizable_cover'] as String?;
+        if (cover != null) cover = cover.replaceAll('{size}', '240');
         return Song(
           id: json['audio_id'] as int? ?? 0,
           name: json['songname'] as String? ?? '',
           artists: [(json['author_name'] as String? ?? '')],
           albumName: json['album_name'] as String?,
+          albumCoverUrl: cover,
           duration: (json['timelength'] as int?) ?? 0,
           hash: json['hash'] as String?,
         );
@@ -409,11 +412,14 @@ class MusicService {
         'rec_desc': raw['rec_desc'] as String? ?? '',
         'songs': songList.map((e) {
           final json = e as Map<String, dynamic>;
+          var cover = json['sizable_cover'] as String?;
+          if (cover != null) cover = cover.replaceAll('{size}', '240');
           return Song(
             id: json['songid'] as int? ?? 0,
             name: json['songname'] as String? ?? '',
             artists: [(json['author_name'] as String? ?? '')],
             albumName: json['album_name'] as String?,
+            albumCoverUrl: cover,
             duration: (json['time_length'] as int?) ?? 0,
             hash: json['hash'] as String?,
           );
