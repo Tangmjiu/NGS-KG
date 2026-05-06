@@ -226,16 +226,37 @@ class _DeveloperScreenState extends State<DeveloperScreen> {
 
   Future<void> _exportLog() async {
     try {
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/debug_log.txt');
+      Directory? dir;
+      if (Platform.isAndroid) {
+        dir = Directory('/storage/emulated/0/Download/NGS-KG+_Logs');
+      } else {
+        dir = await getApplicationDocumentsDirectory();
+      }
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      final timestamp = DateTime.now().toString().replaceAll(':', '-').split('.').first;
+      final file = File('${dir.path}/NGS-KG+_log_$timestamp.txt');
       final content = '''
+══════════════════════════════════════════
+NGS-KG+ Debug Log
+══════════════════════════════════════════
+Export Time: ${DateTime.now().toIso8601String()}
+──────────────────────────────────────────
 dfid: $_dfid
 token: $_token
 userid: $_userId
 API: ${AppConstants.baseUrl}
+──────────────────────────────────────────
+App Version: 1.0.0
+Platform: ${Platform.operatingSystem}
+──────────────────────────────────────────
 ''';
       await file.writeAsString(content);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('已导出到: ${file.path}')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('日志已导出到: Download/NGS-KG+_Logs/'),
+        duration: const Duration(seconds: 3),
+      ));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('导出失败: $e')));
     }
@@ -271,8 +292,8 @@ API: ${AppConstants.baseUrl}
             onTap: _clearCookie,
           ),
           ListTile(
-            title: const Text('导出 Log'),
-            subtitle: const Text('导出当前调试信息'),
+            title: const Text('导出日志'),
+            subtitle: const Text('保存到 Download/NGS-KG+_Logs'),
             onTap: _exportLog,
           ),
         ],
