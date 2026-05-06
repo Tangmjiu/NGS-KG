@@ -47,26 +47,40 @@ class TabletScaffold extends StatelessWidget {
         Container(
           width: 80,
           color: theme.colorScheme.surfaceContainerLow,
-          child: NavigationRail(
-            selectedIndex: currentIndex,
-            onDestinationSelected: onTabChanged,
-            labelType: NavigationRailLabelType.all,
-            backgroundColor: Colors.transparent,
-            leading: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Icon(
-                Icons.music_note,
-                size: 32,
-                color: theme.colorScheme.primary,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Icon(
+                  Icons.music_note,
+                  size: 32,
+                  color: theme.colorScheme.primary,
+                ),
               ),
-            ),
-            destinations: tabs
-                .map((t) => NavigationRailDestination(
-                      icon: t.icon,
-                      selectedIcon: t.activeIcon,
-                      label: Text(t.label ?? ''),
-                    ))
-                .toList(),
+              Expanded(
+                child: NavigationRail(
+                  selectedIndex: currentIndex,
+                  onDestinationSelected: onTabChanged,
+                  labelType: NavigationRailLabelType.all,
+                  backgroundColor: Colors.transparent,
+                  destinations: tabs
+                      .map((t) => NavigationRailDestination(
+                            icon: t.icon,
+                            selectedIcon: t.activeIcon,
+                            label: Text(t.label ?? ''),
+                          ))
+                      .toList(),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: IconButton(
+                  icon: const Icon(Icons.search),
+                  onPressed: () => Navigator.pushNamed(context, '/search'),
+                  tooltip: '搜索',
+                ),
+              ),
+            ],
           ),
         ),
         VerticalDivider(
