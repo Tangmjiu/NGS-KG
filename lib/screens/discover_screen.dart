@@ -42,6 +42,57 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     if (mounted) setState(() => _loadingFm = false);
   }
 
+  List<Widget> _buildTagChips() {
+    final chips = <Widget>[];
+    for (final t in _playlistTags) {
+      final name = t['tag_name'] as String? ?? '';
+      final tagId = t['tag_id'] as String? ?? '';
+      final son = t['son'] as List<dynamic>? ?? [];
+      if (son.isNotEmpty) {
+        chips.add(Padding(
+          padding: const EdgeInsets.only(right: 8, bottom: 4),
+          child: PopupMenuButton<int>(
+            child: Chip(
+              label: Text(name, style: const TextStyle(fontSize: 12)),
+              visualDensity: VisualDensity.compact,
+            ),
+            itemBuilder: (context) => son.map((s) {
+              final childId = s['tag_id'] is int 
+                  ? s['tag_id'] as int 
+                  : int.tryParse(s['tag_id']?.toString() ?? '') ?? 0;
+              final childName = s['tag_name'] as String? ?? '';
+              return PopupMenuItem(
+                value: childId,
+                child: Text(childName),
+              );
+            }).toList(),
+            onSelected: (id) {
+              if (id > 0) {
+                final selectedName = son.firstWhere(
+                  (s) => (s['tag_id'] is int ? s['tag_id'] as int : int.tryParse(s['tag_id']?.toString() ?? '') ?? 0) == id,
+                  orElse: () => {'tag_name': name},
+                )['tag_name'] as String? ?? name;
+                Navigator.pushNamed(context, '/playlist/category', arguments: {'id': id, 'name': selectedName});
+              }
+            },
+          ),
+        ));
+      } else {
+        final id = int.tryParse(tagId) ?? 0;
+        if (id > 0) {
+          chips.add(ActionChip(
+            label: Text(name, style: const TextStyle(fontSize: 12)),
+            onPressed: () {
+              Navigator.pushNamed(context, '/playlist/category', arguments: {'id': id, 'name': name});
+            },
+            visualDensity: VisualDensity.compact,
+          ));
+        }
+      }
+    }
+    return chips;
+  }
+
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
@@ -56,13 +107,53 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             child: Text('发现',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           ),
-          // 快捷入口
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _quickLink(Icons.radio, '电台', '/fm'),
-            ],
-          ),
+          // 快捷入口卡片
+          if (!_loadingFm && _fmList.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text('电台',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+            SizedBox(
+              height: 120,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                itemCount: _fmList.length,
+                itemBuilder: (_, i) {
+                  final fm = _fmList[i];
+                  final name = fm['fmname'] as String? ?? '';
+                  final img = (fm['imgurl'] as String? ?? '').replaceAll('{size}', '240');
+                  return GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/fm', arguments: {'fmid': fm['fmid'], 'name': name}),
+                    child: Container(
+                      width: 100,
+                      margin: const EdgeInsets.only(right: 8),
+                      child: Column(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: img.isNotEmpty
+                                ? Image.network(img, width: 80, height: 80, fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(width: 80, height: 80, color: Colors.grey[800], child: const Icon(Icons.radio)))
+                                : Container(width: 80, height: 80, color: Colors.grey[800], child: const Icon(Icons.radio)),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ] else if (_loadingFm) ...[
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text('电台', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+            const Center(child: CircularProgressIndicator()),
+          ],
           const SizedBox(height: 16),
           // 歌单分类
           if (!_loadingTags && _playlistTags.isNotEmpty) ...[
@@ -77,99 +168,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               child: Wrap(
                 spacing: 8,
                 runSpacing: 4,
-                children: _playlistTags.map((t) {
-                  final name = t['tag_name'] as String? ?? '';
-                  final id = t['tag_id'] is int ? t['tag_id'] as int : int.tryParse(t['tag_id']?.toString() ?? '') ?? 0;
-                  return ActionChip(
-                    label: Text(name, style: const TextStyle(fontSize: 12)),
-                    onPressed: () {
-                      if (id > 0) {
-                        Navigator.pushNamed(context, '/playlist/category', arguments: {'id': id, 'name': name});
-                      }
-                    },
-                    visualDensity: VisualDensity.compact,
-                  );
-                }).toList(),
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          // 推荐电台
-          if (!_loadingFm && _fmList.isNotEmpty) ...[
-            const Padding(
-              padding: EdgeInsets.all(12),
-              child: Text('推荐电台',
-                  style:
-                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ),
-            SizedBox(
-              height: 100,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                itemCount: _fmList.length,
-                itemBuilder: (_, i) {
-                  final fm = _fmList[i];
-                  final name = fm['fmname'] as String? ?? '';
-                  final img = (fm['imgurl'] as String? ?? '').replaceAll(
-                      '{size}', '240');
-                  return GestureDetector(
-                    onTap: () => Navigator.pushNamed(context, '/fm'),
-                    child: Container(
-                      width: 100,
-                      margin: const EdgeInsets.only(right: 8),
-                      child: Column(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: img.isNotEmpty
-                                ? Image.network(img,
-                                    width: 80,
-                                    height: 80,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
-                                        Container(
-                                            width: 80,
-                                            height: 80,
-                                            color: Colors.grey[800],
-                                            child: const Icon(Icons.radio)))
-                                : Container(
-                                    width: 80,
-                                    height: 80,
-                                    color: Colors.grey[800],
-                                    child: const Icon(Icons.radio)),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11)),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                children: _buildTagChips(),
               ),
             ),
           ],
         ],
       ),
-    );
-  }
-
-  Widget _quickLink(IconData icon, String label, String route) {
-    return Column(
-      children: [
-        IconButton(
-          onPressed: () => Navigator.pushNamed(context, route),
-          icon: Icon(icon, size: 32),
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.grey[800],
-            fixedSize: const Size(56, 56),
-          ),
-        ),
-        Text(label, style: const TextStyle(fontSize: 12)),
-      ],
     );
   }
 }
