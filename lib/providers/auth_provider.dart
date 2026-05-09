@@ -78,6 +78,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<bool> loginWithPhone(String mobile, String code) async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
     try {
       _user = await _authService.loginWithPhone(mobile, code);
@@ -90,6 +91,7 @@ class AuthProvider extends ChangeNotifier {
       return _user != null;
     } catch (e) {
       _isLoading = false;
+      _errorMessage = e.toString();
       notifyListeners();
       return false;
     }

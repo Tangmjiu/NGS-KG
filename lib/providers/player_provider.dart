@@ -35,7 +35,6 @@ class PlayerProvider extends ChangeNotifier {
 
   StreamSubscription? _positionSub;
   StreamSubscription? _durationSub;
-  StreamSubscription? _playerStateSub;
   StreamSubscription? _processingStateSub;
 
   Song? get currentSong => _currentSong;
@@ -187,7 +186,7 @@ class PlayerProvider extends ChangeNotifier {
         if (songUrl.url.isNotEmpty) {
           await _player.setUrl(songUrl.url);
           await _player.play();
-          _musicService.uploadPlayHistory(song.id, duration: song.duration);
+          _musicService.uploadPlayHistory(song.id, duration: song.duration).catchError((_) {});
         } else {
           _playAttempts++;
           await _doPlay();
@@ -308,6 +307,25 @@ class PlayerProvider extends ChangeNotifier {
     return q.containsKey(key) ? key : null;
   }
 
+  bool isCurrentQuality(String key) {
+    final q = _currentSong?.qualities;
+    if (q == null || q.isEmpty) return false;
+    final keys = ['128', '320', 'high'];
+    final currentKey = keys[_qualityLevel % keys.length];
+    return currentKey == key;
+  }
+
+  Future<void> setQualityIndex(int index) async {
+    final q = _currentSong?.qualities;
+    if (q == null || q.isEmpty) return;
+    _qualityLevel = index % ['128', '320', 'high'].length;
+    if (_isPlaying) {
+      await playIndex(_currentIndex);
+    } else {
+      notifyListeners();
+    }
+  }
+
   Future<void> switchQuality() async {
     final q = _currentSong?.qualities;
     if (q == null || q.isEmpty) return;
@@ -370,7 +388,6 @@ class PlayerProvider extends ChangeNotifier {
   void dispose() {
     _positionSub?.cancel();
     _durationSub?.cancel();
-    _playerStateSub?.cancel();
     _processingStateSub?.cancel();
     _sleepTimer?.cancel();
     _player.dispose();

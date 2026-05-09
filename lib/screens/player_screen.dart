@@ -18,7 +18,6 @@ class PlayerScreen extends StatefulWidget {
 
 class _PlayerScreenState extends State<PlayerScreen> {
   bool _showLyrics = false;
-  int _qualityLevel = 0;
   final MusicService _musicService = MusicService();
   List<_LyricLine> _lyrics = [];
   int _currentLine = 0;
@@ -153,7 +152,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (_lyricLoading) {
       lyricWidgets.add(const Expanded(child: Center(child: CircularProgressIndicator())));
     } else if (_lyrics.isEmpty) {
-      lyricWidgets.add(const Expanded(child: Center(child: Text('暂无歌词'))));
+      lyricWidgets.add(Expanded(child: Center(child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.lyrics_outlined, size: 48, color: Colors.grey[600]),
+          const SizedBox(height: 16),
+          Text('暂无歌词', style: TextStyle(fontSize: 16, color: Colors.grey[400])),
+          const SizedBox(height: 8),
+          Text('歌曲: ${song.name}', style: TextStyle(fontSize: 12, color: Colors.grey[500]), maxLines: 1, overflow: TextOverflow.ellipsis),
+        ],
+      ))));
     } else {
       lyricWidgets.add(Expanded(
         child: Stack(
@@ -444,7 +452,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (q == null || q.isEmpty) return const SizedBox.shrink();
     final label = ['标准', 'HQ', '无损'];
     final keys = ['128', '320', 'high'];
-    final current = _qualityLevel % label.length;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Row(
@@ -456,10 +463,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: ChoiceChip(
                   label: Text(label[i], style: const TextStyle(fontSize: 11)),
-                  selected: i == current,
+                  selected: player.isCurrentQuality(keys[i]),
                   onSelected: (_) {
-                    _qualityLevel = i;
-                    player.switchQuality();
+                    player.setQualityIndex(i);
                   },
                   visualDensity: VisualDensity.compact,
                 ),
@@ -501,22 +507,31 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (mounted) setState(() {});
     try {
       final searchRes = await _musicService.searchLyricByHash(hash);
-      final candidates = searchRes['candidates'] as List<dynamic>? ?? [];
+      debugPrint('[PlayerScreen] searchLyricByHash response: $searchRes');
+      final data = searchRes['data'] as Map<String, dynamic>? ?? searchRes;
+      final candidates = data['candidates'] as List<dynamic>? ?? [];
+      debugPrint('[PlayerScreen] candidates: $candidates');
       if (candidates.isNotEmpty) {
         final c = candidates[0] as Map<String, dynamic>;
         final id = c['id'] as int;
         final key = c['accesskey'] as String? ?? '';
-        final content = await _musicService.fetchLyricContent(id, key);
+        debugPrint('[PlayerScreen] fetching lyric id=$id key=$key');
+        final rawContent = await _musicService.fetchLyricContent(id, key);
+        final content = rawContent.isNotEmpty ? rawContent : '';
+        debugPrint('[PlayerScreen] lyric content length: ${content.length}');
         if (content.isNotEmpty) {
           try {
             final decoded = utf8.decode(base64Decode(content));
             _lyrics = _parseLyrics(decoded);
+            debugPrint('[PlayerScreen] parsed ${_lyrics.length} lyric lines');
           } catch (e) {
             debugPrint('[PlayerScreen] lyrics decode failed: $e');
           }
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[PlayerScreen] _loadLyrics error: $e');
+    }
     _lyricLoading = false;
     if (mounted) setState(() {});
   }

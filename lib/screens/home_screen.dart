@@ -5,9 +5,7 @@ import '../providers/auth_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../providers/player_provider.dart';
 import '../models/song.dart';
-import '../widgets/playlist_card.dart';
 import '../widgets/tablet_scaffold.dart';
-import '../widgets/song_tile.dart';
 import '../utils/responsive.dart';
 import '../services/music_service.dart';
 import 'discover_screen.dart';
@@ -28,7 +26,69 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showContinueBanner = false;
   final Map<int, List<Song>> _cardSongs = {};
   final Map<int, String> _cardNames = {};
-  bool _loadingCards = true;
+
+  SliverGridDelegateWithFixedCrossAxisCount _gridDelegate(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    int crossAxisCount;
+    if (width > 900) crossAxisCount = 6;
+    else if (width > 600) crossAxisCount = 5;
+    else if (width > 400) crossAxisCount = 4;
+    else crossAxisCount = 3;
+    return SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: crossAxisCount,
+      childAspectRatio: 0.75,
+      crossAxisSpacing: 8,
+      mainAxisSpacing: 8,
+    );
+  }
+
+  Widget _buildCardGrid(int cardId, List<Song> songs, String title) {
+    if (songs.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        ),
+        SizedBox(
+          height: 400,
+          child: GridView.builder(
+            gridDelegate: _gridDelegate(context),
+            itemCount: songs.length,
+            itemBuilder: (_, i) {
+              final song = songs[i];
+              return GestureDetector(
+                onTap: () => context.read<PlayerProvider>().playSong(song, playlist: songs),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 1,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: song.albumCoverUrl != null
+                            ? CachedNetworkImage(
+                                imageUrl: song.albumCoverUrl!,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
+                                errorWidget: (_, __, ___) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.music_note)),
+                              )
+                            : Container(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.music_note)),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
+                    Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
 
   static const _cardTitles = {
     1: '私人专属好歌',
@@ -58,18 +118,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadCardSongs() async {
+    final futures = <int, Future<Map<String, dynamic>>>{};
     for (int id = 1; id <= 6; id++) {
-      try {
-        final data = await _musicService.getCardSongs(id);
-        if (mounted) {
-          setState(() {
-            _cardNames[id] = data['rec_desc'] ?? _cardTitles[id] ?? '';
-            _cardSongs[id] = data['songs'];
-          });
-        }
-      } catch (_) {}
+      futures[id] = _musicService.getCardSongs(id).catchError((_) => <String, dynamic>{});
     }
-    if (mounted) setState(() => _loadingCards = false);
+    final results = await Future.wait(futures.values);
+    if (mounted) {
+      int id = 1;
+      for (final data in results) {
+        _cardNames[id] = data['rec_desc'] ?? _cardTitles[id] ?? '';
+        _cardSongs[id] = (data['songs'] as List<dynamic>?)?.cast<Song>() ?? [];
+        id++;
+      }
+    }
   }
 
   Future<void> _checkLatestListen() async {
@@ -162,11 +223,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     ];
-  }
-
-  Widget _buildPage(AppBar? appBar, Widget body) {
-    if (appBar == null) return body;
-    return Column(children: [appBar, Expanded(child: body)]);
   }
 
   Widget _buildHome() {
@@ -283,12 +339,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: SizedBox(
                     height: 400,
                     child: GridView.builder(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        childAspectRatio: 0.85,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                      ),
+                      gridDelegate: _gridDelegate(context),
                       itemCount: _recommended.length,
                       itemBuilder: (_, i) {
                         final song = _recommended[i];
@@ -297,18 +348,19 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: song.albumCoverUrl != null
-                                    ? CachedNetworkImage(
-                                        imageUrl: song.albumCoverUrl!,
-                                        width: double.infinity,
-                                        height: 80,
-                                        fit: BoxFit.cover,
-                                        placeholder: (_, __) => Container(color: Colors.grey[800], height: 80),
-                                        errorWidget: (_, __, ___) => Container(color: Colors.grey[800], height: 80, child: const Icon(Icons.music_note)),
-                                      )
-                                    : Container(color: Colors.grey[800], height: 80, child: const Icon(Icons.music_note)),
+                              AspectRatio(
+                                aspectRatio: 1,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: song.albumCoverUrl != null
+                                      ? CachedNetworkImage(
+                                          imageUrl: song.albumCoverUrl!,
+                                          fit: BoxFit.cover,
+                                          placeholder: (_, __) => Container(color: Colors.grey[800]),
+                                          errorWidget: (_, __, ___) => Container(color: Colors.grey[800], child: const Icon(Icons.music_note)),
+                                        )
+                                      : Container(color: Colors.grey[800], child: const Icon(Icons.music_note)),
+                                ),
                               ),
                               const SizedBox(height: 4),
                               Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
@@ -321,282 +373,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ],
-              // 私人专属好歌 card_id=1
-              if (_cardSongs[1]?.isNotEmpty ?? false) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(_cardNames[1] ?? '私人专属好歌', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
-                SizedBox(
-                  height: 400,
-                  child: GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      childAspectRatio: 0.85,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                    ),
-                    itemCount: _cardSongs[1]!.length,
-                    itemBuilder: (_, i) {
-                      final song = _cardSongs[1]![i];
-                      return GestureDetector(
-                        onTap: () => context.read<PlayerProvider>().playSong(song, playlist: _cardSongs[1]!),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: song.albumCoverUrl != null
-                                  ? CachedNetworkImage(
-                                      imageUrl: song.albumCoverUrl!,
-                                      width: double.infinity,
-                                      height: 80,
-                                      fit: BoxFit.cover,
-                                      placeholder: (_, __) => Container(color: Colors.grey[800], height: 80),
-                                      errorWidget: (_, __, ___) => Container(color: Colors.grey[800], height: 80, child: const Icon(Icons.music_note)),
-                                    )
-                                  : Container(color: Colors.grey[800], height: 80, child: const Icon(Icons.music_note)),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
-                            Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: Colors.grey[400])),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-              // 经典怀旧金曲 card_id=2
-              if (_cardSongs[2]?.isNotEmpty ?? false) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(_cardNames[2] ?? '经典怀旧金曲', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
-                SizedBox(
-                  height: 400,
-                  child: GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      childAspectRatio: 0.85,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                    ),
-                    itemCount: _cardSongs[2]!.length,
-                    itemBuilder: (_, i) {
-                      final song = _cardSongs[2]![i];
-                      return GestureDetector(
-                        onTap: () => context.read<PlayerProvider>().playSong(song, playlist: _cardSongs[2]!),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: song.albumCoverUrl != null
-                                  ? CachedNetworkImage(
-                                      imageUrl: song.albumCoverUrl!,
-                                      width: double.infinity,
-                                      height: 80,
-                                      fit: BoxFit.cover,
-                                      placeholder: (_, __) => Container(color: Colors.grey[800], height: 80),
-                                      errorWidget: (_, __, ___) => Container(color: Colors.grey[800], height: 80, child: const Icon(Icons.music_note)),
-                                    )
-                                  : Container(color: Colors.grey[800], height: 80, child: const Icon(Icons.music_note)),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
-                            Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: Colors.grey[400])),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-              // 热门好歌精选 card_id=3
-              if (_cardSongs[3]?.isNotEmpty ?? false) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(_cardNames[3] ?? '热门好歌精选', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
-                SizedBox(
-                  height: 400,
-                  child: GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      childAspectRatio: 0.85,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                    ),
-                    itemCount: _cardSongs[3]!.length,
-                    itemBuilder: (_, i) {
-                      final song = _cardSongs[3]![i];
-                      return GestureDetector(
-                        onTap: () => context.read<PlayerProvider>().playSong(song, playlist: _cardSongs[3]!),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: song.albumCoverUrl != null
-                                  ? CachedNetworkImage(
-                                      imageUrl: song.albumCoverUrl!,
-                                      width: double.infinity,
-                                      height: 80,
-                                      fit: BoxFit.cover,
-                                      placeholder: (_, __) => Container(color: Colors.grey[800], height: 80),
-                                      errorWidget: (_, __, ___) => Container(color: Colors.grey[800], height: 80, child: const Icon(Icons.music_note)),
-                                    )
-                                  : Container(color: Colors.grey[800], height: 80, child: const Icon(Icons.music_note)),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
-                            Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: Colors.grey[400])),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-              // 小众宝藏佳作 card_id=4
-              if (_cardSongs[4]?.isNotEmpty ?? false) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(_cardNames[4] ?? '小众宝藏佳作', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
-                SizedBox(
-                  height: 400,
-                  child: GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      childAspectRatio: 0.85,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                    ),
-                    itemCount: _cardSongs[4]!.length,
-                    itemBuilder: (_, i) {
-                      final song = _cardSongs[4]![i];
-                      return GestureDetector(
-                        onTap: () => context.read<PlayerProvider>().playSong(song, playlist: _cardSongs[4]!),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: song.albumCoverUrl != null
-                                  ? CachedNetworkImage(
-                                      imageUrl: song.albumCoverUrl!,
-                                      width: double.infinity,
-                                      height: 80,
-                                      fit: BoxFit.cover,
-                                      placeholder: (_, __) => Container(color: Colors.grey[800], height: 80),
-                                      errorWidget: (_, __, ___) => Container(color: Colors.grey[800], height: 80, child: const Icon(Icons.music_note)),
-                                    )
-                                  : Container(color: Colors.grey[800], height: 80, child: const Icon(Icons.music_note)),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
-                            Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: Colors.grey[400])),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-              // 潮流尝鲜 card_id=5
-              if (_cardSongs[5]?.isNotEmpty ?? false) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(_cardNames[5] ?? '潮流尝鲜', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
-                SizedBox(
-                  height: 400,
-                  child: GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      childAspectRatio: 0.85,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                    ),
-                    itemCount: _cardSongs[5]!.length,
-                    itemBuilder: (_, i) {
-                      final song = _cardSongs[5]![i];
-                      return GestureDetector(
-                        onTap: () => context.read<PlayerProvider>().playSong(song, playlist: _cardSongs[5]!),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: song.albumCoverUrl != null
-                                  ? CachedNetworkImage(
-                                      imageUrl: song.albumCoverUrl!,
-                                      width: double.infinity,
-                                      height: 80,
-                                      fit: BoxFit.cover,
-                                      placeholder: (_, __) => Container(color: Colors.grey[800], height: 80),
-                                      errorWidget: (_, __, ___) => Container(color: Colors.grey[800], height: 80, child: const Icon(Icons.music_note)),
-                                    )
-                                  : Container(color: Colors.grey[800], height: 80, child: const Icon(Icons.music_note)),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
-                            Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: Colors.grey[400])),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-              // VIP专属推荐 card_id=6
-              if (_cardSongs[6]?.isNotEmpty ?? false) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(_cardNames[6] ?? 'VIP专属推荐', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
-                SizedBox(
-                  height: 400,
-                  child: GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      childAspectRatio: 0.85,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                    ),
-                    itemCount: _cardSongs[6]!.length,
-                    itemBuilder: (_, i) {
-                      final song = _cardSongs[6]![i];
-                      return GestureDetector(
-                        onTap: () => context.read<PlayerProvider>().playSong(song, playlist: _cardSongs[6]!),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: song.albumCoverUrl != null
-                                  ? CachedNetworkImage(
-                                      imageUrl: song.albumCoverUrl!,
-                                      width: double.infinity,
-                                      height: 80,
-                                      fit: BoxFit.cover,
-                                      placeholder: (_, __) => Container(color: Colors.grey[800], height: 80),
-                                      errorWidget: (_, __, ___) => Container(color: Colors.grey[800], height: 80, child: const Icon(Icons.music_note)),
-                                    )
-                                  : Container(color: Colors.grey[800], height: 80, child: const Icon(Icons.music_note)),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
-                            Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: Colors.grey[400])),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
+              if (_cardSongs[1]?.isNotEmpty ?? false)
+                _buildCardGrid(1, _cardSongs[1]!, _cardNames[1] ?? '私人专属好歌'),
+              if (_cardSongs[2]?.isNotEmpty ?? false)
+                _buildCardGrid(2, _cardSongs[2]!, _cardNames[2] ?? '经典怀旧金曲'),
+              if (_cardSongs[3]?.isNotEmpty ?? false)
+                _buildCardGrid(3, _cardSongs[3]!, _cardNames[3] ?? '热门好歌精选'),
+              if (_cardSongs[4]?.isNotEmpty ?? false)
+                _buildCardGrid(4, _cardSongs[4]!, _cardNames[4] ?? '小众宝藏佳作'),
+              if (_cardSongs[5]?.isNotEmpty ?? false)
+                _buildCardGrid(5, _cardSongs[5]!, _cardNames[5] ?? '潮流尝鲜'),
+              if (_cardSongs[6]?.isNotEmpty ?? false)
+                _buildCardGrid(6, _cardSongs[6]!, _cardNames[6] ?? 'VIP专属推荐'),
             ],
           ),
         );

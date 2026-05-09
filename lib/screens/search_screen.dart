@@ -383,9 +383,10 @@ class _SearchScreenState extends State<SearchScreen>
           title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
           onTap: () {
-            final id = a['albumid'] as int? ?? a['id'] as int?;
-            if (id != null) {
-              Navigator.pushNamed(context, '/album/detail', arguments: {'id': id});
+            final id = a['albumid'];
+            final albumId = id is int ? id : (id is String ? int.tryParse(id) : null) ?? a['id'] as int?;
+            if (albumId != null) {
+              Navigator.pushNamed(context, '/album/detail', arguments: {'id': albumId});
             }
           },
         );

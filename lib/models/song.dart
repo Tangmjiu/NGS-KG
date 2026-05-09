@@ -94,7 +94,7 @@ class Song {
     return Song(
       id: (json['audio_id'] ?? json['id']) as int,
       name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
-      artists: parts.length > 1 ? [parts[0]] : ['未知'],
+      artists: parts.length > 1 ? [parts[0]] : [(json['artist'] ?? json['author'] ?? json['singer'] ?? '') as String],
       albumCoverUrl: cover,
       duration: (json['timelen'] as int? ?? 0) ~/ 1000,
       hash: hash,
@@ -122,7 +122,7 @@ class Song {
       final vHigh = audioInfo['hash_high'] as String?;
       if (vHigh != null && vHigh.isNotEmpty) q['high'] = vHigh;
     }
-    if (hash == null || hash!.isEmpty) {
+    if (hash == null || hash.isEmpty) {
       final deprecated = json['deprecated'];
       if (deprecated is Map) hash = deprecated['hash'] as String?;
     }
@@ -155,6 +155,10 @@ class SongUrl {
   const SongUrl({required this.id, required this.url, this.type = 'mp3'});
 
   factory SongUrl.fromJson(Map<String, dynamic> json) {
+    final status = json['status'];
+    if (status == 3 || status == '3') {
+      throw Exception('无法播放：该歌曲暂无版权');
+    }
     final urls = json['url'];
     final firstUrl = urls is List
         ? (urls.isNotEmpty ? urls[0].toString() : '')

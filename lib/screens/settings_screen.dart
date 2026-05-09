@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../services/api_client.dart';
+import '../services/cache_service.dart';
 import '../utils/constants.dart';
 import 'audio_effects_screen.dart';
 
@@ -103,10 +104,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             title: const Text('清除缓存'),
             subtitle: const Text('清除临时数据和请求缓存'),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('缓存已清除'), duration: Duration(seconds: 1)),
-              );
+            onTap: () async {
+              await CacheService.instance.clear();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('缓存已清除'), duration: Duration(seconds: 1)),
+                );
+              }
             },
           ),
           const Divider(),
