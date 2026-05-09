@@ -8,6 +8,8 @@ class CacheService {
   static CacheService get instance => _instance;
   CacheService._();
 
+  static const int _maxCacheCount = 500;
+
   Database? _db;
   bool _initialized = false;
 
@@ -34,12 +36,27 @@ class CacheService {
 
   Future<void> put(String key, String value, {Duration ttl = const Duration(hours: 2)}) async {
     if (_db == null) return;
+    await _enforceCapacity();
     final expiresAt = DateTime.now().millisecondsSinceEpoch + ttl.inMilliseconds;
     await _db!.insert('cache', {
       'key': key,
       'value': value,
       'expires_at': expiresAt,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<void> _enforceCapacity() async {
+    if (_db == null) return;
+    final count = Sqflite.firstIntValue(
+      await _db!.rawQuery('SELECT COUNT(*) FROM cache'),
+    ) ?? 0;
+    if (count >= _maxCacheCount) {
+      await _db!.rawDelete('''
+        DELETE FROM cache WHERE key IN (
+          SELECT key FROM cache ORDER BY expires_at ASC LIMIT ?
+        )
+      ''', [(count - _maxCacheCount + 100)]);
+    }
   }
 
   Future<String?> get(String key) async {

@@ -45,10 +45,11 @@ class _FmScreenState extends State<FmScreen> {
   void _onRadioTap(Map<String, dynamic> radio) {
     final fmid = radio['fmid'] as int?;
     if (fmid == null) return;
+    final newFmid = _selectedFmid == fmid ? null : fmid;
     setState(() {
-      _selectedFmid = _selectedFmid == fmid ? null : fmid;
+      _selectedFmid = newFmid;
     });
-    if (_selectedFmid == fmid && _fmSongs.isEmpty) {
+    if (newFmid != null && _fmSongs.isEmpty) {
       _loadFmSongs(fmid);
     }
   }

@@ -45,11 +45,10 @@ class MusicService {
       'keywords': keyword,
       'limit': limit,
       'offset': offset,
-      'type': type,
     });
-    final data = res['data'];
-    final list =
-        data['songs'] as List<dynamic>? ?? data['lists'] as List<dynamic>? ?? [];
+    final data = res['data'] as Map<String, dynamic>?;
+    if (data == null) return [];
+    final list = data['songs'] as List<dynamic>? ?? data['lists'] as List<dynamic>? ?? [];
     return list
         .map((e) => Song.fromKugouJson(e as Map<String, dynamic>))
         .toList();
@@ -521,7 +520,6 @@ class MusicService {
           .map((e) => Song.fromTrackJson(e as Map<String, dynamic>))
           .toList();
     }
-    return [];
     return [];
   }
 

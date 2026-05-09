@@ -27,7 +27,8 @@ class _LyricsScreenState extends State<LyricsScreen> {
   void _autoLoad() {
     final player = context.read<PlayerProvider>();
     final song = player.currentSong;
-    if (song != null && song.hash != null && song.hash != _lastLoadedHash) {
+    if (song == null) return;
+    if (song.hash != null && song.hash != _lastLoadedHash) {
       _loadLyrics(song.hash!);
     }
   }

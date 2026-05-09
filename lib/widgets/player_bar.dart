@@ -23,7 +23,7 @@ class PlayerBar extends StatelessWidget {
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               border: Border(
-                  top: BorderSide(color: Colors.grey[800]!, width: 0.5)),
+                  top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,

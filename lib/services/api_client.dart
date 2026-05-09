@@ -56,8 +56,29 @@ class ApiClient {
 
   Dio get dio => _dio;
 
-  Future<Response> get(String path, {Map<String, dynamic>? params}) {
-    return _dio.get(path, queryParameters: params);
+  Future<Response> get(String path, {Map<String, dynamic>? params}) async {
+    try {
+      final response = await _dio.get(path, queryParameters: params);
+      final data = response.data;
+      if (data is Map) {
+        final status = data['status'] ?? data['code'];
+        if (status == 20010 || status == '20010') {
+          throw Exception('NEED_LOGIN');
+        }
+      }
+      return response;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 200) {
+        final data = e.response?.data;
+        if (data is Map) {
+          final status = data['status'] ?? data['code'];
+          if (status == 20010 || status == '20010') {
+            throw Exception('NEED_LOGIN');
+          }
+        }
+      }
+      rethrow;
+    }
   }
 
   Future<Response> post(String path, {dynamic data}) {
@@ -67,10 +88,21 @@ class ApiClient {
   Future<String> getCookieString() async {
     final uri = Uri.parse(AppConstants.baseUrl);
     final cookies = await _cookieJar.loadForRequest(uri);
-    final parts = cookies.map((c) => '${c.name}=${c.value}').toList();
-    if (_authToken != null) parts.add('token=$_authToken');
-    if (_authUserId != null) parts.add('userid=$_authUserId');
-    if (_dfid != null) parts.add('dfid=$_dfid');
-    return parts.join(';');
+    final parts = <String>[];
+    for (final c in cookies) {
+      if (c.name.isNotEmpty && c.value.isNotEmpty) {
+        parts.add('${c.name}=${c.value}');
+      }
+    }
+    if (_authToken != null && _authToken!.isNotEmpty) {
+      parts.add('token=$_authToken');
+    }
+    if (_authUserId != null && _authUserId!.isNotEmpty) {
+      parts.add('userid=$_authUserId');
+    }
+    if (_dfid != null && _dfid!.isNotEmpty) {
+      parts.add('dfid=$_dfid');
+    }
+    return parts.isNotEmpty ? parts.join(';') : '';
   }
 }
