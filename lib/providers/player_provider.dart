@@ -181,8 +181,8 @@ class PlayerProvider extends ChangeNotifier {
         }
       } else {
         final quality = _currentQuality;
-        final songUrl = await _musicService.getSongUrl(song.id,
-            hash: song.hash, quality: quality);
+        final songUrl = await _musicService.getSongUrl(
+            hash: song.hash ?? '', quality: quality);
         if (songUrl.url.isNotEmpty) {
           await _player.setUrl(songUrl.url);
           await _player.play();

@@ -33,10 +33,10 @@ class _FmScreenState extends State<FmScreen> {
     if (mounted) setState(() => _isLoading = false);
   }
 
-  Future<void> _loadFmSongs(int fmid) async {
+  Future<void> _loadFmSongs() async {
     setState(() => _loadingSongs = true);
     try {
-      final songs = await _musicService.getFmSongs(fmid);
+      final songs = await _musicService.getFmSongs();
       if (mounted) setState(() => _fmSongs = songs);
     } catch (_) {}
     if (mounted) setState(() => _loadingSongs = false);
@@ -53,7 +53,7 @@ class _FmScreenState extends State<FmScreen> {
       }
     });
     if (newFmid != null) {
-      _loadFmSongs(newFmid);
+      _loadFmSongs();
     }
   }
 
