@@ -17,11 +17,18 @@ class _LyricsScreenState extends State<LyricsScreen> {
   bool _loading = false;
   int _currentLine = 0;
   String? _lastLoadedHash;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _autoLoad());
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _autoLoad() {
@@ -107,16 +114,13 @@ class _LyricsScreenState extends State<LyricsScreen> {
         ),
       );
     }
-    final controller = ScrollController();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final offset = (_currentLine - 3).clamp(0, _lyrics.length - 1) * 56.0;
-      if (controller.hasClients) {
-        controller.animateTo(offset,
-            duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-      }
-    });
+    final offset = (_currentLine - 3).clamp(0, _lyrics.length - 1) * 56.0;
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(offset,
+          duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    }
     return ListView.builder(
-      controller: controller,
+      controller: _scrollController,
       itemCount: _lyrics.length,
       itemBuilder: (_, i) {
         final line = _lyrics[i];

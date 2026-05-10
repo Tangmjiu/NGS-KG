@@ -57,10 +57,13 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const LoginScreen());
       case playlistDetail:
         final args = settings.arguments as Map<String, dynamic>;
+        final rawId = args['id'];
+        final int? playlistId = rawId is int ? rawId : (rawId is String ? int.tryParse(rawId) : null);
+        final String? gcId = args['gcId'] as String? ?? (rawId is String && rawId.contains('_') ? rawId : null);
         return MaterialPageRoute(
           builder: (_) => PlaylistDetailScreen(
-            playlistId: args['id'] as int?,
-            gcId: args['gcId'] as String?,
+            playlistId: playlistId,
+            gcId: gcId,
             playlistName: args['name'] as String?,
           ),
         );

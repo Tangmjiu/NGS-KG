@@ -48,9 +48,12 @@ class _FmScreenState extends State<FmScreen> {
     final newFmid = _selectedFmid == fmid ? null : fmid;
     setState(() {
       _selectedFmid = newFmid;
+      if (newFmid != null) {
+        _fmSongs = [];
+      }
     });
-    if (newFmid != null && _fmSongs.isEmpty) {
-      _loadFmSongs(fmid);
+    if (newFmid != null) {
+      _loadFmSongs(newFmid);
     }
   }
 

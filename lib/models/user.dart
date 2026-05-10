@@ -45,5 +45,7 @@ class User {
         if (nickname != null) 'nickname': nickname,
         if (avatarUrl != null) 'avatarUrl': avatarUrl,
         if (token != null) 'token': token,
+        if (vipType != null) 'vip_type': vipType,
+        if (isVip != null) 'is_vip': isVip,
       };
 }

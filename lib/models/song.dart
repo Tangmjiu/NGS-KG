@@ -56,7 +56,7 @@ class Song {
     var cover = json['Image'] as String?;
     if (cover != null) cover = cover.replaceAll('{size}', '480');
     return Song(
-      id: (json['Audioid'] ?? json['id']) as int,
+      id: _parseInt(json['Audioid'] ?? json['id']),
       name: (json['OriSongName'] ?? json['SongName'] ?? json['name'] ?? '') as String,
       artists: [(json['SingerName'] ?? '') as String],
       albumName: json['AlbumName'] as String?,
@@ -92,7 +92,7 @@ class Song {
       }
     }
     return Song(
-      id: (json['audio_id'] ?? json['id']) as int,
+      id: _parseInt(json['audio_id'] ?? json['id']),
       name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
       artists: parts.length > 1 ? [parts[0]] : [(json['artist'] ?? json['author'] ?? json['singer'] ?? '') as String],
       albumCoverUrl: cover,
@@ -127,7 +127,7 @@ class Song {
       if (deprecated is Map) hash = deprecated['hash'] as String?;
     }
     return Song(
-      id: (json['audio_id'] ?? json['album_audio_id'] ?? 0) as int,
+      id: _parseInt(json['audio_id'] ?? json['album_audio_id'] ?? 0),
       name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
       artists: [json['author_name'] as String? ?? ''],
       albumCoverUrl: cover,
@@ -135,6 +135,12 @@ class Song {
       hash: hash,
       qualities: q.isNotEmpty ? q : null,
     );
+  }
+
+  static int _parseInt(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 
   static int _durationFromAudioInfo(dynamic audioInfo) {

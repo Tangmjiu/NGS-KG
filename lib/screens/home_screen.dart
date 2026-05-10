@@ -130,6 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _cardSongs[id] = (data['songs'] as List<dynamic>?)?.cast<Song>() ?? [];
         id++;
       }
+      setState(() {});
     }
   }
 

@@ -3,7 +3,7 @@ import 'package:dio/dio.dart';
 
 void main() async {
   final dio = Dio(BaseOptions(
-    baseUrl: 'http://171.80.2.129:42980',
+    baseUrl: 'https://kugouapi.mjiutang.top',
     connectTimeout: const Duration(seconds: 10),
   ));
 
