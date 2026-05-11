@@ -10,6 +10,8 @@ class SongTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return ListTile(
       leading: ClipRRect(
         borderRadius: BorderRadius.circular(4),
@@ -20,12 +22,12 @@ class SongTile extends StatelessWidget {
                 height: 48,
                 fit: BoxFit.cover,
                 placeholder: (_, __) =>
-                    Container(color: Colors.grey[800], width: 48, height: 48),
+                    Container(color: cs.surfaceContainerHighest, width: 48, height: 48),
                 errorWidget: (_, __, ___) =>
                     const Icon(Icons.music_note, size: 32),
               )
             : Container(
-                color: Colors.grey[800],
+                color: cs.surfaceContainerHighest,
                 width: 48,
                 height: 48,
                 child: const Icon(Icons.music_note, size: 32),
@@ -35,7 +37,7 @@ class SongTile extends StatelessWidget {
       subtitle: Text(song.artistDisplay,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
       trailing: IconButton(
         icon: const Icon(Icons.play_circle_outline, size: 20),
         onPressed: () => onTap?.call(song),

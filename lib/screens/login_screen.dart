@@ -114,30 +114,36 @@ class _PasswordLoginState extends State<_PasswordLogin> {
         children: [
           TextField(
             controller: _usernameCtrl,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: '用户名',
-              prefixIcon: Icon(Icons.person),
-              border: OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.person),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _passwordCtrl,
             obscureText: true,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: '密码',
-              prefixIcon: Icon(Icons.lock),
-              border: OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.lock),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
           if (_showCaptcha) ...[
             const SizedBox(height: 16),
             TextField(
               controller: _captchaCtrl,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: '验证码',
-                prefixIcon: Icon(Icons.security),
-                border: OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.security),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
           ],
@@ -146,17 +152,17 @@ class _PasswordLoginState extends State<_PasswordLogin> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.red.withAlpha(26),
+                color: Theme.of(context).colorScheme.errorContainer,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.warning, color: Colors.red, size: 20),
+                  Icon(Icons.warning, color: Theme.of(context).colorScheme.error, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       _errorMsg!,
-                      style: const TextStyle(color: Colors.red),
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
                     ),
                   ),
                 ],
@@ -180,9 +186,9 @@ class _PasswordLoginState extends State<_PasswordLogin> {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             '提示：密码登录可能需要验证码验证，建议使用手机验证码登录',
-            style: TextStyle(color: Colors.grey, fontSize: 12),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
         ],
@@ -259,10 +265,12 @@ class _PhoneLoginState extends State<_PhoneLogin> {
           TextField(
             controller: _phoneCtrl,
             keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: '手机号',
-              prefixIcon: Icon(Icons.phone_android),
-              border: OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.phone_android),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -272,10 +280,12 @@ class _PhoneLoginState extends State<_PhoneLogin> {
                 child: TextField(
                   controller: _codeCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: '验证码',
-                    prefixIcon: Icon(Icons.message),
-                    border: OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.message),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
@@ -412,7 +422,7 @@ class _QrLoginState extends State<_QrLogin> {
       height: 176,
       fit: BoxFit.contain,
       errorBuilder: (_, __, ___) =>
-          const Icon(Icons.qr_code, size: 100, color: Colors.black),
+          Icon(Icons.qr_code, size: 100, color: Theme.of(context).colorScheme.onSurface),
     );
   }
 
@@ -442,7 +452,7 @@ class _QrLoginState extends State<_QrLogin> {
                 padding: const EdgeInsets.all(12),
                 child: _qrUrl != null
                     ? _buildQrImage()
-                    : const Icon(Icons.qr_code, size: 100, color: Colors.black),
+                    : Icon(Icons.qr_code, size: 100, color: Theme.of(this.context).colorScheme.onSurface),
               ),
               const SizedBox(height: 20),
               Text(_statusText, textAlign: TextAlign.center),

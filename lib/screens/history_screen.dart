@@ -29,7 +29,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       if (mounted) {
         setState(() {
           _songs = raw
-              .map((e) => Song.fromTrackJson(e as Map<String, dynamic>))
+              .map((e) => Song.fromTrackJson(e))
               .toList();
           _isLoading = false;
         });
@@ -50,10 +50,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.history, size: 80, color: Colors.grey[600]),
+                      Icon(Icons.history, size: 80, color: Theme.of(context).colorScheme.onSurfaceVariant),
                       const SizedBox(height: 16),
                       Text('暂无听歌历史',
-                          style: TextStyle(color: Colors.grey[400])),
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                     ],
                   ),
                 )

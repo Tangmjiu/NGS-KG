@@ -28,9 +28,11 @@ class _CreatePlaylistDialogState extends State<CreatePlaylistDialog> {
       content: TextField(
         controller: _nameCtrl,
         autofocus: true,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           labelText: '歌单名称',
-          border: OutlineInputBorder(),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
         ),
       ),
       actions: [

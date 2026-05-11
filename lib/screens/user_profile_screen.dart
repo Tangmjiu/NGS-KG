@@ -59,12 +59,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 const SizedBox(height: 16),
                 Center(
                   child: Text(user?.nickname ?? '未知',
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                      style: Theme.of(context).textTheme.headlineSmall),
                 ),
                 if (user?.userId != null)
                   Center(
                     child: Text('ID: ${user!.userId}',
-                        style: TextStyle(color: Colors.grey[400])),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                   ),
                 if (user?.isVipActive == true)
                   Center(
@@ -87,29 +87,29 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('账号信息',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          Text('账号信息',
+                              style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 12),
                           _infoRow('昵称', _detail!['nickname']?.toString() ?? ''),
                           _infoRow('性别', _detail!['sex'] == 1 ? '男' : _detail!['sex'] == 2 ? '女' : '未设置'),
                           _infoRow('地区', _detail!['city']?.toString() ?? ''),
                           _infoRow('等级', _detail!['level']?.toString() ?? ''),
-                          if (_detail!['birthday']?.toString()?.isNotEmpty == true)
+                          if (_detail!['birthday']?.toString().isNotEmpty == true)
                             _infoRow('生日', _detail!['birthday'].toString()),
                           _infoRow('注册时间', _detail!['reg_time']?.toString() ?? ''),
                         ],
                       ),
                     ),
                   ),
-                  if (_detail!['sign']?.toString()?.isNotEmpty == true)
+                  if (_detail!['sign']?.toString().isNotEmpty == true)
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('个人签名',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            Text('个人签名',
+                                style: Theme.of(context).textTheme.titleMedium),
                             const SizedBox(height: 8),
                             Text(_detail!['sign'].toString()),
                           ],
@@ -119,7 +119,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   Consumer<LikedSongsProvider>(
                     builder: (_, liked, __) => Card(
                       child: ListTile(
-                        leading: const Icon(Icons.favorite, color: Colors.red),
+                        leading: Icon(Icons.favorite, color: Theme.of(context).colorScheme.error),
                         title: const Text('我喜欢的音乐'),
                         subtitle: Text('${liked.likedIds.length} 首'),
                         trailing: const Icon(Icons.chevron_right),
@@ -141,7 +141,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          SizedBox(width: 80, child: Text(label, style: TextStyle(color: Colors.grey[400]))),
+          SizedBox(width: 80, child: Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))),
           Expanded(child: Text(value)),
         ],
       ),

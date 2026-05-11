@@ -59,8 +59,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               if (hasDesc && i == 0) {
                 return Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: Text(desc!,
-                      style: TextStyle(color: Colors.grey[400], fontSize: 13)),
+                  child: Text(desc,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 );
               }
               final si = hasDesc ? i - 1 : i;

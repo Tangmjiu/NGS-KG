@@ -13,6 +13,7 @@ class LyricsScreen extends StatefulWidget {
 
 class _LyricsScreenState extends State<LyricsScreen> {
   final MusicService _musicService = MusicService();
+  final ScrollController _lyricScrollController = ScrollController();
   List<_LyricLine> _lyrics = [];
   bool _loading = false;
   int _currentLine = 0;
@@ -22,6 +23,12 @@ class _LyricsScreenState extends State<LyricsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _autoLoad());
+  }
+
+  @override
+  void dispose() {
+    _lyricScrollController.dispose();
+    super.dispose();
   }
 
   void _autoLoad() {
@@ -72,6 +79,7 @@ class _LyricsScreenState extends State<LyricsScreen> {
       if (_lyrics[i].time.inMilliseconds <= ms) {
         if (_currentLine != i) {
           _currentLine = i;
+          _scrollToCurrentLine();
           if (mounted) setState(() {});
         }
         return;
@@ -79,7 +87,17 @@ class _LyricsScreenState extends State<LyricsScreen> {
     }
   }
 
+  void _scrollToCurrentLine() {
+    final offset = (_currentLine - 3).clamp(0, _lyrics.length - 1) * 56.0;
+    if (_lyricScrollController.hasClients) {
+      _lyricScrollController.animateTo(offset,
+          duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    }
+  }
+
   Widget _buildBody(PlayerProvider player) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -89,11 +107,10 @@ class _LyricsScreenState extends State<LyricsScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(player.currentSong!.name,
-                style: const TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.bold)),
+                style: tt.headlineSmall),
             const SizedBox(height: 8),
             Text(player.currentSong!.artistDisplay,
-                style: TextStyle(fontSize: 16, color: Colors.grey[400])),
+                style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant)),
             const SizedBox(height: 24),
             Text(player.currentSong!.hash == null ? '无歌词信息' : '加载失败'),
             if (player.currentSong!.hash != null) ...[
@@ -107,16 +124,8 @@ class _LyricsScreenState extends State<LyricsScreen> {
         ),
       );
     }
-    final controller = ScrollController();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final offset = (_currentLine - 3).clamp(0, _lyrics.length - 1) * 56.0;
-      if (controller.hasClients) {
-        controller.animateTo(offset,
-            duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-      }
-    });
     return ListView.builder(
-      controller: controller,
+      controller: _lyricScrollController,
       itemCount: _lyrics.length,
       itemBuilder: (_, i) {
         final line = _lyrics[i];
@@ -130,8 +139,8 @@ class _LyricsScreenState extends State<LyricsScreen> {
               fontSize: isCurrent ? 18 : 14,
               fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
               color: isCurrent
-                  ? Theme.of(context).colorScheme.primary
-                  : Colors.grey[400],
+                  ? cs.primary
+                  : cs.onSurfaceVariant,
             ),
           ),
         );

@@ -102,17 +102,17 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       child: ListView(
         padding: const EdgeInsets.all(8),
         children: [
-          const Padding(
-            padding: EdgeInsets.all(12),
+          Padding(
+            padding: const EdgeInsets.all(12),
             child: Text('发现',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                style: Theme.of(context).textTheme.headlineSmall),
           ),
           // 快捷入口卡片
           if (!_loadingFm && _fmList.isNotEmpty) ...[
-            const Padding(
-              padding: EdgeInsets.all(12),
+            Padding(
+              padding: const EdgeInsets.all(12),
               child: Text('电台',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  style: Theme.of(context).textTheme.titleLarge),
             ),
             SizedBox(
               height: 120,
@@ -135,11 +135,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                             borderRadius: BorderRadius.circular(8),
                             child: img.isNotEmpty
                                 ? Image.network(img, width: 80, height: 80, fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(width: 80, height: 80, color: Colors.grey[800], child: const Icon(Icons.radio)))
-                                : Container(width: 80, height: 80, color: Colors.grey[800], child: const Icon(Icons.radio)),
+                                    errorBuilder: (_, __, ___) => Container(width: 80, height: 80, color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.radio)))
+                                : Container(width: 80, height: 80, color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.radio)),
                           ),
                           const SizedBox(height: 4),
-                          Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                          Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
                         ],
                       ),
                     ),
@@ -148,20 +148,19 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               ),
             ),
           ] else if (_loadingFm) ...[
-            const Padding(
-              padding: EdgeInsets.all(12),
-              child: Text('电台', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text('电台', style: Theme.of(context).textTheme.titleLarge),
             ),
             const Center(child: CircularProgressIndicator()),
           ],
           const SizedBox(height: 16),
           // 歌单分类
           if (!_loadingTags && _playlistTags.isNotEmpty) ...[
-            const Padding(
-              padding: EdgeInsets.all(12),
+            Padding(
+              padding: const EdgeInsets.all(12),
               child: Text('歌单分类',
-                  style:
-                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  style: Theme.of(context).textTheme.titleLarge),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),

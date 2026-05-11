@@ -139,14 +139,14 @@ class _TabletPlayerBar extends StatelessWidget {
                         errorBuilder: (_, __, ___) => Container(
                           width: 48,
                           height: 48,
-                          color: Colors.grey[800],
+                          color: theme.colorScheme.surfaceContainerHighest,
                           child: const Icon(Icons.music_note),
                         ),
                       )
                     : Container(
                         width: 48,
                         height: 48,
-                        color: Colors.grey[800],
+                        color: theme.colorScheme.surfaceContainerHighest,
                         child: const Icon(Icons.music_note),
                       ),
               ),
@@ -160,18 +160,18 @@ class _TabletPlayerBar extends StatelessWidget {
                       player.currentSong!.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                     ),
                     Text(
                       player.currentSong!.artistDisplay,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                      style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
                     if (player.duration.inSeconds > 0)
                       LinearProgressIndicator(
                         value: player.progress,
-                        backgroundColor: Colors.grey[800],
+                        backgroundColor: theme.colorScheme.surfaceContainerHighest,
                         minHeight: 2,
                       ),
                   ],

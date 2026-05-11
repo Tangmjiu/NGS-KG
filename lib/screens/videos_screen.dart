@@ -40,7 +40,7 @@ class _VideosScreenState extends State<VideosScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _videos.isEmpty
               ? Center(child: Text(widget.showLiked ? '暂无喜欢的视频' : '暂无收藏的视频',
-                  style: TextStyle(color: Colors.grey[400])))
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)))
               : ListView.builder(
                   padding: const EdgeInsets.all(8),
                   itemCount: _videos.length,
@@ -48,10 +48,10 @@ class _VideosScreenState extends State<VideosScreen> {
                     final v = _videos[i];
                     return Card(
                       child: ListTile(
-                        leading: const Icon(Icons.video_library, color: Colors.blue),
+                        leading: Icon(Icons.video_library, color: Theme.of(context).colorScheme.primary),
                         title: Text(v['name'] as String? ?? v['title'] as String? ?? ''),
                         subtitle: Text(v['author'] as String? ?? '',
-                            style: TextStyle(color: Colors.grey[400])),
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                       ),
                     );
                   },

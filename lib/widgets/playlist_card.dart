@@ -10,6 +10,8 @@ class PlaylistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: InkWell(
@@ -28,8 +30,8 @@ class PlaylistCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ListTile(
-                    leading: Icon(Icons.delete, color: Colors.red[400]),
-                    title: Text('删除歌单', style: TextStyle(color: Colors.red[400])),
+                    leading: Icon(Icons.delete, color: cs.error),
+                    title: Text('删除歌单', style: TextStyle(color: cs.error)),
                     onTap: () {
                       Navigator.pop(context);
                       MusicService().deletePlaylist(playlist.id);
@@ -53,14 +55,14 @@ class PlaylistCard extends StatelessWidget {
                         height: 64,
                         fit: BoxFit.cover,
                         placeholder: (_, __) => Container(
-                            color: Colors.grey[800],
+                            color: cs.surfaceContainerHighest,
                             width: 64,
                             height: 64),
                         errorWidget: (_, __, ___) =>
                             const Icon(Icons.playlist_play, size: 40),
                       )
                     : Container(
-                        color: Colors.grey[800],
+                        color: cs.surfaceContainerHighest,
                         width: 64,
                         height: 64,
                         child: const Icon(Icons.playlist_play, size: 40),
@@ -74,16 +76,14 @@ class PlaylistCard extends StatelessWidget {
                     Text(playlist.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 15)),
+                        style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 4),
                     Text('${playlist.trackCount} 首',
-                        style: TextStyle(
-                            color: Colors.grey[500], fontSize: 13)),
+                        style: tt.bodySmall?.copyWith(color: cs.outline)),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.grey),
+              Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
             ],
           ),
         ),

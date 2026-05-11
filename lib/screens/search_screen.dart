@@ -210,10 +210,10 @@ class _SearchScreenState extends State<SearchScreen>
       child: ListView(
         children: [
           if (!_isLoadingRanks && _ranks.isNotEmpty) ...[
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Text('排行榜',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  style: Theme.of(context).textTheme.titleLarge),
             ),
             SizedBox(
               height: 100,
@@ -247,13 +247,13 @@ class _SearchScreenState extends State<SearchScreen>
                                     fit: BoxFit.cover,
                                     errorBuilder: (_, __, ___) => Container(
                                       width: 72, height: 72,
-                                      color: Colors.grey[800],
+                                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                       child: const Icon(Icons.music_note),
                                     ),
                                   )
                                 : Container(
                                     width: 72, height: 72,
-                                    color: Colors.grey[800],
+                                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                     child: const Icon(Icons.music_note),
                                   ),
                           ),
@@ -261,7 +261,7 @@ class _SearchScreenState extends State<SearchScreen>
                           Text(name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11)),
+                              style:                   Theme.of(context).textTheme.labelSmall),
                         ],
                       ),
                     ),
@@ -270,10 +270,10 @@ class _SearchScreenState extends State<SearchScreen>
               ),
             ),
           ],
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text('热搜榜',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                style: Theme.of(context).textTheme.titleLarge),
           ),
           ...List.generate(_hotSearch.length, (i) {
             final item = _hotSearch[i];
@@ -286,13 +286,13 @@ class _SearchScreenState extends State<SearchScreen>
                       fontWeight: FontWeight.w600,
                       color: i < 3
                           ? Theme.of(context).colorScheme.primary
-                          : Colors.grey,
+                          : Theme.of(context).colorScheme.outline,
                     )),
               ),
               title: Text(item.text),
               subtitle: item.reason.isNotEmpty && item.reason != item.text
                   ? Text(item.reason,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[500]))
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant))
                   : null,
               onTap: () {
                 _searchCtrl.text = item.text;
@@ -340,7 +340,7 @@ class _SearchScreenState extends State<SearchScreen>
                 )
               : Container(
                   width: 48, height: 48,
-                  color: Colors.grey[800],
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   child: const Icon(Icons.queue_music),
                 ),
           title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -377,7 +377,7 @@ class _SearchScreenState extends State<SearchScreen>
                 )
               : Container(
                   width: 48, height: 48,
-                  color: Colors.grey[800],
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   child: const Icon(Icons.album),
                 ),
           title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -414,7 +414,7 @@ class _SearchScreenState extends State<SearchScreen>
               : Container(
                   width: 48, height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.grey[800],
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.person),
@@ -451,7 +451,7 @@ class _SearchScreenState extends State<SearchScreen>
                 )
               : Container(
                   width: 48, height: 48,
-                  color: Colors.grey[800],
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   child: const Icon(Icons.video_library),
                 ),
           title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -487,7 +487,7 @@ class _SearchScreenState extends State<SearchScreen>
               Text(content,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ],
           ),
           isThreeLine: true,

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import '../providers/auth_provider.dart';
-import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../services/api_client.dart';
 import '../services/cache_service.dart';

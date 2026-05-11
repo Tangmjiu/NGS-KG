@@ -104,7 +104,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.lock, size: 80, color: Colors.grey),
+                  Icon(Icons.lock, size: 80, color: Theme.of(context).colorScheme.outline),
                   const SizedBox(height: 16),
                   const Text('需要存储权限才能扫描本地音乐'),
                   const SizedBox(height: 24),
@@ -122,9 +122,9 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.music_note, size: 80, color: Colors.grey[600]),
+                      Icon(Icons.music_note, size: 80, color: Theme.of(context).colorScheme.onSurfaceVariant),
                       const SizedBox(height: 16),
-                      Text(_status, style: TextStyle(color: Colors.grey[400])),
+                      Text(_status, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                       const SizedBox(height: 24),
                       FilledButton.tonal(
                         onPressed: _startScan,
@@ -138,7 +138,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
                     Padding(
                       padding: const EdgeInsets.all(12),
                       child: Text(_status,
-                          style: TextStyle(color: Colors.grey[400])),
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                     ),
                     Expanded(
                       child: ListView.builder(
@@ -150,7 +150,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
                               width: 44,
                               height: 44,
                               decoration: BoxDecoration(
-                                color: Colors.grey[800],
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: const Icon(Icons.audiotrack),
@@ -160,7 +160,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
                                 overflow: TextOverflow.ellipsis),
                             subtitle: Text(
                               s.artist ?? '未知歌手',
-                              style: TextStyle(color: Colors.grey[400]),
+                              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                             ),
                             onTap: () => _playSong(s),
                           );

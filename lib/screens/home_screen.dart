@@ -44,12 +44,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCardGrid(int cardId, List<Song> songs, String title) {
     if (songs.isEmpty) return const SizedBox.shrink();
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          child: Text(title, style: tt.titleLarge),
         ),
         SizedBox(
           height: 400,
@@ -71,15 +73,15 @@ class _HomeScreenState extends State<HomeScreen> {
                             ? CachedNetworkImage(
                                 imageUrl: song.albumCoverUrl!,
                                 fit: BoxFit.cover,
-                                placeholder: (_, __) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
-                                errorWidget: (_, __, ___) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.music_note)),
+                                placeholder: (_, __) => Container(color: cs.surfaceContainerHighest),
+                                errorWidget: (_, __, ___) => Container(color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
                               )
-                            : Container(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.music_note)),
+                            : Container(color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
-                    Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                    Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.bodySmall),
+                    Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
                   ],
                 ),
               );
@@ -196,13 +198,13 @@ class _HomeScreenState extends State<HomeScreen> {
           const ProfileScreen(),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentTab,
-        onTap: (i) => setState(() => _currentTab = i),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
-          BottomNavigationBarItem(icon: Icon(Icons.explore), label: '发现'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: '我的'),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentTab,
+        onDestinationSelected: (i) => setState(() => _currentTab = i),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: '首页'),
+          NavigationDestination(icon: Icon(Icons.explore_outlined), selectedIcon: Icon(Icons.explore), label: '发现'),
+          NavigationDestination(icon: Icon(Icons.person_outlined), selectedIcon: Icon(Icons.person), label: '我的'),
         ],
       ),
     );
@@ -226,6 +228,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHome() {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return Consumer<PlaylistProvider>(
       builder: (_, provider, __) {
         return RefreshIndicator(
@@ -235,12 +239,11 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           child: ListView(
             children: [
-              // 继续播放弹窗
               if (_showContinueBanner && _latestListen != null)
                 Container(
                   margin: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
+                    color: cs.primaryContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: ListTile(
@@ -267,15 +270,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     onTap: _continueListen,
                   ),
                 ),
-              // 推荐歌单
               if (provider.topPlaylists.isNotEmpty) ...[
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('推荐歌单',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      Text('推荐歌单', style: tt.headlineSmall),
                       TextButton(
                         onPressed: () {},
                         child: const Text('更多'),
@@ -311,13 +312,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ? CachedNetworkImage(
                                           imageUrl: pl.coverUrl!, width: 130, height: 130,
                                           fit: BoxFit.cover,
-                                          placeholder: (_, __) => Container(color: Colors.grey[850], width: 130, height: 130),
-                                          errorWidget: (_, __, ___) => Container(color: Colors.grey[850], width: 130, height: 130, child: const Icon(Icons.playlist_play)),
+                                          placeholder: (_, __) => Container(color: cs.surfaceContainerHighest, width: 130, height: 130),
+                                          errorWidget: (_, __, ___) => Container(color: cs.surfaceContainerHighest, width: 130, height: 130, child: const Icon(Icons.playlist_play)),
                                         )
-                                      : Container(color: Colors.grey[850], width: 130, height: 130, child: const Icon(Icons.playlist_play)),
+                                      : Container(color: cs.surfaceContainerHighest, width: 130, height: 130, child: const Icon(Icons.playlist_play)),
                                 ),
                                 const SizedBox(height: 4),
-                                Text(pl.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                                Text(pl.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: tt.bodySmall),
                               ],
                             ),
                           ),
@@ -327,12 +328,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ],
-              // 推荐歌曲
               if (_recommended.isNotEmpty) ...[
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text('新歌推荐',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text('新歌推荐', style: tt.titleLarge),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -356,15 +355,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ? CachedNetworkImage(
                                           imageUrl: song.albumCoverUrl!,
                                           fit: BoxFit.cover,
-                                          placeholder: (_, __) => Container(color: Colors.grey[800]),
-                                          errorWidget: (_, __, ___) => Container(color: Colors.grey[800], child: const Icon(Icons.music_note)),
+                                          placeholder: (_, __) => Container(color: cs.surfaceContainerHighest),
+                                          errorWidget: (_, __, ___) => Container(color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
                                         )
-                                      : Container(color: Colors.grey[800], child: const Icon(Icons.music_note)),
+                                      : Container(color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
-                              Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: Colors.grey[400])),
+                              Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.bodySmall),
+                              Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
                             ],
                           ),
                         );

@@ -59,7 +59,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               Consumer<LikedSongsProvider>(
                 builder: (_, liked, __) => IconButton(
                   icon: Icon(liked.likedIds.contains(song.id) ? Icons.favorite : Icons.favorite_border, size: 20),
-                  color: liked.likedIds.contains(song.id) ? Colors.red : null,
+                  color: liked.likedIds.contains(song.id) ? Theme.of(context).colorScheme.error : null,
                   onPressed: () => liked.toggle(SongInfo(
                     id: song.id,
                     name: song.name,
@@ -78,6 +78,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   Widget _buildPlayerView(PlayerProvider player, Song song) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -92,19 +94,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     fit: BoxFit.cover,
                     placeholder: (_, __) => Container(
                       width: 280, height: 280,
-                      color: Colors.grey[800],
+                      color: cs.surfaceContainerHighest,
                       child: const Icon(Icons.music_note, size: 80),
                     ),
                     errorWidget: (_, __, ___) => Container(
                       width: 280, height: 280,
-                      color: Colors.grey[800],
+                      color: cs.surfaceContainerHighest,
                       child: const Icon(Icons.music_note, size: 80),
                     ),
                   )
                 : Container(
                     width: 280, height: 280,
                     decoration: BoxDecoration(
-                      color: Colors.grey[800],
+                      color: cs.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: const Icon(Icons.music_note, size: 80),
@@ -113,11 +115,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
           const Spacer(flex: 1),
           Text(song.name,
               maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              style: tt.headlineSmall),
           const SizedBox(height: 8),
           Text(song.artistDisplay,
               maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 16, color: Colors.grey[400])),
+              style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(height: 24),
           _buildProgress(player),
           const SizedBox(height: 16),
@@ -131,6 +133,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   Widget _buildLyricsView(PlayerProvider player, Song song) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     final lyricWidgets = <Widget>[];
     lyricWidgets.add(Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -141,11 +145,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
             child: song.albumCoverUrl != null
                 ? CachedNetworkImage(
                     imageUrl: song.albumCoverUrl!, width: 100, height: 100, fit: BoxFit.cover)
-                : Container(width: 100, height: 100, color: Colors.grey[800]),
+                : Container(width: 100, height: 100, color: cs.surfaceContainerHighest),
           ),
           const SizedBox(height: 8),
-          Text(song.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          Text(song.artistDisplay, style: TextStyle(fontSize: 12, color: Colors.grey[400])),
+          Text(song.name, style: tt.titleMedium),
+          Text(song.artistDisplay, style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
         ],
       ),
     ));
@@ -155,11 +159,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
       lyricWidgets.add(Expanded(child: Center(child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.lyrics_outlined, size: 48, color: Colors.grey[600]),
+          Icon(Icons.lyrics_outlined, size: 48, color: cs.onSurfaceVariant),
           const SizedBox(height: 16),
-          Text('暂无歌词', style: TextStyle(fontSize: 16, color: Colors.grey[400])),
+          Text('暂无歌词', style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(height: 8),
-          Text('歌曲: ${song.name}', style: TextStyle(fontSize: 12, color: Colors.grey[500]), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text('歌曲: ${song.name}', style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant), maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
       ))));
     } else {
@@ -189,8 +193,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         fontSize: isCurrent ? 17 : 14,
                         fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                         color: isCurrent
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.grey[400],
+                            ? cs.primary
+                            : cs.onSurfaceVariant,
                       ),
                     ),
                   );
@@ -227,10 +231,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   Widget _buildProgress(PlayerProvider player) {
+    final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
         Text(_formatDuration(player.position),
-            style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
         Expanded(
           child: Slider(
             value: player.progress.isFinite ? player.progress : 0,
@@ -240,7 +245,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ),
         ),
         Text(_formatDuration(player.duration),
-            style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
       ],
     );
   }
@@ -270,7 +275,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ),
           child: IconButton(
             icon: Icon(player.isPlaying ? Icons.pause : Icons.play_arrow,
-                size: 36, color: Colors.black),
+                size: 36, color: Theme.of(context).colorScheme.onPrimary),
             onPressed: player.togglePlayPause,
           ),
         ),
@@ -308,9 +313,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('睡眠定时', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('睡眠定时', style: Theme.of(context).textTheme.titleMedium),
             ),
             ...[15, 30, 45, 60].map((m) => ListTile(
               title: Text('$m 分钟'),
@@ -334,6 +339,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   void _showPlaylist(PlayerProvider player) {
+    final cs = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
       builder: (_) => Column(
@@ -343,7 +349,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             title: const Text('播放列表'),
             trailing: Text('${player.playlist.length} 首'),
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: cs.outlineVariant),
           if (player.playlist.isEmpty)
             const Padding(
               padding: EdgeInsets.all(24),
@@ -360,11 +366,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     leading: Text('${i + 1}',
                         style: TextStyle(
                             color: i == player.currentIndex
-                                ? Theme.of(context).colorScheme.primary
-                                : Colors.grey)),
+                                ? cs.primary
+                                : cs.outline)),
                     title: Text(s.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                     subtitle: Text(s.artistDisplay,
-                        style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+                        style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
                     selected: i == player.currentIndex,
                     onTap: () {
                       Navigator.pop(context);
@@ -374,7 +380,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 },
               ),
             ),
-          const Divider(height: 1),
+          Divider(height: 1, color: cs.outlineVariant),
           ListTile(
             leading: const Icon(Icons.playlist_add),
             title: const Text('收藏到歌单'),
