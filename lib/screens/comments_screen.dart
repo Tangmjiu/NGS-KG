@@ -73,7 +73,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
                           if (c.time != null)
                             Text(c.time!,
                                 style: TextStyle(
-                                    fontSize: 11, color: Colors.grey[500])),
+                                    fontSize: 11, color: Theme.of(context).colorScheme.outline)),
                         ],
                       ),
                       trailing: Row(

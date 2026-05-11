@@ -90,8 +90,8 @@ class _FmScreenState extends State<FmScreen> {
                               borderRadius: BorderRadius.circular(8),
                               child: img.isNotEmpty
                                   ? Image.network(img, width: 48, height: 48, fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(width: 48, height: 48, color: Colors.grey[800], child: const Icon(Icons.radio)))
-                                  : Container(width: 48, height: 48, color: Colors.grey[800], child: const Icon(Icons.radio)),
+                                      errorBuilder: (_, __, ___) => Container(width: 48, height: 48, color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.radio)))
+                                  : Container(width: 48, height: 48, color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.radio)),
                             ),
                             title: Text(name, maxLines: 1),
                             subtitle: Text(desc, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -107,7 +107,7 @@ class _FmScreenState extends State<FmScreen> {
                                   : Container(
                                       height: 200,
                                       decoration: BoxDecoration(
-                                        color: Colors.grey[900],
+                                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: ListView.builder(

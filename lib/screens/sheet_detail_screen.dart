@@ -54,7 +54,7 @@ class _SheetDetailScreenState extends State<SheetDetailScreen> {
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => Container(
                                 width: 200, height: 200,
-                                color: Colors.grey[800],
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                 child: const Icon(Icons.music_note, size: 64),
                               ),
                             ),

@@ -81,14 +81,14 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                         ),
                       ],
                     )
-                  : Container(color: Colors.grey[800]),
+                  : Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
             ),
           ),
           if (artist.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text('歌手: $artist', style: TextStyle(color: Colors.grey[400])),
+                child: Text('歌手: $artist', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
               ),
             ),
           if (_isLoading)

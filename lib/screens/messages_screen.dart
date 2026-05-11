@@ -62,7 +62,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     return ListTile(
       leading: Icon(icon),
       title: Text(title),
-      subtitle: subtitle != null ? Text(subtitle, style: TextStyle(color: Colors.grey[400], fontSize: 12)) : null,
+      subtitle: subtitle != null ? Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)) : null,
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
     );

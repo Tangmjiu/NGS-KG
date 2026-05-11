@@ -51,7 +51,7 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text('共 $_total 首',
-                      style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                 ),
               )
             : null,
@@ -76,7 +76,7 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
                                   fontWeight: FontWeight.w600,
                                   color: i < 3
                                       ? Theme.of(context).colorScheme.primary
-                                      : Colors.grey,
+                                      : Theme.of(context).colorScheme.outline,
                                 )),
                           ),
                         ),

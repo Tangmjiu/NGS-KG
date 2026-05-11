@@ -23,7 +23,7 @@ class PlayerBar extends StatelessWidget {
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               border: Border(
-                  top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
+                  top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant, width: 0.5)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -31,7 +31,7 @@ class PlayerBar extends StatelessWidget {
                 if (player.duration.inMilliseconds > 0)
                   LinearProgressIndicator(
                     value: player.progress,
-                    backgroundColor: Colors.grey[800],
+                    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                     color: Theme.of(context).colorScheme.primary,
                     minHeight: 2,
                   ),
@@ -45,13 +45,11 @@ class PlayerBar extends StatelessWidget {
                           Text(song.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 14, fontWeight: FontWeight.w500)),
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
                           Text(song.artistDisplay,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontSize: 11, color: Colors.grey[400])),
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                         ],
                       ),
                     ),

@@ -104,7 +104,7 @@ class _PlayerBarBottom extends StatelessWidget {
               if (player.progress > 0)
                 LinearProgressIndicator(
                   value: player.progress,
-                  backgroundColor: Colors.grey[850],
+                  backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                   color: Theme.of(context).colorScheme.primary,
                   minHeight: 1.5,
                 ),
@@ -128,9 +128,9 @@ class _PlayerBarBottom extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(player.currentSong!.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
                             Text(player.currentSong!.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                           ],
                         ),
                       ),

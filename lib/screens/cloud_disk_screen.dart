@@ -69,9 +69,9 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.cloud_off, size: 80, color: Colors.grey[600]),
+                      Icon(Icons.cloud_off, size: 80, color: Theme.of(context).colorScheme.onSurfaceVariant),
                       const SizedBox(height: 16),
-                      Text('云盘暂无歌曲', style: TextStyle(color: Colors.grey[400])),
+                      Text('云盘暂无歌曲', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                     ],
                   ),
                 )
@@ -90,7 +90,7 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                           width: 44,
                           height: 44,
                           decoration: BoxDecoration(
-                            color: Colors.grey[800],
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: isPlaying
@@ -98,10 +98,10 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                                   padding: EdgeInsets.all(12),
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : const Icon(Icons.cloud_done, color: Colors.blue),
+                              : Icon(Icons.cloud_done, color: Theme.of(context).colorScheme.primary),
                         ),
                         title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text(author, style: TextStyle(color: Colors.grey[400])),
+                        subtitle: Text(author, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                         enabled: !isPlaying,
                         onTap: isPlaying ? null : () => _playSong(i, item),
                       );

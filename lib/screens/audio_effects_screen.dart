@@ -26,7 +26,7 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text('音量', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text('音量', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Slider(
             value: _volume,
@@ -40,7 +40,7 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
             },
           ),
           const SizedBox(height: 24),
-          const Text('播放速度', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text('播放速度', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Slider(
             value: _speed,
@@ -54,13 +54,13 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
             },
           ),
           const SizedBox(height: 24),
-          const Text('均衡器', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text('均衡器', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           ...['60Hz', '230Hz', '910Hz', '3.6kHz', '14kHz'].map((freq) => Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: Row(
               children: [
-                SizedBox(width: 60, child: Text(freq, style: const TextStyle(fontSize: 12))),
+                SizedBox(width: 60, child: Text(freq, style: Theme.of(context).textTheme.bodySmall)),
                 Expanded(
                   child: Slider(
                     value: 0,
@@ -75,7 +75,7 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
           )),
           const SizedBox(height: 16),
           Text('均衡器需要设备支持，当前版本暂不可调',
-              style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.outline)),
         ],
       ),
     );

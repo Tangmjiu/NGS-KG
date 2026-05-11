@@ -49,7 +49,7 @@ class _SheetListScreenState extends State<SheetListScreen> {
                           borderRadius: BorderRadius.circular(4),
                           child: img != null
                               ? Image.network(img, width: 48, height: 48, fit: BoxFit.cover)
-                              : Container(width: 48, height: 48, color: Colors.grey[800], child: const Icon(Icons.music_note)),
+                              : Container(width: 48, height: 48, color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.music_note)),
                         ),
                         title: Text(name, maxLines: 1),
                         subtitle: Text(artist, maxLines: 1),

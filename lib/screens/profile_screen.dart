@@ -18,8 +18,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final MusicService _musicService = MusicService();
-
   @override
   void initState() {
     super.initState();
@@ -88,9 +86,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(user.nickname ?? '用户',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      style: Theme.of(context).textTheme.titleLarge),
                   if (user.userId != null)
-                    Text('ID: ${user.userId}', style: TextStyle(color: Colors.grey[400])),
+                    Text('ID: ${user.userId}', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                   if (user.isVipActive)
                     Container(
                       margin: const EdgeInsets.only(top: 4),
@@ -100,7 +98,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(user.vipLevelDisplay,
-                          style: const TextStyle(fontSize: 11, color: Colors.white)),
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white)),
                     ),
                 ],
               ),
@@ -199,7 +197,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('我的歌单', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('我的歌单', style: Theme.of(context).textTheme.titleLarge),
               TextButton.icon(
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('新建'),
@@ -212,7 +210,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
         if (collected.isNotEmpty) ...[
           const SizedBox(height: 16),
-          const Text('收藏的歌单', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('收藏的歌单', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           ...collected.map((pl) => PlaylistCard(playlist: pl)),
         ],

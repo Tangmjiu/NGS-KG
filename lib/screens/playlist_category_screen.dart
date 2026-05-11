@@ -103,14 +103,14 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
                                 errorBuilder: (_, __, ___) => Container(
                                   width: double.infinity,
                                   height: 100,
-                                  color: Colors.grey[800],
+                                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                   child: const Icon(Icons.playlist_play),
                                 ),
                               )
                             : Container(
                                 width: double.infinity,
                                 height: 100,
-                                color: Colors.grey[800],
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                 child: const Icon(Icons.playlist_play),
                               ),
                       ),
@@ -119,7 +119,7 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
                         p.name,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12),
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
                   ),
