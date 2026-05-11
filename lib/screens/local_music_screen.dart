@@ -95,6 +95,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
           else
             IconButton(
               icon: const Icon(Icons.refresh),
+              tooltip: '重新扫描',
               onPressed: _startScan,
             ),
         ],

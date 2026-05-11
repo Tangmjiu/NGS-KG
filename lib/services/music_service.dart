@@ -182,8 +182,12 @@ class MusicService {
     return _get('/lyric', params: {'id': songId});
   }
 
-  Future<Map<String, dynamic>> searchLyricByHash(String hash) async {
-    return _get('/search/lyric', params: {'hash': hash});
+  Future<Map<String, dynamic>> searchLyricByHash(String hash, {String? keywords}) async {
+    final params = <String, dynamic>{'hash': hash};
+    if (keywords != null && keywords.isNotEmpty) {
+      params['keywords'] = keywords;
+    }
+    return _get('/search/lyric', params: params);
   }
 
   Future<String> fetchLyricContent(int lyricId, String accessKey) async {
@@ -326,7 +330,7 @@ class MusicService {
   }
 
   Future<String?> getMvUrl(String hash) async {
-    final res = await _get('/mv/url', params: {'hash': hash});
+    final res = await _get('/video/url', params: {'hash': hash});
     final data = res['data'];
     if (data is Map) {
       return data['url'] as String?;
@@ -431,7 +435,7 @@ class MusicService {
   Future<List<Map<String, dynamic>>> getArtistList(
       {int limit = 100, int offset = 0}) async {
     final res =
-        await _get('/artist/list', params: {'limit': limit, 'offset': offset});
+        await _get('/artist/lists', params: {'limit': limit, 'offset': offset});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
@@ -469,7 +473,7 @@ class MusicService {
   Future<List<Map<String, dynamic>>> getMusicComments(int songId,
       {int page = 1, int pageSize = 200}) async {
     final res = await _get('/comment/music',
-        params: {'id': songId, 'page': page, 'pagesize': pageSize});
+        params: {'mixsongid': songId, 'page': page, 'pagesize': pageSize});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     final list = (raw as Map<String, dynamic>)['comments'] as List<dynamic>?;
@@ -540,7 +544,7 @@ class MusicService {
   }
 
   Future<Map<String, dynamic>?> getLatestListen() async {
-    final res = await _get('/lastest/songs/listen');
+    final res = await _get('/lastest/songs/listen', params: {'pagesize': 30});
     final raw = res['data'];
     if (raw is Map) {
       final songs = raw['songs'] as List?;
@@ -586,7 +590,7 @@ class MusicService {
   }
 
   Future<Map<String, dynamic>> getVipInfo() async {
-    return _get('/vip/info');
+    return _get('/user/vip/detail');
   }
 
   Future<List<Map<String, dynamic>>> getUserCloudDisk({int page = 1, int pageSize = 200}) async {
@@ -608,14 +612,14 @@ class MusicService {
   }
 
   Future<List<Map<String, dynamic>>> getUserHistoryRank() async {
-    final res = await _get('/user/history/rank');
+    final res = await _get('/user/listen', params: {'type': 0});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
   }
 
   Future<Map<String, dynamic>> getContinuePlayInfo() async {
-    return _get('/continue/play');
+    return _get('/lastest/songs/listen', params: {'pagesize': 1});
   }
 
   // ─── 歌手 ───
@@ -629,7 +633,7 @@ class MusicService {
   }
 
   Future<List<Map<String, dynamic>>> getArtistNewSongs(int artistId, {int page = 1, int pageSize = 200}) async {
-    final res = await _get('/artist/songs/new', params: {'id': artistId, 'page': page, 'pagesize': pageSize});
+    final res = await _get('/artist/follow/newsongs', params: {'id': artistId, 'page': page, 'pagesize': pageSize});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
@@ -638,14 +642,14 @@ class MusicService {
   // ─── 曲谱合集 ───
 
   Future<List<Map<String, dynamic>>> getSheetCollections() async {
-    final res = await _get('/sheet/collection/list');
+    final res = await _get('/sheet/collection');
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
   }
 
   Future<Map<String, dynamic>> getSheetCollectionDetail(int id) async {
-    return _get('/sheet/collection/detail', params: {'id': id});
+    return _get('/sheet/collection', params: {'collection_id': id});
   }
 
   // ─── 提交听歌历史 ───
@@ -672,7 +676,7 @@ class MusicService {
   }
 
   Future<List<Map<String, dynamic>>> getYuekuRadio() async {
-    final res = await _get('/yueku/radio');
+    final res = await _get('/yueku/fm');
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
@@ -681,7 +685,7 @@ class MusicService {
   // ─── 电台 ───
 
   Future<List<Map<String, dynamic>>> getRadioImages() async {
-    final res = await _get('/radio/image');
+    final res = await _get('/fm/image');
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
@@ -720,14 +724,14 @@ class MusicService {
   // ─── 收藏视频 ───
 
   Future<List<Map<String, dynamic>>> getFavoriteVideos({int page = 1, int pageSize = 200}) async {
-    final res = await _get('/user/favorite/video', params: {'page': page, 'pagesize': pageSize});
+    final res = await _get('/user/video/collect', params: {'page': page, 'pagesize': pageSize});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
   }
 
   Future<List<Map<String, dynamic>>> getLikedVideos({int page = 1, int pageSize = 200}) async {
-    final res = await _get('/user/liked/video', params: {'page': page, 'pagesize': pageSize});
+    final res = await _get('/user/video/love', params: {'page': page, 'pagesize': pageSize});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
@@ -736,7 +740,7 @@ class MusicService {
   // ─── 关注歌手消息 ───
 
   Future<List<Map<String, dynamic>>> getFollowedArtistNews({int page = 1, int pageSize = 200}) async {
-    final res = await _get('/artist/followed/news', params: {'page': page, 'pagesize': pageSize});
+    final res = await _get('/user/follow/message', params: {'page': page, 'pagesize': pageSize});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];

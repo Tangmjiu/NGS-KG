@@ -68,6 +68,7 @@ class _PasswordLoginState extends State<_PasswordLogin> {
   final _captchaCtrl = TextEditingController();
   String? _errorMsg;
   bool _showCaptcha = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -78,6 +79,16 @@ class _PasswordLoginState extends State<_PasswordLogin> {
   }
 
   Future<void> _login() async {
+    final username = _usernameCtrl.text.trim();
+    final password = _passwordCtrl.text.trim();
+    if (username.isEmpty) {
+      setState(() => _errorMsg = '请输入用户名');
+      return;
+    }
+    if (password.isEmpty) {
+      setState(() => _errorMsg = '请输入密码');
+      return;
+    }
     setState(() => _errorMsg = null);
     final auth = context.read<AuthProvider>();
     String? captcha;
@@ -89,8 +100,8 @@ class _PasswordLoginState extends State<_PasswordLogin> {
       }
     }
     final ok = await auth.loginWithPassword(
-      _usernameCtrl.text.trim(),
-      _passwordCtrl.text.trim(),
+      username,
+      password,
       captcha: captcha,
     );
     if (ok && mounted) {
@@ -114,6 +125,8 @@ class _PasswordLoginState extends State<_PasswordLogin> {
         children: [
           TextField(
             controller: _usernameCtrl,
+            autofillHints: const [AutofillHints.username],
+            textInputAction: TextInputAction.next,
             decoration: InputDecoration(
               labelText: '用户名',
               prefixIcon: const Icon(Icons.person),
@@ -125,10 +138,17 @@ class _PasswordLoginState extends State<_PasswordLogin> {
           const SizedBox(height: 16),
           TextField(
             controller: _passwordCtrl,
-            obscureText: true,
+            obscureText: _obscurePassword,
+            autofillHints: const [AutofillHints.password],
+            textInputAction: TextInputAction.done,
             decoration: InputDecoration(
               labelText: '密码',
               prefixIcon: const Icon(Icons.lock),
+              suffixIcon: IconButton(
+                icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
+                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -212,6 +232,7 @@ class _PhoneLoginState extends State<_PhoneLogin> {
   bool _sendingCode = false;
   int _countdown = 0;
   Timer? _timer;
+  String? _phoneError;
 
   @override
   void dispose() {
@@ -223,14 +244,26 @@ class _PhoneLoginState extends State<_PhoneLogin> {
 
   Future<void> _sendCode() async {
     final phone = _phoneCtrl.text.trim();
-    if (phone.isEmpty) return;
+    setState(() => _phoneError = null);
+    if (!_validatePhone(phone)) return;
     setState(() => _sendingCode = true);
-    // API: /captcha/sent?phone=
     try {
       await context.read<AuthProvider>().sendCaptcha(phone);
     } catch (_) {}
     setState(() => _sendingCode = false);
     _startCountdown();
+  }
+
+  bool _validatePhone(String phone) {
+    if (phone.isEmpty) {
+      setState(() => _phoneError = '请输入手机号');
+      return false;
+    }
+    if (!RegExp(r'^1\d{10}$').hasMatch(phone)) {
+      setState(() => _phoneError = '请输入正确的11位手机号');
+      return false;
+    }
+    return true;
   }
 
   void _startCountdown() {
@@ -265,13 +298,20 @@ class _PhoneLoginState extends State<_PhoneLogin> {
           TextField(
             controller: _phoneCtrl,
             keyboardType: TextInputType.phone,
+            autofillHints: const [AutofillHints.telephoneNumber],
+            textInputAction: TextInputAction.next,
+            maxLength: 11,
             decoration: InputDecoration(
               labelText: '手机号',
               prefixIcon: const Icon(Icons.phone_android),
+              errorText: _phoneError,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
+            onChanged: (_) {
+              if (_phoneError != null) setState(() => _phoneError = null);
+            },
           ),
           const SizedBox(height: 16),
           Row(
@@ -446,7 +486,7 @@ class _QrLoginState extends State<_QrLogin> {
                 width: 200,
                 height: 200,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(this.context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 padding: const EdgeInsets.all(12),

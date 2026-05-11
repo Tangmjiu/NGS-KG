@@ -60,23 +60,27 @@ class _HomeScreenState extends State<HomeScreen> {
             itemCount: songs.length,
             itemBuilder: (_, i) {
               final song = songs[i];
-              return GestureDetector(
+              return InkWell(
+                borderRadius: BorderRadius.circular(8),
                 onTap: () => context.read<PlayerProvider>().playSong(song, playlist: songs),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     AspectRatio(
                       aspectRatio: 1,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: song.albumCoverUrl != null
-                            ? CachedNetworkImage(
-                                imageUrl: song.albumCoverUrl!,
-                                fit: BoxFit.cover,
-                                placeholder: (_, __) => Container(color: cs.surfaceContainerHighest),
-                                errorWidget: (_, __, ___) => Container(color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
-                              )
-                            : Container(color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
+                      child: Hero(
+                        tag: 'album_art_${song.hash ?? song.id}',
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: song.albumCoverUrl != null
+                              ? CachedNetworkImage(
+                                  imageUrl: song.albumCoverUrl!,
+                                  fit: BoxFit.cover,
+                                  placeholder: (_, __) => Container(color: cs.surfaceContainerHighest),
+                                  errorWidget: (_, __, ___) => Container(color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
+                                )
+                              : Container(color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -214,11 +218,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return [
       IconButton(
         icon: const Icon(Icons.search),
+        tooltip: '搜索',
         onPressed: () => Navigator.pushNamed(context, '/search'),
       ),
       Consumer<AuthProvider>(
         builder: (_, auth, __) => IconButton(
           icon: Icon(auth.isLoggedIn ? Icons.person : Icons.person_outline),
+          tooltip: auth.isLoggedIn ? '个人中心' : '登录',
           onPressed: () {
             if (!auth.isLoggedIn) Navigator.pushNamed(context, '/login');
           },
@@ -259,10 +265,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         IconButton(
                           icon: const Icon(Icons.play_arrow),
+                          tooltip: '继续播放',
                           onPressed: _continueListen,
                         ),
                         IconButton(
                           icon: const Icon(Icons.close),
+                          tooltip: '关闭',
                           onPressed: () => setState(() => _showContinueBanner = false),
                         ),
                       ],
@@ -302,8 +310,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             Navigator.pushNamed(context, '/playlist/detail', arguments: args);
                           },
                           child: SizedBox(
-                            width: 130,
-                            child: Column(
+                          width: 130,
+                          child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 ClipRRect(
@@ -342,16 +350,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       itemCount: _recommended.length,
                       itemBuilder: (_, i) {
                         final song = _recommended[i];
-                        return GestureDetector(
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(8),
                           onTap: () => context.read<PlayerProvider>().playSong(song, playlist: _recommended),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               AspectRatio(
                                 aspectRatio: 1,
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: song.albumCoverUrl != null
+                                child: Hero(
+                                  tag: 'album_art_${song.hash ?? song.id}',
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: song.albumCoverUrl != null
                                       ? CachedNetworkImage(
                                           imageUrl: song.albumCoverUrl!,
                                           fit: BoxFit.cover,
@@ -360,6 +371,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         )
                                       : Container(color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
                                 ),
+                              ),
                               ),
                               const SizedBox(height: 4),
                               Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.bodySmall),

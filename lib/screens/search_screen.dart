@@ -148,6 +148,7 @@ class _SearchScreenState extends State<SearchScreen>
             suffixIcon: _searchCtrl.text.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.clear, size: 18),
+                    tooltip: '清除',
                     onPressed: () {
                       _searchCtrl.clear();
                       _onSearchChanged('');
