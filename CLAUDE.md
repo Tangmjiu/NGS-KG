@@ -75,54 +75,7 @@ cd desktop && npm install
 npm run dev
 ```
 
-## API
 
-本项目使用酷狗音乐第三方 API，基础地址：
-
-```
-http://171.80.2.129:42980
-```
-
-所有 API 请求需携带 `cookie=token=xxx;userid=xxx` 参数（通过 `ApiClient.getCookieString()` 自动附加）。
-
-### 调用的 API 列表
-
-| 类别 | 端点 | 说明 | 状态 |
-|------|------|------|------|
-| 登录 | `/login` | 密码登录 | 正常 |
-| | `/login/cellphone` | 手机验证码登录（参数：mobile） | 正常 |
-| | `/login/qr/key` | 生成二维码 key | 正常 |
-| | `/login/qr/create` | 生成二维码图片 | 正常 |
-| | `/login/qr/check` | 检测扫码状态 | 正常 |
-| | `/captcha/sent` | 发送验证码（参数：mobile） | 正常 |
-| 用户 | `/user/detail` | 用户详情 | 正常 |
-| | `/user/playlist` | 用户歌单 | 正常 |
-| | `/user/history` | 听歌历史 | 正常 |
-| | `/lastest/songs/listen` | 继续播放信息 | 正常 |
-| | `/user/cloud` | 云盘歌曲 | 正常 |
-| 搜索 | `/search` | 通用搜索（参数：keywords） | 正常 |
-| | `/search/suggest` | 搜索建议 | 正常 |
-| | `/search/hot` | 热搜列表 | 正常 |
-| | `/search/lyric` | 搜索歌词参数（参数：hash） | 正常 |
-| 播放 | `/song/url` | 获取播放地址（参数：hash） | 正常 |
-| | `/lyric` | 获取歌词（参数：id, accesskey, fmt, decode） | 正常 |
-| 歌单 | `/top/playlist` | 推荐歌单（参数：category_id, withsong） | 正常 |
-| | `/playlist/detail` | 歌单详情（参数：ids=collection_xxx） | 正常 |
-| | `/playlist/track/all` | 歌单歌曲列表（参数：id=collection_xxx） | 正常 |
-| | `/playlist/tags` | 歌单分类 | 正常 |
-| 排行榜 | `/rank/list` | 排行榜列表 | 正常 |
-| | `/rank/audio` | 排行榜歌曲（参数：rankid） | 正常 |
-| | `/top/song` | 新歌速递 | 正常 |
-| | `/top/card` | 推荐卡片（参数：card_id=1-6） | 正常 |
-| 歌手 | `/artist/list` | 歌手列表 | 正常 |
-| | `/artist/detail` | 歌手详情 | 正常 |
-| | `/artist/audios` | 歌手歌曲 | 正常 |
-| 电台 | `/fm/recommend` | 推荐电台 | 正常 |
-| | `/fm/songs` | 电台歌曲（参数：fmid） | 正常 |
-| 评论 | `/comment/music` | 歌曲评论 | 正常 |
-| | `/comment/playlist` | 歌单评论 | 正常 |
-| 其他 | `/server/now` | 服务器时间 | 正常 |
-| | `/album/detail` | 专辑详情 | 正常 |
 
 ### 注意事项
 
@@ -132,13 +85,7 @@ http://171.80.2.129:42980
 4. 存在反爬限制，建议做本地缓存
 5. 接口仅供个人学习研究
 6. 音质切换使用 `/song/url` 的 `quality` 参数：128/320/high/flac
-7. 推荐卡片 `/top/card` 的 card_id：1=私人专属好歌，2=经典怀旧金曲，3=热门好歌精选，4=小众宝藏佳作，5=潮流尝鲜，6=VIP专属推荐
-
-## 已知问题
-
-- `/song/url` 部分收费歌曲返回 status=3（无权限）
-- 无缓存层，重复请求浪费资源
-- 测试覆盖率低
+7. 推荐卡片 `/top/card` 的 card_id：1=私人专属好歌，2=经典怀旧金曲，3=热门好歌精选，4=小众宝藏佳作，5=潮流尝鲜，6=VIP专属推
 
 ## 代码风格
 

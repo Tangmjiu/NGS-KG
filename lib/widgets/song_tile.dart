@@ -39,7 +39,8 @@ class SongTile extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
       trailing: IconButton(
-        icon: const Icon(Icons.play_circle_outline, size: 20),
+        icon: const Icon(Icons.play_circle_outline, size: 24),
+        tooltip: '播放',
         onPressed: () => onTap?.call(song),
       ),
       onTap: () => onTap?.call(song),

@@ -66,16 +66,20 @@ class PlayerBar extends StatelessWidget {
                       IconButton(
                         icon: const Icon(Icons.skip_previous, size: 20),
                         onPressed: player.playPrevious,
+                        tooltip: '上一首',
+                        constraints: const BoxConstraints(minWidth: 44),
                       ),
                       IconButton(
-                        icon: Icon(player.isPlaying
-                            ? Icons.pause
-                            : Icons.play_arrow),
+                        icon: Icon(player.isPlaying ? Icons.pause : Icons.play_arrow),
                         onPressed: player.togglePlayPause,
+                        tooltip: player.isPlaying ? '暂停' : '播放',
+                        constraints: const BoxConstraints(minWidth: 44),
                       ),
                       IconButton(
                         icon: const Icon(Icons.skip_next, size: 20),
                         onPressed: player.playNext,
+                        tooltip: '下一首',
+                        constraints: const BoxConstraints(minWidth: 44),
                       ),
                     ],
                     const SizedBox(width: 4),

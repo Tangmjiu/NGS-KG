@@ -36,7 +36,7 @@ class _LyricsScreenState extends State<LyricsScreen> {
     final song = player.currentSong;
     if (song == null) return;
     if (song.hash != null && song.hash != _lastLoadedHash) {
-      _loadLyrics(song.hash!);
+      _loadLyrics(song.hash!, songName: song.name);
     }
   }
 
@@ -148,12 +148,12 @@ class _LyricsScreenState extends State<LyricsScreen> {
     );
   }
 
-  Future<void> _loadLyrics(String hash) async {
+  Future<void> _loadLyrics(String hash, {String? songName}) async {
     _loading = true;
     _lastLoadedHash = hash;
     if (mounted) setState(() {});
     try {
-      final searchRes = await _musicService.searchLyricByHash(hash);
+      final searchRes = await _musicService.searchLyricByHash(hash, keywords: songName);
       final candidates = searchRes['candidates'] as List<dynamic>? ?? [];
       if (candidates.isNotEmpty) {
         final c = candidates[0] as Map<String, dynamic>;
@@ -161,8 +161,15 @@ class _LyricsScreenState extends State<LyricsScreen> {
         final key = c['accesskey'] as String? ?? '';
         final content = await _musicService.fetchLyricContent(id, key);
         if (content.isNotEmpty) {
-          final decoded = utf8.decode(base64Decode(content));
-          _lyrics = _parseLyrics(decoded);
+          try {
+            String decoded;
+            try {
+              decoded = utf8.decode(base64Decode(content));
+            } catch (_) {
+              decoded = content;
+            }
+            _lyrics = _parseLyrics(decoded);
+          } catch (_) {}
         }
       }
     } catch (_) {}

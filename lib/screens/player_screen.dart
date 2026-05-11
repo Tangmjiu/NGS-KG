@@ -38,7 +38,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         }
         final song = player.currentSong!;
         if (song.hash != null && song.hash != _lastLoadedHash) {
-          _loadLyrics(song.hash!);
+          _loadLyrics(song.hash!, songName: song.name);
         }
         if (_lyrics.isNotEmpty && player.position.inMilliseconds > 0) {
           _updateCurrentLine(player.position);
@@ -49,16 +49,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
             actions: [
               IconButton(
                 icon: Icon(_showLyrics ? Icons.library_music : Icons.lyrics),
+                tooltip: _showLyrics ? '显示封面' : '显示歌词',
                 onPressed: () => setState(() => _showLyrics = !_showLyrics),
               ),
               IconButton(
                 icon: const Icon(Icons.comment, size: 20),
+                tooltip: '评论',
                 onPressed: () => Navigator.pushNamed(context, '/comments',
                     arguments: {'type': 'music', 'id': song.id}),
               ),
               Consumer<LikedSongsProvider>(
                 builder: (_, liked, __) => IconButton(
                   icon: Icon(liked.likedIds.contains(song.id) ? Icons.favorite : Icons.favorite_border, size: 20),
+                  tooltip: liked.likedIds.contains(song.id) ? '取消收藏' : '收藏',
                   color: liked.likedIds.contains(song.id) ? Theme.of(context).colorScheme.error : null,
                   onPressed: () => liked.toggle(SongInfo(
                     id: song.id,
@@ -71,7 +74,24 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ),
             ],
           ),
-          body: _showLyrics ? _buildLyricsView(player, song) : _buildPlayerView(player, song),
+          body: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            switchInCurve: Curves.easeIn,
+            switchOutCurve: Curves.easeOut,
+            transitionBuilder: (child, animation) {
+              if (MediaQuery.disableAnimationsOf(context)) {
+                return child;
+              }
+              return FadeTransition(
+                opacity: animation,
+                child: child,
+              );
+            },
+            child: KeyedSubtree(
+              key: ValueKey(_showLyrics),
+              child: _showLyrics ? _buildLyricsView(player, song) : _buildPlayerView(player, song),
+            ),
+          ),
         );
       },
     );
@@ -85,32 +105,44 @@ class _PlayerScreenState extends State<PlayerScreen> {
       child: Column(
         children: [
           const Spacer(flex: 1),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: song.albumCoverUrl != null
-                ? CachedNetworkImage(
-                    imageUrl: song.albumCoverUrl!,
-                    width: 280, height: 280,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
+          Hero(
+            tag: 'album_art_${song.hash ?? song.id}',
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: song.albumCoverUrl != null
+                  ? Semantics(
+                    image: true,
+                    label: '${song.name} 专辑封面',
+                    child: CachedNetworkImage(
+                      imageUrl: song.albumCoverUrl!,
                       width: 280, height: 280,
-                      color: cs.surfaceContainerHighest,
-                      child: const Icon(Icons.music_note, size: 80),
-                    ),
-                    errorWidget: (_, __, ___) => Container(
-                      width: 280, height: 280,
-                      color: cs.surfaceContainerHighest,
-                      child: const Icon(Icons.music_note, size: 80),
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(
+                        width: 280, height: 280,
+                        color: cs.surfaceContainerHighest,
+                        child: const Icon(Icons.music_note, size: 80),
+                      ),
+                      errorWidget: (_, __, ___) => Container(
+                        width: 280, height: 280,
+                        color: cs.surfaceContainerHighest,
+                        child: Icon(Icons.music_note, size: 80,
+                            semanticLabel: '${song.name} 专辑封面'),
+                      ),
                     ),
                   )
-                : Container(
-                    width: 280, height: 280,
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(16),
+                : Semantics(
+                    image: true,
+                    label: '${song.name} 专辑封面',
+                    child: Container(
+                      width: 280, height: 280,
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(Icons.music_note, size: 80),
                     ),
-                    child: const Icon(Icons.music_note, size: 80),
                   ),
+          ),
           ),
           const Spacer(flex: 1),
           Text(song.name,
@@ -143,9 +175,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: song.albumCoverUrl != null
-                ? CachedNetworkImage(
-                    imageUrl: song.albumCoverUrl!, width: 100, height: 100, fit: BoxFit.cover)
-                : Container(width: 100, height: 100, color: cs.surfaceContainerHighest),
+                ? Semantics(
+                    image: true,
+                    label: '${song.name} 专辑封面',
+                    child: CachedNetworkImage(
+                      imageUrl: song.albumCoverUrl!, width: 100, height: 100, fit: BoxFit.cover))
+                : Semantics(
+                    image: true,
+                    label: '${song.name} 专辑封面',
+                    child: Container(width: 100, height: 100, color: cs.surfaceContainerHighest)),
           ),
           const SizedBox(height: 8),
           Text(song.name, style: tt.titleMedium),
@@ -256,6 +294,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       children: [
         IconButton(
           icon: Icon(_playModeIcon(player.playMode), size: 24),
+          tooltip: '播放模式',
           onPressed: () {
             final modes = [PlayMode.sequential, PlayMode.shuffle, PlayMode.repeatOne];
             final next = modes[(modes.indexOf(player.playMode) + 1) % modes.length];
@@ -265,6 +304,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.skip_previous, size: 32),
+          tooltip: '上一首',
           onPressed: player.playPrevious,
         ),
         const SizedBox(width: 8),
@@ -274,32 +314,47 @@ class _PlayerScreenState extends State<PlayerScreen> {
             shape: BoxShape.circle,
           ),
           child: IconButton(
-            icon: Icon(player.isPlaying ? Icons.pause : Icons.play_arrow,
+            icon: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              transitionBuilder: (child, animation) {
+                if (MediaQuery.disableAnimationsOf(context)) return child;
+                return ScaleTransition(scale: animation, child: child);
+              },
+              child: Icon(
+                key: ValueKey(player.isPlaying),
+                player.isPlaying ? Icons.pause : Icons.play_arrow,
                 size: 36, color: Theme.of(context).colorScheme.onPrimary),
+            ),
+            tooltip: player.isPlaying ? '暂停' : '播放',
             onPressed: player.togglePlayPause,
           ),
         ),
         const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.skip_next, size: 32),
+          tooltip: '下一首',
           onPressed: player.playNext,
         ),
         const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.playlist_play, size: 24),
+          tooltip: '播放列表',
           onPressed: () => _showPlaylist(player),
         ),
         const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.timer, size: 24),
+          tooltip: '睡眠定时',
           onPressed: () => _showSleepTimerDialog(context, player),
         ),
         IconButton(
           icon: Icon(player.isKeepScreenOn ? Icons.directions_run : Icons.directions_run_outlined, size: 24),
+          tooltip: player.isKeepScreenOn ? '禁止屏幕常亮' : '保持屏幕常亮',
           onPressed: () => player.setKeepScreenOn(!player.isKeepScreenOn),
         ),
         IconButton(
           icon: const Icon(Icons.equalizer, size: 24),
+          tooltip: '音效',
           onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AudioEffectsScreen())),
         ),
       ],
@@ -391,10 +446,29 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.delete_sweep),
-            title: const Text('清空列表'),
+            title: Text('清空列表', style: TextStyle(color: cs.error)),
             onTap: () {
-              player.setPlaylist([]);
               Navigator.pop(context);
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('确认清空'),
+                  content: const Text('确定要清空播放列表吗？'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('取消'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        player.setPlaylist([]);
+                      },
+                      child: Text('清空', style: TextStyle(color: cs.error)),
+                    ),
+                  ],
+                ),
+              );
             },
           ),
         ],
@@ -507,12 +581,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
-  Future<void> _loadLyrics(String hash) async {
+  Future<void> _loadLyrics(String hash, {String? songName}) async {
     _lyricLoading = true;
     _lastLoadedHash = hash;
     if (mounted) setState(() {});
     try {
-      final searchRes = await _musicService.searchLyricByHash(hash);
+      final searchRes = await _musicService.searchLyricByHash(hash, keywords: songName);
       debugPrint('[PlayerScreen] searchLyricByHash response: $searchRes');
       final data = searchRes['data'] as Map<String, dynamic>? ?? searchRes;
       final candidates = data['candidates'] as List<dynamic>? ?? [];
@@ -527,7 +601,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
         debugPrint('[PlayerScreen] lyric content length: ${content.length}');
         if (content.isNotEmpty) {
           try {
-            final decoded = utf8.decode(base64Decode(content));
+            String decoded;
+            try {
+              decoded = utf8.decode(base64Decode(content));
+            } catch (_) {
+              decoded = content;
+            }
             _lyrics = _parseLyrics(decoded);
             debugPrint('[PlayerScreen] parsed ${_lyrics.length} lyric lines');
           } catch (e) {

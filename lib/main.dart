@@ -139,12 +139,27 @@ class _PlayerBarBottom extends StatelessWidget {
                       const Padding(padding: EdgeInsets.all(8),
                         child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
                     else ...[
-                      IconButton(icon: const Icon(Icons.skip_previous, size: 20), onPressed: player.playPrevious,
-                          padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36)),
-                      IconButton(icon: Icon(player.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled, size: 28),
-                          onPressed: player.togglePlayPause, padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36)),
-                      IconButton(icon: const Icon(Icons.skip_next, size: 20), onPressed: player.playNext,
-                          padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36)),
+                      IconButton(
+                        icon: const Icon(Icons.skip_previous, size: 20),
+                        onPressed: player.playPrevious,
+                        tooltip: '上一首',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 44),
+                      ),
+                      IconButton(
+                        icon: Icon(player.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled, size: 28),
+                        onPressed: player.togglePlayPause,
+                        tooltip: player.isPlaying ? '暂停' : '播放',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 44),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.skip_next, size: 20),
+                        onPressed: player.playNext,
+                        tooltip: '下一首',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 44),
+                      ),
                     ],
                   ],
                 ),
@@ -175,8 +190,9 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
       final info = await MusicService().getContinuePlayInfo();
       if (!mounted) return;
       final data = info['data'] as Map<String, dynamic>? ?? info;
-      if ((data['show'] as bool? ?? data['status'] == 1) && data['song'] != null) {
-        final song = data['song'] as Map<String, dynamic>;
+      final songs = data['songs'] as List<dynamic>? ?? [];
+      if (songs.isNotEmpty && songs[0] is Map<String, dynamic>) {
+        final song = songs[0] as Map<String, dynamic>;
         if (!mounted) return;
         showDialog(context: context, builder: (_) => AlertDialog(
           title: const Text('继续播放'),

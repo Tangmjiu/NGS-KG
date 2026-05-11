@@ -34,7 +34,26 @@ class PlaylistCard extends StatelessWidget {
                     title: Text('删除歌单', style: TextStyle(color: cs.error)),
                     onTap: () {
                       Navigator.pop(context);
-                      MusicService().deletePlaylist(playlist.id);
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('确认删除'),
+                          content: Text('确定要删除歌单"${playlist.name}"吗？'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('取消'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                MusicService().deletePlaylist(playlist.id);
+                              },
+                              child: Text('删除', style: TextStyle(color: cs.error)),
+                            ),
+                          ],
+                        ),
+                      );
                     },
                   ),
                 ],
