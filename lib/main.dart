@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
@@ -43,6 +44,23 @@ Future<void> _initNotifications() async {
   final notif = NotificationService.instance;
   await notif.init();
   notif.onNotificationTap = () {};
+  notif.onPrev = () => _notifAction('prev');
+  notif.onPlayPause = () => _notifAction('play_pause');
+  notif.onNext = () => _notifAction('next');
+}
+
+void _notifAction(String action) {
+  final ctx = navKey.currentState?.overlay?.context;
+  if (ctx == null) return;
+  final player = ctx.read<PlayerProvider>();
+  switch (action) {
+    case 'prev':
+      player.playPrevious();
+    case 'play_pause':
+      player.togglePlayPause();
+    case 'next':
+      player.playNext();
+  }
 }
 
 class NGSKGApp extends StatefulWidget {
@@ -109,7 +127,7 @@ class _PlayerBarBottom extends StatelessWidget {
                   minHeight: 1.5,
                 ),
               Container(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                color: Theme.of(context).colorScheme.surfaceContainer,
                 padding: EdgeInsets.only(
                   left: 12, right: 4, top: 6,
                   bottom: MediaQuery.of(context).padding.bottom + 4,
@@ -127,8 +145,10 @@ class _PlayerBarBottom extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(player.currentSong!.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+                            _MarqueeMini(
+                              text: player.currentSong!.name,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                            ),
                             Text(player.currentSong!.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis,
                                 style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                           ],
@@ -208,4 +228,75 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
 
   @override
   Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
+/// Mini marquee for the bottom player bar.
+class _MarqueeMini extends StatefulWidget {
+  final String text;
+  final TextStyle? style;
+  const _MarqueeMini({required this.text, this.style});
+
+  @override
+  State<_MarqueeMini> createState() => _MarqueeMiniState();
+}
+
+class _MarqueeMiniState extends State<_MarqueeMini> {
+  final ScrollController _scrollController = ScrollController();
+  Timer? _timer;
+
+  @override
+  void didUpdateWidget(_MarqueeMini old) {
+    super.didUpdateWidget(old);
+    if (old.text != widget.text) _restart();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startIfNeeded());
+  }
+
+  void _restart() {
+    _timer?.cancel();
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startIfNeeded());
+  }
+
+  void _startIfNeeded() {
+    if (!mounted || !_scrollController.hasClients) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    if (maxScroll <= 0) return;
+    const step = 1.0;
+    _timer = Timer.periodic(const Duration(milliseconds: 30), (t) {
+      if (!mounted) { t.cancel(); return; }
+      final next = _scrollController.offset + step;
+      if (next >= maxScroll) {
+        t.cancel();
+        Future.delayed(const Duration(seconds: 2), () {
+          if (!mounted) return;
+          _scrollController.jumpTo(0);
+          _startIfNeeded();
+        });
+      } else {
+        _scrollController.jumpTo(next);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      controller: _scrollController,
+      scrollDirection: Axis.horizontal,
+      physics: const NeverScrollableScrollPhysics(),
+      child: Text(widget.text, style: widget.style, maxLines: 1),
+    );
+  }
 }

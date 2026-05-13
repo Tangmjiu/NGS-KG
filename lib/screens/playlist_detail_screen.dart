@@ -5,13 +5,11 @@ import '../providers/player_provider.dart';
 import '../widgets/song_tile.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
-  final int? playlistId;
   final String? gcId;
   final String? playlistName;
 
   const PlaylistDetailScreen({
     super.key,
-    this.playlistId,
     this.gcId,
     this.playlistName,
   });
@@ -25,11 +23,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<PlaylistProvider>();
-      if (widget.gcId != null) {
-        provider.fetchPlaylistByGcId(widget.gcId!);
-      } else if (widget.playlistId != null) {
-        provider.fetchPlaylistDetail(widget.playlistId!);
+      final gcId = widget.gcId;
+      if (gcId != null) {
+        context.read<PlaylistProvider>().fetchPlaylistDetail(gcId);
       }
     });
   }

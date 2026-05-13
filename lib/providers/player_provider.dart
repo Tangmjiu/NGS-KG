@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:audio_session/audio_session.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/song.dart';
 import '../services/music_service.dart';
@@ -28,7 +29,10 @@ class PlayerProvider extends ChangeNotifier {
   int _shufflePos = 0;
   int _playAttempts = 0;
   int _qualityLevel = 0;
+  int _playRequestVersion = 0;
+  DateTime? _lastUrlFetchTime;
   static const int _maxRetries = 2;
+  static const _urlStaleDuration = Duration(minutes: 10);
   bool _isKeepScreenOn = false;
   Timer? _sleepTimer;
   Duration? _sleepTimerRemaining;
@@ -52,7 +56,10 @@ class PlayerProvider extends ChangeNotifier {
   bool get isKeepScreenOn => _isKeepScreenOn;
   Duration? get sleepTimerRemaining => _sleepTimerRemaining;
 
+  bool _isCompleting = false;
+
   PlayerProvider() {
+    _initSession();
     _initPlayer();
     _positionSub = _player.positionStream.listen((p) {
       _position = p;
@@ -67,9 +74,19 @@ class PlayerProvider extends ChangeNotifier {
     });
     _processingStateSub = _player.processingStateStream.listen((state) {
       if (state == ProcessingState.completed) {
-        _onComplete();
+        if (!_isCompleting) {
+          _isCompleting = true;
+          _onComplete();
+        }
       }
     });
+  }
+
+  void _initSession() {
+    AudioSession.instance.then((session) => session.configure(const AudioSessionConfiguration(
+      androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+      androidWillPauseWhenDucked: true,
+    )));
   }
 
   void _initPlayer() {
@@ -77,6 +94,28 @@ class PlayerProvider extends ChangeNotifier {
       _isPlaying = _player.playing;
       notifyListeners();
     });
+  }
+
+  Future<void> _refreshUrlAndPlay() async {
+    final song = _currentSong;
+    if (song == null || song.isLocal) return;
+    try {
+      final quality = _currentQuality;
+      final pos = _position;
+      final songUrl = await _musicService.getSongUrl(song.id,
+          hash: song.hash, quality: quality);
+      if (songUrl.url.isEmpty) return;
+      _lastUrlFetchTime = DateTime.now();
+      await _player.setUrl(songUrl.url);
+      await _player.seek(pos);
+      await _player.play();
+      _isPlaying = true;
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[PlayerProvider] refresh URL error: $e');
+      _setError('刷新播放地址失败');
+    }
   }
 
   void _setError(String msg) {
@@ -145,6 +184,7 @@ class PlayerProvider extends ChangeNotifier {
           playIndex(_currentIndex + 1);
         } else {
           _isPlaying = false;
+          _updateNotification();
           _setError('播放列表已结束');
         }
         break;
@@ -159,11 +199,16 @@ class PlayerProvider extends ChangeNotifier {
     _isLoading = true;
     _error = null;
     _playAttempts = 0;
+    _playRequestVersion++;
+    _isCompleting = false;
+    final version = _playRequestVersion;
     notifyListeners();
-    await _doPlay();
+    await _doPlay(version);
   }
 
-  Future<void> _doPlay() async {
+  Future<void> _doPlay([int? version]) async {
+    version ??= _playRequestVersion;
+    if (version != _playRequestVersion) return;
     if (_playAttempts > _maxRetries) {
       _isLoading = false;
       _setError('播放失败: 已重试 $_maxRetries 次');
@@ -174,22 +219,27 @@ class PlayerProvider extends ChangeNotifier {
       if (song.isLocal && song.filePath != null) {
         if (song.filePath!.startsWith('http')) {
           await _player.setUrl(song.filePath!);
+          if (version != _playRequestVersion) return;
           await _player.play();
         } else {
           await _player.setFilePath(song.filePath!);
+          if (version != _playRequestVersion) return;
           await _player.play();
         }
       } else {
         final quality = _currentQuality;
         final songUrl = await _musicService.getSongUrl(song.id,
             hash: song.hash, quality: quality);
+        if (version != _playRequestVersion) return;
         if (songUrl.url.isNotEmpty) {
           await _player.setUrl(songUrl.url);
+          if (version != _playRequestVersion) return;
+          _lastUrlFetchTime = DateTime.now();
           await _player.play();
           _musicService.uploadPlayHistory(song.id, duration: song.duration).catchError((_) {});
         } else {
           _playAttempts++;
-          await _doPlay();
+          await _doPlay(version);
           return;
         }
       }
@@ -197,7 +247,7 @@ class PlayerProvider extends ChangeNotifier {
       _playAttempts++;
       debugPrint('[PlayerProvider] play error (attempt $_playAttempts): $e');
       if (_playAttempts <= _maxRetries) {
-        await _doPlay();
+        await _doPlay(version);
         return;
       }
       _isLoading = false;
@@ -236,8 +286,14 @@ class PlayerProvider extends ChangeNotifier {
       if (_position == Duration.zero || _position >= _duration) {
         await playIndex(_currentIndex);
       } else {
-        await _player.play();
-        _isPlaying = true;
+        final isStale = _lastUrlFetchTime != null &&
+            DateTime.now().difference(_lastUrlFetchTime!) > _urlStaleDuration;
+        if (isStale && !_currentSong!.isLocal) {
+          await _refreshUrlAndPlay();
+        } else {
+          await _player.play();
+          _isPlaying = true;
+        }
       }
     }
     notifyListeners();

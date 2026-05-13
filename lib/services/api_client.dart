@@ -97,9 +97,8 @@ class ApiClient {
     if (_authToken != null && _authToken!.isNotEmpty) {
       parts.add('token=$_authToken');
     }
-    if (_authUserId != null && _authUserId!.isNotEmpty) {
-      parts.add('userid=$_authUserId');
-    }
+    final uid = _authUserId;
+    parts.add('userid=${(uid != null && uid.isNotEmpty) ? uid : 0}');
     if (_dfid != null && _dfid!.isNotEmpty) {
       parts.add('dfid=$_dfid');
     }

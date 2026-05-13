@@ -23,14 +23,23 @@ class Playlist {
 
   factory Playlist.fromJson(Map<String, dynamic> json) {
     return Playlist(
-      id: (json['specialid'] ?? json['id'] ?? 0) as int,
+      id: _toInt(json['specialid'] ?? json['id'] ?? 0),
       name: (json['specialname'] ?? json['name'] ?? '') as String? ?? '',
       coverUrl: _fixCover(json['imgurl'] as String? ?? json['coverImgUrl'] as String? ?? json['pic'] as String?),
       description: json['intro'] as String? ?? json['description'] as String?,
-      trackCount: json['songcount'] as int? ?? json['trackCount'] as int? ?? json['count'] as int? ?? 0,
-      globalCollectionId: json['global_collection_id'] as String?,
-      createUserId: json['list_create_userid'] as int? ?? json['create_userid'] as int?,
+      trackCount: _toInt(json['songcount'] ?? json['trackCount'] ?? json['count'] ?? 0),
+      globalCollectionId: json['global_collection_id'] as String? ?? json['parent_global_collection_id'] as String?,
+      createUserId: _toInt(json['list_create_userid'] ?? json['create_userid'] ?? json['suid'] ?? 0) != 0
+          ? _toInt(json['list_create_userid'] ?? json['create_userid'] ?? json['suid'] ?? 0)
+          : null,
     );
+  }
+
+  static int _toInt(dynamic v) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? 0;
+    return 0;
   }
 
   static String? _fixCover(String? url) {

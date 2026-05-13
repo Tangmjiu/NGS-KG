@@ -25,38 +25,27 @@ class PlaylistProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> fetchPlaylistDetail(int id) async {
+  Future<void> fetchPlaylistDetail(String id) async {
     _isLoading = true;
     notifyListeners();
     try {
       _currentPlaylist = await _musicService.getPlaylistDetail(id);
-    } catch (_) {}
-    _isLoading = false;
-    notifyListeners();
-  }
-
-  Future<void> fetchPlaylistByGcId(String gcId) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      _currentPlaylist = await _musicService.getPlaylistDetailByGcId(gcId);
-      // If detail has no songs, fetch tracks directly
       if (_currentPlaylist!.songs.isEmpty) {
-        await _fetchTracksFallback(gcId);
+        await _fetchTracksFallback(id);
       }
     } catch (e) {
-      await _fetchTracksFallback(gcId);
+      await _fetchTracksFallback(id);
     }
     _isLoading = false;
     notifyListeners();
   }
 
-  Future<void> _fetchTracksFallback(String gcId) async {
+  Future<void> _fetchTracksFallback(String id) async {
     try {
-      final songs = await _musicService.getPlaylistTracks(gcId);
+      final songs = await _musicService.getPlaylistTracks(id);
       _currentPlaylist = PlaylistDetail(
         playlist: _currentPlaylist?.playlist ??
-            Playlist(id: 0, name: '', globalCollectionId: gcId),
+            Playlist(id: 0, name: '', globalCollectionId: id),
         songs: songs,
       );
     } catch (_) {}

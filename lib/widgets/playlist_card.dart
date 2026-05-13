@@ -17,10 +17,10 @@ class PlaylistCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
-          final args = playlist.globalCollectionId != null
-              ? {'gcId': playlist.globalCollectionId, 'name': playlist.name}
-              : {'id': playlist.id, 'name': playlist.name};
-          Navigator.pushNamed(context, '/playlist/detail', arguments: args);
+          Navigator.pushNamed(context, '/playlist/detail', arguments: {
+            'gcId': playlist.globalCollectionId ?? playlist.id.toString(),
+            'name': playlist.name,
+          });
         },
         onLongPress: () {
           showModalBottomSheet(

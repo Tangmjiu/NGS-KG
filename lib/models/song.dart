@@ -9,6 +9,7 @@ class Song {
   final String? filePath;
   final String? hash;
   final Map<String, String>? qualities;
+  final int albumId;
 
   const Song({
     required this.id,
@@ -21,6 +22,7 @@ class Song {
     this.filePath,
     this.hash,
     this.qualities,
+    this.albumId = 0,
   });
 
   bool get isLocal => filePath != null;
@@ -38,6 +40,7 @@ class Song {
   }
 
   factory Song.fromJson(Map<String, dynamic> json) {
+    final album = json['album'] as Map<String, dynamic>?;
     return Song(
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
@@ -45,8 +48,9 @@ class Song {
               ?.map((e) => e.toString())
               .toList() ??
           [],
-      albumName: json['album']?['name'] as String?,
-      albumCoverUrl: json['album']?['picUrl'] as String?,
+      albumName: album?['name'] as String?,
+      albumCoverUrl: album?['picUrl'] as String?,
+      albumId: album?['id'] as int? ?? 0,
       duration: json['duration'] as int? ?? 0,
       lyricUrl: json['lyricUrl'] as String?,
     );
@@ -61,6 +65,7 @@ class Song {
       artists: [(json['SingerName'] ?? '') as String],
       albumName: json['AlbumName'] as String?,
       albumCoverUrl: cover,
+      albumId: _tryInt(json['AlbumID']),
       duration: (json['Duration'] as int?) ?? 0,
       hash: json['FileHash'] as String?,
     );
@@ -86,16 +91,43 @@ class Song {
         final v = audioInfo[entry.value] as String?;
         if (v != null && v.isNotEmpty) q[entry.key] = v;
       }
-      // 兼容：如果有flac但没有high，用flac
       if (q.containsKey('flac') && !q.containsKey('high')) {
         q['high'] = q['flac']!;
       }
     }
+    // 兼容：relate_goods 字段也包含音质信息
+    if (!q.containsKey('320')) {
+      final relateGoods = json['relate_goods'];
+      if (relateGoods is List) {
+        for (final g in relateGoods) {
+          if (g is Map) {
+            final level = g['level'];
+            final gh = g['hash'] as String?;
+            if (gh != null && gh.isNotEmpty) {
+              if (level == 4) q['320'] = gh;
+              else if (level == 5) q['flac'] = gh;
+              else if (!q.containsKey('128')) q['128'] = gh;
+            }
+          }
+        }
+      }
+    }
+    String artist;
+    if (parts.length > 1) {
+      artist = parts[0];
+    } else {
+      artist = json['singername'] as String?
+          ?? json['artist'] as String?
+          ?? json['author'] as String?
+          ?? json['singer'] as String?
+          ?? '';
+    }
     return Song(
       id: (json['audio_id'] ?? json['id']) as int,
       name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
-      artists: parts.length > 1 ? [parts[0]] : [(json['artist'] ?? json['author'] ?? json['singer'] ?? '') as String],
+      artists: [artist],
       albumCoverUrl: cover,
+      albumId: _tryInt(json['album_id']),
       duration: (json['timelen'] as int? ?? 0) ~/ 1000,
       hash: hash,
       qualities: q.isNotEmpty ? q : null,
@@ -131,10 +163,18 @@ class Song {
       name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
       artists: [json['author_name'] as String? ?? ''],
       albumCoverUrl: cover,
+      albumId: _tryInt(json['album_id']),
       duration: _durationFromAudioInfo(json['audio_info']),
       hash: hash,
       qualities: q.isNotEmpty ? q : null,
     );
+  }
+
+  static int _tryInt(dynamic v) {
+    if (v is int) return v;
+    if (v is String) return int.tryParse(v) ?? 0;
+    if (v is num) return v.toInt();
+    return 0;
   }
 
   static int _durationFromAudioInfo(dynamic audioInfo) {

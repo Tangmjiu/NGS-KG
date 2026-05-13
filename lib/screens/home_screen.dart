@@ -304,10 +304,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         padding: const EdgeInsets.only(right: 8),
                         child: GestureDetector(
                           onTap: () {
-                            final args = pl.globalCollectionId != null
-                                ? {'gcId': pl.globalCollectionId, 'name': pl.name}
-                                : {'id': pl.id, 'name': pl.name};
-                            Navigator.pushNamed(context, '/playlist/detail', arguments: args);
+                            Navigator.pushNamed(context, '/playlist/detail', arguments: {
+                              'gcId': pl.globalCollectionId ?? pl.id.toString(),
+                              'name': pl.name,
+                            });
                           },
                           child: SizedBox(
                           width: 130,

@@ -10,6 +10,9 @@ class NotificationService {
   bool _initialized = false;
   int _notifId = 0;
   VoidCallback? onNotificationTap;
+  VoidCallback? onPrev;
+  VoidCallback? onPlayPause;
+  VoidCallback? onNext;
 
   Future<void> init() async {
     if (_initialized) return;
@@ -22,6 +25,17 @@ class NotificationService {
   }
 
   void _onTap(NotificationResponse res) {
+    switch (res.actionId) {
+      case 'prev':
+        onPrev?.call();
+        return;
+      case 'play_pause':
+        onPlayPause?.call();
+        return;
+      case 'next':
+        onNext?.call();
+        return;
+    }
     if (res.payload == 'open_player') {
       onNotificationTap?.call();
     }
