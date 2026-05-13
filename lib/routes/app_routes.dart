@@ -57,7 +57,6 @@ class AppRoutes {
         final args = settings.arguments as Map<String, dynamic>;
         return MaterialPageRoute(
           builder: (_) => PlaylistDetailScreen(
-            playlistId: args['id'] as int?,
             gcId: args['gcId'] as String?,
             playlistName: args['name'] as String?,
           ),

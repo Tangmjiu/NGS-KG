@@ -8,6 +8,13 @@ class MusicService {
 
   String get _userId => ApiClient.userId ?? '0';
 
+  static int _toInt(dynamic v) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? 0;
+    return 0;
+  }
+
   Future<Map<String, dynamic>> _get(String path,
       {Map<String, dynamic>? params, bool withAuth = true}) async {
     final p = Map<String, dynamic>.from(params ?? {});
@@ -200,13 +207,7 @@ class MusicService {
     return res['content'] as String? ?? '';
   }
 
-  Future<PlaylistDetail> getPlaylistDetail(int playlistId) async {
-    final res =
-        await _get('/playlist/detail', params: {'id': playlistId});
-    return PlaylistDetail.fromJson(res['data'] as Map<String, dynamic>);
-  }
-
-  Future<PlaylistDetail> getPlaylistDetailByGcId(String gcId) async {
+  Future<PlaylistDetail> getPlaylistDetail(String gcId) async {
     final res = await _get('/playlist/detail', params: {'ids': gcId});
     final list = res['data'];
     if (list is List && list.isNotEmpty) {
@@ -247,11 +248,27 @@ class MusicService {
     final res = await _get('/user/playlist', params: params);
     final data = res['data'];
     if (data is Map) {
+      // Try info key
       final info = data['info'] as List<dynamic>?;
       if (info != null) {
         return info
             .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
             .where((p) => p.id != 0 && p.name.isNotEmpty)
+            .toList();
+      }
+      // Try special_list key (same format as top/playlist)
+      final specialList = data['special_list'] as List<dynamic>?;
+      if (specialList != null) {
+        return specialList
+            .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
+            .where((p) => p.id != 0 && p.name.isNotEmpty)
+            .toList();
+      }
+      // Try list key
+      final list = data['list'] as List<dynamic>?;
+      if (list != null) {
+        return list
+            .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
             .toList();
       }
     }
@@ -289,7 +306,7 @@ class MusicService {
 
   Future<Map<String, dynamic>> getAlbumDetail(int albumId) async {
     final res = await _get('/album/detail', params: {'id': albumId});
-    return res['data'] as Map<String, dynamic>;
+    return (res['data'] as Map<String, dynamic>?) ?? {};
   }
 
   Future<List<Song>> getAlbumSongs(int albumId,
@@ -315,11 +332,12 @@ class MusicService {
           if (h320 != null && h320.isNotEmpty) q['320'] = h320;
           if (hFlac != null && hFlac.isNotEmpty) q['flac'] = hFlac;
           return Song(
-            id: base['audio_id'] as int? ?? 0,
+            id: _toInt(base['audio_id']),
             name: base['audio_name'] as String? ?? '',
             artists: [(base['author_name'] as String? ?? '')],
             albumName: null,
-            duration: ((audioInfo['duration'] as int?) ?? 0) ~/ 1000,
+            albumId: albumId,
+            duration: (_toInt(audioInfo['duration']) ~/ 1000),
             hash: audioInfo['hash'] as String?,
             qualities: q.isNotEmpty ? q : null,
           );
@@ -375,6 +393,7 @@ class MusicService {
             name: json['songname'] as String? ?? json['audio_name'] as String? ?? '',
             artists: [(json['author_name'] as String? ?? '')],
             albumName: json['album_name'] as String?,
+            albumId: (json['album_id'] as int?) ?? 0,
             duration: ((json['timelength'] as int?) ?? 0) ~/ 1000,
             hash: json['hash'] as String?,
           );
@@ -398,7 +417,8 @@ class MusicService {
           artists: [(json['author_name'] as String? ?? '')],
           albumName: json['album_name'] as String?,
           albumCoverUrl: cover,
-          duration: (json['timelength'] as int?) ?? 0,
+          albumId: (json['album_id'] as int?) ?? 0,
+          duration: ((json['timelength'] as num?)?.toInt() ?? 0) ~/ 1000,
           hash: json['hash'] as String?,
         );
       }).toList();
@@ -423,7 +443,8 @@ class MusicService {
             artists: [(json['author_name'] as String? ?? '')],
             albumName: json['album_name'] as String?,
             albumCoverUrl: cover,
-            duration: (json['time_length'] as int?) ?? 0,
+            albumId: (json['album_id'] as int?) ?? 0,
+            duration: ((json['time_length'] as num?)?.toInt() ?? 0) ~/ 1000,
             hash: json['hash'] as String?,
           );
         }).toList(),
@@ -462,6 +483,7 @@ class MusicService {
           name: json['audio_name'] as String? ?? '',
           artists: [(json['author_name'] as String? ?? '')],
           albumName: json['album_name'] as String?,
+          albumId: (json['album_id'] as int?) ?? 0,
           duration: ((json['timelength'] as int?) ?? 0) ~/ 1000,
           hash: json['hash'] as String?,
         );

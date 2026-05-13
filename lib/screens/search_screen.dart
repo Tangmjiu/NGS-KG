@@ -347,10 +347,12 @@ class _SearchScreenState extends State<SearchScreen>
           title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: Text('$count首歌'),
           onTap: () {
-            final id = p['id'] ?? p['specialid'];
-            if (id != null) {
+            final gcId = p['global_collection_id'] as String? ??
+                p['id']?.toString() ??
+                p['specialid']?.toString();
+            if (gcId != null) {
               Navigator.pushNamed(context, '/playlist/detail',
-                  arguments: {'id': 'collection_$id', 'name': name});
+                  arguments: {'gcId': gcId, 'name': name});
             }
           },
         );

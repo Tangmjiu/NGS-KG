@@ -116,8 +116,8 @@ class _FmScreenState extends State<FmScreen> {
                                           final song = _fmSongs[j];
                                           return ListTile(
                                             leading: const Icon(Icons.music_note),
-                                            title: Text(song.name, maxLines: 1),
-                                            subtitle: Text(song.artistDisplay, maxLines: 1),
+                                            title: Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                            subtitle: Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis),
                                             onTap: () => _playSong(song),
                                           );
                                         },
