@@ -205,9 +205,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     ];
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: actions.map((a) => _buildActionChip(a, cs, tt)).toList(),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: actions.map((a) => _buildActionChip(a, cs, tt)).toList(),
+        ),
       ),
     );
   }

@@ -1,21 +1,29 @@
-# 任务计划：NGS-KG+ 全项目重构
+# 任务计划：NGS-KG+
 
 ## 目标
-根治"API 正常但前端展示异常"的问题，建立可持续维护的架构。
+打造 Apple Music 风格的酷狗第三方播放器 UI，修复所有运行时错误。
 
-## 状态：全部完成 ✓
+## 当前状态
 
 | 阶段 | 状态 | 说明 |
 |------|------|------|
-| Phase 0: 基础设施 | ✓ 完成 | ApiException, SongMapper, CacheInterceptor, RetryInterceptor |
-| Phase 1: 数据层 | ✓ 完成 | 5 个 Repository，770 行 MusicService → Facade |
-| Phase 2: Provider 重构 | ✓ 完成 | DI 注入、PlayerProvider mixins、LikedSongsProvider 修复、AuthProvider 清理 |
-| Phase 3: 屏幕修复 | ✓ 完成 | 16 个类型错误消除，8 个屏幕文件修复 |
+| Phase 0-3: 架构重构 | ✓ 完成 | Repository 模式、DI、类型安全、Provider 重构 |
+| Phase 4: UI 大改 | ✓ 完成 | Player/Discover/Home 重写，冗余页面清理 |
+| Phase 5: Bug 修复 | ▶ 进行中 | setState during build、布局溢出、PlayerProvider timing bugs |
 
-## 关键成果
-- `flutter analyze`: 0 error, 0 warning
-- MusicService: 770 行 → 290 行 (Facade)
-- 新增 10 个文件 (models + repos + mixins)
-- Song parsing 从 4 个 factory 合并为 SongMapper 单一入口
-- 所有 Provider 不再 new 自己的 Service 实例
-- 29 个文件变更: +880 / -981 行
+## Phase 4 变更汇总
+- 重写: player_screen.dart (PageView 滑动歌词/封面, 模糊背景, 平板自适应)
+- 重写: discover_screen.dart (Banner, 快捷操作, 歌单/榜单/电台卡片)
+- 修改: home_screen.dart (网格→列表样式)
+- 删除: lyrics_screen, sheet_list/detail/collection screens
+- 清理: user_profile_screen (移除重复的"我喜欢的歌曲")
+- 提交: a0f0281
+
+## Phase 5 — Bug 修复
+
+| # | 问题 | 状态 | 修复 |
+|---|------|------|------|
+| 1 | setState() called during build | ✓ 完成 | addPostFrameCallback |
+| 2 | 布局溢出 (横向 Row 溢出) | ✓ 完成 | SingleChildScrollView wrapper |
+| 3 | PlayerProvider repeatOne 循环 | ✓ 完成 | seek(0)+play() 替代 playIndex() |
+| 4 | 负值时间格式化 | ✓ 完成 | clamp to 0 |
