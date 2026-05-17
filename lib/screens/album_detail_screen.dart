@@ -58,7 +58,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 300,
+            expandedHeight: MediaQuery.of(context).size.height * 0.35,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
               title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),

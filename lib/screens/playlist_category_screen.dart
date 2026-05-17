@@ -58,10 +58,13 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
       appBar: AppBar(title: Text(widget.categoryName)),
       body: _loading && _playlists.isEmpty
           ? const Center(child: CircularProgressIndicator())
-          : GridView.builder(
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final crossAxisCount = (constraints.maxWidth / 160).floor().clamp(2, 6);
+                return GridView.builder(
               padding: const EdgeInsets.all(12),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
                 childAspectRatio: 0.85,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
@@ -125,7 +128,9 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
                   ),
                 );
               },
-            ),
+            );
+          },
+        ),
     );
   }
 }

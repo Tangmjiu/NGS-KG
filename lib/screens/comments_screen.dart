@@ -72,13 +72,17 @@ class _CommentsScreenState extends State<CommentsScreen> {
                                     fontSize: 11, color: Theme.of(context).colorScheme.outline)),
                         ],
                       ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('${c.likedCount}',
-                              style: const TextStyle(fontSize: 12)),
-                          const Icon(Icons.thumb_up, size: 14),
-                        ],
+                      trailing: SizedBox(
+                        width: 48,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(child: Text('${c.likedCount}',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12))),
+                            const Icon(Icons.thumb_up, size: 14),
+                          ],
+                        ),
                       ),
                     );
                   },
