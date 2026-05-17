@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/song.dart';
 import '../providers/auth_provider.dart';
-import '../providers/liked_songs_provider.dart';
-import '../providers/player_provider.dart';
 import '../services/api_client.dart';
-import '../services/music_service.dart';
-import '../widgets/song_tile.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({super.key});
@@ -116,20 +111,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         ),
                       ),
                     ),
-                  Consumer<LikedSongsProvider>(
-                    builder: (_, liked, __) => Card(
-                      child: ListTile(
-                        leading: Icon(Icons.favorite, color: Theme.of(context).colorScheme.error),
-                        title: const Text('我喜欢的音乐'),
-                        subtitle: Text('${liked.likedIds.length} 首'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const LikedSongsScreen()),
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ],
           ),
@@ -145,54 +126,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           Expanded(child: Text(value)),
         ],
       ),
-    );
-  }
-}
-
-class LikedSongsScreen extends StatefulWidget {
-  const LikedSongsScreen({super.key});
-
-  @override
-  State<LikedSongsScreen> createState() => _LikedSongsScreenState();
-}
-
-class _LikedSongsScreenState extends State<LikedSongsScreen> {
-  final MusicService _musicService = MusicService();
-  List<Song> _songs = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final songs = await _musicService.getPlaylistTracksById(1);
-      if (mounted) setState(() => _songs = songs);
-    } catch (_) {}
-    if (mounted) setState(() => _loading = false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('我喜欢的音乐')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _songs.isEmpty
-              ? const Center(child: Text('暂无收藏'))
-              : ListView.builder(
-                  itemCount: _songs.length,
-                  itemBuilder: (_, i) {
-                    final song = _songs[i];
-                    return SongTile(
-                      song: song,
-                      onTap: (s) => context.read<PlayerProvider>().playSong(s, playlist: _songs),
-                    );
-                  },
-                ),
     );
   }
 }

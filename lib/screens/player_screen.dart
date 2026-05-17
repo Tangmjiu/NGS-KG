@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -19,14 +20,14 @@ class PlayerScreen extends StatefulWidget {
 
 class _PlayerScreenState extends State<PlayerScreen>
     with SingleTickerProviderStateMixin {
-  bool _showLyrics = false;
+  final PageController _pageController = PageController();
   final MusicService _musicService = MusicService();
+  final ScrollController _lyricScrollController = ScrollController();
   List<_LyricLine> _lyrics = [];
   int _currentLine = 0;
   bool _lyricLoading = false;
-  String? _lastLoadedHash;
-  final ScrollController _lyricScrollController = ScrollController();
   bool _lyricAutoScroll = true;
+  String? _lastLoadedHash;
   bool _isDragging = false;
   double _dragProgress = 0;
 
@@ -44,6 +45,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   @override
   void dispose() {
     _rotationController.dispose();
+    _pageController.dispose();
     _lyricScrollController.dispose();
     super.dispose();
   }
@@ -55,29 +57,219 @@ class _PlayerScreenState extends State<PlayerScreen>
     return Consumer<PlayerProvider>(
       builder: (_, player, __) {
         if (player.currentSong == null) {
-          return Scaffold(
-            appBar: AppBar(),
-            body: const Center(child: Text('暂无播放')),
+          return const Scaffold(
+            body: Center(child: Text('暂无播放')),
           );
         }
         final song = player.currentSong!;
+
+        // Trigger lyric load when song changes (once, not on every build)
         if (song.hash != null && song.hash != _lastLoadedHash) {
-          _loadLyrics(song.hash!, songName: song.name);
+          _resetForNewSong(song.hash!, songName: song.name);
         }
+
+        // Compute current lyric line from position (no setState call)
         if (_lyrics.isNotEmpty && player.position.inMilliseconds > 0) {
           _updateCurrentLine(player.position);
         }
+
         _syncRotation(player.isPlaying);
 
-        return Scaffold(
-          appBar: _buildAppBar(song, player),
-          body: SafeArea(
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth > 600) {
+              return _tabletLayout(player, song);
+            }
+            return _phoneLayout(player, song);
+          },
+        );
+      },
+    );
+  }
+
+  void _resetForNewSong(String hash, {String? songName}) {
+    setState(() {
+      _lyrics = [];
+      _currentLine = 0;
+      _lyricAutoScroll = true;
+    });
+    _loadLyrics(hash, songName: songName);
+  }
+
+  // ────────────────────────────── phone layout ──────────────────────────────
+
+  Widget _phoneLayout(PlayerProvider player, Song song) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          _buildBackground(song),
+          SafeArea(
             child: Column(
               children: [
-                Expanded(child: _showLyrics ? _buildLyricsView(player, song) : _buildCoverView(player, song)),
-                _buildLyricPreview(player),
-                _buildBottomActionBar(player),
+                // AppBar spacer with back button
+                _buildTopBar(),
+                // PageView: cover or lyrics
+                Expanded(
+                  child: PageView(
+                    controller: _pageController,
+                    onPageChanged: (_) => setState(() {}),
+                    children: [
+                      _buildCover(song),
+                      _buildLyricsView(player, song),
+                    ],
+                  ),
+                ),
+                // Song info + quality badge
+                _buildSongInfo(song, player),
+                const SizedBox(height: 8),
+                // Progress
+                _buildProgressSection(player, song),
+                const SizedBox(height: 12),
+                // Controls
+                _buildControls(player),
+                const SizedBox(height: 8),
+                // Bottom actions
+                _buildBottomActions(player),
+                const SizedBox(height: 8),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ────────────────────────────── tablet layout ──────────────────────────────
+
+  Widget _tabletLayout(PlayerProvider player, Song song) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          _buildBackground(song),
+          SafeArea(
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: Column(
+                    children: [
+                      _buildTopBar(),
+                      Expanded(
+                        child: PageView(
+                          controller: _pageController,
+                          onPageChanged: (_) => setState(() {}),
+                          children: [
+                            _buildCover(song),
+                            _buildLyricsView(player, song),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  flex: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildSongInfo(song, player),
+                        const SizedBox(height: 16),
+                        _buildProgressSection(player, song),
+                        const SizedBox(height: 20),
+                        _buildControls(player),
+                        const SizedBox(height: 24),
+                        _buildBottomActions(player),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ────────────────────────────── blurred background ──────────────────────────────
+
+  Widget _buildBackground(Song song) {
+    return song.albumCoverUrl != null
+        ? Stack(
+            children: [
+              CachedNetworkImage(
+                imageUrl: song.albumCoverUrl!,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+              ),
+              BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.4),
+                ),
+              ),
+            ],
+          )
+        : Container(color: Colors.black);
+  }
+
+  // ────────────────────────────── top bar (back only) ──────────────────────────────
+
+  Widget _buildTopBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.keyboard_arrow_down, size: 28),
+            tooltip: '收起',
+            onPressed: () => Navigator.pop(context),
+          ),
+          const Spacer(),
+        ],
+      ),
+    );
+  }
+
+  // ────────────────────────────── album cover ──────────────────────────────
+
+  Widget _buildCover(Song song) {
+    final cs = Theme.of(context).colorScheme;
+    return LayoutBuilder(
+      builder: (_, constraints) {
+        final size = (constraints.maxWidth > constraints.maxHeight
+                ? constraints.maxHeight
+                : constraints.maxWidth) *
+            0.7;
+        return Center(
+          child: Hero(
+            tag: 'album_art_${song.hash ?? song.id}',
+            child: RotationTransition(
+              turns: _rotationController,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Semantics(
+                  image: true,
+                  label: '${song.name} 专辑封面',
+                  child: CachedNetworkImage(
+                    imageUrl: song.albumCoverUrl ?? '',
+                    width: size,
+                    height: size,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => Container(
+                      color: cs.surfaceContainerHighest,
+                      child: Icon(Icons.music_note, size: size * 0.25),
+                    ),
+                    errorWidget: (_, __, ___) => Container(
+                      color: cs.surfaceContainerHighest,
+                      child: Icon(Icons.music_note, size: size * 0.25),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         );
@@ -85,198 +277,152 @@ class _PlayerScreenState extends State<PlayerScreen>
     );
   }
 
-  // ────────────────────────────── top bar ──────────────────────────────
+  // ────────────────────────────── song info + quality badge ──────────────────────────────
 
-  PreferredSizeWidget _buildAppBar(Song song, PlayerProvider player) {
-    return AppBar(
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        tooltip: '返回',
-        onPressed: () => Navigator.pop(context),
+  Widget _buildSongInfo(Song song, PlayerProvider player) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final label = Song.qualityLabels[player.qualityLevel % Song.qualityLabels.length];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  song.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: tt.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  song.artistDisplay,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          _buildQualityBadge(label, () => _showQualitySelector(player)),
+        ],
       ),
-      title: _MarqueeText(
-        text: song.name,
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
-      actions: [
-        IconButton(
-          icon: Icon(_showLyrics ? Icons.library_music_outlined : Icons.lyrics_outlined),
-          tooltip: _showLyrics ? '显示封面' : '显示歌词',
-          onPressed: () => setState(() => _showLyrics = !_showLyrics),
-        ),
-        PopupMenuButton<_MenuAction>(
-          icon: const Icon(Icons.more_vert),
-          tooltip: '更多',
-          onSelected: (action) => _handleMenuAction(action, player, song),
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: _MenuAction.share, child: ListTile(leading: Icon(Icons.share), title: Text('分享'), dense: true, contentPadding: EdgeInsets.zero)),
-            PopupMenuItem(value: _MenuAction.download, child: ListTile(leading: Icon(Icons.download), title: Text('下载'), dense: true, contentPadding: EdgeInsets.zero)),
-            PopupMenuItem(value: _MenuAction.artist, child: ListTile(leading: Icon(Icons.person), title: Text('查看歌手'), dense: true, contentPadding: EdgeInsets.zero)),
-            PopupMenuItem(value: _MenuAction.quality, child: ListTile(leading: Icon(Icons.tune), title: Text('音质选择'), dense: true, contentPadding: EdgeInsets.zero)),
-          ],
-        ),
-      ],
     );
   }
 
-  void _handleMenuAction(_MenuAction action, PlayerProvider player, Song song) {
-    switch (action) {
-      case _MenuAction.share:
-        break;
-      case _MenuAction.download:
-        break;
-      case _MenuAction.artist:
-        break;
-      case _MenuAction.quality:
-        _showQualitySelector(player);
-        break;
-    }
-  }
-
-  // ────────────────────────────── cover view ──────────────────────────────
-
-  Widget _buildCoverView(PlayerProvider player, Song song) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final coverSize = MediaQuery.of(context).size.width > 600 ? 320.0 : (MediaQuery.of(context).size.width - 64).clamp(200.0, 300.0);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: [
-          const SizedBox(height: 24),
-          // Album cover with rotation
-          Hero(
-            tag: 'album_art_${song.hash ?? song.id}',
-            child: RotationTransition(
-              turns: _rotationController,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: Semantics(
-                  image: true,
-                  label: '${song.name} 专辑封面',
-                  child: CachedNetworkImage(
-                    imageUrl: song.albumCoverUrl ?? '',
-                    width: coverSize,
-                    height: coverSize,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      width: coverSize,
-                      height: coverSize,
-                      color: cs.surfaceContainerHighest,
-                      child: Icon(Icons.music_note, size: coverSize * 0.25),
-                    ),
-                    errorWidget: (_, __, ___) => Container(
-                      width: coverSize,
-                      height: coverSize,
-                      color: cs.surfaceContainerHighest,
-                      child: Icon(Icons.music_note, size: coverSize * 0.25),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+  Widget _buildQualityBadge(String label, VoidCallback onTap) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.white38),
+            borderRadius: BorderRadius.circular(4),
           ),
-          const SizedBox(height: 24),
-          // Song name
-          Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          // Artist · Album
-          Text(
-            '${song.artistDisplay}${song.albumName != null ? ' · ${song.albumName}' : ''}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 10, color: Colors.white70),
           ),
-          const SizedBox(height: 32),
-          // Progress bar
-          _buildProgressSection(player, song, cs, tt),
-          const SizedBox(height: 24),
-          // Controls
-          _buildControls(player, cs),
-          const SizedBox(height: 16),
-          // Quality chips
-          _buildQualityChips(player),
-          const SizedBox(height: 24),
-        ],
+        ),
       ),
     );
   }
 
   // ────────────────────────────── progress ──────────────────────────────
 
-  Widget _buildProgressSection(PlayerProvider player, Song song, ColorScheme cs, TextTheme tt) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Text(_formatDuration(player.position), style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: SliderTheme(
-                  data: SliderThemeData(
-                    trackHeight: 4,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
-                    activeTrackColor: cs.primary,
-                    inactiveTrackColor: cs.surfaceContainerHighest,
-                    thumbColor: cs.primary,
-                    overlayColor: cs.primary.withAlpha(25),
-                  ),
-                  child: Slider(
-                    value: _isDragging
-                        ? _dragProgress
-                        : (player.progress.isFinite ? player.progress : 0),
-                    onChangeStart: (_) {
-                      setState(() => _isDragging = true);
-                      _rotationController.stop();
-                    },
-                    onChangeEnd: (v) {
-                      _isDragging = false;
-                      player.seek(
-                        Duration(milliseconds: (v * player.duration.inMilliseconds).round()),
-                      );
-                      _syncRotation(player.isPlaying);
-                    },
-                    onChanged: (v) {
-                      setState(() => _dragProgress = v);
-                    },
+  Widget _buildProgressSection(PlayerProvider player, Song song) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Text(_formatDuration(player.position),
+                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: SliderTheme(
+                    data: SliderThemeData(
+                      trackHeight: 4,
+                      thumbShape:
+                          const RoundSliderThumbShape(enabledThumbRadius: 6),
+                      overlayShape:
+                          const RoundSliderOverlayShape(overlayRadius: 16),
+                      activeTrackColor: cs.primary,
+                      inactiveTrackColor: cs.surfaceContainerHighest,
+                      thumbColor: cs.primary,
+                      overlayColor: cs.primary.withAlpha(25),
+                    ),
+                    child: Slider(
+                      value: _isDragging
+                          ? _dragProgress
+                          : (player.progress.isFinite ? player.progress : 0),
+                      onChangeStart: (_) {
+                        setState(() => _isDragging = true);
+                        _rotationController.stop();
+                      },
+                      onChangeEnd: (v) {
+                        _isDragging = false;
+                        player.seek(Duration(
+                            milliseconds:
+                                (v * player.duration.inMilliseconds).round()));
+                        _syncRotation(player.isPlaying);
+                      },
+                      onChanged: (v) {
+                        setState(() => _dragProgress = v);
+                      },
+                    ),
                   ),
                 ),
               ),
-            ),
-            Text(_formatDuration(player.duration), style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Consumer<LikedSongsProvider>(
-            builder: (_, liked, __) => IconButton(
-              icon: Icon(
-                liked.likedIds.contains(song.id) ? Icons.favorite : Icons.favorite_border,
-                size: 22,
+              Text(_formatDuration(player.duration),
+                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Consumer<LikedSongsProvider>(
+              builder: (_, liked, __) => IconButton(
+                icon: Icon(
+                  liked.likedIds.contains(song.id)
+                      ? Icons.favorite
+                      : Icons.favorite_border,
+                  size: 22,
+                ),
+                tooltip: liked.likedIds.contains(song.id) ? '取消收藏' : '收藏',
+                color: liked.likedIds.contains(song.id)
+                    ? cs.error
+                    : cs.onSurfaceVariant,
+                onPressed: () => liked.toggle(SongInfo(
+                  id: song.id,
+                  name: song.name,
+                  hash: song.hash ?? '',
+                  albumId: song.albumId,
+                  audioId: song.id,
+                )),
               ),
-              tooltip: liked.likedIds.contains(song.id) ? '取消收藏' : '收藏',
-              color: liked.likedIds.contains(song.id) ? cs.error : cs.onSurfaceVariant,
-              onPressed: () => liked.toggle(SongInfo(
-                id: song.id,
-                name: song.name,
-                hash: song.hash ?? '',
-                albumId: song.albumId,
-                audioId: song.id,
-              )),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   // ────────────────────────────── controls ──────────────────────────────
 
-  Widget _buildControls(PlayerProvider player, ColorScheme cs) {
+  Widget _buildControls(PlayerProvider player) {
+    final cs = Theme.of(context).colorScheme;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -286,8 +432,13 @@ class _PlayerScreenState extends State<PlayerScreen>
           tooltip: '播放模式',
           color: cs.onSurfaceVariant,
           onPressed: () {
-            final modes = [PlayMode.sequential, PlayMode.shuffle, PlayMode.repeatOne];
-            final next = modes[(modes.indexOf(player.playMode) + 1) % modes.length];
+            const modes = [
+              PlayMode.sequential,
+              PlayMode.shuffle,
+              PlayMode.repeatOne,
+            ];
+            final next =
+                modes[(modes.indexOf(player.playMode) + 1) % modes.length];
             player.setPlayMode(next);
           },
         ),
@@ -308,10 +459,13 @@ class _PlayerScreenState extends State<PlayerScreen>
             onPressed: player.togglePlayPause,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
-              transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+              transitionBuilder: (child, animation) =>
+                  ScaleTransition(scale: animation, child: child),
               child: Icon(
                 key: ValueKey(player.isPlaying),
-                player.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                player.isPlaying
+                    ? Icons.pause_rounded
+                    : Icons.play_arrow_rounded,
                 size: 36,
               ),
             ),
@@ -325,7 +479,7 @@ class _PlayerScreenState extends State<PlayerScreen>
           onPressed: player.playNext,
         ),
         const SizedBox(width: 8),
-        // Playlist quick access
+        // Queue
         IconButton(
           icon: const Icon(Icons.playlist_play, size: 22),
           tooltip: '播放列表',
@@ -336,85 +490,29 @@ class _PlayerScreenState extends State<PlayerScreen>
     );
   }
 
-  Widget _buildQualityChips(PlayerProvider player) {
-    if (player.currentSong?.isLocal == true) return const SizedBox.shrink();
-    final q = player.currentSong?.qualities;
-    if (q == null || q.isEmpty) return const SizedBox.shrink();
+  // ────────────────────────────── bottom actions ──────────────────────────────
 
-    const labels = ['标准', 'HQ', '无损'];
-    const keys = ['128', '320', 'high'];
-    final chips = <Widget>[];
-    for (int i = 0; i < keys.length; i++) {
-      if (q.containsKey(keys[i])) {
-        chips.add(Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: ChoiceChip(
-            label: Text(labels[i], style: const TextStyle(fontSize: 11)),
-            selected: player.isCurrentQuality(keys[i]),
-            onSelected: (_) => player.setQualityIndex(i),
-            visualDensity: VisualDensity.compact,
-          ),
-        ));
-      }
-    }
-    if (chips.isEmpty) return const SizedBox.shrink();
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: chips,
-    );
-  }
-
-  // ────────────────────────────── lyric preview ──────────────────────────────
-
-  Widget _buildLyricPreview(PlayerProvider player) {
-    final cs = Theme.of(context).colorScheme;
-    final lyricText = _lyrics.isNotEmpty && _currentLine < _lyrics.length
-        ? _lyrics[_currentLine].text
-        : (_lyricLoading ? '加载歌词中...' : _lyrics.isEmpty && _lastLoadedHash != null ? '暂无歌词' : '');
-
-    return GestureDetector(
-      onTap: () => setState(() => _showLyrics = !_showLyrics),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerLow,
-          border: Border(top: BorderSide(color: cs.outlineVariant, width: 0.5)),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.lyrics_outlined, size: 16, color: cs.onSurfaceVariant),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                lyricText.isEmpty ? '查看完整歌词' : lyricText,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-              ),
-            ),
-            Icon(Icons.keyboard_arrow_up, size: 16, color: cs.onSurfaceVariant),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ────────────────────────────── bottom action bar ──────────────────────────────
-
-  Widget _buildBottomActionBar(PlayerProvider player) {
-    final cs = Theme.of(context).colorScheme;
+  Widget _buildBottomActions(PlayerProvider player) {
     return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
-        border: Border(top: BorderSide(color: cs.outlineVariant, width: 0.5)),
-      ),
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+      padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).padding.bottom + 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _ActionButton(icon: Icons.queue_music_outlined, label: '播放列表', onTap: () => _showPlaylist(player)),
-          _ActionButton(icon: Icons.timer_outlined, label: '定时关闭', onTap: () => _showSleepTimerDialog(player)),
-          _ActionButton(icon: Icons.tune_outlined, label: '音效', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AudioEffectsScreen()))),
+          _ActionButton(
+            icon: Icons.tune_outlined,
+            label: '音效',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AudioEffectsScreen()),
+            ),
+          ),
+          const SizedBox(width: 48),
+          _ActionButton(
+            icon: Icons.queue_music_outlined,
+            label: '队列',
+            onTap: () => _showPlaylist(player),
+          ),
         ],
       ),
     );
@@ -426,115 +524,76 @@ class _PlayerScreenState extends State<PlayerScreen>
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    return Column(
-      children: [
-        // Mini header with cover + song info
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: CachedNetworkImage(
-                    imageUrl: song.albumCoverUrl ?? '',
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note, size: 24)),
-                    errorWidget: (_, __, ___) => Container(color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note, size: 24)),
+    if (_lyricLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_lyrics.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.lyrics_outlined, size: 48, color: cs.onSurfaceVariant),
+            const SizedBox(height: 16),
+            Text('暂无歌词',
+                style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant)),
+          ],
+        ),
+      );
+    }
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (n is ScrollStartNotification && n.dragDetails != null) {
+          if (_lyricAutoScroll) setState(() => _lyricAutoScroll = false);
+        }
+        return false;
+      },
+      child: Stack(
+        children: [
+          ListView.builder(
+            controller: _lyricScrollController,
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+            itemCount: _lyrics.length,
+            itemBuilder: (_, i) {
+              final line = _lyrics[i];
+              final isCurrent = i == _currentLine;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: GestureDetector(
+                  onTap: () {
+                    player.seek(line.time);
+                    setState(() => _lyricAutoScroll = true);
+                  },
+                  child: Text(
+                    line.text,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: isCurrent ? 17 : 14,
+                      fontWeight:
+                          isCurrent ? FontWeight.bold : FontWeight.normal,
+                      color: isCurrent ? cs.primary : cs.onSurfaceVariant,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.titleSmall),
-                    Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                  ],
-                ),
-              ),
-            ],
+              );
+            },
           ),
-        ),
-        // Lyrics scroll area
-        Expanded(
-          child: _lyricLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _lyrics.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.lyrics_outlined, size: 48, color: cs.onSurfaceVariant),
-                          const SizedBox(height: 16),
-                          Text('暂无歌词', style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant)),
-                        ],
-                      ),
-                    )
-                  : Stack(
-                      children: [
-                        NotificationListener<ScrollNotification>(
-                          onNotification: (n) {
-                            if (n is ScrollStartNotification && n.dragDetails != null) {
-                              if (_lyricAutoScroll) setState(() => _lyricAutoScroll = false);
-                            }
-                            return false;
-                          },
-                          child: ListView.builder(
-                            controller: _lyricScrollController,
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            itemCount: _lyrics.length,
-                            itemBuilder: (_, i) {
-                              final line = _lyrics[i];
-                              final isCurrent = i == _currentLine;
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 6),
-                                child: GestureDetector(
-                                  onTap: () => player.seek(line.time),
-                                  child: Text(
-                                    line.text,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: isCurrent ? 17 : 14,
-                                      fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                                      color: isCurrent ? cs.primary : cs.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        if (!_lyricAutoScroll)
-                          Positioned(
-                            right: 16,
-                            bottom: 16,
-                            child: FloatingActionButton.small(
-                              heroTag: 'scrollToCurrent',
-                              onPressed: () {
-                                setState(() => _lyricAutoScroll = true);
-                                _scrollToCurrentLine();
-                              },
-                              child: const Icon(Icons.skip_next, size: 20),
-                            ),
-                          ),
-                      ],
-                    ),
-        ),
-        // Progress + controls in lyrics view
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-          child: _buildProgressSection(player, song, cs, tt),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
-          child: _buildControls(player, cs),
-        ),
-        const SizedBox(height: 8),
-      ],
+          if (!_lyricAutoScroll)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: FloatingActionButton.small(
+                heroTag: 'scrollToCurrent',
+                onPressed: () {
+                  setState(() => _lyricAutoScroll = true);
+                  _scrollToCurrentLine();
+                },
+                child: const Icon(Icons.skip_next, size: 20),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -550,41 +609,6 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   // ────────────────────────────── dialogs & overlays ──────────────────────────────
 
-  void _showSleepTimerDialog(PlayerProvider player) {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('睡眠定时', style: Theme.of(context).textTheme.titleMedium),
-            ),
-            ...[15, 30, 45, 60].map((m) => ListTile(
-              leading: const Icon(Icons.timer_outlined),
-              title: Text('$m 分钟'),
-              trailing: player.sleepTimerRemaining?.inMinutes == m ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) : null,
-              onTap: () {
-                player.setSleepTimer(Duration(minutes: m));
-                Navigator.pop(ctx);
-              },
-            )),
-            if (player.sleepTimerRemaining != null)
-              ListTile(
-                leading: Icon(Icons.cancel_outlined, color: Theme.of(context).colorScheme.error),
-                title: Text('取消定时', style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                onTap: () {
-                  player.cancelSleepTimer();
-                  Navigator.pop(ctx);
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _showPlaylist(PlayerProvider player) {
     final cs = Theme.of(context).colorScheme;
     showModalBottomSheet(
@@ -594,12 +618,15 @@ class _PlayerScreenState extends State<PlayerScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: Text('播放列表', style: Theme.of(context).textTheme.titleSmall),
-              trailing: Text('${player.playlist.length} 首', style: Theme.of(context).textTheme.bodySmall),
+              title: Text('播放列表',
+                  style: Theme.of(context).textTheme.titleSmall),
+              trailing: Text('${player.playlist.length} 首',
+                  style: Theme.of(context).textTheme.bodySmall),
             ),
             Divider(height: 1, color: cs.outlineVariant),
             if (player.playlist.isEmpty)
-              const Padding(padding: EdgeInsets.all(32), child: Text('列表为空'))
+              const Padding(
+                  padding: EdgeInsets.all(32), child: Text('列表为空'))
             else
               SizedBox(
                 height: 320,
@@ -610,14 +637,28 @@ class _PlayerScreenState extends State<PlayerScreen>
                     return ListTile(
                       leading: CircleAvatar(
                         radius: 14,
-                        backgroundColor: i == player.currentIndex ? cs.primaryContainer : Colors.transparent,
-                        child: Text('${i + 1}', style: TextStyle(
-                          fontSize: 12,
-                          color: i == player.currentIndex ? cs.onPrimaryContainer : cs.onSurfaceVariant,
-                        )),
+                        backgroundColor: i == player.currentIndex
+                            ? cs.primaryContainer
+                            : Colors.transparent,
+                        child: Text(
+                          '${i + 1}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: i == player.currentIndex
+                                ? cs.onPrimaryContainer
+                                : cs.onSurfaceVariant,
+                          ),
+                        ),
                       ),
-                      title: Text(s.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: Text(s.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                      title: Text(s.name,
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: Text(
+                        s.artistDisplay,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                      ),
                       selected: i == player.currentIndex,
                       selectedTileColor: cs.primaryContainer.withAlpha(40),
                       onTap: () {
@@ -648,9 +689,16 @@ class _PlayerScreenState extends State<PlayerScreen>
                     title: const Text('确认清空'),
                     content: const Text('确定要清空播放列表吗？'),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-                      FilledButton(onPressed: () { Navigator.pop(ctx); player.setPlaylist([]); },
-                        child: Text('清空', style: TextStyle(color: cs.onError)),
+                      TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('取消')),
+                      FilledButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          player.setPlaylist([]);
+                        },
+                        child: Text('清空',
+                            style: TextStyle(color: cs.onError)),
                       ),
                     ],
                   ),
@@ -673,16 +721,20 @@ class _PlayerScreenState extends State<PlayerScreen>
           builder: (_, pp, __) {
             final playlists = pp.userPlaylists;
             if (playlists.isEmpty) {
-              return const Padding(padding: EdgeInsets.all(24), child: Text('暂无歌单'));
+              return const Padding(
+                  padding: EdgeInsets.all(24), child: Text('暂无歌单'));
             }
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Text('收藏到歌单', style: Theme.of(context).textTheme.titleSmall),
+                  child: Text('收藏到歌单',
+                      style: Theme.of(context).textTheme.titleSmall),
                 ),
-                Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
+                Divider(
+                    height: 1,
+                    color: Theme.of(context).colorScheme.outlineVariant),
                 Flexible(
                   child: ListView.builder(
                     shrinkWrap: true,
@@ -708,18 +760,21 @@ class _PlayerScreenState extends State<PlayerScreen>
     );
   }
 
-  Future<void> _addSongToPlaylist(PlayerProvider player, int playlistId, Song song) async {
+  Future<void> _addSongToPlaylist(
+      PlayerProvider player, int playlistId, Song song) async {
     try {
       final data = (song.hash?.isNotEmpty ?? false)
           ? '${song.name}|${song.hash}|0|${song.id}'
           : song.name;
       await MusicService().addTracksToPlaylist(playlistId, data);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已收藏到歌单')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已收藏到歌单')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('收藏失败: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('收藏失败: $e')));
       }
     }
   }
@@ -742,20 +797,30 @@ class _PlayerScreenState extends State<PlayerScreen>
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('音质选择', style: Theme.of(context).textTheme.titleMedium),
+              child: Text('音质选择',
+                  style: Theme.of(context).textTheme.titleMedium),
             ),
             ...available.map((i) => ListTile(
-              leading: Icon(
-                i == 0 ? Icons.sd : i == 1 ? Icons.hd : Icons.album,
-                color: player.isCurrentQuality(keys[i]) ? Theme.of(context).colorScheme.primary : null,
-              ),
-              title: Text(labels[i]),
-              trailing: player.isCurrentQuality(keys[i]) ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) : null,
-              onTap: () {
-                player.setQualityIndex(i);
-                Navigator.pop(ctx);
-              },
-            )),
+                  leading: Icon(
+                    i == 0
+                        ? Icons.sd
+                        : i == 1
+                            ? Icons.hd
+                            : Icons.album,
+                    color: player.isCurrentQuality(keys[i])
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                  title: Text(labels[i]),
+                  trailing: player.isCurrentQuality(keys[i])
+                      ? Icon(Icons.check,
+                          color: Theme.of(context).colorScheme.primary)
+                      : null,
+                  onTap: () {
+                    player.setQualityIndex(i);
+                    Navigator.pop(ctx);
+                  },
+                )),
           ],
         ),
       ),
@@ -770,8 +835,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       if (_lyrics[i].time.inMilliseconds <= ms) {
         if (_currentLine != i) {
           _currentLine = i;
-          _scrollToCurrentLine();
-          if (mounted) setState(() {});
+          if (_lyricAutoScroll) _scrollToCurrentLine();
         }
         return;
       }
@@ -780,7 +844,10 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   void _scrollToCurrentLine() {
     if (!_lyricAutoScroll || !_lyricScrollController.hasClients) return;
-    final offset = _currentLine * 56.0 - 200;
+    // Estimate item height at 56px (8 padding top + 8 padding bottom + ~40 line)
+    const itemHeight = 56.0;
+    final offset = _currentLine * itemHeight -
+        (_lyricScrollController.position.viewportDimension / 2 - itemHeight);
     _lyricScrollController.animateTo(
       offset.clamp(0, _lyricScrollController.position.maxScrollExtent),
       duration: const Duration(milliseconds: 400),
@@ -793,8 +860,10 @@ class _PlayerScreenState extends State<PlayerScreen>
     _lastLoadedHash = hash;
     if (mounted) setState(() {});
     try {
-      final searchRes = await _musicService.searchLyricByHash(hash, keywords: songName);
-      final data = searchRes['data'] as Map<String, dynamic>? ?? searchRes;
+      final searchRes =
+          await _musicService.searchLyricByHash(hash, keywords: songName);
+      final data =
+          searchRes['data'] as Map<String, dynamic>? ?? searchRes;
       final candidates = data['candidates'] as List<dynamic>? ?? [];
       if (candidates.isNotEmpty) {
         final c = candidates[0] as Map<String, dynamic>;
@@ -822,7 +891,8 @@ class _PlayerScreenState extends State<PlayerScreen>
   List<_LyricLine> _parseLyrics(String raw) {
     final lines = <_LyricLine>[];
     for (final line in raw.split('\n')) {
-      final match = RegExp(r'\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)').firstMatch(line);
+      final match =
+          RegExp(r'\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)').firstMatch(line);
       if (match != null) {
         final min = int.parse(match.group(1)!);
         final sec = int.parse(match.group(2)!);
@@ -830,7 +900,7 @@ class _PlayerScreenState extends State<PlayerScreen>
         final text = match.group(4)?.trim() ?? '';
         if (text.isNotEmpty) {
           lines.add(_LyricLine(
-            time: Duration(minutes: min, seconds: sec, milliseconds: ms),
+            time: Duration(milliseconds: min * 60000 + sec * 1000 + ms),
             text: text,
           ));
         }
@@ -844,121 +914,30 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   IconData _playModeIcon(PlayMode mode) {
     switch (mode) {
-      case PlayMode.shuffle: return Icons.shuffle;
-      case PlayMode.repeatOne: return Icons.repeat_one;
-      default: return Icons.repeat;
+      case PlayMode.shuffle:
+        return Icons.shuffle;
+      case PlayMode.repeatOne:
+        return Icons.repeat_one;
+      default:
+        return Icons.repeat;
     }
   }
 
   String _formatDuration(Duration d) {
-    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    if (d.isNegative) return '00:00';
+    final totalSec = d.inSeconds.clamp(0, 359999); // max 99:59:59
+    final m = (totalSec ~/ 60).toString().padLeft(2, '0');
+    final s = (totalSec % 60).toString().padLeft(2, '0');
     return '$m:$s';
   }
 }
 
 // ────────────────────────────── helper widgets ──────────────────────────────
 
-enum _MenuAction { share, download, artist, quality }
-
 class _LyricLine {
   final Duration time;
   final String text;
   const _LyricLine({required this.time, required this.text});
-}
-
-/// Marquee text that scrolls horizontally when its content overflows.
-class _MarqueeText extends StatefulWidget {
-  final String text;
-  final TextStyle? style;
-  const _MarqueeText({required this.text, this.style});
-
-  @override
-  State<_MarqueeText> createState() => _MarqueeTextState();
-}
-
-class _MarqueeTextState extends State<_MarqueeText> with SingleTickerProviderStateMixin {
-  final ScrollController _scrollController = ScrollController();
-  Timer? _timer;
-  bool _overflow = false;
-
-  @override
-  void didUpdateWidget(_MarqueeText old) {
-    super.didUpdateWidget(old);
-    if (old.text != widget.text) {
-      _stop();
-      _overflow = false;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _startIfNeeded());
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startIfNeeded());
-  }
-
-  void _startIfNeeded() {
-    if (!mounted || !_scrollController.hasClients) return;
-    final maxScroll = _scrollController.position.maxScrollExtent;
-    if (maxScroll <= 0) {
-      if (_overflow) setState(() => _overflow = false);
-      return;
-    }
-    setState(() => _overflow = true);
-    const step = 1.0;
-    const interval = Duration(milliseconds: 30);
-    const pause = Duration(seconds: 2);
-
-    _timer = Timer.periodic(interval, (timer) {
-      if (!mounted) { timer.cancel(); return; }
-      final next = _scrollController.offset + step;
-      if (next >= maxScroll) {
-        timer.cancel();
-        Future.delayed(pause, () {
-          if (!mounted) return;
-          _scrollController.jumpTo(0);
-          _timer = Timer.periodic(interval, (t) {
-            if (!mounted) { t.cancel(); return; }
-            final n = _scrollController.offset + step;
-            if (n >= maxScroll) {
-              t.cancel();
-              Future.delayed(pause, () {
-                if (mounted) { _scrollController.jumpTo(0); _startIfNeeded(); }
-              });
-            } else {
-              _scrollController.jumpTo(n);
-            }
-          });
-        });
-      } else {
-        _scrollController.jumpTo(next);
-      }
-    });
-  }
-
-  void _stop() {
-    _timer?.cancel();
-    _timer = null;
-    if (_scrollController.hasClients) _scrollController.jumpTo(0);
-  }
-
-  @override
-  void dispose() {
-    _stop();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      controller: _scrollController,
-      scrollDirection: Axis.horizontal,
-      physics: const NeverScrollableScrollPhysics(),
-      child: Text(widget.text, style: widget.style, maxLines: 1),
-    );
-  }
 }
 
 /// Bottom action bar button with icon and label.
@@ -980,13 +959,14 @@ class _ActionButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 22, color: cs.onSurfaceVariant),
             const SizedBox(height: 2),
-            Text(label, style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+            Text(label,
+                style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
           ],
         ),
       ),

@@ -9,7 +9,6 @@ import '../screens/artist_list_screen.dart';
 import '../screens/artist_detail_screen.dart';
 import '../screens/comments_screen.dart';
 import '../screens/fm_screen.dart';
-import '../screens/lyrics_screen.dart';
 import '../screens/local_music_screen.dart';
 import '../screens/player_screen.dart';
 import '../screens/history_screen.dart';
@@ -33,7 +32,6 @@ class AppRoutes {
   static const String artistDetail = '/artist/detail';
   static const String comments = '/comments';
   static const String fm = '/fm';
-  static const String lyrics = '/lyrics';
   static const String localMusic = '/local/music';
   static const String player = '/player';
   static const String history = '/history';
@@ -99,8 +97,6 @@ class AppRoutes {
         );
       case fm:
         return MaterialPageRoute(builder: (_) => const FmScreen());
-      case lyrics:
-        return MaterialPageRoute(builder: (_) => const LyricsScreen());
       case localMusic:
         return MaterialPageRoute(builder: (_) => const LocalMusicScreen());
       case player:

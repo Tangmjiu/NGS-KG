@@ -42,6 +42,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   List<Song> get playlist => _playlist;
   int get currentIndex => _currentIndex;
   PlayMode get playMode => _playMode;
+  int get qualityLevel => _qualityLevel;
   bool get isPlaying => _isPlaying;
   bool get isLoading => _isLoading;
   bool get isPlayerScreenVisible => _isPlayerScreenVisible;
@@ -78,6 +79,8 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
           _isCompleting = true;
           _onComplete();
         }
+      } else if (state == ProcessingState.ready) {
+        _isCompleting = false;
       }
     });
   }
@@ -174,7 +177,9 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   void _onComplete() {
     switch (_playMode) {
       case PlayMode.repeatOne:
-        playIndex(_currentIndex);
+        _isCompleting = false;  // seek doesn't trigger completed again
+        _player.seek(Duration.zero);
+        _player.play();
         break;
       case PlayMode.shuffle:
         playIndex(_nextShuffleIndex());
