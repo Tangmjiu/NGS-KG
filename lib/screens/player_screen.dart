@@ -65,7 +65,9 @@ class _PlayerScreenState extends State<PlayerScreen>
 
         // Trigger lyric load when song changes (once, not on every build)
         if (song.hash != null && song.hash != _lastLoadedHash) {
-          _resetForNewSong(song.hash!, songName: song.name);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _resetForNewSong(song.hash!, songName: song.name);
+          });
         }
 
         // Compute current lyric line from position (no setState call)
@@ -423,70 +425,73 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   Widget _buildControls(PlayerProvider player) {
     final cs = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // Play mode
-        IconButton(
-          icon: Icon(_playModeIcon(player.playMode), size: 22),
-          tooltip: '播放模式',
-          color: cs.onSurfaceVariant,
-          onPressed: () {
-            const modes = [
-              PlayMode.sequential,
-              PlayMode.shuffle,
-              PlayMode.repeatOne,
-            ];
-            final next =
-                modes[(modes.indexOf(player.playMode) + 1) % modes.length];
-            player.setPlayMode(next);
-          },
-        ),
-        const SizedBox(width: 8),
-        // Previous
-        IconButton(
-          icon: const Icon(Icons.skip_previous, size: 32),
-          tooltip: '上一首',
-          onPressed: player.playPrevious,
-        ),
-        const SizedBox(width: 16),
-        // Play/Pause FAB
-        SizedBox(
-          width: 64,
-          height: 64,
-          child: FloatingActionButton.large(
-            heroTag: 'playPause',
-            onPressed: player.togglePlayPause,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              transitionBuilder: (child, animation) =>
-                  ScaleTransition(scale: animation, child: child),
-              child: Icon(
-                key: ValueKey(player.isPlaying),
-                player.isPlaying
-                    ? Icons.pause_rounded
-                    : Icons.play_arrow_rounded,
-                size: 36,
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Play mode
+          IconButton(
+            icon: Icon(_playModeIcon(player.playMode), size: 22),
+            tooltip: '播放模式',
+            color: cs.onSurfaceVariant,
+            onPressed: () {
+              const modes = [
+                PlayMode.sequential,
+                PlayMode.shuffle,
+                PlayMode.repeatOne,
+              ];
+              final next =
+                  modes[(modes.indexOf(player.playMode) + 1) % modes.length];
+              player.setPlayMode(next);
+            },
+          ),
+          const SizedBox(width: 8),
+          // Previous
+          IconButton(
+            icon: const Icon(Icons.skip_previous, size: 32),
+            tooltip: '上一首',
+            onPressed: player.playPrevious,
+          ),
+          const SizedBox(width: 16),
+          // Play/Pause FAB
+          SizedBox(
+            width: 64,
+            height: 64,
+            child: FloatingActionButton.large(
+              heroTag: 'playPause',
+              onPressed: player.togglePlayPause,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                transitionBuilder: (child, animation) =>
+                    ScaleTransition(scale: animation, child: child),
+                child: Icon(
+                  key: ValueKey(player.isPlaying),
+                  player.isPlaying
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
+                  size: 36,
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 16),
-        // Next
-        IconButton(
-          icon: const Icon(Icons.skip_next, size: 32),
-          tooltip: '下一首',
-          onPressed: player.playNext,
-        ),
-        const SizedBox(width: 8),
-        // Queue
-        IconButton(
-          icon: const Icon(Icons.playlist_play, size: 22),
-          tooltip: '播放列表',
-          color: cs.onSurfaceVariant,
-          onPressed: () => _showPlaylist(player),
-        ),
-      ],
+          const SizedBox(width: 16),
+          // Next
+          IconButton(
+            icon: const Icon(Icons.skip_next, size: 32),
+            tooltip: '下一首',
+            onPressed: player.playNext,
+          ),
+          const SizedBox(width: 8),
+          // Queue
+          IconButton(
+            icon: const Icon(Icons.playlist_play, size: 22),
+            tooltip: '播放列表',
+            color: cs.onSurfaceVariant,
+            onPressed: () => _showPlaylist(player),
+          ),
+        ],
+      ),
     );
   }
 
