@@ -10,6 +10,7 @@ import '../widgets/tablet_scaffold.dart';
 import '../utils/responsive.dart';
 import '../services/music_service.dart';
 import '../models/song_mapper.dart';
+import '../widgets/song_tile.dart';
 import 'discover_screen.dart';
 import 'profile_screen.dart';
 
@@ -29,70 +30,36 @@ class _HomeScreenState extends State<HomeScreen> {
   final Map<int, List<Song>> _cardSongs = {};
   final Map<int, String> _cardNames = {};
 
-  SliverGridDelegateWithFixedCrossAxisCount _gridDelegate(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    int crossAxisCount;
-    if (width > 900) crossAxisCount = 6;
-    else if (width > 600) crossAxisCount = 5;
-    else if (width > 400) crossAxisCount = 4;
-    else crossAxisCount = 3;
-    return SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: crossAxisCount,
-      childAspectRatio: 0.75,
-      crossAxisSpacing: 8,
-      mainAxisSpacing: 8,
-    );
-  }
-
-  Widget _buildCardGrid(int cardId, List<Song> songs, String title) {
+  Widget _buildSongList(List<Song> songs, String title) {
     if (songs.isEmpty) return const SizedBox.shrink();
     final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
+    final displaySongs = songs.take(5).toList();
+    final player = context.read<PlayerProvider>();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(title, style: tt.titleLarge),
-        ),
-        SizedBox(
-          height: 400,
-          child: GridView.builder(
-            gridDelegate: _gridDelegate(context),
-            itemCount: songs.length,
-            itemBuilder: (_, i) {
-              final song = songs[i];
-              return InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () => context.read<PlayerProvider>().playSong(song, playlist: songs),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AspectRatio(
-                      aspectRatio: 1,
-                      child: Hero(
-                        tag: 'album_art_${song.hash ?? song.id}',
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: song.albumCoverUrl != null
-                              ? CachedNetworkImage(
-                                  imageUrl: song.albumCoverUrl!,
-                                  fit: BoxFit.cover,
-                                  placeholder: (_, __) => Container(color: cs.surfaceContainerHighest),
-                                  errorWidget: (_, __, ___) => Container(color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
-                                )
-                              : Container(color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.bodySmall),
-                    Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
-                  ],
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(title, style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+              if (songs.length > 5)
+                GestureDetector(
+                  onTap: () {
+                    player.playSong(displaySongs.first, playlist: songs);
+                    Navigator.pushNamed(context, '/player');
+                  },
+                  child: Text('查看更多', style: tt.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 ),
-              );
-            },
+            ],
           ),
+        ),
+        Column(
+          children: displaySongs.map((song) => SongTile(
+            song: song,
+            onTap: (s) => player.playSong(s, playlist: songs),
+          )).toList(),
         ),
       ],
     );
@@ -334,66 +301,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ],
-              if (_recommended.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text('新歌推荐', style: tt.titleLarge),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: SizedBox(
-                    height: 400,
-                    child: GridView.builder(
-                      gridDelegate: _gridDelegate(context),
-                      itemCount: _recommended.length,
-                      itemBuilder: (_, i) {
-                        final song = _recommended[i];
-                        return InkWell(
-                          borderRadius: BorderRadius.circular(8),
-                          onTap: () => context.read<PlayerProvider>().playSong(song, playlist: _recommended),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              AspectRatio(
-                                aspectRatio: 1,
-                                child: Hero(
-                                  tag: 'album_art_${song.hash ?? song.id}',
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: song.albumCoverUrl != null
-                                      ? CachedNetworkImage(
-                                          imageUrl: song.albumCoverUrl!,
-                                          fit: BoxFit.cover,
-                                          placeholder: (_, __) => Container(color: cs.surfaceContainerHighest),
-                                          errorWidget: (_, __, ___) => Container(color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
-                                        )
-                                      : Container(color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
-                                ),
-                              ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.bodySmall),
-                              Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
+              if (_recommended.isNotEmpty)
+                _buildSongList(_recommended, '新歌推荐'),
               if (_cardSongs[1]?.isNotEmpty ?? false)
-                _buildCardGrid(1, _cardSongs[1]!, _cardNames[1] ?? '私人专属好歌'),
+                _buildSongList(_cardSongs[1]!, _cardNames[1] ?? '私人专属好歌'),
               if (_cardSongs[2]?.isNotEmpty ?? false)
-                _buildCardGrid(2, _cardSongs[2]!, _cardNames[2] ?? '经典怀旧金曲'),
+                _buildSongList(_cardSongs[2]!, _cardNames[2] ?? '经典怀旧金曲'),
               if (_cardSongs[3]?.isNotEmpty ?? false)
-                _buildCardGrid(3, _cardSongs[3]!, _cardNames[3] ?? '热门好歌精选'),
+                _buildSongList(_cardSongs[3]!, _cardNames[3] ?? '热门好歌精选'),
               if (_cardSongs[4]?.isNotEmpty ?? false)
-                _buildCardGrid(4, _cardSongs[4]!, _cardNames[4] ?? '小众宝藏佳作'),
+                _buildSongList(_cardSongs[4]!, _cardNames[4] ?? '小众宝藏佳作'),
               if (_cardSongs[5]?.isNotEmpty ?? false)
-                _buildCardGrid(5, _cardSongs[5]!, _cardNames[5] ?? '潮流尝鲜'),
+                _buildSongList(_cardSongs[5]!, _cardNames[5] ?? '潮流尝鲜'),
               if (_cardSongs[6]?.isNotEmpty ?? false)
-                _buildCardGrid(6, _cardSongs[6]!, _cardNames[6] ?? 'VIP专属推荐'),
+                _buildSongList(_cardSongs[6]!, _cardNames[6] ?? 'VIP专属推荐'),
             ],
           ),
         );
