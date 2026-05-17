@@ -14,6 +14,7 @@ import 'services/music_service.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/cache_service.dart';
+import 'utils/responsive.dart';
 
 final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
 
@@ -118,7 +119,7 @@ class _PlayerBarBottom extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<PlayerProvider>(
       builder: (_, player, __) {
-        if (player.currentSong == null || player.isPlayerScreenVisible) return const SizedBox.shrink();
+        if (player.currentSong == null || player.isPlayerScreenVisible || Responsive.isTabletLandscape(context)) return const SizedBox.shrink();
         return Positioned(
           left: 0, right: 0, bottom: 0,
           child: Column(

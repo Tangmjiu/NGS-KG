@@ -42,10 +42,13 @@ class _ArtistListScreenState extends State<ArtistListScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _artists.isEmpty
               ? const Center(child: Text('暂无数据'))
-              : GridView.builder(
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final crossAxisCount = (constraints.maxWidth / 160).floor().clamp(2, 6);
+                    return GridView.builder(
                   padding: const EdgeInsets.all(8),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
                     childAspectRatio: 0.8,
                   ),
                   itemCount: _artists.length,
@@ -74,7 +77,9 @@ class _ArtistListScreenState extends State<ArtistListScreen> {
                       ),
                     );
                   },
-                ),
+                );
+              },
+            ),
     );
   }
 }

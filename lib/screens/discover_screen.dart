@@ -380,6 +380,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       Icons.music_note, Icons.history_edu, Icons.flash_on, Icons.self_improvement,
       Icons.track_changes, Icons.mic, Icons.piano, Icons.headphones,
     ];
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisCount = (screenWidth / 100).floor().clamp(3, 6);
+    final itemWidth = (screenWidth - 16 * 2 - 12 * (crossAxisCount - 1)) / crossAxisCount;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Wrap(
@@ -402,7 +405,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               }
             },
             child: Container(
-              width: (MediaQuery.of(context).size.width - 16 * 2 - 12 * 3) / 4,
+              width: itemWidth,
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
                 color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
