@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../services/music_service.dart';
 
 class LikedSongsProvider extends ChangeNotifier {
-  final MusicService _musicService = MusicService();
+  final MusicService _musicService;
   final Set<int> _likedIds = {};
   final Map<int, int> _fileidMap = {};
   bool _loaded = false;
@@ -10,7 +10,7 @@ class LikedSongsProvider extends ChangeNotifier {
   Set<int> get likedIds => _likedIds;
   bool get isLoaded => _loaded;
 
-  LikedSongsProvider() {
+  LikedSongsProvider(this._musicService) {
     load();
   }
 
@@ -20,11 +20,8 @@ class LikedSongsProvider extends ChangeNotifier {
       _likedIds.clear();
       _fileidMap.clear();
       for (final s in songs) {
-        final id = s['audio_id'] ?? s['id'] ?? 0;
-        final aid = id is int ? id : int.tryParse(id.toString()) ?? 0;
-        _likedIds.add(aid);
-        final fid = s['fileid'];
-        if (fid != null) _fileidMap[aid] = fid is int ? fid : int.tryParse(fid.toString()) ?? 0;
+        _likedIds.add(s.id);
+        if (s.fileId != null) _fileidMap[s.id] = s.fileId!;
       }
       _loaded = true;
       notifyListeners();

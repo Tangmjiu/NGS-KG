@@ -4,6 +4,7 @@ import '../models/song.dart';
 import '../providers/auth_provider.dart';
 import '../providers/liked_songs_provider.dart';
 import '../providers/player_provider.dart';
+import '../services/api_client.dart';
 import '../services/music_service.dart';
 import '../widgets/song_tile.dart';
 
@@ -15,7 +16,6 @@ class UserProfileScreen extends StatefulWidget {
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
-  final MusicService _musicService = MusicService();
   Map<String, dynamic>? _detail;
   bool _isLoading = true;
 
@@ -27,8 +27,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Future<void> _load() async {
     try {
-      final detail = await _musicService.getUserDetail();
-      if (mounted) setState(() => _detail = detail);
+      final res = await ApiClient.instance.get('/user/detail');
+      _detail = res.data['data'] as Map<String, dynamic>?;
     } catch (e) {
       debugPrint('[UserProfile] load error: $e');
     }
@@ -158,7 +158,7 @@ class LikedSongsScreen extends StatefulWidget {
 
 class _LikedSongsScreenState extends State<LikedSongsScreen> {
   final MusicService _musicService = MusicService();
-  List<Map<String, dynamic>> _songs = [];
+  List<Song> _songs = [];
   bool _loading = true;
 
   @override
@@ -186,11 +186,10 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
               : ListView.builder(
                   itemCount: _songs.length,
                   itemBuilder: (_, i) {
-                    final s = _songs[i];
-                    final song = Song.fromTrackJson(s);
+                    final song = _songs[i];
                     return SongTile(
                       song: song,
-                      onTap: (s) => context.read<PlayerProvider>().playSong(s, playlist: _songs.map((e) => Song.fromTrackJson(e)).toList()),
+                      onTap: (s) => context.read<PlayerProvider>().playSong(s, playlist: _songs),
                     );
                   },
                 ),

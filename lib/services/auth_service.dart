@@ -39,6 +39,21 @@ class AuthService {
     return res.data as Map<String, dynamic>;
   }
 
+  /// Parses checkQrStatus response, extracts User if login succeeded.
+  /// Returns (statusCode, user).
+  static (int, User?) parseQrResponse(Map<String, dynamic> res) {
+    final rawData = res['data'];
+    final status = rawData is Map ? (rawData['status'] as int?) ?? 0 : 0;
+    if (status == 200 && rawData is Map) {
+      Map<String, dynamic>? userData = rawData['user'] as Map<String, dynamic>?;
+      if (userData == null && rawData['nickname'] != null) {
+        userData = Map<String, dynamic>.from(rawData);
+      }
+      if (userData != null) return (status, User.fromJson(userData));
+    }
+    return (status, null);
+  }
+
   Future<void> sendCaptcha(String mobile) async {
     await _client.get('/captcha/sent', params: {'mobile': mobile});
   }

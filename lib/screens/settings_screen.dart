@@ -31,11 +31,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadServerTime() async {
     try {
-      final res = await _musicService.getServerTime();
-      final ts = res['data'] is Map ? res['data']['timestamp'] : null;
-      if (ts != null) {
-        final dt = DateTime.fromMillisecondsSinceEpoch((ts as int) * 1000);
-        if (mounted) setState(() => _serverTime = dt.toString());
+      final dt = await _musicService.getServerTime();
+      if (dt != null && mounted) {
+        setState(() => _serverTime = dt.toString());
       }
     } catch (e) {
       debugPrint('[Settings] server time error: $e');

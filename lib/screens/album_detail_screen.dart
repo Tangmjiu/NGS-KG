@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/music_service.dart';
+import '../models/album.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
+import '../services/music_service.dart';
 import '../widgets/song_tile.dart';
 
 class AlbumDetailScreen extends StatefulWidget {
@@ -22,7 +23,7 @@ class AlbumDetailScreen extends StatefulWidget {
 class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
   final _musicService = MusicService();
 
-  Map<String, dynamic>? _album;
+  Album? _album;
   List<Song> _songs = [];
   bool _isLoading = true;
 
@@ -49,9 +50,9 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final name = _album?['albumname'] as String? ?? widget.albumName ?? '专辑详情';
-    final img = _album?['imgurl'] as String? ?? '';
-    final artist = _album?['singername'] as String? ?? '';
+    final name = _album?.name ?? widget.albumName ?? '专辑详情';
+    final img = _album?.coverUrl ?? '';
+    final artist = _album?.artistName ?? '';
 
     return Scaffold(
       body: CustomScrollView(

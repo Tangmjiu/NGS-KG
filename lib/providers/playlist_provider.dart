@@ -3,9 +3,11 @@ import '../models/playlist.dart';
 import '../services/music_service.dart';
 
 class PlaylistProvider extends ChangeNotifier {
-  final MusicService _musicService = MusicService();
+  final MusicService _musicService;
 
   List<Playlist> _topPlaylists = [];
+
+  PlaylistProvider(this._musicService);
   PlaylistDetail? _currentPlaylist;
   List<Playlist> _userPlaylists = [];
   bool _isLoading = false;
