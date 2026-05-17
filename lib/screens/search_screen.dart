@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/music_service.dart';
+import '../models/rank_entry.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
+import '../services/music_service.dart';
 import '../widgets/song_tile.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -33,7 +34,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   List<String> _suggestions = [];
   List<_HotItem> _hotSearch = [];
-  List<Map<String, dynamic>> _ranks = [];
+  List<RankEntry> _ranks = [];
   bool _isLoading = false;
   bool _isLoadingRanks = true;
   bool _showResult = false;
@@ -224,14 +225,13 @@ class _SearchScreenState extends State<SearchScreen>
                 itemCount: _ranks.length,
                 itemBuilder: (_, i) {
                   final rank = _ranks[i];
-                  final name = rank['rankname'] as String? ?? '';
-                  final img = rank['imgurl'] as String? ?? rank['img_9'] as String? ?? rank['banner_9'] as String?;
+                  final name = rank.name;
+                  final img = rank.coverUrl ?? rank.bannerUrl ?? '';
                   return GestureDetector(
                     onTap: () {
-                      final id = rank['rankid'] as int?;
-                      if (id != null) {
+                      if (rank.id > 0) {
                         Navigator.pushNamed(context, '/rank/detail',
-                            arguments: {'id': id, 'name': name});
+                            arguments: {'id': rank.id, 'name': name});
                       }
                     },
                     child: Container(
@@ -241,7 +241,7 @@ class _SearchScreenState extends State<SearchScreen>
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: img != null
+                            child: img.isNotEmpty
                                 ? Image.network(
                                     img.replaceAll('{size}', '240'),
                                     width: 72, height: 72,

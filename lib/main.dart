@@ -11,6 +11,7 @@ import 'screens/player_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/api_client.dart';
 import 'services/music_service.dart';
+import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/cache_service.dart';
 
@@ -20,13 +21,17 @@ void main() {
   _initDevice();
   _initNotifications();
   CacheService.instance.init();
+  final musicService = MusicService();
+  final authService = AuthService();
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => PlayerProvider()),
-        ChangeNotifierProvider(create: (_) => PlaylistProvider()),
-        ChangeNotifierProvider(create: (_) => LikedSongsProvider()),
+        Provider<MusicService>.value(value: musicService),
+        Provider<AuthService>.value(value: authService),
+        ChangeNotifierProvider(create: (_) => AuthProvider(authService)),
+        ChangeNotifierProvider(create: (_) => PlayerProvider(musicService)),
+        ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
+        ChangeNotifierProvider(create: (_) => LikedSongsProvider(musicService)),
       ],
       child: const NGSKGApp(),
     ),

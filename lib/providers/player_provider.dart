@@ -3,15 +3,15 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/song.dart';
 import '../services/music_service.dart';
 import '../services/notification_service.dart';
+import 'mixins.dart';
 
 enum PlayMode { sequential, shuffle, repeatOne }
 
-class PlayerProvider extends ChangeNotifier {
-  final MusicService _musicService = MusicService();
+class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMixin {
+  final MusicService _musicService;
   final AudioPlayer _player = AudioPlayer();
   final Random _random = Random();
 
@@ -33,9 +33,6 @@ class PlayerProvider extends ChangeNotifier {
   DateTime? _lastUrlFetchTime;
   static const int _maxRetries = 2;
   static const _urlStaleDuration = Duration(minutes: 10);
-  bool _isKeepScreenOn = false;
-  Timer? _sleepTimer;
-  Duration? _sleepTimerRemaining;
 
   StreamSubscription? _positionSub;
   StreamSubscription? _durationSub;
@@ -53,18 +50,21 @@ class PlayerProvider extends ChangeNotifier {
   String? get error => _error;
   double get progress =>
       _duration.inMilliseconds > 0 ? _position.inMilliseconds / _duration.inMilliseconds : 0.0;
-  bool get isKeepScreenOn => _isKeepScreenOn;
-  Duration? get sleepTimerRemaining => _sleepTimerRemaining;
 
   bool _isCompleting = false;
 
-  PlayerProvider() {
+  PlayerProvider(this._musicService) {
     _initSession();
     _initPlayer();
     _positionSub = _player.positionStream.listen((p) {
       _position = p;
       notifyListeners();
-      _checkSleepTimer();
+      if (sleepTimerRemaining != null && sleepTimerRemaining!.inSeconds <= 0) {
+        _player.pause();
+        _isPlaying = false;
+        cancelSleepTimer();
+        notifyListeners();
+      }
     });
     _durationSub = _player.durationStream.listen((d) {
       if (d != null) {
@@ -393,43 +393,10 @@ class PlayerProvider extends ChangeNotifier {
     }
   }
 
-  void _checkSleepTimer() {
-    if (_sleepTimerRemaining != null && _sleepTimerRemaining!.inSeconds <= 0) {
-      _player.pause();
-      _isPlaying = false;
-      _sleepTimer?.cancel();
-      _sleepTimerRemaining = null;
-      notifyListeners();
-    }
-  }
-
-  Future<void> setKeepScreenOn(bool on) async {
-    _isKeepScreenOn = on;
-    if (on) {
-      await WakelockPlus.enable();
-    } else {
-      await WakelockPlus.disable();
-    }
-    notifyListeners();
-  }
-
-  void setSleepTimer(Duration duration) {
-    _sleepTimer?.cancel();
-    _sleepTimerRemaining = duration;
-    _sleepTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_sleepTimerRemaining != null) {
-        _sleepTimerRemaining = _sleepTimerRemaining! - const Duration(seconds: 1);
-        notifyListeners();
-        _checkSleepTimer();
-      }
-    });
-    notifyListeners();
-  }
-
-  void cancelSleepTimer() {
-    _sleepTimer?.cancel();
-    _sleepTimerRemaining = null;
-    notifyListeners();
+  @override
+  void onSleepTimerExpired() {
+    _player.pause();
+    _isPlaying = false;
   }
 
   void setVolume(double volume) {
@@ -445,9 +412,9 @@ class PlayerProvider extends ChangeNotifier {
     _positionSub?.cancel();
     _durationSub?.cancel();
     _processingStateSub?.cancel();
-    _sleepTimer?.cancel();
+    disposeSleepTimer();
     _player.dispose();
-    WakelockPlus.disable();
+    disposeKeepScreenOn();
     super.dispose();
   }
 }

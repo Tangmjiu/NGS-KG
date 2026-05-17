@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/song.dart';
+import '../models/radio.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 
@@ -13,7 +14,7 @@ class FmScreen extends StatefulWidget {
 
 class _FmScreenState extends State<FmScreen> {
   final MusicService _musicService = MusicService();
-  List<Map<String, dynamic>> _radios = [];
+  List<RadioStation> _radios = [];
   bool _isLoading = true;
   int? _selectedFmid;
   List<Song> _fmSongs = [];
@@ -42,9 +43,8 @@ class _FmScreenState extends State<FmScreen> {
     if (mounted) setState(() => _loadingSongs = false);
   }
 
-  void _onRadioTap(Map<String, dynamic> radio) {
-    final fmid = radio['fmid'] as int?;
-    if (fmid == null) return;
+  void _onRadioTap(RadioStation radio) {
+    final fmid = radio.id;
     final newFmid = _selectedFmid == fmid ? null : fmid;
     setState(() {
       _selectedFmid = newFmid;
@@ -58,8 +58,8 @@ class _FmScreenState extends State<FmScreen> {
     context.read<PlayerProvider>().playSong(song, playlist: _fmSongs);
   }
 
-  String _coverUrl(Map<String, dynamic> radio) {
-    final url = radio['imgurl'] as String? ?? '';
+  String _coverUrl(RadioStation radio) {
+    final url = radio.coverUrl ?? '';
     if (url.isEmpty) return '';
     return url.replaceAll('{size}', '240');
   }
@@ -77,10 +77,10 @@ class _FmScreenState extends State<FmScreen> {
                   itemCount: _radios.length,
                   itemBuilder: (_, i) {
                     final radio = _radios[i];
-                    final name = radio['fmname'] as String? ?? '';
-                    final desc = radio['description'] as String? ?? '';
+                    final name = radio.name;
+                    final desc = radio.description ?? '';
                     final img = _coverUrl(radio);
-                    final fmid = radio['fmid'] as int?;
+                    final fmid = radio.id;
                     final isExpanded = _selectedFmid == fmid;
                     return Column(
                       children: [

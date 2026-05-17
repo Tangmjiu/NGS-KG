@@ -7,7 +7,7 @@ import '../services/auth_service.dart';
 import '../services/api_client.dart';
 
 class AuthProvider extends ChangeNotifier {
-  final AuthService _authService = AuthService();
+  final AuthService _authService;
 
   User? _user;
   bool _isLoading = false;
@@ -16,7 +16,7 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoggedIn => _user != null;
   bool get isLoading => _isLoading;
 
-  AuthProvider() {
+  AuthProvider(this._authService) {
     _loadSavedUser();
   }
 
@@ -111,22 +111,14 @@ class AuthProvider extends ChangeNotifier {
 
   Future<int> checkQrStatus(String key) async {
     final res = await _authService.checkQrStatus(key);
-    final status = res['data'] is Map ? (res['data'] as Map)['status'] : null;
-    if (status == 200 && res['data'] is Map) {
-      final data = res['data'] as Map;
-      // Try nested 'user' field first, then direct data fields
-      Map<String, dynamic>? userData = data['user'] as Map<String, dynamic>?;
-      if (userData == null && data['nickname'] != null) {
-        userData = Map<String, dynamic>.from(data);
-      }
-      if (userData != null) {
-        _user = User.fromJson(userData);
-        ApiClient.setAuth(_user!.token, _user!.userId?.toString());
-        _saveUser();
-        notifyListeners();
-      }
+    final (status, user) = AuthService.parseQrResponse(res);
+    if (user != null) {
+      _user = user;
+      ApiClient.setAuth(_user!.token, _user!.userId?.toString());
+      _saveUser();
+      notifyListeners();
     }
-    return (status as int?) ?? 0;
+    return status;
   }
 
   void logout() {

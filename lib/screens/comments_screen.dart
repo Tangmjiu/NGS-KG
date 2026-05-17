@@ -25,17 +25,13 @@ class _CommentsScreenState extends State<CommentsScreen> {
 
   Future<void> _load() async {
     try {
-      List<Map<String, dynamic>> raw;
       if (widget.type == 'music') {
-        raw = await _musicService.getMusicComments(widget.id);
+        _comments = await _musicService.getMusicComments(widget.id);
       } else {
-        raw = await _musicService.getPlaylistComments(widget.id);
+        _comments = await _musicService.getPlaylistComments(widget.id);
       }
       if (mounted) {
-        setState(() {
-          _comments = raw.map((e) => Comment.fromJson(e)).toList();
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);

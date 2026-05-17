@@ -5,9 +5,11 @@ import '../providers/auth_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../providers/player_provider.dart';
 import '../models/song.dart';
+import '../models/latest_listen_info.dart';
 import '../widgets/tablet_scaffold.dart';
 import '../utils/responsive.dart';
 import '../services/music_service.dart';
+import '../models/song_mapper.dart';
 import 'discover_screen.dart';
 import 'profile_screen.dart';
 
@@ -22,7 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentTab = 0;
   final MusicService _musicService = MusicService();
   List<Song> _recommended = [];
-  Map<String, dynamic>? _latestListen;
+  LatestListenInfo? _latestListen;
   bool _showContinueBanner = false;
   final Map<int, List<Song>> _cardSongs = {};
   final Map<int, String> _cardNames = {};
@@ -124,18 +126,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadCardSongs() async {
-    final futures = <int, Future<Map<String, dynamic>>>{};
     for (int id = 1; id <= 6; id++) {
-      futures[id] = _musicService.getCardSongs(id).catchError((_) => <String, dynamic>{});
-    }
-    final results = await Future.wait(futures.values);
-    if (mounted) {
-      int id = 1;
-      for (final data in results) {
-        _cardNames[id] = data['rec_desc'] ?? _cardTitles[id] ?? '';
-        _cardSongs[id] = (data['songs'] as List<dynamic>?)?.cast<Song>() ?? [];
-        id++;
-      }
+      try {
+        final data = await _musicService.getCardSongs(id);
+        if (mounted) {
+          _cardNames[id] = data.recDesc.isNotEmpty ? data.recDesc : _cardTitles[id] ?? '';
+          _cardSongs[id] = data.songs;
+        }
+      } catch (_) {}
     }
   }
 
@@ -144,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!auth.isLoggedIn) return;
     try {
       final latest = await _musicService.getLatestListen();
-      if (latest != null && latest['info'] != null && mounted) {
+      if (latest != null && latest.info != null && mounted) {
         setState(() {
           _latestListen = latest;
           _showContinueBanner = true;
@@ -154,10 +152,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _continueListen() async {
-    if (_latestListen == null) return;
-    final info = _latestListen!['info'] as Map<String, dynamic>;
-    final song = Song.fromTrackJson(info);
-    final position = Duration(seconds: _latestListen!['position'] as int? ?? 0);
+    if (_latestListen == null || _latestListen!.info == null) return;
+    final song = SongMapper.fromTrackJson(_latestListen!.info!);
+    if (song == null) return;
+    final position = Duration(seconds: _latestListen!.position);
     final player = context.read<PlayerProvider>();
     await player.playSong(song);
     if (position.inSeconds > 0) {
@@ -255,7 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: ListTile(
                     leading: const Icon(Icons.play_circle_outline),
                     title: Text(
-                      _latestListen!['info']?['name'] ?? '继续播放',
+                      _latestListen!.info?['name'] ?? '继续播放',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

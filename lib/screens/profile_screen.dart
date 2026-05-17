@@ -228,7 +228,7 @@ class LikedSongsScreen extends StatefulWidget {
 
 class _LikedSongsScreenState extends State<LikedSongsScreen> {
   final MusicService _musicService = MusicService();
-  List<Map<String, dynamic>> _songs = [];
+  List<Song> _songs = [];
   bool _loading = true;
 
   @override
@@ -256,11 +256,10 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
               : ListView.builder(
                   itemCount: _songs.length,
                   itemBuilder: (_, i) {
-                    final s = _songs[i];
-                    final song = Song.fromTrackJson(s);
+                    final song = _songs[i];
                     return SongTile(
                       song: song,
-                      onTap: (s) => context.read<PlayerProvider>().playSong(s, playlist: _songs.map((e) => Song.fromTrackJson(e)).toList()),
+                      onTap: (s) => context.read<PlayerProvider>().playSong(s, playlist: _songs),
                     );
                   },
                 ),

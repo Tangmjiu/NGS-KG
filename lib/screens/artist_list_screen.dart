@@ -25,7 +25,7 @@ class _ArtistListScreenState extends State<ArtistListScreen> {
       final list = await _musicService.getArtistList();
       if (mounted) {
         setState(() {
-          _artists = list.map((e) => Artist.fromJson(e)).toList();
+          _artists = list;
           _isLoading = false;
         });
       }

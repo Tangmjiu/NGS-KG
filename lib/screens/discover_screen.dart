@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../models/playlist_tag.dart';
+import '../models/radio.dart';
 import '../services/music_service.dart';
 
 class DiscoverScreen extends StatefulWidget {
@@ -10,8 +12,8 @@ class DiscoverScreen extends StatefulWidget {
 
 class _DiscoverScreenState extends State<DiscoverScreen> {
   final MusicService _musicService = MusicService();
-  List<Map<String, dynamic>> _playlistTags = [];
-  List<Map<String, dynamic>> _fmList = [];
+  List<PlaylistTag> _playlistTags = [];
+  List<RadioStation> _fmList = [];
   bool _loadingTags = true;
   bool _loadingFm = true;
 
@@ -45,9 +47,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   List<Widget> _buildTagChips() {
     final chips = <Widget>[];
     for (final t in _playlistTags) {
-      final name = t['tag_name'] as String? ?? '';
-      final tagId = t['tag_id'] as String? ?? '';
-      final son = t['son'] as List<dynamic>? ?? [];
+      final name = t.name;
+      final tagId = t.id;
+      final son = t.children ?? [];
       if (son.isNotEmpty) {
         chips.add(Padding(
           padding: const EdgeInsets.only(right: 8, bottom: 4),
@@ -57,33 +59,28 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               visualDensity: VisualDensity.compact,
             ),
             itemBuilder: (context) => son.map((s) {
-              final childId = s['tag_id'] is int 
-                  ? s['tag_id'] as int 
-                  : int.tryParse(s['tag_id']?.toString() ?? '') ?? 0;
-              final childName = s['tag_name'] as String? ?? '';
               return PopupMenuItem(
-                value: childId,
-                child: Text(childName),
+                value: s.id,
+                child: Text(s.name),
               );
             }).toList(),
             onSelected: (id) {
               if (id > 0) {
                 final selectedName = son.firstWhere(
-                  (s) => (s['tag_id'] is int ? s['tag_id'] as int : int.tryParse(s['tag_id']?.toString() ?? '') ?? 0) == id,
-                  orElse: () => {'tag_name': name},
-                )['tag_name'] as String? ?? name;
+                  (s) => s.id == id,
+                  orElse: () => PlaylistTag(id: 0, name: name),
+                ).name;
                 Navigator.pushNamed(context, '/playlist/category', arguments: {'id': id, 'name': selectedName});
               }
             },
           ),
         ));
       } else {
-        final id = int.tryParse(tagId) ?? 0;
-        if (id > 0) {
+        if (tagId > 0) {
           chips.add(ActionChip(
             label: Text(name, style: const TextStyle(fontSize: 12)),
             onPressed: () {
-              Navigator.pushNamed(context, '/playlist/category', arguments: {'id': id, 'name': name});
+              Navigator.pushNamed(context, '/playlist/category', arguments: {'id': tagId, 'name': name});
             },
             visualDensity: VisualDensity.compact,
           ));
@@ -122,10 +119,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 itemCount: _fmList.length,
                 itemBuilder: (_, i) {
                   final fm = _fmList[i];
-                  final name = fm['fmname'] as String? ?? '';
-                  final img = (fm['imgurl'] as String? ?? '').replaceAll('{size}', '240');
+                  final name = fm.name;
+                  final img = (fm.coverUrl ?? '').replaceAll('{size}', '240');
                   return GestureDetector(
-                    onTap: () => Navigator.pushNamed(context, '/fm', arguments: {'fmid': fm['fmid'], 'name': name}),
+                    onTap: () => Navigator.pushNamed(context, '/fm', arguments: {'fmid': fm.id, 'name': name}),
                     child: Container(
                       width: 100,
                       margin: const EdgeInsets.only(right: 8),
