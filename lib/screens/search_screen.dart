@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/rank_entry.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
@@ -242,11 +243,11 @@ class _SearchScreenState extends State<SearchScreen>
                           ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: img.isNotEmpty
-                                ? Image.network(
-                                    img.replaceAll('{size}', '240'),
+                                ? CachedNetworkImage(
+                                    imageUrl: img.replaceAll('{size}', '240'),
                                     width: 72, height: 72,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
+                                    errorWidget: (_, __, ___) => Container(
                                       width: 72, height: 72,
                                       color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                       child: const Icon(Icons.music_note),
@@ -336,7 +337,7 @@ class _SearchScreenState extends State<SearchScreen>
           leading: img.isNotEmpty
               ? ClipRRect(
                   borderRadius: BorderRadius.circular(4),
-                  child: Image.network(img.replaceAll('{size}', '240'),
+                  child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
                       width: 48, height: 48, fit: BoxFit.cover),
                 )
               : Container(
@@ -375,7 +376,7 @@ class _SearchScreenState extends State<SearchScreen>
           leading: img.isNotEmpty
               ? ClipRRect(
                   borderRadius: BorderRadius.circular(4),
-                  child: Image.network(img.replaceAll('{size}', '240'),
+                  child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
                       width: 48, height: 48, fit: BoxFit.cover),
                 )
               : Container(
@@ -411,7 +412,7 @@ class _SearchScreenState extends State<SearchScreen>
           leading: img.isNotEmpty
               ? ClipRRect(
                   borderRadius: BorderRadius.circular(24),
-                  child: Image.network(img.replaceAll('{size}', '240'),
+                  child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
                       width: 48, height: 48, fit: BoxFit.cover),
                 )
               : Container(
@@ -449,7 +450,7 @@ class _SearchScreenState extends State<SearchScreen>
           leading: img.isNotEmpty
               ? ClipRRect(
                   borderRadius: BorderRadius.circular(4),
-                  child: Image.network(img.replaceAll('{size}', '240'),
+                  child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
                       width: 48, height: 48, fit: BoxFit.cover),
                 )
               : Container(

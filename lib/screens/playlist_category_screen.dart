@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/playlist.dart';
 import '../services/music_service.dart';
 
@@ -98,12 +99,12 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: (p.coverUrl != null && p.coverUrl!.isNotEmpty)
-                            ? Image.network(
-                                p.coverUrl!,
+                            ? CachedNetworkImage(
+                                imageUrl: p.coverUrl!,
                                 width: double.infinity,
                                 height: 100,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
+                                errorWidget: (_, __, ___) => Container(
                                   width: double.infinity,
                                   height: 100,
                                   color: Theme.of(context).colorScheme.surfaceContainerHighest,

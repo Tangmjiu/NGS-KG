@@ -14,7 +14,6 @@ import 'services/music_service.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/cache_service.dart';
-import 'utils/responsive.dart';
 
 final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
 
@@ -119,7 +118,7 @@ class _PlayerBarBottom extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<PlayerProvider>(
       builder: (_, player, __) {
-        if (player.currentSong == null || player.isPlayerScreenVisible || Responsive.isTabletLandscape(context)) return const SizedBox.shrink();
+        if (player.currentSong == null || player.isPlayerScreenVisible) return const SizedBox.shrink();
         return Positioned(
           left: 0, right: 0, bottom: 0,
           child: Column(
@@ -236,7 +235,6 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
-/// Mini marquee for the bottom player bar.
 class _MarqueeMini extends StatefulWidget {
   final String text;
   final TextStyle? style;
@@ -246,9 +244,11 @@ class _MarqueeMini extends StatefulWidget {
   State<_MarqueeMini> createState() => _MarqueeMiniState();
 }
 
-class _MarqueeMiniState extends State<_MarqueeMini> {
+class _MarqueeMiniState extends State<_MarqueeMini>
+    with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
-  Timer? _timer;
+  AnimationController? _animController;
+  Timer? _pauseTimer;
 
   @override
   void didUpdateWidget(_MarqueeMini old) {
@@ -263,7 +263,8 @@ class _MarqueeMiniState extends State<_MarqueeMini> {
   }
 
   void _restart() {
-    _timer?.cancel();
+    _pauseTimer?.cancel();
+    _animController?.stop();
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
     WidgetsBinding.instance.addPostFrameCallback((_) => _startIfNeeded());
   }
@@ -272,26 +273,31 @@ class _MarqueeMiniState extends State<_MarqueeMini> {
     if (!mounted || !_scrollController.hasClients) return;
     final maxScroll = _scrollController.position.maxScrollExtent;
     if (maxScroll <= 0) return;
-    const step = 1.0;
-    _timer = Timer.periodic(const Duration(milliseconds: 30), (t) {
-      if (!mounted) { t.cancel(); return; }
-      final next = _scrollController.offset + step;
-      if (next >= maxScroll) {
-        t.cancel();
-        Future.delayed(const Duration(seconds: 2), () {
+    final duration = Duration(milliseconds: (maxScroll * 30).toInt());
+    _animController = AnimationController(
+      vsync: this,
+      duration: duration,
+    );
+    _animController!.addListener(() {
+      if (!_scrollController.hasClients) return;
+      _scrollController.jumpTo(_animController!.value * maxScroll);
+    });
+    _animController!.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _pauseTimer = Timer(const Duration(seconds: 2), () {
           if (!mounted) return;
           _scrollController.jumpTo(0);
           _startIfNeeded();
         });
-      } else {
-        _scrollController.jumpTo(next);
       }
     });
+    _animController!.forward();
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _pauseTimer?.cancel();
+    _animController?.dispose();
     _scrollController.dispose();
     super.dispose();
   }

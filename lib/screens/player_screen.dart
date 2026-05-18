@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -77,14 +77,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
         _syncRotation(player.isPlaying);
 
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            if (constraints.maxWidth > 600) {
-              return _tabletLayout(player, song);
-            }
-            return _phoneLayout(player, song);
-          },
-        );
+        return _phoneLayout(player, song);
       },
     );
   }
@@ -141,76 +134,31 @@ class _PlayerScreenState extends State<PlayerScreen>
     );
   }
 
-  // ────────────────────────────── tablet layout ──────────────────────────────
-
-  Widget _tabletLayout(PlayerProvider player, Song song) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          _buildBackground(song),
-          SafeArea(
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 5,
-                  child: Column(
-                    children: [
-                      _buildTopBar(),
-                      Expanded(
-                        child: PageView(
-                          controller: _pageController,
-                          onPageChanged: (_) => setState(() {}),
-                          children: [
-                            _buildCover(song),
-                            _buildLyricsView(player, song),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  flex: 4,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildSongInfo(song, player),
-                        const SizedBox(height: 16),
-                        _buildProgressSection(player, song),
-                        const SizedBox(height: 20),
-                        _buildControls(player),
-                        const SizedBox(height: 24),
-                        _buildBottomActions(player),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ────────────────────────────── blurred background ──────────────────────────────
 
   Widget _buildBackground(Song song) {
     return song.albumCoverUrl != null
         ? Stack(
             children: [
-              CachedNetworkImage(
-                imageUrl: song.albumCoverUrl!,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
+              RepaintBoundary(
+                child: CachedNetworkImage(
+                  imageUrl: song.albumCoverUrl!,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                ),
               ),
-              BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.4),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.6),
+                      Colors.black.withValues(alpha: 0.7),
+                      Colors.black.withValues(alpha: 0.8),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -363,7 +311,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                       activeTrackColor: cs.primary,
                       inactiveTrackColor: cs.surfaceContainerHighest,
                       thumbColor: cs.primary,
-                      overlayColor: cs.primary.withAlpha(25),
+                      overlayColor: cs.primary.withValues(alpha: 25/255),
                     ),
                     child: Slider(
                       value: _isDragging
@@ -662,7 +610,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                             TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                       ),
                       selected: i == player.currentIndex,
-                      selectedTileColor: cs.primaryContainer.withAlpha(40),
+                      selectedTileColor: cs.primaryContainer.withValues(alpha: 40/255),
                       onTap: () {
                         Navigator.pop(context);
                         player.playIndex(i);

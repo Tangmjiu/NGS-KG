@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/album.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
@@ -66,7 +67,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                   ? Stack(
                       fit: StackFit.expand,
                       children: [
-                        Image.network(img.replaceAll('{size}', '500'),
+                        CachedNetworkImage(imageUrl: img.replaceAll('{size}', '500'),
                             fit: BoxFit.cover),
                         Container(
                           decoration: BoxDecoration(
@@ -75,7 +76,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                               end: Alignment.bottomCenter,
                               colors: [
                                 Colors.transparent,
-                                Colors.black.withOpacity(0.7),
+                                Colors.black.withValues(alpha: 0.7),
                               ],
                             ),
                           ),

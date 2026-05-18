@@ -27,7 +27,7 @@ class AppTheme {
           contentPadding: EdgeInsets.symmetric(horizontal: 16),
         ),
         navigationBarTheme: NavigationBarThemeData(
-          indicatorColor: _seedColor.withAlpha(51),
+          indicatorColor: _seedColor.withValues(alpha: 51/255),
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
               return const TextStyle(fontSize: 12, fontWeight: FontWeight.w600);
@@ -61,7 +61,7 @@ class AppTheme {
           contentPadding: EdgeInsets.symmetric(horizontal: 16),
         ),
         navigationBarTheme: NavigationBarThemeData(
-          indicatorColor: _seedColor.withAlpha(51),
+          indicatorColor: _seedColor.withValues(alpha: 51/255),
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
               return const TextStyle(fontSize: 12, fontWeight: FontWeight.w600);
