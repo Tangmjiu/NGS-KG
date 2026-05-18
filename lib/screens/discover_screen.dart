@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/playlist_tag.dart';
 import '../models/radio.dart';
 import '../models/playlist.dart';
@@ -149,7 +150,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               image: imgUrl.isNotEmpty
-                  ? DecorationImage(image: NetworkImage(imgUrl), fit: BoxFit.cover)
+                  ? DecorationImage(image: CachedNetworkImageProvider(imgUrl), fit: BoxFit.cover)
                   : null,
               color: cs.surfaceContainerHighest,
             ),
@@ -288,7 +289,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: pl.coverUrl != null
-                        ? Image.network(pl.coverUrl!, width: 140, height: 140, fit: BoxFit.cover)
+                        ? CachedNetworkImage(imageUrl: pl.coverUrl!, width: 140, height: 140, fit: BoxFit.cover)
                         : Container(width: 140, height: 140, color: cs.surfaceContainerHighest, child: Icon(Icons.playlist_play, color: cs.onSurfaceVariant)),
                   ),
                   const SizedBox(height: 6),
@@ -323,7 +324,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: rank.coverUrl != null
-                        ? Image.network(rank.coverUrl!, width: 100, height: 100, fit: BoxFit.cover)
+                        ? CachedNetworkImage(imageUrl: rank.coverUrl!, width: 100, height: 100, fit: BoxFit.cover)
                         : Container(width: 100, height: 100, color: cs.surfaceContainerHighest, child: Icon(Icons.leaderboard, color: cs.onSurfaceVariant)),
                   ),
                   const SizedBox(height: 4),
@@ -359,7 +360,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: img.isNotEmpty
-                        ? Image.network(img, width: 64, height: 64, fit: BoxFit.cover)
+                        ? CachedNetworkImage(imageUrl: img, width: 64, height: 64, fit: BoxFit.cover)
                         : Container(width: 64, height: 64, color: cs.surfaceContainerHighest, child: const Icon(Icons.radio)),
                   ),
                   const SizedBox(height: 4),

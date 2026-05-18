@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/playlist.dart';
 import '../models/song.dart';
 import '../providers/auth_provider.dart';
@@ -76,7 +77,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onTap: () => Navigator.pushNamed(context, '/user/profile'),
               child: CircleAvatar(
                 radius: 32,
-                backgroundImage: user.avatarUrl != null ? NetworkImage(user.avatarUrl!) : null,
+                backgroundImage: user.avatarUrl != null ? CachedNetworkImageProvider(user.avatarUrl!) : null,
                 child: user.avatarUrl == null ? const Icon(Icons.person, size: 32) : null,
               ),
             ),
@@ -181,13 +182,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final userId = auth.user?.userId;
     final List<Playlist> personal = [];
     final List<Playlist> collected = [];
+    final List<Playlist> unknown = [];
 
     for (final pl in playlistProv.userPlaylists) {
       if (pl.createUserId != null && userId != null && pl.createUserId == userId) {
         personal.add(pl);
-      } else {
+      } else if (pl.createUserId != null) {
         collected.add(pl);
+      } else {
+        unknown.add(pl);
       }
+    }
+
+    if (unknown.isNotEmpty) {
+      collected.addAll(unknown);
     }
 
     return Column(

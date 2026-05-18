@@ -6,8 +6,6 @@ import '../providers/playlist_provider.dart';
 import '../providers/player_provider.dart';
 import '../models/song.dart';
 import '../models/latest_listen_info.dart';
-import '../widgets/tablet_scaffold.dart';
-import '../utils/responsive.dart';
 import '../services/music_service.dart';
 import '../models/song_mapper.dart';
 import '../widgets/song_tile.dart';
@@ -133,32 +131,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isTabletLand = Responsive.isTabletLandscape(context);
-
-    if (isTabletLand) {
-      return TabletScaffold(
-        currentIndex: _currentTab,
-        onTabChanged: (i) => setState(() => _currentTab = i),
-        tabs: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
-          BottomNavigationBarItem(icon: Icon(Icons.explore), label: '发现'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: '我的'),
-        ],
-        pages: [
-          _buildHome(),
-          const DiscoverScreen(),
-          const ProfileScreen(),
-        ],
-      );
-    }
-
+    const tabTitles = ['首页', '发现', '我的'];
     return Scaffold(
-      appBar: _currentTab == 0
-          ? AppBar(
-              title: const Text('首页'),
-              actions: _appBarActions(context),
-            )
-          : null,
+      appBar: AppBar(
+        title: Text(tabTitles[_currentTab]),
+        actions: _currentTab == 0 ? _appBarActions(context) : null,
+      ),
       body: IndexedStack(
         index: _currentTab,
         children: [
