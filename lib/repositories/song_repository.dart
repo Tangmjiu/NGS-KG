@@ -127,7 +127,10 @@ class SongRepository {
       return raw.map((e) {
         final json = e as Map<String, dynamic>;
         var cover = json['album_sizable_cover'] as String?;
-        if (cover != null) cover = cover.replaceAll('{size}', '240');
+        if (cover != null) {
+          cover = cover.replaceAll('{size}', '240');
+          if (cover.startsWith('//')) cover = 'https:$cover';
+        }
         return Song(
           id: json['audio_id'] as int? ?? 0,
           name: json['songname'] as String? ?? '',

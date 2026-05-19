@@ -3,6 +3,7 @@ import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/playlist_detail_screen.dart';
 import '../screens/playlist_category_screen.dart';
+import '../screens/category_selection_screen.dart';
 import '../screens/search_screen.dart';
 import '../screens/rank_detail_screen.dart';
 import '../screens/artist_list_screen.dart';
@@ -26,6 +27,7 @@ class AppRoutes {
   static const String login = '/login';
   static const String playlistDetail = '/playlist/detail';
   static const String playlistCategory = '/playlist/category';
+  static const String categorySelection = '/category/selection';
   static const String search = '/search';
   static const String rankDetail = '/rank/detail';
   static const String artistList = '/artist/list';
@@ -67,6 +69,8 @@ class AppRoutes {
             categoryName: args['name'] as String,
           ),
         );
+      case categorySelection:
+        return MaterialPageRoute(builder: (_) => const CategorySelectionScreen());
       case search:
         return MaterialPageRoute(builder: (_) => const SearchScreen());
       case rankDetail:
