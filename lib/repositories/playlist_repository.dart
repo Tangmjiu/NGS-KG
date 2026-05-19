@@ -34,9 +34,20 @@ class PlaylistRepository {
 
   Future<PlaylistDetail> getPlaylistDetail(String gcId) async {
     final res = await _get('/playlist/detail', params: {'ids': gcId});
-    final list = res['data'];
-    if (list is List && list.isNotEmpty) {
-      return PlaylistDetail.fromKugouJson(list[0] as Map<String, dynamic>);
+    final data = res['data'];
+    if (data is List && data.isNotEmpty) {
+      return PlaylistDetail.fromKugouJson(Map<String, dynamic>.from(data[0] as Map));
+    }
+    if (data is Map) {
+      final list = data['list'] as List<dynamic>?;
+      if (list != null && list.isNotEmpty) {
+        return PlaylistDetail.fromKugouJson(Map<String, dynamic>.from(list[0] as Map));
+      }
+      final info = data['info'] as List<dynamic>?;
+      if (info != null && info.isNotEmpty) {
+        return PlaylistDetail.fromKugouJson(Map<String, dynamic>.from(info[0] as Map));
+      }
+      return PlaylistDetail.fromKugouJson(Map<String, dynamic>.from(data));
     }
     throw Exception('Playlist not found');
   }
@@ -45,12 +56,18 @@ class PlaylistRepository {
       {int page = 1, int pageSize = 1000}) async {
     final res = await _get('/playlist/track/all',
         params: {'id': gcId, 'page': page, 'pagesize': pageSize});
-    final songs =
-        ((res['data'] as Map<String, dynamic>)['songs'] as List<dynamic>);
-    return songs
-        .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
-        .whereType<Song>()
-        .toList();
+    final data = res['data'];
+    List<dynamic>? songs;
+    if (data is Map) {
+      songs = data['songs'] as List<dynamic>? ?? data['info'] as List<dynamic>? ?? data['list'] as List<dynamic>?;
+    }
+    if (songs != null) {
+      return songs
+          .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
+          .whereType<Song>()
+          .toList();
+    }
+    return [];
   }
 
   Future<List<Song>> getPlaylistTracksById(int listid,
@@ -62,7 +79,7 @@ class PlaylistRepository {
     });
     final data = res['data'];
     if (data is Map) {
-      final songs = data['songs'] as List<dynamic>?;
+      final songs = data['songs'] as List<dynamic>? ?? data['info'] as List<dynamic>? ?? data['list'] as List<dynamic>?;
       if (songs != null) {
         return songs
             .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
@@ -79,13 +96,20 @@ class PlaylistRepository {
       'page': page,
       'pagesize': pageSize,
     };
-    if (userId != null) params['userId'] = userId;
+    if (userId != null) params['userid'] = userId;
     final res = await _get('/user/playlist', params: params);
     final data = res['data'];
     if (data is Map) {
       final info = data['info'] as List<dynamic>?;
       if (info != null) {
         return info
+            .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
+            .where((p) => p.id != 0 && p.name.isNotEmpty)
+            .toList();
+      }
+      final list = data['list'] as List<dynamic>?;
+      if (list != null) {
+        return list
             .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
             .where((p) => p.id != 0 && p.name.isNotEmpty)
             .toList();
@@ -97,16 +121,11 @@ class PlaylistRepository {
             .where((p) => p.id != 0 && p.name.isNotEmpty)
             .toList();
       }
-      final list = data['list'] as List<dynamic>?;
-      if (list != null) {
-        return list
-            .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
-            .toList();
-      }
     }
     if (data is List) {
       return data
           .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
+          .where((p) => p.id != 0 && p.name.isNotEmpty)
           .toList();
     }
     return [];

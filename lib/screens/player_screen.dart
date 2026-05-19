@@ -137,31 +137,32 @@ class _PlayerScreenState extends State<PlayerScreen>
   // ────────────────────────────── blurred background ──────────────────────────────
 
   Widget _buildBackground(Song song) {
-    return song.albumCoverUrl != null
-        ? Stack(
-            children: [
-              CachedNetworkImage(
-                imageUrl: song.albumCoverUrl!,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.6),
-                      Colors.black.withValues(alpha: 0.7),
-                      Colors.black.withValues(alpha: 0.8),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          )
-        : Container(color: Colors.black);
+    return Stack(
+      children: [
+        Container(color: Colors.black),
+        if (song.albumCoverUrl != null && song.albumCoverUrl!.isNotEmpty)
+          CachedNetworkImage(
+            imageUrl: song.albumCoverUrl!,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            errorWidget: (_, __, ___) => Container(color: Colors.black),
+          ),
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.6),
+                Colors.black.withValues(alpha: 0.7),
+                Colors.black.withValues(alpha: 0.8),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   // ────────────────────────────── top bar (back only) ──────────────────────────────

@@ -5,7 +5,10 @@ class SongMapper {
   static Song? fromKugouJson(Map<String, dynamic> json) {
     try {
       var cover = json['Image'] as String?;
-      if (cover != null) cover = cover.replaceAll('{size}', '480');
+      if (cover != null) {
+        cover = cover.replaceAll('{size}', '480');
+        if (cover.startsWith('//')) cover = 'https:$cover';
+      }
       return Song(
         id: (json['Audioid'] ?? json['id']) as int,
         name: (json['OriSongName'] ?? json['SongName'] ?? json['name'] ?? '') as String,
@@ -27,7 +30,10 @@ class SongMapper {
       final rawName = (json['name'] as String?) ?? '';
       final parts = rawName.split(' - ');
       var cover = json['cover'] as String?;
-      if (cover != null) cover = cover.replaceAll('{size}', '480');
+      if (cover != null) {
+        cover = cover.replaceAll('{size}', '480');
+        if (cover.startsWith('//')) cover = 'https:$cover';
+      }
       final q = <String, String>{};
       final hash = json['hash'] as String?;
       if (hash != null && hash.isNotEmpty) q['128'] = hash;
@@ -95,7 +101,10 @@ class SongMapper {
       var cover = json['trans_param'] is Map
           ? (json['trans_param'] as Map)['union_cover'] as String?
           : null;
-      if (cover != null) cover = cover.replaceAll('{size}', '480');
+      if (cover != null) {
+        cover = cover.replaceAll('{size}', '480');
+        if (cover.startsWith('//')) cover = 'https:$cover';
+      }
       final rawName = json['songname'] as String? ?? '';
       final parts = rawName.split(' - ');
       String? hash;

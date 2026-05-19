@@ -1,4 +1,5 @@
 import 'song.dart';
+import 'song_mapper.dart';
 
 class Playlist {
   final int id;
@@ -43,8 +44,14 @@ class Playlist {
   }
 
   static String? _fixCover(String? url) {
-    if (url == null) return null;
-    return url.replaceAll(RegExp(r'\{size\}'), '480');
+    if (url == null || url.isEmpty) return null;
+    if (url.contains('{size}')) {
+      return url.replaceAll(RegExp(r'\{size\}'), '480');
+    }
+    if (!url.startsWith('http')) {
+      return 'https:$url';
+    }
+    return url;
   }
 }
 
@@ -55,20 +62,28 @@ class PlaylistDetail {
   const PlaylistDetail({required this.playlist, required this.songs});
 
   factory PlaylistDetail.fromJson(Map<String, dynamic> json) {
-    final pl = Playlist.fromJson(json['playlist'] as Map<String, dynamic>);
-    final songList = (json['songs'] as List<dynamic>?)
-            ?.map((e) => Song.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [];
+    final pl = Playlist.fromJson(json);
+    List<Song> songList = [];
+    final songsData = json['songs'] ?? json['info'] ?? json['list'];
+    if (songsData is List) {
+      songList = songsData
+          .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
+          .whereType<Song>()
+          .toList();
+    }
     return PlaylistDetail(playlist: pl, songs: songList);
   }
 
   factory PlaylistDetail.fromKugouJson(Map<String, dynamic> json) {
     final pl = Playlist.fromJson(json);
-    final songList = (json['songs'] as List<dynamic>?)
-            ?.map((e) => Song.fromTrackJson(e as Map<String, dynamic>))
-            .toList() ??
-        [];
+    List<Song> songList = [];
+    final songsData = json['songs'] ?? json['info'] ?? json['list'];
+    if (songsData is List) {
+      songList = songsData
+          .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
+          .whereType<Song>()
+          .toList();
+    }
     return PlaylistDetail(playlist: pl, songs: songList);
   }
 }

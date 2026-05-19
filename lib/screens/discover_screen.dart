@@ -77,6 +77,60 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     } catch (_) {}
   }
 
+  void _showRankList() {
+    final cs = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('排行榜', style: Theme.of(context).textTheme.titleMedium),
+            ),
+            Divider(height: 1, color: cs.outlineVariant),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _rankList.length,
+                itemBuilder: (_, i) {
+                  final rank = _rankList[i];
+                  return ListTile(
+                    leading: rank.coverUrl != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: CachedNetworkImage(
+                              imageUrl: rank.coverUrl!,
+                              width: 40,
+                              height: 40,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) => const Icon(Icons.leaderboard),
+                              imageBuilder: (context, imageProvider) => Container(
+                                decoration: BoxDecoration(
+                                  image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
+                                ),
+                              ),
+                            ),
+                          )
+                        : const Icon(Icons.leaderboard),
+                    title: Text(rank.name),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/rank/detail',
+                          arguments: {'id': rank.id, 'name': rank.name});
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -106,22 +160,30 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             const SliverToBoxAdapter(child: SizedBox(height: 8)),
             // ── Top playlists ──
             if (_topPlaylists.isNotEmpty) ...[
-              _buildSectionHeader('推荐歌单', tt),
+              _buildSectionHeader('推荐歌单', tt, onViewAll: () {
+                Navigator.pushNamed(context, '/category/selection');
+              }),
               SliverToBoxAdapter(child: _buildPlaylistRow(cs)),
             ],
             // ── Hot ranks ──
             if (_rankList.isNotEmpty) ...[
-              _buildSectionHeader('热门榜单', tt),
+              _buildSectionHeader('热门榜单', tt, onViewAll: () {
+                _showRankList();
+              }),
               SliverToBoxAdapter(child: _buildRankRow(cs)),
             ],
             // ── Radio stations ──
             if (_fmList.isNotEmpty) ...[
-              _buildSectionHeader('电台推荐', tt),
+              _buildSectionHeader('电台推荐', tt, onViewAll: () {
+                Navigator.pushNamed(context, '/fm');
+              }),
               SliverToBoxAdapter(child: _buildFmRow(cs)),
             ],
             // ── All categories ──
             if (_tags.isNotEmpty) ...[
-              _buildSectionHeader('全部分类', tt),
+              _buildSectionHeader('全部分类', tt, onViewAll: () {
+                Navigator.pushNamed(context, '/category/selection');
+              }),
               SliverToBoxAdapter(child: _buildCategoryGrid(cs, tt)),
             ],
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
@@ -149,23 +211,33 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             margin: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              image: imgUrl.isNotEmpty
-                  ? DecorationImage(image: CachedNetworkImageProvider(imgUrl), fit: BoxFit.cover)
-                  : null,
               color: cs.surfaceContainerHighest,
             ),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.center,
-                  colors: [Colors.black.withValues(alpha: 0.6), Colors.transparent],
-                ),
-              ),
-              alignment: Alignment.bottomLeft,
-              padding: const EdgeInsets.all(16),
-              child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: imgUrl.isNotEmpty
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CachedNetworkImage(imageUrl: imgUrl, fit: BoxFit.cover),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.center,
+                              colors: [Colors.black.withValues(alpha: 0.6), Colors.transparent],
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 16,
+                          left: 16,
+                          child: Text(title,
+                              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    )
+                  : Center(child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600))),
             ),
           );
         },
@@ -244,7 +316,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   // ────────────── Section header ──────────────
 
-  SliverToBoxAdapter _buildSectionHeader(String title, TextTheme tt) {
+  SliverToBoxAdapter _buildSectionHeader(String title, TextTheme tt, {VoidCallback? onViewAll}) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
@@ -252,7 +324,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           children: [
             Text(title, style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
             const Spacer(),
-            Text('查看更多', style: tt.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            GestureDetector(
+              onTap: onViewAll,
+              child: Text('查看更多', style: tt.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            ),
           ],
         ),
       ),
@@ -393,18 +468,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           final i = entry.key;
           final tag = entry.value;
           final name = tag.name;
-          final tagId = tag.id;
-          final son = tag.children ?? [];
           return GestureDetector(
-            onTap: () {
-              if (son.isNotEmpty && son.first.id > 0) {
-                Navigator.pushNamed(context, '/playlist/category',
-                    arguments: {'id': son.first.id, 'name': son.first.name});
-              } else if (tagId > 0) {
-                Navigator.pushNamed(context, '/playlist/category',
-                    arguments: {'id': tagId, 'name': name});
-              }
-            },
+            onTap: () => Navigator.pushNamed(context, '/category/selection'),
             child: Container(
               width: itemWidth,
               padding: const EdgeInsets.symmetric(vertical: 12),
