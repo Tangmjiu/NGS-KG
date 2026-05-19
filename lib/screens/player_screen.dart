@@ -75,7 +75,7 @@ class _PlayerScreenState extends State<PlayerScreen>
           _updateCurrentLine(player.position);
         }
 
-        _syncRotation(player.isPlaying);
+        _scheduleRotationSync(player.isPlaying);
 
         return _phoneLayout(player, song);
       },
@@ -140,13 +140,11 @@ class _PlayerScreenState extends State<PlayerScreen>
     return song.albumCoverUrl != null
         ? Stack(
             children: [
-              RepaintBoundary(
-                child: CachedNetworkImage(
-                  imageUrl: song.albumCoverUrl!,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: double.infinity,
-                ),
+              CachedNetworkImage(
+                imageUrl: song.albumCoverUrl!,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
               ),
               Container(
                 decoration: BoxDecoration(
@@ -549,12 +547,29 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   // ────────────────────────────── rotation sync ──────────────────────────────
 
+  /// Safe to call from callbacks (not build).
   void _syncRotation(bool isPlaying) {
     if (isPlaying && !_rotationController.isAnimating) {
       _rotationController.repeat();
     } else if (!isPlaying && _rotationController.isAnimating) {
       _rotationController.stop();
     }
+  }
+
+  bool _lastPlayingState = false;
+
+  /// Safe to call from build — defers animation ops to post-frame.
+  void _scheduleRotationSync(bool isPlaying) {
+    if (isPlaying == _lastPlayingState) return;
+    _lastPlayingState = isPlaying;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (isPlaying && !_rotationController.isAnimating) {
+        _rotationController.repeat();
+      } else if (!isPlaying && _rotationController.isAnimating) {
+        _rotationController.stop();
+      }
+    });
   }
 
   // ────────────────────────────── dialogs & overlays ──────────────────────────────
