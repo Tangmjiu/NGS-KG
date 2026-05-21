@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../utils/logger.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/local_song.dart';
 
@@ -27,7 +28,7 @@ class LocalMusicService {
     try {
       final appDir = await getApplicationDocumentsDirectory();
       dirs.add(Directory('${appDir.path}/music'));
-    } catch (_) {}
+    } catch (e, s) { Log.e('local_music_service', 'error', e, s); }
     return dirs;
   }
 
@@ -45,7 +46,7 @@ class LocalMusicService {
           ));
         }
       }
-    } catch (_) {}
+    } catch (e, s) { Log.e('local_music_service', 'error', e, s); }
   }
 
   bool _isAudioFile(String path) {

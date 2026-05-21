@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../utils/logger.dart';
 import '../services/api_client.dart';
 
 class UserProfileScreen extends StatefulWidget {
@@ -24,8 +25,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     try {
       final res = await ApiClient.instance.get('/user/detail');
       _detail = res.data['data'] as Map<String, dynamic>?;
-    } catch (e) {
-      debugPrint('[UserProfile] load error: $e');
+    } catch (e, s) {
+      Log.e('UserProfile', 'load error', e, s);
     }
     if (mounted) setState(() => _isLoading = false);
   }
@@ -67,11 +68,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       margin: const EdgeInsets.only(top: 8),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1DB954),
+                        color: Theme.of(context).colorScheme.primary,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(user!.vipLevelDisplay,
-                          style: const TextStyle(color: Colors.white, fontSize: 13)),
+                          style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 13)),
                     ),
                   ),
                 const SizedBox(height: 24),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
 import '../services/music_service.dart';
 
 class MvPlayerScreen extends StatefulWidget {
@@ -18,7 +20,8 @@ class MvPlayerScreen extends StatefulWidget {
 class _MvPlayerScreenState extends State<MvPlayerScreen> {
   final _musicService = MusicService();
 
-  String? _mvUrl;
+  VideoPlayerController? _videoController;
+  ChewieController? _chewieController;
   bool _isLoading = true;
   String? _error;
 
@@ -26,6 +29,13 @@ class _MvPlayerScreenState extends State<MvPlayerScreen> {
   void initState() {
     super.initState();
     _loadMvUrl();
+  }
+
+  @override
+  void dispose() {
+    _chewieController?.dispose();
+    _videoController?.dispose();
+    super.dispose();
   }
 
   Future<void> _loadMvUrl() async {
@@ -38,16 +48,36 @@ class _MvPlayerScreenState extends State<MvPlayerScreen> {
     }
     try {
       final url = await _musicService.getMvUrl(widget.hash!);
-      if (mounted) {
+      if (!mounted) return;
+      if (url == null || url.isEmpty) {
         setState(() {
-          _mvUrl = url;
+          _error = '无法获取MV地址';
           _isLoading = false;
         });
+        return;
       }
+      _videoController = VideoPlayerController.networkUrl(Uri.parse(url));
+      await _videoController!.initialize();
+      if (!mounted) return;
+      _chewieController = ChewieController(
+        videoPlayerController: _videoController!,
+        autoPlay: true,
+        looping: false,
+        allowFullScreen: true,
+        allowMuting: true,
+        placeholder: Container(color: Colors.black),
+        materialProgressColors: ChewieProgressColors(
+          playedColor: Theme.of(context).colorScheme.primary,
+          bufferedColor: Colors.white24,
+          backgroundColor: Colors.white12,
+          handleColor: Theme.of(context).colorScheme.primary,
+        ),
+      );
+      setState(() => _isLoading = false);
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = '加载失败';
+          _error = '加载失败: $e';
           _isLoading = false;
         });
       }
@@ -57,18 +87,24 @@ class _MvPlayerScreenState extends State<MvPlayerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text(widget.name ?? 'MV'),
+        title: Text(widget.name ?? 'MV', style: const TextStyle(color: Colors.white)),
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: Colors.white))
           : _error != null
-              ? Center(child: Text(_error!))
-              : Center(
-                  child: _mvUrl != null
-                      ? const Text('MV播放器 (暂未实现)')
-                      : const Text('无法播放'),
-                ),
+              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.white)))
+              : _chewieController != null
+                  ? Center(
+                      child: AspectRatio(
+                        aspectRatio: _videoController!.value.aspectRatio,
+                        child: Chewie(controller: _chewieController!),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
+import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -34,7 +35,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           _isLoading = false;
         });
       }
-    } catch (_) {
+    } catch (e, s) { Log.e('history_screen', 'error', e, s);
       if (mounted) setState(() => _isLoading = false);
     }
   }

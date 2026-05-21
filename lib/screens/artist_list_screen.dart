@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/artist.dart';
+import '../utils/logger.dart';
 import '../services/music_service.dart';
 
 class ArtistListScreen extends StatefulWidget {
@@ -29,7 +30,7 @@ class _ArtistListScreenState extends State<ArtistListScreen> {
           _isLoading = false;
         });
       }
-    } catch (_) {
+    } catch (e, s) { Log.e('artist_list_screen', 'error', e, s);
       if (mounted) setState(() => _isLoading = false);
     }
   }

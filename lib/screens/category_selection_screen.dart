@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/playlist.dart';
 import '../models/playlist_tag.dart';
+import '../utils/logger.dart';
 import '../services/music_service.dart';
 
 class CategorySelectionScreen extends StatefulWidget {
@@ -32,7 +33,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         _tags = tags;
         _loading = false;
       });
-    } catch (_) {
+    } catch (e, s) { Log.e('category_selection_screen', 'error', e, s);
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -51,7 +52,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         _playlists = list;
         _loadingPlaylists = false;
       });
-    } catch (_) {
+    } catch (e, s) { Log.e('category_selection_screen', 'error', e, s);
       if (mounted) setState(() => _loadingPlaylists = false);
     }
   }

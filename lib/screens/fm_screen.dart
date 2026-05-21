@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../models/radio.dart';
 import '../providers/player_provider.dart';
+import '../utils/logger.dart';
 import '../services/music_service.dart';
 
 class FmScreen extends StatefulWidget {
@@ -43,14 +44,14 @@ class _FmScreenState extends State<FmScreen> {
       for (final r in list) {
         _loadFmImage(r.id);
       }
-    } catch (_) {}
+    } catch (e, s) { Log.e('fm_screen', 'error', e, s); }
   }
 
   Future<void> _loadYuekuFm() async {
     try {
       final list = await _musicService.getYuekuRadio();
       if (mounted) setState(() => _yuekuFm = list);
-    } catch (_) {}
+    } catch (e, s) { Log.e('fm_screen', 'error', e, s); }
   }
 
   Future<void> _loadFmImage(int fmid) async {
@@ -63,7 +64,7 @@ class _FmScreenState extends State<FmScreen> {
           _fmImages[fmid] = url.replaceAll('{size}', '240');
         }
       }
-    } catch (_) {}
+    } catch (e, s) { Log.e('fm_screen', 'error', e, s); }
   }
 
   Future<void> _loadFmSongs(int fmid) async {
@@ -71,7 +72,7 @@ class _FmScreenState extends State<FmScreen> {
     try {
       final songs = await _musicService.getFmSongs(fmid);
       if (mounted) setState(() => _fmSongs = songs);
-    } catch (_) {}
+    } catch (e, s) { Log.e('fm_screen', 'error', e, s); }
     if (mounted) setState(() => _loadingSongs = false);
   }
 
@@ -90,7 +91,10 @@ class _FmScreenState extends State<FmScreen> {
   }
 
   void _playSong(Song song) {
-    context.read<PlayerProvider>().playSong(song, playlist: _fmSongs);
+    final player = context.read<PlayerProvider>();
+    final fmid = _selectedFmid!;
+    player.playlistEndProvider = () => _musicService.getFmSongs(fmid);
+    player.playSong(song, playlist: _fmSongs);
   }
 
   String _coverUrl(RadioStation radio) {
@@ -218,9 +222,11 @@ class _FmScreenState extends State<FmScreen> {
       try {
         final songs = await _musicService.getFmSongs(fmid);
         if (songs.isNotEmpty && mounted) {
-          context.read<PlayerProvider>().playSong(songs.first, playlist: songs);
+          final player = context.read<PlayerProvider>();
+          player.playlistEndProvider = () => _musicService.getFmSongs(fmid);
+          player.playSong(songs.first, playlist: songs);
         }
-      } catch (_) {}
+      } catch (e, s) { Log.e('fm_screen', 'error', e, s); }
     }
   }
 }

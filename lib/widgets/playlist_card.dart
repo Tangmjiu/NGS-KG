@@ -12,7 +12,9 @@ class PlaylistCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    return Card(
+    return Semantics(
+      button: true,
+      child: Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -73,19 +75,23 @@ class PlaylistCard extends StatelessWidget {
                         width: 64,
                         height: 64,
                         fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(
-                            color: cs.surfaceContainerHighest,
-                            width: 64,
-                            height: 64),
+                        placeholder: (_, __) => ExcludeSemantics(
+                          child: Container(
+                              color: cs.surfaceContainerHighest,
+                              width: 64,
+                              height: 64),
+                        ),
                         errorWidget: (_, __, ___) =>
-                            const Icon(Icons.playlist_play, size: 40),
+                            const ExcludeSemantics(child: Icon(Icons.playlist_play, size: 40)),
                       )
-                    : Container(
+                    : ExcludeSemantics(
+                        child: Container(
                         color: cs.surfaceContainerHighest,
                         width: 64,
                         height: 64,
                         child: const Icon(Icons.playlist_play, size: 40),
                       ),
+                    ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -106,6 +112,7 @@ class PlaylistCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

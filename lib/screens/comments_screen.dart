@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/artist.dart';
+import '../utils/logger.dart';
 import '../services/music_service.dart';
 
 class CommentsScreen extends StatefulWidget {
@@ -33,7 +34,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
-    } catch (_) {
+    } catch (e, s) { Log.e('comments_screen', 'error', e, s);
       if (mounted) setState(() => _isLoading = false);
     }
   }

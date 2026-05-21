@@ -4,6 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../models/local_song.dart';
 import '../services/local_music_service.dart';
 import '../providers/player_provider.dart';
+import '../utils/logger.dart';
 import '../models/song.dart';
 
 class LocalMusicScreen extends StatefulWidget {
@@ -49,7 +50,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
           _status = _songs.isEmpty ? '未找到本地音乐' : '找到 ${_songs.length} 首';
         });
       }
-    } catch (_) {
+    } catch (e, s) { Log.e('local_music_screen', 'error', e, s);
       if (mounted) {
         setState(() {
           _isScanning = false;

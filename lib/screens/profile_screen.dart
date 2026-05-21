@@ -9,6 +9,7 @@ import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../widgets/playlist_card.dart';
 import '../widgets/create_playlist_dialog.dart';
+import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -68,6 +69,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildUserHeader(AuthProvider auth) {
     final user = auth.user!;
+    final cs = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -95,11 +97,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       margin: const EdgeInsets.only(top: 4),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1DB954),
+                        color: cs.primary,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(user.vipLevelDisplay,
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white)),
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onPrimary)),
                     ),
                 ],
               ),
@@ -261,7 +263,7 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
     try {
       final songs = await _musicService.getPlaylistTracksById(1);
       if (mounted) setState(() => _songs = songs);
-    } catch (_) {}
+    } catch (e, s) { Log.e('profile_screen', 'error', e, s); }
     if (mounted) setState(() => _loading = false);
   }
 

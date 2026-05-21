@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
+import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
 
 class ArtistDetailScreen extends StatefulWidget {
@@ -31,7 +32,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
     try {
       final songs = await _musicService.getArtistAudios(widget.artistId);
       if (mounted) setState(() => _songs = songs);
-    } catch (_) {}
+    } catch (e, s) { Log.e('artist_detail_screen', 'error', e, s); }
     if (mounted) setState(() => _isLoading = false);
   }
 
@@ -43,7 +44,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
         await _musicService.followArtist(widget.artistId);
       }
       if (mounted) setState(() => _isFollowing = !_isFollowing);
-    } catch (_) {}
+    } catch (e, s) { Log.e('artist_detail_screen', 'error', e, s); }
   }
 
   @override

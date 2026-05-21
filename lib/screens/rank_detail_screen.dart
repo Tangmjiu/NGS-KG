@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
+import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
 
 class RankDetailScreen extends StatefulWidget {
@@ -35,7 +36,7 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
         _total = songs.length;
         _isLoading = false;
       });
-    } catch (_) {
+    } catch (e, s) { Log.e('rank_detail_screen', 'error', e, s);
       if (mounted) setState(() => _isLoading = false);
     }
   }

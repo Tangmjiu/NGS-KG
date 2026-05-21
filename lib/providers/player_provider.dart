@@ -1,50 +1,43 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'package:just_audio/just_audio.dart';
-import 'package:audio_session/audio_session.dart';
+import '../utils/logger.dart';
 import '../models/song.dart';
 import '../services/music_service.dart';
 import '../services/notification_service.dart';
 import 'mixins.dart';
+import 'audio_engine.dart';
+import 'playlist_queue.dart';
 
-enum PlayMode { sequential, shuffle, repeatOne }
+export 'playlist_queue.dart' show PlayMode;
 
 class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMixin {
   final MusicService _musicService;
-  final AudioPlayer _player = AudioPlayer();
-  final Random _random = Random();
+  late final AudioEngine _engine;
+  late final PlaylistQueue _queue;
 
-  Song? _currentSong;
-  List<Song> _playlist = [];
-  int _currentIndex = 0;
-  PlayMode _playMode = PlayMode.sequential;
   bool _isPlaying = false;
   bool _isLoading = false;
   bool _isPlayerScreenVisible = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   String? _error;
-  List<int> _shuffleOrder = [];
-  int _shufflePos = 0;
-  int _playAttempts = 0;
   int _qualityLevel = 0;
-  int _playRequestVersion = 0;
-  DateTime? _lastUrlFetchTime;
-  static const int _maxRetries = 2;
-  static const _urlStaleDuration = Duration(minutes: 10);
 
-  StreamSubscription? _positionSub;
-  StreamSubscription? _durationSub;
-  StreamSubscription? _processingStateSub;
+  late final VoidCallback _onPositionChanged;
+  late final VoidCallback _onDurationChanged;
+  late final VoidCallback _onLoadingChanged;
+  late final VoidCallback _onErrorChanged;
+  late final VoidCallback _onPlayingChanged;
+  late final VoidCallback _onQueueChanged;
 
-  Song? get currentSong => _currentSong;
-  List<Song> get playlist => _playlist;
-  int get currentIndex => _currentIndex;
-  PlayMode get playMode => _playMode;
+  Song? get currentSong => _queue.currentSong;
+  List<Song> get playlist => _queue.playlist;
+  int get currentIndex => _queue.currentIndex;
+  PlayMode get playMode => _queue.playMode;
   int get qualityLevel => _qualityLevel;
   bool get isPlaying => _isPlaying;
   bool get isLoading => _isLoading;
+  bool get isLoadingMore => _queue.isLoadingMore;
   bool get isPlayerScreenVisible => _isPlayerScreenVisible;
   Duration get position => _position;
   Duration get duration => _duration;
@@ -52,88 +45,63 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   double get progress =>
       _duration.inMilliseconds > 0 ? _position.inMilliseconds / _duration.inMilliseconds : 0.0;
 
-  bool _isCompleting = false;
+  Future<List<Song>> Function()? get playlistEndProvider => _queue.playlistEndProvider;
+  set playlistEndProvider(Future<List<Song>> Function()? v) {
+    _queue.playlistEndProvider = v;
+  }
 
   PlayerProvider(this._musicService) {
-    _initSession();
-    _initPlayer();
-    _positionSub = _player.positionStream.listen((p) {
-      _position = p;
+    _engine = AudioEngine(_musicService);
+    _queue = PlaylistQueue();
+
+    _onPositionChanged = () {
+      _position = _engine.position.value;
       notifyListeners();
       if (sleepTimerRemaining != null && sleepTimerRemaining!.inSeconds <= 0) {
-        _player.pause();
+        _engine.pause();
         _isPlaying = false;
         cancelSleepTimer();
         notifyListeners();
       }
-    });
-    _durationSub = _player.durationStream.listen((d) {
-      if (d != null) {
-        _duration = d;
-        notifyListeners();
-      }
-    });
-    _processingStateSub = _player.processingStateStream.listen((state) {
-      if (state == ProcessingState.completed) {
-        if (!_isCompleting) {
-          _isCompleting = true;
-          _onComplete();
-        }
-      } else if (state == ProcessingState.ready) {
-        _isCompleting = false;
-      }
-    });
-  }
+    };
+    _engine.position.addListener(_onPositionChanged);
 
-  void _initSession() {
-    AudioSession.instance.then((session) => session.configure(const AudioSessionConfiguration(
-      androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
-      androidWillPauseWhenDucked: true,
-    )));
-  }
-
-  void _initPlayer() {
-    _player.playbackEventStream.listen((event) {
-      _isPlaying = _player.playing;
+    _onDurationChanged = () {
+      _duration = _engine.duration.value;
       notifyListeners();
-    });
-  }
+    };
+    _engine.duration.addListener(_onDurationChanged);
 
-  Future<void> _refreshUrlAndPlay() async {
-    final song = _currentSong;
-    if (song == null || song.isLocal) return;
-    try {
-      final quality = _currentQuality;
-      final pos = _position;
-      final songUrl = await _musicService.getSongUrl(song.id,
-          hash: song.hash, quality: quality);
-      if (songUrl.url.isEmpty) return;
-      _lastUrlFetchTime = DateTime.now();
-      await _player.setUrl(songUrl.url);
-      await _player.seek(pos);
-      await _player.play();
-      _isPlaying = true;
-      _isLoading = false;
+    _onLoadingChanged = () {
+      _isLoading = _engine.isLoading.value;
       notifyListeners();
-    } catch (e) {
-      debugPrint('[PlayerProvider] refresh URL error: $e');
-      _setError('刷新播放地址失败');
-    }
-  }
+    };
+    _engine.isLoading.addListener(_onLoadingChanged);
 
-  void _setError(String msg) {
-    _error = msg;
-    debugPrint('[PlayerProvider] $msg');
-    notifyListeners();
+    _onErrorChanged = () {
+      _error = _engine.error.value;
+      notifyListeners();
+    };
+    _engine.error.addListener(_onErrorChanged);
+
+    _onPlayingChanged = () {
+      _isPlaying = _engine.isPlaying.value;
+      notifyListeners();
+      _updateNotification();
+    };
+    _engine.isPlaying.addListener(_onPlayingChanged);
+
+    _engine.onComplete = _onComplete;
+    _onQueueChanged = notifyListeners;
+    _queue.addListener(_onQueueChanged);
   }
 
   void clearError() {
-    _error = null;
-    notifyListeners();
+    _engine.clearError();
   }
 
   void _updateNotification() {
-    final song = _currentSong;
+    final song = _queue.currentSong;
     if (song == null) {
       NotificationService.instance.cancelMediaNotification();
       return;
@@ -147,158 +115,114 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     );
   }
 
-  void _initShuffle() {
-    _shuffleOrder = List.generate(_playlist.length, (i) => i);
-    _shuffleOrder.shuffle(_random);
-    final currentPos = _shuffleOrder.indexOf(_currentIndex);
-    if (currentPos >= 0) {
-      _shuffleOrder.removeAt(currentPos);
-      _shuffleOrder.insert(0, _currentIndex);
-      _shufflePos = 0;
-    } else {
-      _shufflePos = -1;
-    }
-  }
-
-  int _nextShuffleIndex() {
-    if (_shuffleOrder.isEmpty) _initShuffle();
-    _shufflePos = (_shufflePos + 1) % _shuffleOrder.length;
-    if (_shufflePos == 0 && _shuffleOrder.length > 1) {
-      final last = _shuffleOrder.last;
-      _shuffleOrder.shuffle(_random);
-      if (_shuffleOrder[0] == last && _shuffleOrder.length > 1) {
-        _shuffleOrder[0] = _shuffleOrder[1];
-        _shuffleOrder[1] = last;
-      }
-    }
-    return _shuffleOrder[_shufflePos];
-  }
-
   void _onComplete() {
-    switch (_playMode) {
+    if (!_engine.isCompleting.value) return;
+    switch (_queue.playMode) {
       case PlayMode.repeatOne:
-        _isCompleting = false;  // seek doesn't trigger completed again
-        _player.seek(Duration.zero);
-        _player.play();
+        _engine.isCompleting.value = false;
+        _engine.seekAndPlay(Duration.zero);
         break;
       case PlayMode.shuffle:
-        playIndex(_nextShuffleIndex());
+        _engine.resetForNewSong();
+        _queue.playIndex(_queue.nextIndex() ?? 0);
+        _engine.play(_queue.currentSong!, version: _engine.currentVersion);
         break;
       case PlayMode.sequential:
-        if (_currentIndex + 1 < _playlist.length) {
-          playIndex(_currentIndex + 1);
+        if (_queue.currentIndex + 1 < _queue.playlist.length) {
+          _engine.resetForNewSong();
+          _queue.playIndex(_queue.currentIndex + 1);
+          _engine.play(_queue.currentSong!, version: _engine.currentVersion);
+        } else if (_queue.playlistEndProvider != null) {
+          _loadMoreAndContinue();
         } else {
-          _isPlaying = false;
-          _updateNotification();
-          _setError('播放列表已结束');
+          _engine.resetForNewSong();
+          _queue.playIndex(0);
+          _engine.play(_queue.currentSong!, version: _engine.currentVersion);
+        }
+        break;
+      case PlayMode.radio:
+        if (_queue.currentIndex + 1 < _queue.playlist.length) {
+          _engine.resetForNewSong();
+          _queue.playIndex(_queue.currentIndex + 1);
+          _engine.play(_queue.currentSong!, version: _engine.currentVersion);
+        } else {
+          _loadMoreAndContinue();
         }
         break;
     }
+  }
+
+  Future<void> _loadMoreAndContinue() async {
+    if (_queue.isLoadingMore) return;
+    _queue.setLoadingMore(true);
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final moreSongs = await _queue.playlistEndProvider?.call() ?? [];
+      if (moreSongs.isNotEmpty) {
+        _queue.append(moreSongs);
+        _queue.setLoadingMore(false);
+        _engine.resetForNewSong();
+        _queue.playIndex(_queue.currentIndex + 1);
+        _engine.play(_queue.currentSong!, version: _engine.currentVersion);
+        return;
+      }
+    } catch (e, s) { Log.e('player_provider', 'loadMore error', e, s); }
+    _queue.setLoadingMore(false);
+    _isLoading = false;
+    _isPlaying = false;
+    _updateNotification();
+    notifyListeners();
   }
 
   Future<void> playIndex(int index) async {
-    if (index < 0 || index >= _playlist.length) return;
-    _currentIndex = index;
-    _currentSong = _playlist[index];
-    _isPlaying = true;
-    _isLoading = true;
-    _error = null;
-    _playAttempts = 0;
-    _playRequestVersion++;
-    _isCompleting = false;
-    final version = _playRequestVersion;
+    if (index < 0 || index >= _queue.playlist.length) return;
+    _queue.playIndex(index);
+    _engine.resetForNewSong();
     notifyListeners();
-    await _doPlay(version);
-  }
-
-  Future<void> _doPlay([int? version]) async {
-    version ??= _playRequestVersion;
-    if (version != _playRequestVersion) return;
-    if (_playAttempts > _maxRetries) {
-      _isLoading = false;
-      _setError('播放失败: 已重试 $_maxRetries 次');
-      return;
-    }
-    try {
-      final song = _currentSong!;
-      if (song.isLocal && song.filePath != null) {
-        if (song.filePath!.startsWith('http')) {
-          await _player.setUrl(song.filePath!);
-          if (version != _playRequestVersion) return;
-          await _player.play();
-        } else {
-          await _player.setFilePath(song.filePath!);
-          if (version != _playRequestVersion) return;
-          await _player.play();
-        }
-      } else {
-        final quality = _currentQuality;
-        final songUrl = await _musicService.getSongUrl(song.id,
-            hash: song.hash, quality: quality);
-        if (version != _playRequestVersion) return;
-        if (songUrl.url.isNotEmpty) {
-          await _player.setUrl(songUrl.url);
-          if (version != _playRequestVersion) return;
-          _lastUrlFetchTime = DateTime.now();
-          await _player.play();
-          _musicService.uploadPlayHistory(song.id, duration: song.duration).catchError((_) {});
-        } else {
-          _playAttempts++;
-          await _doPlay(version);
-          return;
-        }
-      }
-    } catch (e, s) {
-      _playAttempts++;
-      debugPrint('[PlayerProvider] play error (attempt $_playAttempts): $e');
-      if (_playAttempts <= _maxRetries) {
-        await _doPlay(version);
-        return;
-      }
-      _isLoading = false;
-      _setError('播放失败: $e');
-      debugPrint('[PlayerProvider] $e\n$s');
-      return;
-    }
-    _isLoading = false;
+    final version = _engine.currentVersion;
+    await _engine.play(_queue.currentSong!, version: version);
     _updateNotification();
     notifyListeners();
   }
 
   Future<void> playSong(Song song, {List<Song>? playlist}) async {
-    _error = null;
+    _engine.clearError();
     if (playlist != null) {
-      _playlist = playlist;
-      _currentIndex = playlist.indexWhere((s) => s.id == song.id);
-      if (_currentIndex < 0) {
-        _playlist = [song];
-        _currentIndex = 0;
+      final idx = playlist.indexWhere((s) => s.id == song.id);
+      _queue.setPlaylist(playlist, startIndex: idx < 0 ? 0 : idx);
+      if (idx < 0 && playlist.isNotEmpty) {
+        _queue.setPlaylist([song]);
       }
-      if (_playMode == PlayMode.shuffle) _initShuffle();
+      if (_queue.playMode == PlayMode.shuffle) {
+        _queue.setPlayMode(PlayMode.shuffle);
+      }
     } else {
-      _playlist = [song];
-      _currentIndex = 0;
+      _queue.setPlaylist([song]);
     }
-    await playIndex(_currentIndex);
+    _engine.resetForNewSong();
+    final version = _engine.currentVersion;
+    notifyListeners();
+    await _engine.play(_queue.currentSong!, version: version);
+    _updateNotification();
+    notifyListeners();
   }
 
   Future<void> togglePlayPause() async {
-    if (_currentSong == null) return;
+    if (_queue.currentSong == null) return;
     if (_isPlaying) {
-      await _player.pause();
+      await _engine.pause();
       _isPlaying = false;
     } else {
       if (_position == Duration.zero || _position >= _duration) {
-        await playIndex(_currentIndex);
+        _engine.resetForNewSong();
+        final version = _engine.currentVersion;
+        notifyListeners();
+        await _engine.play(_queue.currentSong!, version: version);
       } else {
-        final isStale = _lastUrlFetchTime != null &&
-            DateTime.now().difference(_lastUrlFetchTime!) > _urlStaleDuration;
-        if (isStale && !_currentSong!.isLocal) {
-          await _refreshUrlAndPlay();
-        } else {
-          await _player.play();
-          _isPlaying = true;
-        }
+        _engine.clearError();
+        _isLoading = false;
+        await _engine.togglePlayPause(_queue.currentSong);
       }
     }
     notifyListeners();
@@ -306,53 +230,36 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   }
 
   void playNext() {
-    if (_playlist.isEmpty) return;
-    switch (_playMode) {
-      case PlayMode.shuffle:
-        playIndex(_nextShuffleIndex());
-        break;
-      case PlayMode.sequential:
-        playIndex((_currentIndex + 1) % _playlist.length);
-        break;
-      case PlayMode.repeatOne:
-        playIndex(_currentIndex);
-        break;
+    if (_queue.playlist.isEmpty) return;
+    final next = _queue.nextIndex();
+    if (next != null) {
+      playIndex(next);
+    } else if (_queue.playlistEndProvider != null) {
+      _loadMoreAndContinue();
+    } else {
+      playIndex((_queue.currentIndex + 1) % _queue.playlist.length);
     }
   }
 
   void playPrevious() {
-    if (_playlist.isEmpty) return;
+    if (_queue.playlist.isEmpty) return;
     if (_position.inSeconds > 3) {
       seek(Duration.zero);
       return;
     }
-    if (_playMode == PlayMode.shuffle) {
-      _shufflePos = (_shufflePos - 1 + _shuffleOrder.length) % _shuffleOrder.length;
-      playIndex(_shuffleOrder[_shufflePos]);
-    } else {
-      final prev = (_currentIndex - 1 + _playlist.length) % _playlist.length;
-      playIndex(prev);
-    }
+    playIndex(_queue.previousIndex() ?? 0);
   }
 
   Future<void> seek(Duration pos) async {
-    await _player.seek(pos);
+    await _engine.seek(pos);
   }
 
   void setPlaylist(List<Song> songs, {int startIndex = 0}) {
-    _playlist = songs;
-    _currentIndex = startIndex;
-    _shuffleOrder = [];
-    if (songs.isNotEmpty) {
-      _currentSong = songs[startIndex];
-    }
-    notifyListeners();
+    _queue.setPlaylist(songs, startIndex: startIndex);
   }
 
   void setPlayMode(PlayMode mode) {
-    _playMode = mode;
-    if (mode == PlayMode.shuffle) _initShuffle();
-    notifyListeners();
+    _queue.setPlayMode(mode);
   }
 
   void setPlayerScreenVisible(bool v) {
@@ -360,39 +267,33 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     notifyListeners();
   }
 
-  String? get _currentQuality {
-    final q = _currentSong?.qualities;
-    if (q == null || q.isEmpty) return null;
-    final keys = ['128', '320', 'high'];
-    final key = keys[_qualityLevel % keys.length];
-    return q.containsKey(key) ? key : null;
-  }
-
   bool isCurrentQuality(String key) {
-    final q = _currentSong?.qualities;
+    final q = _queue.currentSong?.qualities;
     if (q == null || q.isEmpty) return false;
-    final keys = ['128', '320', 'high'];
+    const keys = ['128', '320', 'high'];
     final currentKey = keys[_qualityLevel % keys.length];
     return currentKey == key;
   }
 
   Future<void> setQualityIndex(int index) async {
-    final q = _currentSong?.qualities;
+    final q = _queue.currentSong?.qualities;
     if (q == null || q.isEmpty) return;
-    _qualityLevel = index % ['128', '320', 'high'].length;
+    _qualityLevel = index % 3;
+    _engine.qualityLevel = _qualityLevel;
     if (_isPlaying) {
-      await playIndex(_currentIndex);
+      await playIndex(_queue.currentIndex);
     } else {
       notifyListeners();
     }
   }
 
   Future<void> switchQuality() async {
-    final q = _currentSong?.qualities;
+    final q = _queue.currentSong?.qualities;
     if (q == null || q.isEmpty) return;
-    _qualityLevel = (_qualityLevel + 1) % ['128', '320', 'high'].length;
+    _qualityLevel = (_qualityLevel + 1) % 3;
+    _engine.qualityLevel = _qualityLevel;
     if (_isPlaying) {
-      await playIndex(_currentIndex);
+      await playIndex(_queue.currentIndex);
     } else {
       notifyListeners();
     }
@@ -400,26 +301,30 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
 
   @override
   void onSleepTimerExpired() {
-    _player.pause();
+    _engine.pause();
     _isPlaying = false;
   }
 
   void setVolume(double volume) {
-    _player.setVolume(volume);
+    _engine.setVolume(volume);
   }
 
   void setSpeed(double speed) {
-    _player.setSpeed(speed);
+    _engine.setSpeed(speed);
   }
 
   @override
   void dispose() {
-    _positionSub?.cancel();
-    _durationSub?.cancel();
-    _processingStateSub?.cancel();
+    _engine.position.removeListener(_onPositionChanged);
+    _engine.duration.removeListener(_onDurationChanged);
+    _engine.isLoading.removeListener(_onLoadingChanged);
+    _engine.error.removeListener(_onErrorChanged);
+    _engine.isPlaying.removeListener(_onPlayingChanged);
+    _queue.removeListener(_onQueueChanged);
     disposeSleepTimer();
-    _player.dispose();
     disposeKeepScreenOn();
+    _engine.dispose();
+    _queue.dispose();
     super.dispose();
   }
 }
