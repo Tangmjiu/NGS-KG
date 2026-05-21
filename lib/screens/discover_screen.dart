@@ -5,9 +5,6 @@ import '../models/playlist_tag.dart';
 import '../models/radio.dart';
 import '../models/playlist.dart';
 import '../models/rank_entry.dart';
-import '../models/album.dart';
-import '../models/song.dart';
-import '../models/scene_category.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../providers/player_provider.dart';
@@ -26,10 +23,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   List<Playlist> _topPlaylists = [];
   List<RankEntry> _rankList = [];
   List<Map<String, dynamic>> _banners = [];
-  List<Song> _topSongs = [];
-  List<Album> _topAlbums = [];
-  List<SceneCategory> _sceneCategories = [];
-  List<Map<String, dynamic>> _ipList = [];
   bool _loading = true;
 
   @override
@@ -46,10 +39,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       _loadPlaylists(),
       _loadRanks(),
       _loadBanners(),
-      _loadTopSongs(),
-      _loadTopAlbums(),
-      _loadSceneCategories(),
-      _loadIp(),
     ]);
     if (mounted) setState(() => _loading = false);
   }
@@ -89,34 +78,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
   }
 
-  Future<void> _loadTopSongs() async {
-    try {
-      final songs = await _musicService.getTopSongs();
-      if (mounted) setState(() => _topSongs = songs.take(10).toList());
-    } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
-  }
-
-  Future<void> _loadTopAlbums() async {
-    try {
-      final albums = await _musicService.getTopAlbums(pageSize: 10);
-      if (mounted) setState(() => _topAlbums = albums);
-    } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
-  }
-
-  Future<void> _loadSceneCategories() async {
-    try {
-      final scenes = await _musicService.getSceneLists();
-      if (mounted) setState(() => _sceneCategories = scenes.take(8).toList());
-    } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
-  }
-
-  Future<void> _loadIp() async {
-    try {
-      final ip = await _musicService.getTopIp();
-      if (mounted) setState(() => _ipList = ip.take(6).toList());
-    } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -126,6 +87,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       onRefresh: _loadAll,
       child: CustomScrollView(
         slivers: [
+          // ── Title ──
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
@@ -137,48 +99,34 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               child: SizedBox(height: 200, child: Center(child: CircularProgressIndicator())),
             )
           else ...[
+            // ── Banner ──
             if (_banners.isNotEmpty)
               SliverToBoxAdapter(child: _buildBanner(cs)),
+            // ── Quick actions ──
             SliverToBoxAdapter(child: _buildQuickActions(cs, tt)),
-            const SliverToBoxAdapter(child: SizedBox(height: 4)),
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
+            // ── Top playlists ──
             if (_topPlaylists.isNotEmpty) ...[
               _buildSectionHeader('推荐歌单', tt, onViewAll: () {
                 Navigator.pushNamed(context, '/category/selection');
               }),
               SliverToBoxAdapter(child: _buildPlaylistRow(cs)),
             ],
+            // ── Hot ranks ──
             if (_rankList.isNotEmpty) ...[
               _buildSectionHeader('热门榜单', tt, onViewAll: () {
                 _showRankList();
               }),
               SliverToBoxAdapter(child: _buildRankRow(cs)),
             ],
-            if (_topSongs.isNotEmpty) ...[
-              _buildSectionHeader('新歌速递', tt, onViewAll: () {
-                _playAllSongs(_topSongs);
-              }),
-              SliverToBoxAdapter(child: _buildTopSongsRow(cs)),
-            ],
-            if (_topAlbums.isNotEmpty) ...[
-              _buildSectionHeader('新碟上架', tt),
-              SliverToBoxAdapter(child: _buildTopAlbumsRow(cs)),
-            ],
-            if (_sceneCategories.isNotEmpty) ...[
-              _buildSectionHeader('场景音乐', tt, onViewAll: () {
-                Navigator.pushNamed(context, '/fm');
-              }),
-              SliverToBoxAdapter(child: _buildSceneRow(cs, tt)),
-            ],
-            if (_ipList.isNotEmpty) ...[
-              _buildSectionHeader('编辑精选', tt),
-              SliverToBoxAdapter(child: _buildIpRow(cs)),
-            ],
+            // ── Radio stations ──
             if (_fmList.isNotEmpty) ...[
               _buildSectionHeader('电台推荐', tt, onViewAll: () {
                 Navigator.pushNamed(context, '/fm');
               }),
               SliverToBoxAdapter(child: _buildFmRow(cs)),
             ],
+            // ── All categories ──
             if (_tags.isNotEmpty) ...[
               _buildSectionHeader('全部分类', tt, onViewAll: () {
                 Navigator.pushNamed(context, '/category/selection');
@@ -190,13 +138,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         ],
       ),
     );
-  }
-
-  void _playAllSongs(List<Song> songs) {
-    if (songs.isEmpty) return;
-    final player = context.read<PlayerProvider>();
-    player.playSong(songs.first, playlist: songs);
-    Navigator.pushNamed(context, '/player');
   }
 
   // ────────────── Banner ──────────────
@@ -254,10 +195,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   // ────────────── Quick actions ──────────────
 
   static const _actionGradients = [
-    [Color(0xFFFF6B35), Color(0xFFF7C948)],
-    [Color(0xFF7C4DFF), Color(0xFF448AFF)],
-    [Color(0xFF00BFA5), Color(0xFF69F0AE)],
-    [Color(0xFFFF4081), Color(0xFFFF6E40)],
+    [Color(0xFFFF6B35), Color(0xFFF7C948)],  // 排行榜 → 橙金
+    [Color(0xFF7C4DFF), Color(0xFF448AFF)],  // 电台 → 紫蓝
+    [Color(0xFF00BFA5), Color(0xFF69F0AE)],  // 每日推荐 → 青绿
+    [Color(0xFFFF4081), Color(0xFFFF6E40)],  // 新歌首发 → 粉橙
   ];
 
   Widget _buildQuickActions(ColorScheme cs, TextTheme tt) {
@@ -350,11 +291,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           children: [
             Text(title, style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
             const Spacer(),
-            if (onViewAll != null)
-              GestureDetector(
-                onTap: onViewAll,
-                child: Text('查看更多', style: tt.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-              ),
+            GestureDetector(
+              onTap: onViewAll,
+              child: Text('查看更多', style: tt.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            ),
           ],
         ),
       ),
@@ -440,182 +380,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     );
   }
 
-  // ────────────── Top songs row ──────────────
-
-  Widget _buildTopSongsRow(ColorScheme cs) {
-    return SizedBox(
-      height: 170,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _topSongs.length,
-        itemBuilder: (_, i) {
-          final song = _topSongs[i];
-          return GestureDetector(
-            onTap: () => _playAllSongs(_topSongs.sublist(i)),
-            child: Container(
-              width: 120,
-              margin: const EdgeInsets.only(right: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: song.albumCoverUrl != null
-                        ? CachedNetworkImage(imageUrl: song.albumCoverUrl!, width: 120, height: 120, fit: BoxFit.cover)
-                        : Container(width: 120, height: 120, color: cs.surfaceContainerHighest, child: Icon(Icons.music_note, color: cs.onSurfaceVariant)),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 2),
-                  Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  // ────────────── Top albums row ──────────────
-
-  Widget _buildTopAlbumsRow(ColorScheme cs) {
-    return SizedBox(
-      height: 200,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _topAlbums.length,
-        itemBuilder: (_, i) {
-          final album = _topAlbums[i];
-          return GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/album/detail', arguments: {'id': album.id, 'name': album.name}),
-            child: Container(
-              width: 140,
-              margin: const EdgeInsets.only(right: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: album.coverUrl != null
-                        ? CachedNetworkImage(imageUrl: album.coverUrl!, width: 140, height: 140, fit: BoxFit.cover)
-                        : Container(width: 140, height: 140, color: cs.surfaceContainerHighest, child: Icon(Icons.album, color: cs.onSurfaceVariant)),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(album.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
-                  const SizedBox(height: 2),
-                  if (album.artistName != null)
-                    Text(album.artistName!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  // ────────────── Scene category row ──────────────
-
-  Widget _buildSceneRow(ColorScheme cs, TextTheme tt) {
-    return SizedBox(
-      height: 100,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _sceneCategories.length,
-        itemBuilder: (_, i) {
-          final scene = _sceneCategories[i];
-          return GestureDetector(
-            onTap: () {
-              Navigator.pushNamed(context, '/scene/detail', arguments: {'id': scene.id, 'name': scene.name});
-            },
-            child: Container(
-              width: 80,
-              margin: const EdgeInsets.only(right: 12),
-              child: Column(
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: cs.primaryContainer.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: scene.iconUrl != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: CachedNetworkImage(imageUrl: scene.iconUrl!, width: 64, height: 64, fit: BoxFit.cover),
-                          )
-                        : Icon(Icons.explore, color: cs.primary, size: 28),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(scene.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11, color: cs.onSurface)),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  // ────────────── Editor's picks (编辑精选) row ──────────────
-
-  Widget _buildIpRow(ColorScheme cs) {
-    return SizedBox(
-      height: 160,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _ipList.length,
-        itemBuilder: (_, i) {
-          final ip = _ipList[i];
-          final imgUrl = (ip['img'] as String? ?? ip['sizable_cover'] as String? ?? '')
-              .replaceAll('{size}', '480');
-          final name = ip['ip_name'] as String? ?? ip['name'] as String? ?? '';
-          return GestureDetector(
-            onTap: () {
-              final ipId = ip['ip_id'] as int? ?? ip['id'] as int? ?? 0;
-              if (ipId > 0) {
-                Navigator.pushNamed(context, '/ip/detail', arguments: {'id': ipId, 'name': name});
-              }
-            },
-            child: Container(
-              width: 260,
-              margin: const EdgeInsets.only(right: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: cs.surfaceContainerHighest,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                      child: imgUrl.isNotEmpty
-                          ? CachedNetworkImage(imageUrl: imgUrl, width: 260, fit: BoxFit.cover)
-                          : Center(child: Text(name, style: TextStyle(color: cs.onSurfaceVariant))),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   // ────────────── FM/Radio row ──────────────
 
   Widget _buildFmRow(ColorScheme cs) {
@@ -658,7 +422,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     final icons = [
       Icons.music_note, Icons.history_edu, Icons.flash_on, Icons.self_improvement,
       Icons.track_changes, Icons.mic, Icons.piano, Icons.headphones,
-      Icons.language, Icons.celebration, Icons.nightlight, Icons.wb_sunny,
     ];
     final screenWidth = MediaQuery.of(context).size.width;
     final crossAxisCount = (screenWidth / 100).floor().clamp(3, 6);
@@ -668,9 +431,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       child: Wrap(
         spacing: 12,
         runSpacing: 12,
-        children: _tags.take(12).toList().asMap().entries.map((entry) {
+        children: _tags.take(8).toList().asMap().entries.map((entry) {
           final i = entry.key;
           final tag = entry.value;
+          final name = tag.name;
           return GestureDetector(
             onTap: () => Navigator.pushNamed(context, '/category/selection'),
             child: Container(
@@ -684,7 +448,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 children: [
                   Icon(icons[i % icons.length], size: 24, color: cs.primary),
                   const SizedBox(height: 6),
-                  Text(tag.name, style: tt.labelSmall, maxLines: 1, textAlign: TextAlign.center),
+                  Text(name, style: tt.labelSmall, maxLines: 1, textAlign: TextAlign.center),
                 ],
               ),
             ),
@@ -693,8 +457,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       ),
     );
   }
-
-  // ────────────── Bottom sheet ──────────────
 
   void _showRankList() {
     showModalBottomSheet(
