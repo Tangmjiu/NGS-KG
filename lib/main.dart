@@ -136,7 +136,16 @@ class _PlayerBarBottom extends StatelessWidget {
                 minHeight: 1.5,
               ),
             Container(
-                color: Theme.of(context).colorScheme.surfaceContainer,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainer,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
                 padding: EdgeInsets.only(
                   left: 12, right: 4, top: 6,
                   bottom: MediaQuery.of(context).padding.bottom + 4,

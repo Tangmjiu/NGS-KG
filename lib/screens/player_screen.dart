@@ -79,6 +79,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                   children: [
                     _buildTopBar(),
                     Expanded(
+                      flex: 5,
                       child: PageView(
                         controller: _pageController,
                         onPageChanged: (_) => setState(() {}),
@@ -100,11 +101,11 @@ class _PlayerScreenState extends State<PlayerScreen>
                       ),
                     ),
                     SongInfoProgress(song: song),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     const PlaybackControls(),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     _buildBottomActions(),
-                    const SizedBox(height: 8),
+                    SizedBox(height: MediaQuery.of(context).padding.bottom),
                   ],
                 ),
               ),

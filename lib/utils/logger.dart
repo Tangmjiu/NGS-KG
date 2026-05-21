@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:developer' as dev;
-import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 class Log {
@@ -78,20 +77,12 @@ class Log {
         '${_pad(now.hour)}:${_pad(now.minute)}:${_pad(now.second)}.${now.millisecond.toString().padLeft(3, '0')}';
     final line = '$ts $level [$tag] $message';
 
-    // Console
-    if (kDebugMode) {
-      // ignore: avoid_print
-      debugPrint(line,
-          wrapWidth: kDebugMode ? 1024 : 2048);
-      if (error != null) {
-        debugPrint('  CAUSE: $error',
-            wrapWidth: kDebugMode ? 1024 : 2048);
-      }
-      if (stack != null) {
-        final compressed = stack.toString().split('\n').take(6).join('\n');
-        debugPrint('  STACK: $compressed',
-            wrapWidth: kDebugMode ? 1024 : 2048);
-      }
+    // Console — use print() so Android logcat captures it in both debug & release
+    print(line);
+    if (error != null) print('  CAUSE: $error');
+    if (stack != null) {
+      final compressed = stack.toString().split('\n').take(6).join('\n');
+      print('  STACK: $compressed');
     }
 
     // DevTools
