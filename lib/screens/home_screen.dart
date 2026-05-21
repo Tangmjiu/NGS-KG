@@ -161,6 +161,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHome() {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final topSafe = MediaQuery.of(context).padding.top;
     return Consumer<PlaylistProvider>(
       builder: (_, provider, __) {
         return LayoutBuilder(
@@ -175,70 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 slivers: [
                   SliverPersistentHeader(
                     pinned: true,
-                    delegate: _SearchHeaderDelegate(
-                      child: SizedBox(
-                        width: contentWidth,
-                        child: Container(
-                          color: Colors.transparent,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Material(
-                                  color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(20),
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        PageRouteBuilder(
-                                          pageBuilder: (_, __, ___) => const SearchScreen(),
-                                          transitionsBuilder: (_, animation, __, child) {
-                                            return SlideTransition(
-                                              position: Tween<Offset>(
-                                                begin: const Offset(0, -0.3),
-                                                end: Offset.zero,
-                                              ).animate(CurvedAnimation(
-                                                parent: animation,
-                                                curve: Curves.easeOutCubic,
-                                              )),
-                                              child: child,
-                                            );
-                                          },
-                                          transitionDuration: const Duration(milliseconds: 300),
-                                        ),
-                                      );
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.search, size: 20, color: cs.onSurfaceVariant),
-                                          const SizedBox(width: 8),
-                                          Text('搜索歌曲、歌手、歌单',
-                                              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Consumer<AuthProvider>(
-                                builder: (_, auth, __) => IconButton(
-                                  icon: Icon(auth.isLoggedIn ? Icons.person : Icons.person_outline,
-                                      color: cs.onSurfaceVariant),
-                                  onPressed: () {
-                                    if (!auth.isLoggedIn) Navigator.pushNamed(context, '/login');
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+                    delegate: _SearchHeaderDelegate(topSafe: topSafe),
                   ),
                   SliverToBoxAdapter(
                     child: SizedBox(
@@ -367,23 +305,83 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final Widget child;
+  final double topSafe;
 
-  const _SearchHeaderDelegate({required this.child});
+  const _SearchHeaderDelegate({required this.topSafe});
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return child;
+    final cs = Theme.of(context).colorScheme;
+    final auth = context.watch<AuthProvider>();
+    return Container(
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+      padding: EdgeInsets.only(top: topSafe + 8, bottom: 8),
+      child: Row(
+        children: [
+          const SizedBox(width: 16),
+          Expanded(
+            child: Material(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(20),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    PageRouteBuilder(
+                      pageBuilder: (_, __, ___) => const SearchScreen(),
+                      transitionsBuilder: (_, animation, __, child) {
+                        return SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, -0.3),
+                            end: Offset.zero,
+                          ).animate(CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutCubic,
+                          )),
+                          child: child,
+                        );
+                      },
+                      transitionDuration: const Duration(milliseconds: 300),
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      Icon(Icons.search, size: 20, color: cs.onSurfaceVariant),
+                      const SizedBox(width: 8),
+                      Text('搜索歌曲、歌手、歌单',
+                          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: Icon(auth.isLoggedIn ? Icons.person : Icons.person_outline,
+                color: cs.onSurfaceVariant),
+            onPressed: () {
+              if (!auth.isLoggedIn) Navigator.pushNamed(context, '/login');
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+    );
   }
 
   @override
-  double get maxExtent => 56;
+  double get maxExtent => 56 + topSafe + 16;
 
   @override
-  double get minExtent => 56;
+  double get minExtent => 56 + topSafe + 16;
 
   @override
   bool shouldRebuild(covariant _SearchHeaderDelegate oldDelegate) {
-    return oldDelegate.child != child;
+    return oldDelegate.topSafe != topSafe;
   }
 }
