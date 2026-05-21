@@ -1,6 +1,45 @@
 import 'dart:io';
 import 'dart:developer' as dev;
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+
+class LogEntry {
+  final DateTime time;
+  final String level;
+  final String tag;
+  final String message;
+  final Object? error;
+  final String? stackTrace;
+
+  LogEntry({
+    required this.time,
+    required this.level,
+    required this.tag,
+    required this.message,
+    this.error,
+    this.stackTrace,
+  });
+
+  String get formatted {
+    final ts =
+        '${_pad(time.hour)}:${_pad(time.minute)}:${_pad(time.second)}.${time.millisecond.toString().padLeft(3, '0')}';
+    final sb = StringBuffer('$ts $level [$tag] $message');
+    if (error != null) sb.write('\n  CAUSE: $error');
+    if (stackTrace != null) sb.write('\n  STACK: $stackTrace');
+    return sb.toString();
+  }
+
+  Map<String, dynamic> toJson() => {
+        't': time.toIso8601String(),
+        'l': level.trim(),
+        'g': tag,
+        'm': message,
+        if (error != null) 'e': '$error',
+        if (stackTrace != null) 's': stackTrace,
+      };
+
+  static String _pad(int n) => n.toString().padLeft(2, '0');
+}
 
 class Log {
   Log._();
@@ -10,6 +49,12 @@ class Log {
   IOSink? _sink;
   bool _ready = false;
   final List<String> _buffer = [];
+
+  static const int _maxBufferLines = 2000;
+  static final List<LogEntry> _entries = [];
+  static final ValueNotifier<LogEntry?> onEntry = ValueNotifier(null);
+
+  static List<LogEntry> get entries => List.unmodifiable(_entries);
 
   static Future<void> init() async {
     final log = Log._();
@@ -21,8 +66,7 @@ class Log {
         await logDir.create(recursive: true);
       }
       final now = DateTime.now();
-      final date =
-          '${now.year}${_pad(now.month)}${_pad(now.day)}';
+      final date = '${now.year}${_pad(now.month)}${_pad(now.day)}';
       log._logFile = File('${logDir.path}/app_$date.log');
       log._sink = log._logFile!.openWrite(mode: FileMode.append);
       log._ready = true;
@@ -77,7 +121,7 @@ class Log {
         '${_pad(now.hour)}:${_pad(now.minute)}:${_pad(now.second)}.${now.millisecond.toString().padLeft(3, '0')}';
     final line = '$ts $level [$tag] $message';
 
-    // Console — use print() so Android logcat captures it in both debug & release
+    // Console — goes to Android logcat in both debug & release
     print(line);
     if (error != null) print('  CAUSE: $error');
     if (stack != null) {
@@ -99,6 +143,22 @@ class Log {
       error: error,
       stackTrace: stack,
     );
+
+    // Ring buffer
+    final entry = LogEntry(
+      time: now,
+      level: level.trim(),
+      tag: tag,
+      message: message,
+      error: error,
+      stackTrace:
+          stack != null ? stack.toString().split('\n').take(6).join('\n') : null,
+    );
+    _entries.add(entry);
+    if (_entries.length > _maxBufferLines) {
+      _entries.removeAt(0);
+    }
+    onEntry.value = entry;
 
     // File
     final sb = StringBuffer(line);

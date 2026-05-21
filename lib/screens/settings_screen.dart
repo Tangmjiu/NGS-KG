@@ -8,6 +8,7 @@ import '../services/api_client.dart';
 import '../services/cache_service.dart';
 import '../utils/constants.dart';
 import '../utils/logger.dart';
+import 'log_viewer_screen.dart';
 import 'audio_effects_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -239,7 +240,7 @@ class _DeveloperScreenState extends State<DeveloperScreen> {
       }
       final timestamp = DateTime.now().toString().replaceAll(':', '-').split('.').first;
       final file = File('${dir.path}/NGS-KG+_log_$timestamp.txt');
-      final content = '''
+      final header = '''
 ══════════════════════════════════════════
 NGS-KG+ Debug Log
 ══════════════════════════════════════════
@@ -252,9 +253,11 @@ API: ${AppConstants.baseUrl}
 ──────────────────────────────────────────
 App Version: 1.0.0
 Platform: ${Platform.operatingSystem}
-──────────────────────────────────────────
+══════════════════════════════════════════
+
 ''';
-      await file.writeAsString(content);
+      final body = Log.entries.map((e) => e.formatted).join('\n');
+      await file.writeAsString('$header$body');
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('日志已导出到: Download/NGS-KG+_Logs/'),
         duration: const Duration(seconds: 3),
@@ -297,6 +300,16 @@ Platform: ${Platform.operatingSystem}
             title: const Text('导出日志'),
             subtitle: const Text('保存到 Download/NGS-KG+_Logs'),
             onTap: _exportLog,
+          ),
+          ListTile(
+            leading: const Icon(Icons.terminal),
+            title: const Text('输出日志'),
+            subtitle: const Text('实时查看完整日志'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const LogViewerScreen()),
+            ),
           ),
         ],
       ),
