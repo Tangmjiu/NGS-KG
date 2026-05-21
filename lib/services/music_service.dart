@@ -12,6 +12,7 @@ import '../models/radio.dart';
 import '../models/playlist_tag.dart';
 import '../models/card_section.dart';
 import '../models/latest_listen_info.dart';
+import '../models/scene_category.dart';
 import '../models/user.dart' as models;
 import 'api_client.dart';
 
@@ -140,6 +141,15 @@ class MusicService {
           {int page = 1, int pageSize = 200, int? rankCid}) =>
       album.getRankAudios(rankId,
           page: page, pageSize: pageSize, rankCid: rankCid);
+
+  Future<List<Album>> getTopAlbums({int? type, int page = 1, int pageSize = 30}) =>
+      album.getTopAlbums(type: type, page: page, pageSize: pageSize);
+
+  Future<List<SceneCategory>> getSceneLists() => album.getSceneLists();
+
+  Future<List<Map<String, dynamic>>> getTopIp() => album.getTopIp();
+
+  Future<List<Map<String, dynamic>>> getIpZone() => album.getIpZone();
 
   // ─── Artist ───
 
