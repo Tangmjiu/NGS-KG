@@ -2,6 +2,7 @@ import 'base_repository.dart';
 import '../models/song.dart';
 import '../models/album.dart';
 import '../models/rank_entry.dart';
+import '../models/scene_category.dart';
 import '../models/song_mapper.dart';
 
 class AlbumRepository extends BaseRepository {
@@ -80,6 +81,40 @@ class AlbumRepository extends BaseRepository {
           .map((e) => RankEntry.fromJson(e as Map<String, dynamic>))
           .toList();
     }
+    return [];
+  }
+
+  Future<List<Album>> getTopAlbums({int? type, int page = 1, int pageSize = 30}) async {
+    final params = <String, dynamic>{'page': page, 'pagesize': pageSize};
+    if (type != null) params['type'] = type;
+    final res = await cachedGet('/top/album',
+        params: params, ttl: const Duration(minutes: 15));
+    final raw = res['data'];
+    if (raw is List) {
+      return raw
+          .map((e) => Album.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  }
+
+  Future<List<SceneCategory>> getSceneLists() async {
+    final res =
+        await cachedGet('/scene/lists', ttl: const Duration(minutes: 30));
+    final raw = res['data'];
+    if (raw is List) {
+      return raw
+          .map((e) => SceneCategory.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getTopIp() async {
+    final res =
+        await cachedGet('/top/ip', ttl: const Duration(minutes: 30));
+    final raw = res['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
   }
 

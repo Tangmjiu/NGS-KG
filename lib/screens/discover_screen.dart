@@ -5,6 +5,9 @@ import '../models/playlist_tag.dart';
 import '../models/radio.dart';
 import '../models/playlist.dart';
 import '../models/rank_entry.dart';
+import '../models/album.dart';
+import '../models/song.dart';
+import '../models/scene_category.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../providers/player_provider.dart';
@@ -23,6 +26,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   List<Playlist> _topPlaylists = [];
   List<RankEntry> _rankList = [];
   List<Map<String, dynamic>> _banners = [];
+  List<Song> _topSongs = [];
+  List<Album> _topAlbums = [];
+  List<SceneCategory> _sceneCategories = [];
+  List<Map<String, dynamic>> _ipList = [];
   bool _loading = true;
 
   @override
@@ -39,6 +46,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       _loadPlaylists(),
       _loadRanks(),
       _loadBanners(),
+      _loadTopSongs(),
+      _loadTopAlbums(),
+      _loadSceneCategories(),
+      _loadIp(),
     ]);
     if (mounted) setState(() => _loading = false);
   }
@@ -75,6 +86,34 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     try {
       final banners = await _musicService.getYuekuBanner();
       if (mounted) setState(() => _banners = banners);
+    } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
+  }
+
+  Future<void> _loadTopSongs() async {
+    try {
+      final songs = await _musicService.getTopSongs();
+      if (mounted) setState(() => _topSongs = songs.take(10).toList());
+    } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
+  }
+
+  Future<void> _loadTopAlbums() async {
+    try {
+      final albums = await _musicService.getTopAlbums(pageSize: 10);
+      if (mounted) setState(() => _topAlbums = albums);
+    } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
+  }
+
+  Future<void> _loadSceneCategories() async {
+    try {
+      final scenes = await _musicService.getSceneLists();
+      if (mounted) setState(() => _sceneCategories = scenes.take(8).toList());
+    } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
+  }
+
+  Future<void> _loadIp() async {
+    try {
+      final ip = await _musicService.getTopIp();
+      if (mounted) setState(() => _ipList = ip.take(6).toList());
     } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
   }
 
@@ -118,6 +157,26 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 _showRankList();
               }),
               SliverToBoxAdapter(child: _buildRankRow(cs)),
+            ],
+            // ── New songs ──
+            if (_topSongs.isNotEmpty) ...[
+              _buildSectionHeader('新歌速递', tt),
+              SliverToBoxAdapter(child: _buildTopSongsRow(cs)),
+            ],
+            // ── New albums ──
+            if (_topAlbums.isNotEmpty) ...[
+              _buildSectionHeader('新碟上架', tt),
+              SliverToBoxAdapter(child: _buildTopAlbumsRow(cs)),
+            ],
+            // ── Scene music ──
+            if (_sceneCategories.isNotEmpty) ...[
+              _buildSectionHeader('场景音乐', tt),
+              SliverToBoxAdapter(child: _buildSceneRow(cs, tt)),
+            ],
+            // ── Editor's picks ──
+            if (_ipList.isNotEmpty) ...[
+              _buildSectionHeader('编辑精选', tt),
+              SliverToBoxAdapter(child: _buildIpRow(cs)),
             ],
             // ── Radio stations ──
             if (_fmList.isNotEmpty) ...[
@@ -373,6 +432,190 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   Text(rank.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
                 ],
               ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ────────────── Top songs row ──────────────
+
+  void _playSongsFrom(int i) {
+    final player = context.read<PlayerProvider>();
+    player.playSong(_topSongs[i], playlist: _topSongs.sublist(i));
+    Navigator.pushNamed(context, '/player');
+  }
+
+  Widget _buildTopSongsRow(ColorScheme cs) {
+    return SizedBox(
+      height: 170,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _topSongs.length,
+        itemBuilder: (_, i) {
+          final song = _topSongs[i];
+          return GestureDetector(
+            onTap: () => _playSongsFrom(i),
+            child: Container(
+              width: 120,
+              margin: const EdgeInsets.only(right: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: song.albumCoverUrl != null
+                        ? CachedNetworkImage(
+                            imageUrl: song.albumCoverUrl!, width: 120, height: 120, fit: BoxFit.cover)
+                        : Container(width: 120, height: 120,
+                            color: cs.surfaceContainerHighest,
+                            child: Icon(Icons.music_note, color: cs.onSurfaceVariant)),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 2),
+                  Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ────────────── Top albums row ──────────────
+
+  Widget _buildTopAlbumsRow(ColorScheme cs) {
+    return SizedBox(
+      height: 200,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _topAlbums.length,
+        itemBuilder: (_, i) {
+          final album = _topAlbums[i];
+          return GestureDetector(
+            onTap: () => Navigator.pushNamed(context, '/album/detail',
+                arguments: {'id': album.id, 'name': album.name}),
+            child: Container(
+              width: 140,
+              margin: const EdgeInsets.only(right: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: album.coverUrl != null
+                        ? CachedNetworkImage(
+                            imageUrl: album.coverUrl!, width: 140, height: 140, fit: BoxFit.cover)
+                        : Container(width: 140, height: 140,
+                            color: cs.surfaceContainerHighest,
+                            child: Icon(Icons.album, color: cs.onSurfaceVariant)),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(album.name, maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13)),
+                  const SizedBox(height: 2),
+                  if (album.artistName != null)
+                    Text(album.artistName!, maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ────────────── Scene category row ──────────────
+
+  Widget _buildSceneRow(ColorScheme cs, TextTheme tt) {
+    return SizedBox(
+      height: 100,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _sceneCategories.length,
+        itemBuilder: (_, i) {
+          final scene = _sceneCategories[i];
+          return GestureDetector(
+            onTap: () => Navigator.pushNamed(context, '/fm'),
+            child: Container(
+              width: 80,
+              margin: const EdgeInsets.only(right: 12),
+              child: Column(
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: scene.iconUrl != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: CachedNetworkImage(
+                                imageUrl: scene.iconUrl!, width: 64, height: 64, fit: BoxFit.cover),
+                          )
+                        : Icon(Icons.explore, color: cs.primary, size: 28),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(scene.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11, color: cs.onSurface)),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ────────────── Editor's picks row ──────────────
+
+  Widget _buildIpRow(ColorScheme cs) {
+    return SizedBox(
+      height: 160,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _ipList.length,
+        itemBuilder: (_, i) {
+          final ip = _ipList[i];
+          final imgUrl = (ip['img'] as String? ?? ip['sizable_cover'] as String? ?? '')
+              .replaceAll('{size}', '480');
+          final name = ip['ip_name'] as String? ?? ip['name'] as String? ?? '';
+          return Container(
+            width: 260,
+            margin: const EdgeInsets.only(right: 12),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  child: imgUrl.isNotEmpty
+                      ? CachedNetworkImage(imageUrl: imgUrl, width: 260, height: 112, fit: BoxFit.cover)
+                      : Container(width: 260, height: 112,
+                          color: cs.surfaceContainerHighest,
+                          child: Center(child: Text(name, style: TextStyle(color: cs.onSurfaceVariant)))),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                ),
+              ],
             ),
           );
         },
