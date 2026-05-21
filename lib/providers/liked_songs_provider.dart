@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../utils/logger.dart';
 import '../services/music_service.dart';
 
 class LikedSongsProvider extends ChangeNotifier {
@@ -25,7 +26,7 @@ class LikedSongsProvider extends ChangeNotifier {
       }
       _loaded = true;
       notifyListeners();
-    } catch (_) {}
+    } catch (e, s) { Log.e('liked_songs_provider', 'error', e, s); }
   }
 
   Future<bool> toggle(SongInfo song) async {
@@ -55,7 +56,8 @@ class LikedSongsProvider extends ChangeNotifier {
       }
       notifyListeners();
       return true;
-    } catch (_) {
+    } catch (e, s) {
+      Log.e('liked_songs_provider', 'error', e, s);
       return false;
     }
   }
@@ -70,7 +72,8 @@ class LikedSongsProvider extends ChangeNotifier {
       _fileidMap.remove(song.id);
       notifyListeners();
       return true;
-    } catch (_) {
+    } catch (e, s) {
+      Log.e('liked_songs_provider', 'error', e, s);
       return false;
     }
   }

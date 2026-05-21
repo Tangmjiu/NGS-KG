@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/logger.dart';
 import '../services/music_service.dart';
 
 class MessagesScreen extends StatefulWidget {
@@ -23,8 +24,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
     try {
       final news = await _musicService.getFollowedArtistNews();
       if (mounted) setState(() => _news = news);
-    } catch (e) {
-      debugPrint('[Messages] load error: $e');
+    } catch (e, s) {
+      Log.e('Messages', 'load error', e, s);
     }
     if (mounted) setState(() => _isLoading = false);
   }

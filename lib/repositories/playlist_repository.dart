@@ -1,39 +1,18 @@
 import '../services/api_client.dart';
+import 'base_repository.dart';
 import '../models/song.dart';
 import '../models/song_mapper.dart';
 import '../models/playlist.dart';
 import '../models/playlist_tag.dart';
 import '../models/artist.dart';
 
-class PlaylistRepository {
-  final ApiClient _client;
-
-  PlaylistRepository(this._client);
+class PlaylistRepository extends BaseRepository {
+  PlaylistRepository(super.client);
 
   String get _userId => ApiClient.userId ?? '0';
 
-  Future<Map<String, dynamic>> _get(String path,
-      {Map<String, dynamic>? params, bool withAuth = true}) async {
-    final p = Map<String, dynamic>.from(params ?? {});
-    if (withAuth) {
-      p['cookie'] = await _client.getCookieString();
-    }
-    final res = await _client.get(path, params: p);
-    return res.data as Map<String, dynamic>;
-  }
-
-  Future<Map<String, dynamic>> _cachedGet(String path,
-      {Map<String, dynamic>? params, bool withAuth = true, Duration? ttl}) async {
-    final p = Map<String, dynamic>.from(params ?? {});
-    if (withAuth) {
-      p['cookie'] = await _client.getCookieString();
-    }
-    final res = await _client.getCached(path, params: p, ttl: ttl ?? const Duration(hours: 2));
-    return res.data as Map<String, dynamic>;
-  }
-
   Future<PlaylistDetail> getPlaylistDetail(String gcId) async {
-    final res = await _get('/playlist/detail', params: {'ids': gcId});
+    final res = await get('/playlist/detail', params: {'ids': gcId});
     final data = res['data'];
     if (data is List && data.isNotEmpty) {
       return PlaylistDetail.fromKugouJson(Map<String, dynamic>.from(data[0] as Map));
@@ -54,7 +33,7 @@ class PlaylistRepository {
 
   Future<List<Song>> getPlaylistTracks(String gcId,
       {int page = 1, int pageSize = 1000}) async {
-    final res = await _get('/playlist/track/all',
+    final res = await get('/playlist/track/all',
         params: {'id': gcId, 'page': page, 'pagesize': pageSize});
     final data = res['data'];
     List<dynamic>? songs;
@@ -72,7 +51,7 @@ class PlaylistRepository {
 
   Future<List<Song>> getPlaylistTracksById(int listid,
       {int page = 1, int pageSize = 1000}) async {
-    final res = await _get('/playlist/track/all', params: {
+    final res = await get('/playlist/track/all', params: {
       'id': 'collection_3_${_userId}_${listid}_0',
       'page': page,
       'pagesize': pageSize,
@@ -97,7 +76,7 @@ class PlaylistRepository {
       'pagesize': pageSize,
     };
     if (userId != null) params['userid'] = userId;
-    final res = await _get('/user/playlist', params: params);
+    final res = await get('/user/playlist', params: params);
     final data = res['data'];
     if (data is Map) {
       final info = data['info'] as List<dynamic>?;
@@ -133,7 +112,7 @@ class PlaylistRepository {
 
   Future<List<Playlist>> getTopPlaylists(
       {int limit = 200, int offset = 0, int categoryId = 0}) async {
-    final res = await _get('/top/playlist', params: {
+    final res = await get('/top/playlist', params: {
       'category_id': categoryId,
       'limit': limit,
       'offset': offset,
@@ -156,7 +135,7 @@ class PlaylistRepository {
   }
 
   Future<List<PlaylistTag>> getPlaylistTags() async {
-    final res = await _cachedGet('/playlist/tags', ttl: const Duration(hours: 24));
+    final res = await cachedGet('/playlist/tags', ttl: const Duration(hours: 24));
     final raw = res['data'];
     if (raw is List) {
       return raw
@@ -168,10 +147,14 @@ class PlaylistRepository {
 
   Future<List<Comment>> getPlaylistComments(int playlistId,
       {int page = 1, int pageSize = 200}) async {
-    final res = await _get('/comment/playlist',
+    final res = await get('/comment/playlist',
         params: {'id': playlistId, 'page': page, 'pagesize': pageSize});
     final raw = res['data'];
-    if (raw is List) return raw.cast<Comment>();
+    if (raw is List) {
+      return raw
+          .map((e) => Comment.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
     final list = (raw as Map<String, dynamic>)['comments'] as List<dynamic>?;
     if (list != null) {
       return list
@@ -190,20 +173,20 @@ class PlaylistRepository {
       'is_pri': isPri,
     };
     if (listCreateListid != null) params['list_create_listid'] = listCreateListid;
-    await _get('/playlist/add', params: params);
+    await get('/playlist/add', params: params);
   }
 
   Future<void> deletePlaylist(int listid) async {
-    await _get('/playlist/del', params: {'listid': listid});
+    await get('/playlist/del', params: {'listid': listid});
   }
 
   Future<Map<String, dynamic>> addTracksToPlaylist(int listid, String data) async {
-    return _get('/playlist/tracks/add',
+    return get('/playlist/tracks/add',
         params: {'listid': listid, 'data': data});
   }
 
   Future<void> removeTracksFromPlaylist(int listid, String fileids) async {
-    await _get('/playlist/tracks/del',
+    await get('/playlist/tracks/del',
         params: {'listid': listid, 'fileids': fileids});
   }
 }

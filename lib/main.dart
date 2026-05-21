@@ -9,6 +9,7 @@ import 'routes/app_routes.dart';
 import 'utils/theme.dart';
 import 'screens/player_screen.dart';
 import 'screens/settings_screen.dart';
+import 'utils/logger.dart';
 import 'services/api_client.dart';
 import 'services/music_service.dart';
 import 'services/auth_service.dart';
@@ -17,7 +18,9 @@ import 'services/cache_service.dart';
 
 final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Log.init();
   _initDevice();
   _initNotifications();
   CacheService.instance.init();
@@ -102,7 +105,10 @@ class _NGSKGAppState extends State<NGSKGApp> {
         return Stack(
           children: [
             child ?? const SizedBox.shrink(),
-            const _PlayerBarBottom(),
+            const Positioned(
+              left: 0, right: 0, bottom: 0,
+              child: _PlayerBarBottom(),
+            ),
             const _ContinuePlayOverlay(),
           ],
         );
@@ -119,19 +125,17 @@ class _PlayerBarBottom extends StatelessWidget {
     return Consumer<PlayerProvider>(
       builder: (_, player, __) {
         if (player.currentSong == null || player.isPlayerScreenVisible) return const SizedBox.shrink();
-        return Positioned(
-          left: 0, right: 0, bottom: 0,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (player.progress > 0)
-                LinearProgressIndicator(
-                  value: player.progress,
-                  backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  color: Theme.of(context).colorScheme.primary,
-                  minHeight: 1.5,
-                ),
-              Container(
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (player.progress > 0)
+              LinearProgressIndicator(
+                value: player.progress,
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                color: Theme.of(context).colorScheme.primary,
+                minHeight: 1.5,
+              ),
+            Container(
                 color: Theme.of(context).colorScheme.surfaceContainer,
                 padding: EdgeInsets.only(
                   left: 12, right: 4, top: 6,
@@ -189,8 +193,7 @@ class _PlayerBarBottom extends StatelessWidget {
                   ],
                 ),
               ),
-            ],
-          ),
+          ],
         );
       },
     );
@@ -228,7 +231,7 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
           ],
         ));
       }
-    } catch (_) {}
+    } catch (e, s) { Log.e('main', 'error', e, s); }
   }
 
   @override

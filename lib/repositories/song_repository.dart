@@ -1,36 +1,14 @@
-import '../services/api_client.dart';
+import 'base_repository.dart';
 import '../models/song.dart';
 import '../models/song_mapper.dart';
 import '../models/card_section.dart';
 
-class SongRepository {
-  final ApiClient _client;
-
-  SongRepository(this._client);
-
-  Future<Map<String, dynamic>> _get(String path,
-      {Map<String, dynamic>? params, bool withAuth = true}) async {
-    final p = Map<String, dynamic>.from(params ?? {});
-    if (withAuth) {
-      p['cookie'] = await _client.getCookieString();
-    }
-    final res = await _client.get(path, params: p);
-    return res.data as Map<String, dynamic>;
-  }
-
-  Future<Map<String, dynamic>> _cachedGet(String path,
-      {Map<String, dynamic>? params, bool withAuth = true, Duration? ttl}) async {
-    final p = Map<String, dynamic>.from(params ?? {});
-    if (withAuth) {
-      p['cookie'] = await _client.getCookieString();
-    }
-    final res = await _client.getCached(path, params: p, ttl: ttl ?? const Duration(hours: 2));
-    return res.data as Map<String, dynamic>;
-  }
+class SongRepository extends BaseRepository {
+  SongRepository(super.client);
 
   Future<List<Song>> search(String keyword,
       {int limit = 30, int offset = 0, String type = 'song'}) async {
-    final res = await _get('/search', params: {
+    final res = await get('/search', params: {
       'keywords': keyword,
       'limit': limit,
       'offset': offset,
@@ -45,7 +23,7 @@ class SongRepository {
   }
 
   Future<List<String>> getSearchSuggest(String keyword) async {
-    final res = await _get('/search/suggest', params: {'keywords': keyword});
+    final res = await get('/search/suggest', params: {'keywords': keyword});
     final raw = res['data'];
     if (raw is List) {
       return raw.map((e) {
@@ -63,7 +41,7 @@ class SongRepository {
   }
 
   Future<List<Map<String, dynamic>>> getHotSearch() async {
-    final res = await _cachedGet('/search/hot', ttl: const Duration(minutes: 30));
+    final res = await cachedGet('/search/hot', ttl: const Duration(minutes: 30));
     final data = res['data'];
     if (data is Map) {
       final list = data['list'] as List<dynamic>?;
@@ -94,12 +72,12 @@ class SongRepository {
     if (quality != null) {
       params['quality'] = quality;
     }
-    final res = await _get('/song/url', params: params);
+    final res = await get('/song/url', params: params);
     return SongUrl.fromJson(res);
   }
 
   Future<Map<String, dynamic>> getLyric(int songId) async {
-    return _get('/lyric', params: {'id': songId});
+    return get('/lyric', params: {'id': songId});
   }
 
   Future<Map<String, dynamic>> searchLyricByHash(String hash, {String? keywords}) async {
@@ -107,11 +85,11 @@ class SongRepository {
     if (keywords != null && keywords.isNotEmpty) {
       params['keywords'] = keywords;
     }
-    return _get('/search/lyric', params: params);
+    return get('/search/lyric', params: params);
   }
 
   Future<String> fetchLyricContent(int lyricId, String accessKey) async {
-    final res = await _get('/lyric', params: {
+    final res = await get('/lyric', params: {
       'id': lyricId,
       'accesskey': accessKey,
       'fmt': 'lrc',
@@ -121,7 +99,7 @@ class SongRepository {
   }
 
   Future<List<Song>> getTopSongs() async {
-    final res = await _get('/top/song');
+    final res = await get('/top/song');
     final raw = res['data'];
     if (raw is List) {
       return raw.map((e) {
@@ -147,7 +125,7 @@ class SongRepository {
   }
 
   Future<CardSection> getCardSongs(int cardId) async {
-    final res = await _get('/top/card', params: {'card_id': cardId});
+    final res = await get('/top/card', params: {'card_id': cardId});
     final raw = res['data'];
     if (raw is Map) {
       return CardSection.fromJson(raw as Map<String, dynamic>);

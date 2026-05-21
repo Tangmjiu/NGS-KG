@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/logger.dart';
 import '../services/music_service.dart';
 
 class ArtistFollowedNewsScreen extends StatefulWidget {
@@ -23,7 +24,7 @@ class _ArtistFollowedNewsScreenState extends State<ArtistFollowedNewsScreen> {
     try {
       final list = await _musicService.getFollowedArtistNews();
       if (mounted) setState(() => _news = list);
-    } catch (_) {}
+    } catch (e, s) { Log.e('artist_followed_news_screen', 'error', e, s); }
     if (mounted) setState(() => _isLoading = false);
   }
 

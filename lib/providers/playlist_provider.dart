@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../utils/logger.dart';
 import '../models/playlist.dart';
 import '../services/music_service.dart';
 
@@ -22,7 +23,7 @@ class PlaylistProvider extends ChangeNotifier {
     notifyListeners();
     try {
       _topPlaylists = await _musicService.getTopPlaylists(limit: limit);
-    } catch (_) {}
+    } catch (e, s) { Log.e('playlist_provider', 'error', e, s); }
     _isLoading = false;
     notifyListeners();
   }
@@ -50,7 +51,7 @@ class PlaylistProvider extends ChangeNotifier {
             Playlist(id: 0, name: '', globalCollectionId: id),
         songs: songs,
       );
-    } catch (_) {}
+    } catch (e, s) { Log.e('playlist_provider', 'error', e, s); }
   }
 
   Future<void> fetchUserPlaylist(int? userId) async {
@@ -59,7 +60,7 @@ class PlaylistProvider extends ChangeNotifier {
     notifyListeners();
     try {
       _userPlaylists = await _musicService.getUserPlaylist(userId: userId);
-    } catch (_) {}
+    } catch (e, s) { Log.e('playlist_provider', 'error', e, s); }
     _isLoading = false;
     notifyListeners();
   }

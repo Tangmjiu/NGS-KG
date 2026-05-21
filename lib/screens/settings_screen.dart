@@ -7,6 +7,7 @@ import '../services/music_service.dart';
 import '../services/api_client.dart';
 import '../services/cache_service.dart';
 import '../utils/constants.dart';
+import '../utils/logger.dart';
 import 'audio_effects_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -35,8 +36,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (dt != null && mounted) {
         setState(() => _serverTime = dt.toString());
       }
-    } catch (e) {
-      debugPrint('[Settings] server time error: $e');
+    } catch (e, s) {
+      Log.e('Settings', 'server time error', e, s);
     }
   }
 

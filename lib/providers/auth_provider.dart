@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import '../utils/logger.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
@@ -30,7 +31,7 @@ class AuthProvider extends ChangeNotifier {
         ApiClient.setAuth(_user!.token, _user!.userId?.toString());
         notifyListeners();
       }
-    } catch (_) {}
+    } catch (e, s) { Log.e('auth_provider', 'error', e, s); }
   }
 
   Future<void> _saveUser() async {
@@ -39,7 +40,7 @@ class AuthProvider extends ChangeNotifier {
       final dir = await getApplicationDocumentsDirectory();
       final file = File('${dir.path}/user.json');
       await file.writeAsString(jsonEncode(_user!.toJson()));
-    } catch (_) {}
+    } catch (e, s) { Log.e('auth_provider', 'error', e, s); }
   }
 
   Future<void> _clearSavedUser() async {
@@ -49,7 +50,7 @@ class AuthProvider extends ChangeNotifier {
       if (await file.exists()) {
         await file.delete();
       }
-    } catch (_) {}
+    } catch (e, s) { Log.e('auth_provider', 'error', e, s); }
   }
 
   String? _errorMessage;

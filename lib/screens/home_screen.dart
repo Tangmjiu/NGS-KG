@@ -8,9 +8,11 @@ import '../models/song.dart';
 import '../models/latest_listen_info.dart';
 import '../services/music_service.dart';
 import '../models/song_mapper.dart';
+import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
 import 'discover_screen.dart';
 import 'profile_screen.dart';
+import 'search_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,7 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final Map<int, List<Song>> _cardSongs = {};
   final Map<int, String> _cardNames = {};
 
-  Widget _buildSongList(List<Song> songs, String title) {
+  Widget _buildSongList(List<Song> songs, String title, {Future<List<Song>> Function()? onEnd}) {
     if (songs.isEmpty) return const SizedBox.shrink();
     final tt = Theme.of(context).textTheme;
     final displaySongs = songs.take(5).toList();
@@ -45,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
               if (songs.length > 5)
                 GestureDetector(
                   onTap: () {
+                    player.playlistEndProvider = onEnd;
                     player.playSong(displaySongs.first, playlist: songs);
                     Navigator.pushNamed(context, '/player');
                   },
@@ -56,7 +59,10 @@ class _HomeScreenState extends State<HomeScreen> {
         Column(
           children: displaySongs.map((song) => SongTile(
             song: song,
-            onTap: (s) => player.playSong(s, playlist: songs),
+            onTap: (s) {
+              player.playlistEndProvider = onEnd;
+              player.playSong(s, playlist: songs);
+            },
           )).toList(),
         ),
       ],
@@ -87,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final songs = await _musicService.getTopSongs();
       if (mounted) setState(() => _recommended = songs.take(10).toList());
-    } catch (_) {}
+    } catch (e, s) { Log.e('home_screen', 'error', e, s); }
   }
 
   Future<void> _loadCardSongs() async {
@@ -98,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _cardNames[id] = data.recDesc.isNotEmpty ? data.recDesc : _cardTitles[id] ?? '';
           _cardSongs[id] = data.songs;
         }
-      } catch (_) {}
+      } catch (e, s) { Log.e('home_screen', 'error', e, s); }
     }
   }
 
@@ -113,7 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _showContinueBanner = true;
         });
       }
-    } catch (_) {}
+    } catch (e, s) { Log.e('home_screen', 'error', e, s); }
   }
 
   Future<void> _continueListen() async {
@@ -157,172 +163,203 @@ class _HomeScreenState extends State<HomeScreen> {
     final tt = Theme.of(context).textTheme;
     return Consumer<PlaylistProvider>(
       builder: (_, provider, __) {
-        return RefreshIndicator(
-          onRefresh: () async {
-            await provider.fetchTopPlaylists();
-            await _loadRecommended();
-          },
-          child: CustomScrollView(
-            slivers: [
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _SearchHeaderDelegate(
-                  child: Container(
-                    color: cs.surface,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Material(
-                            color: cs.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(20),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(20),
-                              onTap: () => Navigator.pushNamed(context, '/search'),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.search, size: 20, color: cs.onSurfaceVariant),
-                                    const SizedBox(width: 8),
-                                    Text('搜索歌曲、歌手、歌单',
-                                        style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Consumer<AuthProvider>(
-                          builder: (_, auth, __) => IconButton(
-                            icon: Icon(auth.isLoggedIn ? Icons.person : Icons.person_outline,
-                                color: cs.onSurfaceVariant),
-                            onPressed: () {
-                              if (!auth.isLoggedIn) Navigator.pushNamed(context, '/login');
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: ListView(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    if (_showContinueBanner && _latestListen != null)
-                      Container(
-                        margin: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: cs.primaryContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: ListTile(
-                          leading: const Icon(Icons.play_circle_outline),
-                          title: Text(
-                            _latestListen!.info?['name'] ?? '继续播放',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: const Text('点击继续播放'),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
+        return LayoutBuilder(
+          builder: (_, constraints) {
+            final contentWidth = constraints.maxWidth > 600 ? 600.0 : constraints.maxWidth;
+            return RefreshIndicator(
+              onRefresh: () async {
+                await provider.fetchTopPlaylists();
+                await _loadRecommended();
+              },
+              child: CustomScrollView(
+                slivers: [
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _SearchHeaderDelegate(
+                      child: SizedBox(
+                        width: contentWidth,
+                        child: Container(
+                          color: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: Row(
                             children: [
-                              IconButton(
-                                icon: const Icon(Icons.play_arrow),
-                                tooltip: '继续播放',
-                                onPressed: _continueListen,
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.close),
-                                tooltip: '关闭',
-                                onPressed: () => setState(() => _showContinueBanner = false),
-                              ),
-                            ],
-                          ),
-                          onTap: _continueListen,
-                        ),
-                      ),
-                    if (provider.topPlaylists.isNotEmpty) ...[
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('推荐歌单', style: tt.headlineSmall),
-                            TextButton(
-                              onPressed: () => Navigator.pushNamed(context, '/category/selection'),
-                              child: const Text('更多'),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(
-                        height: 180,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          itemCount: provider.topPlaylists.length,
-                          itemBuilder: (_, i) {
-                            final pl = provider.topPlaylists[i];
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: GestureDetector(
-                                onTap: () {
-                                  Navigator.pushNamed(context, '/playlist/detail', arguments: {
-                                    'gcId': pl.globalCollectionId ?? pl.id.toString(),
-                                    'name': pl.name,
-                                  });
-                                },
-                                child: SizedBox(
-                                width: 130,
-                                child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: pl.coverUrl != null
-                                            ? CachedNetworkImage(
-                                                imageUrl: pl.coverUrl!, width: 130, height: 130,
-                                                fit: BoxFit.cover,
-                                                placeholder: (_, __) => Container(color: cs.surfaceContainerHighest, width: 130, height: 130),
-                                                errorWidget: (_, __, ___) => Container(color: cs.surfaceContainerHighest, width: 130, height: 130, child: const Icon(Icons.playlist_play)),
-                                              )
-                                            : Container(color: cs.surfaceContainerHighest, width: 130, height: 130, child: const Icon(Icons.playlist_play)),
+                              Expanded(
+                                child: Material(
+                                  color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(20),
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        PageRouteBuilder(
+                                          pageBuilder: (_, __, ___) => const SearchScreen(),
+                                          transitionsBuilder: (_, animation, __, child) {
+                                            return SlideTransition(
+                                              position: Tween<Offset>(
+                                                begin: const Offset(0, -0.3),
+                                                end: Offset.zero,
+                                              ).animate(CurvedAnimation(
+                                                parent: animation,
+                                                curve: Curves.easeOutCubic,
+                                              )),
+                                              child: child,
+                                            );
+                                          },
+                                          transitionDuration: const Duration(milliseconds: 300),
+                                        ),
+                                      );
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.search, size: 20, color: cs.onSurfaceVariant),
+                                          const SizedBox(width: 8),
+                                          Text('搜索歌曲、歌手、歌单',
+                                              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
+                                        ],
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(pl.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: tt.bodySmall),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            );
-                          },
+                              const SizedBox(width: 8),
+                              Consumer<AuthProvider>(
+                                builder: (_, auth, __) => IconButton(
+                                  icon: Icon(auth.isLoggedIn ? Icons.person : Icons.person_outline,
+                                      color: cs.onSurfaceVariant),
+                                  onPressed: () {
+                                    if (!auth.isLoggedIn) Navigator.pushNamed(context, '/login');
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ],
-                    if (_recommended.isNotEmpty)
-                      _buildSongList(_recommended, '新歌推荐'),
-                    if (_cardSongs[1]?.isNotEmpty ?? false)
-                      _buildSongList(_cardSongs[1]!, _cardNames[1] ?? '私人专属好歌'),
-                    if (_cardSongs[2]?.isNotEmpty ?? false)
-                      _buildSongList(_cardSongs[2]!, _cardNames[2] ?? '经典怀旧金曲'),
-                    if (_cardSongs[3]?.isNotEmpty ?? false)
-                      _buildSongList(_cardSongs[3]!, _cardNames[3] ?? '热门好歌精选'),
-                    if (_cardSongs[4]?.isNotEmpty ?? false)
-                      _buildSongList(_cardSongs[4]!, _cardNames[4] ?? '小众宝藏佳作'),
-                    if (_cardSongs[5]?.isNotEmpty ?? false)
-                      _buildSongList(_cardSongs[5]!, _cardNames[5] ?? '潮流尝鲜'),
-                    if (_cardSongs[6]?.isNotEmpty ?? false)
-                      _buildSongList(_cardSongs[6]!, _cardNames[6] ?? 'VIP专属推荐'),
-                  ],
-                ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      width: contentWidth,
+                      child: ListView(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        children: [
+                          if (_showContinueBanner && _latestListen != null)
+                            Container(
+                              margin: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: cs.primaryContainer,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: ListTile(
+                                leading: const Icon(Icons.play_circle_outline),
+                                title: Text(
+                                  _latestListen!.info?['name'] ?? '继续播放',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                subtitle: const Text('点击继续播放'),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.play_arrow),
+                                      tooltip: '继续播放',
+                                      onPressed: _continueListen,
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.close),
+                                      tooltip: '关闭',
+                                      onPressed: () => setState(() => _showContinueBanner = false),
+                                    ),
+                                  ],
+                                ),
+                                onTap: _continueListen,
+                              ),
+                            ),
+                          if (provider.topPlaylists.isNotEmpty) ...[
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('推荐歌单', style: tt.headlineSmall),
+                                  TextButton(
+                                    onPressed: () => Navigator.pushNamed(context, '/category/selection'),
+                                    child: const Text('更多'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(
+                              height: 180,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                itemCount: provider.topPlaylists.length,
+                                itemBuilder: (_, i) {
+                                  final pl = provider.topPlaylists[i];
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        Navigator.pushNamed(context, '/playlist/detail', arguments: {
+                                          'gcId': pl.globalCollectionId ?? pl.id.toString(),
+                                          'name': pl.name,
+                                        });
+                                      },
+                                      child: SizedBox(
+                                      width: 130,
+                                      child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            ClipRRect(
+                                              borderRadius: BorderRadius.circular(8),
+                                              child: pl.coverUrl != null
+                                                  ? CachedNetworkImage(
+                                                      imageUrl: pl.coverUrl!, width: 130, height: 130,
+                                                      fit: BoxFit.cover,
+                                                      placeholder: (_, __) => Container(color: cs.surfaceContainerHighest, width: 130, height: 130),
+                                                      errorWidget: (_, __, ___) => Container(color: cs.surfaceContainerHighest, width: 130, height: 130, child: const Icon(Icons.playlist_play)),
+                                                    )
+                                                  : Container(color: cs.surfaceContainerHighest, width: 130, height: 130, child: const Icon(Icons.playlist_play)),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(pl.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: tt.bodySmall),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                          if (_recommended.isNotEmpty)
+                            _buildSongList(_recommended, '新歌推荐', onEnd: () => _musicService.getTopSongs()),
+                          if (_cardSongs[1]?.isNotEmpty ?? false)
+                            _buildSongList(_cardSongs[1]!, _cardNames[1] ?? '私人专属好歌', onEnd: () => _musicService.getCardSongs(1).then((cs) => cs.songs)),
+                          if (_cardSongs[2]?.isNotEmpty ?? false)
+                            _buildSongList(_cardSongs[2]!, _cardNames[2] ?? '经典怀旧金曲', onEnd: () => _musicService.getCardSongs(2).then((cs) => cs.songs)),
+                          if (_cardSongs[3]?.isNotEmpty ?? false)
+                            _buildSongList(_cardSongs[3]!, _cardNames[3] ?? '热门好歌精选', onEnd: () => _musicService.getCardSongs(3).then((cs) => cs.songs)),
+                          if (_cardSongs[4]?.isNotEmpty ?? false)
+                            _buildSongList(_cardSongs[4]!, _cardNames[4] ?? '小众宝藏佳作', onEnd: () => _musicService.getCardSongs(4).then((cs) => cs.songs)),
+                          if (_cardSongs[5]?.isNotEmpty ?? false)
+                            _buildSongList(_cardSongs[5]!, _cardNames[5] ?? '潮流尝鲜', onEnd: () => _musicService.getCardSongs(5).then((cs) => cs.songs)),
+                          if (_cardSongs[6]?.isNotEmpty ?? false)
+                            _buildSongList(_cardSongs[6]!, _cardNames[6] ?? 'VIP专属推荐', onEnd: () => _musicService.getCardSongs(6).then((cs) => cs.songs)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

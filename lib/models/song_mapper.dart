@@ -1,3 +1,4 @@
+import '../utils/logger.dart';
 import 'song.dart';
 
 class SongMapper {
@@ -19,7 +20,8 @@ class SongMapper {
         duration: (json['Duration'] as int?) ?? 0,
         hash: json['FileHash'] as String?,
       );
-    } catch (_) {
+    } catch (e, s) {
+      Log.e('song_mapper', 'error', e, s);
       return null;
     }
   }
@@ -90,7 +92,8 @@ class SongMapper {
         qualities: q.isNotEmpty ? q : null,
         fileId: _tryInt(json['fileid']),
       );
-    } catch (_) {
+    } catch (e, s) {
+      Log.e('song_mapper', 'error', e, s);
       return null;
     }
   }
@@ -134,7 +137,8 @@ class SongMapper {
         hash: hash,
         qualities: q.isNotEmpty ? q : null,
       );
-    } catch (_) {
+    } catch (e, s) {
+      Log.e('song_mapper', 'error', e, s);
       return null;
     }
   }

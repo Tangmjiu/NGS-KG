@@ -6,6 +6,7 @@ import '../models/radio.dart';
 import '../models/playlist.dart';
 import '../models/rank_entry.dart';
 import '../services/music_service.dart';
+import '../utils/logger.dart';
 import '../providers/player_provider.dart';
 
 class DiscoverScreen extends StatefulWidget {
@@ -46,89 +47,35 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     try {
       final tags = await _musicService.getPlaylistTags();
       if (mounted) setState(() => _tags = tags);
-    } catch (_) {}
+    } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
   }
 
   Future<void> _loadFm() async {
     try {
       final fm = await _musicService.getFmRecommend();
       if (mounted) setState(() => _fmList = fm.take(6).toList());
-    } catch (_) {}
+    } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
   }
 
   Future<void> _loadPlaylists() async {
     try {
       final list = await _musicService.getTopPlaylists(limit: 10);
       if (mounted) setState(() => _topPlaylists = list);
-    } catch (_) {}
+    } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
   }
 
   Future<void> _loadRanks() async {
     try {
       final ranks = await _musicService.getRankList();
       if (mounted) setState(() => _rankList = ranks.take(4).toList());
-    } catch (_) {}
+    } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
   }
 
   Future<void> _loadBanners() async {
     try {
       final banners = await _musicService.getYuekuBanner();
       if (mounted) setState(() => _banners = banners);
-    } catch (_) {}
-  }
-
-  void _showRankList() {
-    final cs = Theme.of(context).colorScheme;
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('排行榜', style: Theme.of(context).textTheme.titleMedium),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: _rankList.length,
-                itemBuilder: (_, i) {
-                  final rank = _rankList[i];
-                  return ListTile(
-                    leading: rank.coverUrl != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: CachedNetworkImage(
-                              imageUrl: rank.coverUrl!,
-                              width: 40,
-                              height: 40,
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) => const Icon(Icons.leaderboard),
-                              imageBuilder: (context, imageProvider) => Container(
-                                decoration: BoxDecoration(
-                                  image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
-                                ),
-                              ),
-                            ),
-                          )
-                        : const Icon(Icons.leaderboard),
-                    title: Text(rank.name),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(context, '/rank/detail',
-                          arguments: {'id': rank.id, 'name': rank.name});
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
   }
 
   @override
@@ -247,67 +194,87 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   // ────────────── Quick actions ──────────────
 
+  static const _actionGradients = [
+    [Color(0xFFFF6B35), Color(0xFFF7C948)],  // 排行榜 → 橙金
+    [Color(0xFF7C4DFF), Color(0xFF448AFF)],  // 电台 → 紫蓝
+    [Color(0xFF00BFA5), Color(0xFF69F0AE)],  // 每日推荐 → 青绿
+    [Color(0xFFFF4081), Color(0xFFFF6E40)],  // 新歌首发 → 粉橙
+  ];
+
   Widget _buildQuickActions(ColorScheme cs, TextTheme tt) {
     final player = context.read<PlayerProvider>();
     final actions = [
-      _ActionItem(Icons.emoji_events_outlined, '排行榜', () {
+      _ActionItem(Icons.emoji_events, '排行榜', () {
         if (_rankList.isNotEmpty) {
           Navigator.pushNamed(context, '/rank/detail',
               arguments: {'id': _rankList.first.id, 'name': _rankList.first.name});
         }
       }),
-      _ActionItem(Icons.radio_outlined, '电台', () => Navigator.pushNamed(context, '/fm')),
-      _ActionItem(Icons.auto_awesome_outlined, '每日推荐', () async {
+      _ActionItem(Icons.radio, '电台', () => Navigator.pushNamed(context, '/fm')),
+      _ActionItem(Icons.auto_awesome, '每日推荐', () async {
         try {
           final card = await _musicService.getCardSongs(1);
           if (card.songs.isNotEmpty && mounted) {
             player.playSong(card.songs.first, playlist: card.songs);
             Navigator.pushNamed(context, '/player');
           }
-        } catch (_) {}
+        } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
       }),
-      _ActionItem(Icons.music_note_outlined, '新歌首发', () async {
+      _ActionItem(Icons.music_note, '新歌首发', () async {
         try {
           final songs = await _musicService.getTopSongs();
           if (songs.isNotEmpty && mounted) {
             player.playSong(songs.first, playlist: songs);
             Navigator.pushNamed(context, '/player');
           }
-        } catch (_) {}
+        } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
       }),
     ];
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: actions.map((a) => _buildActionChip(a, cs, tt)).toList(),
+          children: [
+            for (int i = 0; i < actions.length; i++) ...[
+              if (i > 0) const SizedBox(width: 12),
+              _buildGradientCard(i, actions[i], cs, tt),
+            ],
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildActionChip(_ActionItem item, ColorScheme cs, TextTheme tt) {
+  Widget _buildGradientCard(int index, _ActionItem item, ColorScheme cs, TextTheme tt) {
+    final colors = _actionGradients[index];
     return InkWell(
       onTap: item.onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
-        width: 76,
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        width: 90,
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: colors.last.withValues(alpha: 0.4),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
         child: Column(
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: cs.primaryContainer.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(item.icon, color: cs.primary, size: 24),
+            Icon(item.icon, color: Colors.white, size: 28),
+            const SizedBox(height: 8),
+            Text(item.label,
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+              maxLines: 1,
             ),
-            const SizedBox(height: 6),
-            Text(item.label, style: tt.labelSmall, textAlign: TextAlign.center, maxLines: 1),
           ],
         ),
       ),
@@ -487,6 +454,48 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+
+  void _showRankList() {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('热门榜单',
+                  style: Theme.of(context).textTheme.titleMedium),
+            ),
+            const Divider(height: 1),
+            SizedBox(
+              height: 400,
+              child: ListView.builder(
+                itemCount: _rankList.length,
+                itemBuilder: (_, i) {
+                  final r = _rankList[i];
+                  return ListTile(
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: r.coverUrl != null
+                          ? CachedNetworkImage(imageUrl: r.coverUrl!, width: 48, height: 48, fit: BoxFit.cover)
+                          : Container(width: 48, height: 48, color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.music_note)),
+                    ),
+                    title: Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/rank/detail', arguments: {'id': r.id, 'name': r.name});
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

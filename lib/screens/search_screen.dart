@@ -6,6 +6,7 @@ import '../models/rank_entry.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
+import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -74,14 +75,14 @@ class _SearchScreenState extends State<SearchScreen>
             .map((e) => _HotItem(e['keyword'] as String? ?? '', e['reason'] as String? ?? ''))
             .toList());
       }
-    } catch (_) {}
+    } catch (e, s) { Log.e('search_screen', 'error', e, s); }
   }
 
   Future<void> _loadRanks() async {
     try {
       final ranks = await _musicService.getRankList();
       if (mounted) setState(() => _ranks = ranks);
-    } catch (_) {}
+    } catch (e, s) { Log.e('search_screen', 'error', e, s); }
     if (mounted) setState(() => _isLoadingRanks = false);
   }
 
@@ -98,7 +99,7 @@ class _SearchScreenState extends State<SearchScreen>
       try {
         _suggestions = await _musicService.getSearchSuggest(keyword);
         if (mounted) setState(() {});
-      } catch (_) {}
+      } catch (e, s) { Log.e('search_screen', 'error', e, s); }
     });
   }
 
@@ -132,7 +133,7 @@ class _SearchScreenState extends State<SearchScreen>
           _lyrics = await _musicService.searchLyrics(keyword);
           break;
       }
-    } catch (_) {}
+    } catch (e, s) { Log.e('search_screen', 'error', e, s); }
     if (mounted) setState(() => _isLoading = false);
   }
 

@@ -5,6 +5,7 @@ import '../models/album.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
+import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
 
 class AlbumDetailScreen extends StatefulWidget {
@@ -44,7 +45,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
           _isLoading = false;
         });
       }
-    } catch (_) {
+    } catch (e, s) { Log.e('album_detail_screen', 'error', e, s);
       if (mounted) setState(() => _isLoading = false);
     }
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
+import '../utils/logger.dart';
 import '../services/music_service.dart';
 
 class CloudDiskScreen extends StatefulWidget {
@@ -27,8 +28,8 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
     try {
       final songs = await _musicService.getUserCloudDisk();
       if (mounted) setState(() => _songs = songs);
-    } catch (e) {
-      debugPrint('[CloudDisk] load error: $e');
+    } catch (e, s) {
+      Log.e('CloudDisk', 'load error', e, s);
     }
     if (mounted) setState(() => _isLoading = false);
   }
@@ -52,8 +53,8 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
       );
       if (!mounted) { return; }
       await context.read<PlayerProvider>().playSong(song);
-    } catch (e) {
-      debugPrint('[CloudDisk] play error: $e');
+    } catch (e, s) {
+      Log.e('CloudDisk', 'play error', e, s);
     }
     if (mounted) setState(() => _playingIndex = null);
   }

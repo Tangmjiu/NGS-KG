@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../utils/logger.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -249,7 +250,7 @@ class _PhoneLoginState extends State<_PhoneLogin> {
     setState(() => _sendingCode = true);
     try {
       await context.read<AuthProvider>().sendCaptcha(phone);
-    } catch (_) {}
+    } catch (e, s) { Log.e('login_screen', 'error', e, s); }
     setState(() => _sendingCode = false);
     _startCountdown();
   }
@@ -439,7 +440,7 @@ class _QrLoginState extends State<_QrLogin> {
         } else {
           setState(() => _statusText = '请使用酷狗 App 扫描二维码');
         }
-      } catch (_) {}
+      } catch (e, s) { Log.e('login_screen', 'error', e, s); }
     });
   }
 
@@ -454,7 +455,7 @@ class _QrLoginState extends State<_QrLogin> {
           height: 176,
           fit: BoxFit.contain,
         );
-      } catch (_) {}
+      } catch (e, s) { Log.e('login_screen', 'error', e, s); }
     }
     return Image.network(
       b64,
