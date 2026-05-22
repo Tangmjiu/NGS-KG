@@ -77,7 +77,7 @@ class PlaylistDetail {
   factory PlaylistDetail.fromKugouJson(Map<String, dynamic> json) {
     final pl = Playlist.fromJson(json);
     List<Song> songList = [];
-    final songsData = json['songs'] ?? json['info'] ?? json['list'];
+    final songsData = json['lists'] ?? json['songs'] ?? json['info'] ?? json['list'];
     if (songsData is List) {
       songList = songsData
           .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))

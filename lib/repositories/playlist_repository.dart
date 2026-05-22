@@ -38,7 +38,10 @@ class PlaylistRepository extends BaseRepository {
     final data = res['data'];
     List<dynamic>? songs;
     if (data is Map) {
-      songs = data['songs'] as List<dynamic>? ?? data['info'] as List<dynamic>? ?? data['list'] as List<dynamic>?;
+      songs = data['lists'] as List<dynamic>?
+          ?? data['songs'] as List<dynamic>?
+          ?? data['info'] as List<dynamic>?
+          ?? data['list'] as List<dynamic>?;
     }
     if (songs != null) {
       return songs
@@ -58,7 +61,10 @@ class PlaylistRepository extends BaseRepository {
     });
     final data = res['data'];
     if (data is Map) {
-      final songs = data['songs'] as List<dynamic>? ?? data['info'] as List<dynamic>? ?? data['list'] as List<dynamic>?;
+      final songs = data['lists'] as List<dynamic>?
+          ?? data['songs'] as List<dynamic>?
+          ?? data['info'] as List<dynamic>?
+          ?? data['list'] as List<dynamic>?;
       if (songs != null) {
         return songs
             .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
