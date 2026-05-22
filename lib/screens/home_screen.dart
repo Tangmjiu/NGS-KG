@@ -9,7 +9,6 @@ import '../models/latest_listen_info.dart';
 import '../services/music_service.dart';
 import '../models/song_mapper.dart';
 import '../utils/logger.dart';
-import '../widgets/song_tile.dart';
 import 'discover_screen.dart';
 import 'profile_screen.dart';
 import 'search_screen.dart';
@@ -33,37 +32,49 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildSongList(List<Song> songs, String title, {Future<List<Song>> Function()? onEnd}) {
     if (songs.isEmpty) return const SizedBox.shrink();
     final tt = Theme.of(context).textTheme;
-    final displaySongs = songs.take(5).toList();
+    final cs = Theme.of(context).colorScheme;
     final player = context.read<PlayerProvider>();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(title, style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-              if (songs.length > 5)
-                GestureDetector(
-                  onTap: () {
-                    player.playlistEndProvider = onEnd;
-                    player.playSong(displaySongs.first, playlist: songs);
-                    Navigator.pushNamed(context, '/player');
-                  },
-                  child: Text('查看更多', style: tt.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                ),
-            ],
-          ),
+          child: Text(title, style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
         ),
-        Column(
-          children: displaySongs.map((song) => SongTile(
-            song: song,
-            onTap: (s) {
-              player.playlistEndProvider = onEnd;
-              player.playSong(s, playlist: songs);
+        SizedBox(
+          height: 170,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: songs.length,
+            itemBuilder: (_, i) {
+              final song = songs[i];
+              return GestureDetector(
+                onTap: () {
+                  player.playlistEndProvider = onEnd;
+                  player.playSong(song, playlist: songs.sublist(i));
+                },
+                child: Container(
+                  width: 120,
+                  margin: const EdgeInsets.only(right: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: song.albumCoverUrl != null
+                            ? CachedNetworkImage(imageUrl: song.albumCoverUrl!, width: 120, height: 120, fit: BoxFit.cover)
+                            : Container(width: 120, height: 120, color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
+                      Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+              );
             },
-          )).toList(),
+          ),
         ),
       ],
     );
