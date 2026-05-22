@@ -149,6 +149,16 @@ class MusicService {
 
   Future<List<Map<String, dynamic>>> getTopIp() => album.getTopIp();
 
+  Future<List<Map<String, dynamic>>> getStyleTags() async {
+    final res = await _oneShotGet('/everyday/style/recommend');
+    final data = res['data'];
+    if (data is Map) {
+      final list = data['tag_list'] as List<dynamic>?;
+      if (list != null) return list.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
   // ─── Artist ───
 
   Future<List<Artist>> getArtistList({int limit = 100, int offset = 0}) =>

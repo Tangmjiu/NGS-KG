@@ -30,6 +30,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   List<Album> _topAlbums = [];
   List<SceneCategory> _sceneCategories = [];
   List<Map<String, dynamic>> _ipList = [];
+  List<Map<String, dynamic>> _styleTags = [];
   bool _loading = true;
 
   @override
@@ -50,6 +51,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       _loadTopAlbums(),
       _loadSceneCategories(),
       _loadIp(),
+      _loadStyleTags(),
     ]);
     if (mounted) setState(() => _loading = false);
   }
@@ -114,6 +116,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     try {
       final ip = await _musicService.getTopIp();
       if (mounted) setState(() => _ipList = ip.take(6).toList());
+    } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
+  }
+
+  Future<void> _loadStyleTags() async {
+    try {
+      final tags = await _musicService.getStyleTags();
+      if (mounted) setState(() => _styleTags = tags);
     } catch (e, s) { Log.e('discover_screen', 'error', e, s); }
   }
 
@@ -186,7 +195,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               SliverToBoxAdapter(child: _buildFmRow(cs)),
             ],
             // ── All categories ──
-            if (_tags.isNotEmpty) ...[
+            if (_styleTags.isNotEmpty || _tags.isNotEmpty) ...[
               _buildSectionHeader('全部分类', tt, onViewAll: () {
                 Navigator.pushNamed(context, '/category/selection');
               }),
@@ -661,37 +670,75 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   // ────────────── Category grid ──────────────
 
+  static const _categoryIcons = {
+    '华语': Icons.language,
+    '欧美': Icons.public,
+    '日语': Icons.flag,
+    '韩语': Icons.flag_outlined,
+    '流行': Icons.trending_up,
+    '摇滚': Icons.flash_on,
+    '民谣': Icons.self_improvement,
+    '电子': Icons.track_changes,
+    '说唱': Icons.mic,
+    '轻音乐': Icons.piano,
+    '爵士': Icons.music_note,
+    '古风': Icons.history_edu,
+    'R&B': Icons.headphones,
+    '舞曲': Icons.nightlife,
+    '古典': Icons.theater_comedy,
+    '儿童': Icons.child_care,
+    '校园': Icons.school,
+    '纯音乐': Icons.queue_music,
+  };
+
+  static const _categoryColors = [
+    Color(0xFFE53935),
+    Color(0xFF1E88E5),
+    Color(0xFF43A047),
+    Color(0xFFFB8C00),
+    Color(0xFF8E24AA),
+    Color(0xFF00ACC1),
+    Color(0xFFD81B60),
+    Color(0xFF3949AB),
+  ];
+
   Widget _buildCategoryGrid(ColorScheme cs, TextTheme tt) {
-    final icons = [
-      Icons.music_note, Icons.history_edu, Icons.flash_on, Icons.self_improvement,
-      Icons.track_changes, Icons.mic, Icons.piano, Icons.headphones,
-    ];
+    final cats = _styleTags.isNotEmpty
+        ? _styleTags.map((e) => (e['tagname'] ?? e['name'] ?? '') as String).toList()
+        : _tags.map((e) => e.name).toList();
+    if (cats.isEmpty) return const SizedBox.shrink();
+
+    final displayCats = cats.length > 16 ? cats.take(16).toList() : cats;
     final screenWidth = MediaQuery.of(context).size.width;
-    final crossAxisCount = (screenWidth / 100).floor().clamp(3, 6);
-    final itemWidth = (screenWidth - 16 * 2 - 12 * (crossAxisCount - 1)) / crossAxisCount;
+    final crossAxisCount = (screenWidth / 100).floor().clamp(3, 4);
+    final itemWidth = (screenWidth - 32 - 12 * (crossAxisCount - 1)) / crossAxisCount;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Wrap(
         spacing: 12,
         runSpacing: 12,
-        children: _tags.take(8).toList().asMap().entries.map((entry) {
+        children: displayCats.asMap().entries.map((entry) {
           final i = entry.key;
-          final tag = entry.value;
-          final name = tag.name;
+          final name = entry.value;
+          final icon = _categoryIcons[name] ?? Icons.music_note;
+          final color = _categoryColors[i % _categoryColors.length];
           return GestureDetector(
             onTap: () => Navigator.pushNamed(context, '/category/selection'),
             child: Container(
               width: itemWidth,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 14),
               decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(12),
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icons[i % icons.length], size: 24, color: cs.primary),
+                  Icon(icon, size: 26, color: color),
                   const SizedBox(height: 6),
-                  Text(name, style: tt.labelSmall, maxLines: 1, textAlign: TextAlign.center),
+                  Text(name, style: tt.labelSmall?.copyWith(color: color, fontWeight: FontWeight.w500),
+                      maxLines: 1, textAlign: TextAlign.center),
                 ],
               ),
             ),
