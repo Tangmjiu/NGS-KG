@@ -33,7 +33,9 @@ class AlbumRepository extends BaseRepository {
     final data = res['data'];
     List<dynamic>? list;
     if (data is Map) {
-      list = data['songs'] as List<dynamic>? ?? data['info'] as List<dynamic>?;
+      list = data['lists'] as List<dynamic>?
+          ?? data['songs'] as List<dynamic>?
+          ?? data['info'] as List<dynamic>?;
     } else if (data is List) {
       list = data;
     }
