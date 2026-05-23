@@ -1,0 +1,25 @@
+// NGS-KG+ Build Performance Benchmark Scenarios
+// gradle-profiler 0.24.0
+
+clean_build {
+    tasks = ["clean", "assembleDebug"]
+}
+
+incremental_no_change {
+    tasks = ["assembleDebug"]
+}
+
+incremental_change {
+    tasks = ["assembleDebug"]
+    apply-file-changes {
+        change {
+            file = "app/src/main/kotlin/com/kugou/ngskg/MainActivity.kt"
+            apply = "// benchmark-trigger-change\n"
+            revert = ""
+        }
+    }
+}
+
+clean_build_release {
+    tasks = ["clean", "assembleRelease"]
+}

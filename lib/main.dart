@@ -17,7 +17,6 @@ import 'services/notification_service.dart';
 import 'services/cache_service.dart';
 
 final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Log.init();
