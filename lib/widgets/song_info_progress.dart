@@ -150,8 +150,8 @@ class _SongInfoProgressState extends State<SongInfoProgress> {
   void _showQualitySelector(BuildContext context, PlayerProvider player) {
     final q = player.currentSong?.qualities;
     if (q == null || q.isEmpty) return;
-    final keys = Song.qualityKeys;
-    final labels = Song.qualityLabels;
+    const keys = Song.qualityKeys;
+    const labels = Song.qualityLabels;
     final available = <int>[];
     for (int i = 0; i < keys.length; i++) {
       if (q.containsKey(keys[i])) available.add(i);

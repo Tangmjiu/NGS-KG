@@ -1,0 +1,192 @@
+import 'package:flutter/foundation.dart';
+import '../models/playlist_tag.dart';
+import '../models/radio.dart';
+import '../models/playlist.dart';
+import '../models/rank_entry.dart';
+import '../models/album.dart';
+import '../models/song.dart';
+import '../models/scene_category.dart';
+import '../services/music_service.dart';
+import '../utils/logger.dart';
+import '../constants/discover_constants.dart';
+
+/// 发现页状态管理
+///
+/// 替代原来 _DiscoverScreenState 中的 15 个 List 字段，
+/// 统一管理所有区块数据、加载状态、错误处理。
+class DiscoverProvider extends ChangeNotifier {
+  final MusicService _musicService;
+
+  DiscoverProvider(this._musicService);
+
+  // ─── 数据 ───
+
+  List<PlaylistTag> _tags = [];
+  List<RadioStation> _fmList = [];
+  List<Playlist> _topPlaylists = [];
+  List<RankEntry> _rankList = [];
+  List<Map<String, dynamic>> _banners = [];
+  List<Song> _topSongs = [];
+  List<Album> _topAlbums = [];
+  List<SceneCategory> _sceneCategories = [];
+  List<Map<String, dynamic>> _ipList = [];
+  List<Map<String, dynamic>> _styleTags = [];
+
+  // ─── 状态 ───
+
+  bool _loading = true;
+  String? _error;
+
+  // ─── Getters ───
+
+  List<PlaylistTag> get tags => _tags;
+  List<RadioStation> get fmList => _fmList;
+  List<Playlist> get topPlaylists => _topPlaylists;
+  List<RankEntry> get rankList => _rankList;
+  List<Map<String, dynamic>> get banners => _banners;
+  List<Song> get topSongs => _topSongs;
+  List<Album> get topAlbums => _topAlbums;
+  List<SceneCategory> get sceneCategories => _sceneCategories;
+  List<Map<String, dynamic>> get ipList => _ipList;
+  List<Map<String, dynamic>> get styleTags => _styleTags;
+  bool get loading => _loading;
+  String? get error => _error;
+
+  bool get hasBanners => _banners.isNotEmpty;
+  bool get hasPlaylists => _topPlaylists.isNotEmpty;
+  bool get hasRanks => _rankList.isNotEmpty;
+  bool get hasTopSongs => _topSongs.isNotEmpty;
+  bool get hasTopAlbums => _topAlbums.isNotEmpty;
+  bool get hasScenes => _sceneCategories.isNotEmpty;
+  bool get hasIp => _ipList.isNotEmpty;
+  bool get hasFm => _fmList.isNotEmpty;
+  bool get hasCategories => _styleTags.isNotEmpty || _tags.isNotEmpty;
+
+  // ─── 加载 ───
+
+  /// 加载全部发现数据（首屏 + 下拉刷新）
+  Future<void> loadAll() async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await Future.wait([
+        _loadTags(),
+        _loadFm(),
+        _loadPlaylists(),
+        _loadRanks(),
+        _loadBanners(),
+        _loadTopSongs(),
+        _loadTopAlbums(),
+        _loadSceneCategories(),
+        _loadIp(),
+        _loadStyleTags(),
+      ]);
+    } catch (e, s) {
+      Log.e('DiscoverProvider', 'loadAll error', e, s);
+      _error = e.toString();
+    }
+
+    _loading = false;
+    notifyListeners();
+  }
+
+  Future<void> _loadTags() async {
+    try {
+      _tags = await _musicService.getPlaylistTags();
+      notifyListeners();
+    } catch (e, s) {
+      Log.e('DiscoverProvider', 'loadTags error', e, s);
+    }
+  }
+
+  Future<void> _loadFm() async {
+    try {
+      final fm = await _musicService.getFmRecommend();
+      _fmList = fm.take(DiscoverConstants.fmLimit).toList();
+      notifyListeners();
+    } catch (e, s) {
+      Log.e('DiscoverProvider', 'loadFm error', e, s);
+    }
+  }
+
+  Future<void> _loadPlaylists() async {
+    try {
+      _topPlaylists =
+          await _musicService.getTopPlaylists(limit: DiscoverConstants.playlistLimit);
+      notifyListeners();
+    } catch (e, s) {
+      Log.e('DiscoverProvider', 'loadPlaylists error', e, s);
+    }
+  }
+
+  Future<void> _loadRanks() async {
+    try {
+      final ranks = await _musicService.getRankList();
+      _rankList = ranks.take(DiscoverConstants.rankLimit).toList();
+      notifyListeners();
+    } catch (e, s) {
+      Log.e('DiscoverProvider', 'loadRanks error', e, s);
+    }
+  }
+
+  Future<void> _loadBanners() async {
+    try {
+      _banners = await _musicService.getYuekuBanner();
+      notifyListeners();
+    } catch (e, s) {
+      Log.e('DiscoverProvider', 'loadBanners error', e, s);
+    }
+  }
+
+  Future<void> _loadTopSongs() async {
+    try {
+      final songs = await _musicService.getTopSongs();
+      _topSongs = songs.take(DiscoverConstants.topSongsLimit).toList();
+      notifyListeners();
+    } catch (e, s) {
+      Log.e('DiscoverProvider', 'loadTopSongs error', e, s);
+    }
+  }
+
+  Future<void> _loadTopAlbums() async {
+    try {
+      _topAlbums = await _musicService.getTopAlbums(
+        pageSize: DiscoverConstants.topAlbumsPageSize,
+      );
+      notifyListeners();
+    } catch (e, s) {
+      Log.e('DiscoverProvider', 'loadTopAlbums error', e, s);
+    }
+  }
+
+  Future<void> _loadSceneCategories() async {
+    try {
+      final scenes = await _musicService.getSceneLists();
+      _sceneCategories = scenes.take(DiscoverConstants.sceneLimit).toList();
+      notifyListeners();
+    } catch (e, s) {
+      Log.e('DiscoverProvider', 'loadSceneCategories error', e, s);
+    }
+  }
+
+  Future<void> _loadIp() async {
+    try {
+      final ip = await _musicService.getTopIp();
+      _ipList = ip.take(DiscoverConstants.ipLimit).toList();
+      notifyListeners();
+    } catch (e, s) {
+      Log.e('DiscoverProvider', 'loadIp error', e, s);
+    }
+  }
+
+  Future<void> _loadStyleTags() async {
+    try {
+      _styleTags = await _musicService.getStyleTags();
+      notifyListeners();
+    } catch (e, s) {
+      Log.e('DiscoverProvider', 'loadStyleTags error', e, s);
+    }
+  }
+}

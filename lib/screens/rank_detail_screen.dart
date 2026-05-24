@@ -31,11 +31,13 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
   Future<void> _load() async {
     try {
       final songs = await _musicService.getRankAudios(widget.rankId);
-      if (mounted) setState(() {
-        _songs = songs;
-        _total = songs.length;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _songs = songs;
+          _total = songs.length;
+          _isLoading = false;
+        });
+      }
     } catch (e, s) { Log.e('rank_detail_screen', 'error', e, s);
       if (mounted) setState(() => _isLoading = false);
     }

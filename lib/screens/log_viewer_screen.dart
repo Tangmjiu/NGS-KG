@@ -248,7 +248,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                   color: _levelColor(e.level),
                 )),
                 const SizedBox(width: 4),
-                Text('${_fmtTime(e.time)}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                Text(_fmtTime(e.time), style: const TextStyle(fontSize: 10, color: Colors.grey)),
                 const SizedBox(width: 4),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 3),

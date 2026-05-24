@@ -22,8 +22,8 @@ class _SearchScreenState extends State<SearchScreen>
   final _focusNode = FocusNode();
   final _musicService = MusicService();
 
-  final _tabs = ['单曲', '歌单', '专辑', '歌手', 'MV', '歌词'];
-  final _types = ['song', 'special', 'album', 'author', 'mv', 'lyric'];
+  final _tabs = ['综合', '单曲', '歌单', '专辑', '歌手', 'MV', '歌词'];
+  final _types = ['complex', 'song', 'special', 'album', 'author', 'mv', 'lyric'];
 
   late TabController _tabController;
 
@@ -33,6 +33,7 @@ class _SearchScreenState extends State<SearchScreen>
   List<Map<String, dynamic>> _artists = [];
   List<Map<String, dynamic>> _mvs = [];
   List<Map<String, dynamic>> _lyrics = [];
+  Map<String, List<dynamic>> _complexResults = {};
 
   List<String> _suggestions = [];
   List<_HotItem> _hotSearch = [];
@@ -115,21 +116,38 @@ class _SearchScreenState extends State<SearchScreen>
     try {
       switch (_tabController.index) {
         case 0:
-          _songs = await _musicService.search(keyword, type: type);
+          final data = await _musicService.searchComplex(keyword);
+          if (mounted) {
+            setState(() {
+              _complexResults = {};
+              final lists = data['lists'] as Map<String, dynamic>?;
+              if (lists != null) {
+                for (final entry in lists.entries) {
+                  final list = entry.value;
+                  if (list is List && list.isNotEmpty) {
+                    _complexResults[entry.key] = list;
+                  }
+                }
+              }
+            });
+          }
           break;
         case 1:
-          _playlists = await _musicService.searchPlaylists(keyword);
+          _songs = await _musicService.search(keyword, type: type);
           break;
         case 2:
-          _albums = await _musicService.searchAlbums(keyword);
+          _playlists = await _musicService.searchPlaylists(keyword);
           break;
         case 3:
-          _artists = await _musicService.searchArtists(keyword);
+          _albums = await _musicService.searchAlbums(keyword);
           break;
         case 4:
-          _mvs = await _musicService.searchMvs(keyword);
+          _artists = await _musicService.searchArtists(keyword);
           break;
         case 5:
+          _mvs = await _musicService.searchMvs(keyword);
+          break;
+        case 6:
           _lyrics = await _musicService.searchLyrics(keyword);
           break;
       }
@@ -183,6 +201,7 @@ class _SearchScreenState extends State<SearchScreen>
       return TabBarView(
         controller: _tabController,
         children: [
+          _buildComplexTab(),
           _buildSongsTab(),
           _buildPlaylistsTab(),
           _buildAlbumsTab(),
@@ -304,6 +323,299 @@ class _SearchScreenState extends State<SearchScreen>
             );
           }),
         ],
+      ),
+    );
+  }
+
+  static const _complexTypeLabels = {
+    'song': '单曲',
+    'special': '歌单',
+    'album': '专辑',
+    'author': '歌手',
+    'mv': 'MV',
+    'lyric': '歌词',
+  };
+
+  Widget _buildComplexTab() {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    if (_complexResults.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search_off, size: 56, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+            const SizedBox(height: 12),
+            Text('未找到相关内容', style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant)),
+          ],
+        ),
+      );
+    }
+    final orderedKeys = _complexResults.keys.toList();
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: orderedKeys.length,
+      itemBuilder: (_, sectionIdx) {
+        final key = orderedKeys[sectionIdx];
+        final items = _complexResults[key]!;
+        final label = _complexTypeLabels[key] ?? key;
+        final displayItems = items.length > 6 ? items.sublist(0, 6) : items;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Row(
+                children: [
+                  Text(label, style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  if (items.length > 6)
+                    TextButton(
+                      onPressed: () {
+                        _tabController.animateTo(
+                          _types.indexOf(key).clamp(0, _types.length - 1),
+                        );
+                      },
+                      child: const Text('查看更多'),
+                    ),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 180,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: displayItems.length,
+                itemBuilder: (_, i) => _buildComplexItem(displayItems[i], key, cs, tt, i, displayItems.length),
+              ),
+            ),
+            if (sectionIdx < orderedKeys.length - 1)
+              const Divider(height: 1, indent: 16, endIndent: 16),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildComplexItem(dynamic item, String type, ColorScheme cs, TextTheme tt, int index, int total) {
+    if (item is! Map<String, dynamic>) return const SizedBox.shrink();
+    final player = context.read<PlayerProvider>();
+    switch (type) {
+      case 'song':
+        return _buildComplexSongCard(item, cs, tt, () async {
+          final song = Song.fromJson(item);
+          player.playSong(song);
+        });
+      case 'special':
+        return _buildComplexMediaCard(
+          imgUrl: item['imgurl'] as String? ?? item['img'] as String? ?? '',
+          title: item['specialname'] as String? ?? item['name'] as String? ?? '',
+          cs: cs, tt: tt,
+          icon: Icons.queue_music,
+          onTap: () {
+            final gcId = item['global_collection_id'] as String? ??
+                item['id']?.toString() ??
+                item['specialid']?.toString();
+            if (gcId != null) {
+              Navigator.pushNamed(context, '/playlist/detail',
+                  arguments: {'gcId': gcId, 'name': item['specialname'] ?? item['name'] ?? ''});
+            }
+          },
+        );
+      case 'album':
+        return _buildComplexMediaCard(
+          imgUrl: item['imgurl'] as String? ?? item['img'] as String? ?? '',
+          title: item['albumname'] as String? ?? item['name'] as String? ?? '',
+          cs: cs, tt: tt,
+          icon: Icons.album,
+          onTap: () {
+            final id = item['albumid'];
+            final albumId = id is int ? id : (id is String ? int.tryParse(id) : null) ?? item['id'] as int?;
+            if (albumId != null) {
+              Navigator.pushNamed(context, '/album/detail', arguments: {'id': albumId});
+            }
+          },
+        );
+      case 'author':
+        return _buildComplexMediaCard(
+          imgUrl: item['Avatar'] as String? ?? item['imgurl'] as String? ?? item['img'] as String? ?? '',
+          title: item['AuthorName'] as String? ?? item['singername'] as String? ?? item['name'] as String? ?? '',
+          cs: cs, tt: tt,
+          circular: true,
+          icon: Icons.person,
+          onTap: () {
+            final id = item['AuthorId'] as int? ?? item['singermid'] as int? ?? item['id'] as int?;
+            if (id != null) {
+              Navigator.pushNamed(context, '/artist/detail', arguments: {'id': id});
+            }
+          },
+        );
+      case 'mv':
+        return _buildComplexMediaCard(
+          imgUrl: item['Pic'] as String? ?? item['imgurl'] as String? ?? item['img'] as String? ?? '',
+          title: item['MvName'] as String? ?? item['name'] as String? ?? item['mvname'] as String? ?? '',
+          cs: cs, tt: tt,
+          icon: Icons.video_library,
+          onTap: () {
+            final hash = item['MvHash'] as String? ?? item['hash'] as String?;
+            if (hash != null) {
+              Navigator.pushNamed(context, '/mv', arguments: {'hash': hash});
+            }
+          },
+        );
+      case 'lyric':
+        return _buildComplexLyricCard(item, cs, tt);
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildComplexSongCard(Map<String, dynamic> item, ColorScheme cs, TextTheme tt, VoidCallback onTap) {
+    final name = item['name'] as String? ?? '';
+    final artists = (item['artists'] as List<dynamic>?)
+        ?.map((e) => e.toString())
+        .join(' / ') ?? '';
+    final coverUrl = (item['album'] as Map<String, dynamic>?)?['picUrl'] as String?;
+    return GestureDetector(
+      onTap: onTap,
+      child: Card(
+        margin: const EdgeInsets.only(right: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
+        color: cs.surfaceContainerHighest,
+        child: SizedBox(
+          width: 120,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                child: coverUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: coverUrl,
+                        width: 120, height: 100,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(
+                          width: 120, height: 100, color: cs.surfaceContainerHighest,
+                        ),
+                        errorWidget: (_, __, ___) => Container(
+                          width: 120, height: 100, color: cs.surfaceContainerHighest,
+                          child: Icon(Icons.music_note, color: cs.onSurfaceVariant),
+                        ),
+                      )
+                    : Container(
+                        width: 120, height: 100, color: cs.surfaceContainerHighest,
+                        child: Icon(Icons.music_note, color: cs.onSurfaceVariant),
+                      ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.titleSmall),
+                    if (artists.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(artists, maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildComplexMediaCard({
+    required String imgUrl,
+    required String title,
+    required ColorScheme cs,
+    required TextTheme tt,
+    IconData? icon,
+    bool circular = false,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Card(
+        margin: const EdgeInsets.only(right: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
+        color: cs.surfaceContainerHighest,
+        child: SizedBox(
+          width: 120,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                child: imgUrl.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: imgUrl.replaceAll('{size}', '240'),
+                        width: 120, height: 100,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(
+                          width: 120, height: 100, color: cs.surfaceContainerHighest,
+                        ),
+                        errorWidget: (_, __, ___) => Container(
+                          width: 120, height: 100, color: cs.surfaceContainerHighest,
+                          child: Icon(icon ?? Icons.music_note, color: cs.onSurfaceVariant),
+                        ),
+                      )
+                    : Container(
+                        width: 120, height: 100, color: cs.surfaceContainerHighest,
+                        child: Icon(icon ?? Icons.music_note, color: cs.onSurfaceVariant),
+                      ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.titleSmall),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildComplexLyricCard(Map<String, dynamic> item, ColorScheme cs, TextTheme tt) {
+    final songName = item['SongName'] as String? ?? item['songname'] as String? ?? '';
+    final artist = item['SingerName'] as String? ?? item['singername'] as String? ?? '';
+    final content = item['Lyric'] as String? ?? item['lyric'] as String? ?? item['content'] as String? ?? '';
+    return GestureDetector(
+      onTap: () {
+        final hash = item['FileHash'] as String? ?? item['hash'] as String?;
+        if (hash != null) {
+          Navigator.pushNamed(context, '/lyric', arguments: {'hash': hash});
+        }
+      },
+      child: Card(
+        margin: const EdgeInsets.only(right: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
+        color: cs.surfaceContainerHighest,
+        child: SizedBox(
+          width: 160,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(songName, maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.titleSmall),
+                const SizedBox(height: 2),
+                Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                const SizedBox(height: 6),
+                Text(content, maxLines: 3, overflow: TextOverflow.ellipsis,
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant, fontSize: 11)),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
