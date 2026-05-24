@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/song.dart';
+import '../providers/auth_provider.dart';
 import '../providers/player_provider.dart';
 import '../utils/logger.dart';
 import '../services/music_service.dart';
@@ -25,6 +26,11 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
   }
 
   Future<void> _load() async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isLoggedIn) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
     try {
       final songs = await _musicService.getUserCloudDisk();
       if (mounted) setState(() => _songs = songs);

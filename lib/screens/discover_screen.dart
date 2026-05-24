@@ -138,7 +138,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           // ── Title ──
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+              padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 20, 20, 4),
               child: Text('发现', style: tt.headlineLarge?.copyWith(fontWeight: FontWeight.bold)),
             ),
           ),
@@ -390,7 +390,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     arguments: {'gcId': pl.globalCollectionId, 'name': pl.name});
               } else {
                 Navigator.pushNamed(context, '/playlist/detail',
-                    arguments: {'id': pl.id, 'name': pl.name});
+                    arguments: {'gcId': pl.id.toString(), 'name': pl.name});
               }
             },
             child: Container(

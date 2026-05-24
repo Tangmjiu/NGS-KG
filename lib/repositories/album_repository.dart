@@ -35,12 +35,17 @@ class AlbumRepository extends BaseRepository {
     if (data is Map) {
       list = data['lists'] as List<dynamic>?
           ?? data['songs'] as List<dynamic>?
-          ?? data['info'] as List<dynamic>?;
+          ?? data['info'] as List<dynamic>?
+          ?? data['list'] as List<dynamic>?
+          ?? data['audios'] as List<dynamic>?;
     } else if (data is List) {
       list = data;
     }
     if (list == null) return [];
-    return list.map((e) => _parseAlbumSong(e as Map<String, dynamic>, albumId)).toList();
+    return list
+        .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
+        .whereType<Song>()
+        .toList();
   }
 
   Song _parseAlbumSong(Map<String, dynamic> json, int albumId) {

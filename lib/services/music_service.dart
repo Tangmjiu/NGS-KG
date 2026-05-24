@@ -228,7 +228,9 @@ class MusicService {
   Future<String?> getMvUrl(String hash) {
     return _oneShotGet('/video/url', params: {'hash': hash}).then((res) {
       final data = res['data'];
-      if (data is Map) return data['url'] as String?;
+      if (data is Map) {
+        return (data['url'] ?? data['play_url'] ?? data['mv_url'] ?? data['hd_url'] ?? data['h264']) as String?;
+      }
       return null;
     });
   }
@@ -295,8 +297,8 @@ class MusicService {
       {int limit = 30, int offset = 0}) async {
     final res = await _oneShotGet('/search', params: {
       'keywords': keyword,
-      'limit': limit,
-      'offset': offset,
+      'page': (offset ~/ limit) + 1,
+      'pagesize': limit,
       'type': type,
     });
     final data = res['data'];

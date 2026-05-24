@@ -143,8 +143,8 @@ class _NGSKGAppState extends State<NGSKGApp> {
         return Stack(
           children: [
             child ?? const SizedBox.shrink(),
-            const Positioned(
-              left: 0, right: 0, bottom: 0,
+            Positioned(
+              left: 0, right: 0, bottom: kBottomNavigationBarHeight,
               child: _PlayerBarBottom(),
             ),
             const _ContinuePlayOverlay(),

@@ -111,15 +111,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadCardSongs() async {
+    final futures = <Future<void>>[];
     for (int id = 1; id <= 6; id++) {
-      try {
-        final data = await _musicService.getCardSongs(id);
-        if (mounted) {
+      futures.add((() async {
+        try {
+          final data = await _musicService.getCardSongs(id);
           _cardNames[id] = data.recDesc.isNotEmpty ? data.recDesc : _cardTitles[id] ?? '';
           _cardSongs[id] = data.songs;
-        }
-      } catch (e, s) { Log.e('home_screen', 'error', e, s); }
+        } catch (e, s) { Log.e('home_screen', 'error', e, s); }
+      })());
     }
+    await Future.wait(futures);
+    if (mounted) setState(() {});
   }
 
   Future<void> _checkLatestListen() async {

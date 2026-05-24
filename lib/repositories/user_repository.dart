@@ -66,7 +66,10 @@ class UserRepository extends BaseRepository {
         await get('/user/cloud', params: {'page': page, 'pagesize': pageSize});
     final data = res['data'];
     if (data is Map) {
-      final list = data['list'] as List<dynamic>?;
+      final list = data['list'] as List<dynamic>?
+          ?? data['songs'] as List<dynamic>?
+          ?? data['data'] as List<dynamic>?
+          ?? data['items'] as List<dynamic>?;
       if (list != null) return list.cast<Map<String, dynamic>>();
     }
     if (data is List) return data.cast<Map<String, dynamic>>();
