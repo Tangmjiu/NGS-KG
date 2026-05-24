@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
@@ -20,24 +21,54 @@ final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Log.init();
-  _initDevice();
-  _initNotifications();
-  CacheService.instance.init();
-  final musicService = MusicService();
-  final authService = AuthService();
-  runApp(
-    MultiProvider(
-      providers: [
-        Provider<MusicService>.value(value: musicService),
-        Provider<AuthService>.value(value: authService),
-        ChangeNotifierProvider(create: (_) => AuthProvider(authService)),
-        ChangeNotifierProvider(create: (_) => PlayerProvider(musicService)),
-        ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
-        ChangeNotifierProvider(create: (_) => LikedSongsProvider(musicService)),
-      ],
-      child: const NGSKGApp(),
-    ),
-  );
+
+  FlutterError.onError = (details) {
+    Log.e('FLUTTER', details.exceptionAsString(), details.exception, details.stack);
+    FlutterError.dumpErrorToConsole(details);
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    Log.e('PLATFORM', error.toString(), error, stack);
+    return true;
+  };
+
+  ErrorWidget.builder = (details) {
+    Log.e('RENDER', details.exceptionAsString(), details.exception, details.stack);
+    return Material(
+      child: Container(
+        color: const Color(0xFF1A1C19),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text('渲染异常', style: TextStyle(color: Colors.white70, fontSize: 16)),
+          ),
+        ),
+      ),
+    );
+  };
+
+  runZonedGuarded(() {
+    _initDevice();
+    _initNotifications();
+    CacheService.instance.init();
+    final musicService = MusicService();
+    final authService = AuthService();
+    runApp(
+      MultiProvider(
+        providers: [
+          Provider<MusicService>.value(value: musicService),
+          Provider<AuthService>.value(value: authService),
+          ChangeNotifierProvider(create: (_) => AuthProvider(authService)),
+          ChangeNotifierProvider(create: (_) => PlayerProvider(musicService)),
+          ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
+          ChangeNotifierProvider(create: (_) => LikedSongsProvider(musicService)),
+        ],
+        child: const NGSKGApp(),
+      ),
+    );
+  }, (error, stack) {
+    Log.e('ZONE', 'Unhandled async error', error, stack);
+  });
 }
 
 Future<void> _initDevice() async {

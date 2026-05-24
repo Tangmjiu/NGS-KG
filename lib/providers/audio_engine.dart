@@ -83,12 +83,13 @@ class AudioEngine {
     }
     try {
       if (song.isLocal && song.filePath != null) {
-        if (song.filePath!.startsWith('http')) {
-          await _player.setUrl(song.filePath!);
+        final fp = song.filePath!;
+        if (fp.startsWith('http')) {
+          await _player.setUrl(fp);
           if (version != _playRequestVersion) return;
           await _player.play();
         } else {
-          await _player.setFilePath(song.filePath!);
+          await _player.setFilePath(fp);
           if (version != _playRequestVersion) return;
           await _player.play();
         }
@@ -136,8 +137,9 @@ class AudioEngine {
         _playAttempts = 0;
         await play(currentSong);
       } else {
-        final isStale = _lastUrlFetchTime != null &&
-            DateTime.now().difference(_lastUrlFetchTime!) > _urlStaleDuration;
+        final lastFetch = _lastUrlFetchTime;
+        final isStale = lastFetch != null &&
+            DateTime.now().difference(lastFetch) > _urlStaleDuration;
         if (isStale && !currentSong.isLocal) {
           await _refreshUrlAndPlay(currentSong);
         } else {

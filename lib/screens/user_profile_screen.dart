@@ -45,7 +45,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   child: CircleAvatar(
                     radius: 48,
                     backgroundImage: user?.avatarUrl != null
-                        ? NetworkImage(user!.avatarUrl!)
+                        ? NetworkImage(user!.avatarUrl!) // guarded by avatarUrl != null
                         : null,
                     child: user?.avatarUrl == null
                         ? const Icon(Icons.person, size: 48)
@@ -57,12 +57,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   child: Text(user?.nickname ?? '未知',
                       style: Theme.of(context).textTheme.headlineSmall),
                 ),
-                if (user?.userId != null)
+                if (user != null && user.userId != null)
                   Center(
-                    child: Text('ID: ${user!.userId}',
+                    child: Text('ID: ${user.userId}',
                         style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                   ),
-                if (user?.isVipActive == true)
+                if (user != null && user.isVipActive)
                   Center(
                     child: Container(
                       margin: const EdgeInsets.only(top: 8),
@@ -71,7 +71,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         color: Theme.of(context).colorScheme.primary,
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text(user!.vipLevelDisplay,
+                      child: Text(user.vipLevelDisplay,
                           style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 13)),
                     ),
                   ),

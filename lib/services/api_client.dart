@@ -114,14 +114,28 @@ class ApiClient {
   }
 
   Future<Response> getCached(String path,
-      {Map<String, dynamic>? params, Duration ttl = const Duration(hours: 2)}) {
-    return _dio.get(path,
-        queryParameters: params,
-        options: Options(extra: {'cache_ttl': ttl}));
+      {Map<String, dynamic>? params, Duration ttl = const Duration(hours: 2)}) async {
+    try {
+      return await _dio.get(path,
+          queryParameters: params,
+          options: Options(extra: {'cache_ttl': ttl}));
+    } on DioException catch (e) {
+      if (_isNetworkError(e)) {
+        throw NetworkErrorException.fromDio(e);
+      }
+      rethrow;
+    }
   }
 
-  Future<Response> post(String path, {dynamic data}) {
-    return _dio.post(path, data: data);
+  Future<Response> post(String path, {dynamic data}) async {
+    try {
+      return await _dio.post(path, data: data);
+    } on DioException catch (e) {
+      if (_isNetworkError(e)) {
+        throw NetworkErrorException.fromDio(e);
+      }
+      rethrow;
+    }
   }
 
   Future<String> getCookieString() async {

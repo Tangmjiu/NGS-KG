@@ -63,7 +63,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: song.albumCoverUrl != null
-                            ? CachedNetworkImage(imageUrl: song.albumCoverUrl!, width: 120, height: 120, fit: BoxFit.cover)
+                            ? CachedNetworkImage(imageUrl: song.albumCoverUrl!, width: 120, height: 120, fit: BoxFit.cover,
+                                placeholder: (_, __) => Container(width: 120, height: 120, color: cs.surfaceContainerHighest),
+                                errorWidget: (_, __, ___) => Container(width: 120, height: 120, color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
+                              )
                             : Container(width: 120, height: 120, color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
                       ),
                       const SizedBox(height: 4),
@@ -192,9 +195,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   SliverToBoxAdapter(
                     child: SizedBox(
                       width: contentWidth,
-                      child: ListView(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (_showContinueBanner && _latestListen != null)
                             Container(

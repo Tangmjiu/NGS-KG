@@ -54,10 +54,10 @@ class _CommentsScreenState extends State<CommentsScreen> {
                     return ListTile(
                       leading: CircleAvatar(
                         radius: 18,
-                        backgroundImage: c.userAvatar != null
+                        backgroundImage: c.userAvatar != null && c.userAvatar!.isNotEmpty
                             ? NetworkImage(c.userAvatar!)
                             : null,
-                        child: c.userAvatar == null
+                        child: (c.userAvatar == null || c.userAvatar!.isEmpty)
                             ? const Icon(Icons.person, size: 18)
                             : null,
                       ),

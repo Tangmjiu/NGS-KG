@@ -31,6 +31,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         setState(() {
           _songs = raw
               .map((e) => Song.fromTrackJson(e))
+              .whereType<Song>()
               .toList();
           _isLoading = false;
         });

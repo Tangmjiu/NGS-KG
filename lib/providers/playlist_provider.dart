@@ -33,7 +33,7 @@ class PlaylistProvider extends ChangeNotifier {
     notifyListeners();
     try {
       _currentPlaylist = await _musicService.getPlaylistDetail(id);
-      if (_currentPlaylist!.songs.isEmpty) {
+      if (_currentPlaylist?.songs.isEmpty ?? true) {
         await _fetchTracksFallback(id);
       }
     } catch (e) {

@@ -39,7 +39,8 @@ class _MvPlayerScreenState extends State<MvPlayerScreen> {
   }
 
   Future<void> _loadMvUrl() async {
-    if (widget.hash == null) {
+    final hash = widget.hash;
+    if (hash == null) {
       setState(() {
         _error = '无法获取MV';
         _isLoading = false;
@@ -47,7 +48,7 @@ class _MvPlayerScreenState extends State<MvPlayerScreen> {
       return;
     }
     try {
-      final url = await _musicService.getMvUrl(widget.hash!);
+      final url = await _musicService.getMvUrl(hash);
       if (!mounted) return;
       if (url == null || url.isEmpty) {
         setState(() {
@@ -59,8 +60,10 @@ class _MvPlayerScreenState extends State<MvPlayerScreen> {
       _videoController = VideoPlayerController.networkUrl(Uri.parse(url));
       await _videoController!.initialize();
       if (!mounted) return;
+      final vidCtrl = _videoController;
+      if (vidCtrl == null) return;
       _chewieController = ChewieController(
-        videoPlayerController: _videoController!,
+        videoPlayerController: vidCtrl,
         autoPlay: true,
         looping: false,
         allowFullScreen: true,
@@ -97,7 +100,7 @@ class _MvPlayerScreenState extends State<MvPlayerScreen> {
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
           : _error != null
               ? Center(child: Text(_error!, style: const TextStyle(color: Colors.white)))
-              : _chewieController != null
+              : _chewieController != null && _videoController != null
                   ? Center(
                       child: AspectRatio(
                         aspectRatio: _videoController!.value.aspectRatio,
