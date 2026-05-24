@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/player_provider.dart';
@@ -161,87 +162,151 @@ class _PlayerBarBottom extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<PlayerProvider>(
       builder: (_, player, __) {
-        if (player.currentSong == null || player.isPlayerScreenVisible) return const SizedBox.shrink();
+        final song = player.currentSong;
+        if (song == null || player.isPlayerScreenVisible) return const SizedBox.shrink();
+        final cs = Theme.of(context).colorScheme;
+        final tt = Theme.of(context).textTheme;
+
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (player.progress > 0)
-              LinearProgressIndicator(
-                value: player.progress,
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                color: Theme.of(context).colorScheme.primary,
-                minHeight: 1.5,
+            // 进度条
+            SizedBox(
+              height: 2,
+              child: ClipRRect(
+                child: LinearProgressIndicator(
+                  value: player.progress.isFinite ? player.progress : 0.0,
+                  backgroundColor: cs.surfaceContainerHighest,
+                  color: cs.primary,
+                  minHeight: 2,
+                ),
               ),
+            ),
+            // 主体
             Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainer,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
-                ),
-                padding: EdgeInsets.only(
-                  left: 12, right: 4, top: 6,
-                  bottom: MediaQuery.of(context).padding.bottom + 4,
-                ),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainer,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 6,
+                    offset: const Offset(0, -1),
+                  ),
+                ],
+              ),
+              padding: EdgeInsets.only(
+                left: 8, right: 12, top: 6,
+                bottom: MediaQuery.of(context).padding.bottom + 4,
+              ),
+              child: GestureDetector(
+                onTap: () {
+                  player.setPlayerScreenVisible(true);
+                  navKey.currentState
+                      ?.push(MaterialPageRoute(builder: (_) => const PlayerScreen()))
+                      .then((_) => player.setPlayerScreenVisible(false));
+                },
                 child: Row(
                   children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          player.setPlayerScreenVisible(true);
-                          navKey.currentState?.push(
-                            MaterialPageRoute(builder: (_) => const PlayerScreen()),
-                          ).then((_) => player.setPlayerScreenVisible(false));
-                        },
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _MarqueeMini(
-                              text: player.currentSong!.name,
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-                            ),
-                            Text(player.currentSong!.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                          ],
-                        ),
+                    // 专辑封面
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: SizedBox(
+                        width: 44, height: 44,
+                        child: song.albumCoverUrl != null && song.albumCoverUrl!.isNotEmpty
+                            ? CachedNetworkImage(
+                                imageUrl: song.albumCoverUrl!,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => _fallbackCover(cs),
+                                errorWidget: (_, __, ___) => _fallbackCover(cs),
+                              )
+                            : _fallbackCover(cs),
                       ),
                     ),
+                    const SizedBox(width: 12),
+                    // 歌名 + 歌手
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+                        ],
+                      ),
+                    ),
+                    // 播放控制
                     if (player.isLoading)
-                      const Padding(padding: EdgeInsets.all(8),
-                        child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 4),
+                        child: SizedBox(width: 28, height: 28,
+                            child: CircularProgressIndicator(strokeWidth: 2.5)),
+                      )
                     else ...[
-                      IconButton(
-                        icon: const Icon(Icons.skip_previous, size: 20),
-                        onPressed: player.playPrevious,
-                        tooltip: '上一首',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 44),
+                      const SizedBox(width: 4),
+                      _MiniBtn(
+                        icon: Icons.skip_previous,
+                        size: 22,
+                        onTap: player.playPrevious,
                       ),
-                      IconButton(
-                        icon: Icon(player.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled, size: 28),
-                        onPressed: player.togglePlayPause,
-                        tooltip: player.isPlaying ? '暂停' : '播放',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 44),
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 40, height: 40,
+                        decoration: BoxDecoration(
+                          color: cs.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: Icon(
+                            player.isPlaying ? Icons.pause : Icons.play_arrow,
+                            color: cs.onPrimary, size: 22,
+                          ),
+                          onPressed: player.togglePlayPause,
+                          padding: EdgeInsets.zero,
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.skip_next, size: 20),
-                        onPressed: player.playNext,
-                        tooltip: '下一首',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 44),
+                      const SizedBox(width: 8),
+                      _MiniBtn(
+                        icon: Icons.skip_next,
+                        size: 22,
+                        onTap: player.playNext,
                       ),
                     ],
                   ],
                 ),
               ),
+            ),
           ],
         );
       },
+    );
+  }
+
+  static Widget _fallbackCover(ColorScheme cs) => Container(
+    width: 44, height: 44,
+    color: cs.surfaceContainerHighest,
+    child: Icon(Icons.music_note, size: 22, color: cs.onSurfaceVariant),
+  );
+}
+
+class _MiniBtn extends StatelessWidget {
+  final IconData icon;
+  final double size;
+  final VoidCallback? onTap;
+  const _MiniBtn({required this.icon, this.size = 22, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 36, height: 36,
+      child: IconButton(
+        icon: Icon(icon, size: size),
+        onPressed: onTap,
+        padding: EdgeInsets.zero,
+        splashRadius: 18,
+      ),
     );
   }
 }
@@ -266,11 +331,11 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
       final data = info['data'] as Map<String, dynamic>? ?? info;
       final songs = data['songs'] as List<dynamic>? ?? [];
       if (songs.isNotEmpty && songs[0] is Map<String, dynamic>) {
-        final song = songs[0] as Map<String, dynamic>;
+        final s = songs[0] as Map<String, dynamic>;
         if (!mounted) return;
         showDialog(context: context, builder: (_) => AlertDialog(
           title: const Text('继续播放'),
-          content: Text('检测到在其他设备播放了\n${song['name'] ?? ''}，是否继续？'),
+          content: Text('检测到在其他设备播放了\n${s['name'] ?? ''}，是否继续？'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
             FilledButton(onPressed: () => Navigator.pop(context), child: const Text('继续')),
@@ -282,82 +347,4 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
 
   @override
   Widget build(BuildContext context) => const SizedBox.shrink();
-}
-
-class _MarqueeMini extends StatefulWidget {
-  final String text;
-  final TextStyle? style;
-  const _MarqueeMini({required this.text, this.style});
-
-  @override
-  State<_MarqueeMini> createState() => _MarqueeMiniState();
-}
-
-class _MarqueeMiniState extends State<_MarqueeMini>
-    with SingleTickerProviderStateMixin {
-  final ScrollController _scrollController = ScrollController();
-  AnimationController? _animController;
-  Timer? _pauseTimer;
-
-  @override
-  void didUpdateWidget(_MarqueeMini old) {
-    super.didUpdateWidget(old);
-    if (old.text != widget.text) _restart();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startIfNeeded());
-  }
-
-  void _restart() {
-    _pauseTimer?.cancel();
-    _animController?.stop();
-    if (_scrollController.hasClients) _scrollController.jumpTo(0);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startIfNeeded());
-  }
-
-  void _startIfNeeded() {
-    if (!mounted || !_scrollController.hasClients) return;
-    final maxScroll = _scrollController.position.maxScrollExtent;
-    if (maxScroll <= 0) return;
-    final duration = Duration(milliseconds: (maxScroll * 30).toInt());
-    _animController = AnimationController(
-      vsync: this,
-      duration: duration,
-    );
-    _animController!.addListener(() {
-      if (!_scrollController.hasClients) return;
-      _scrollController.jumpTo(_animController!.value * maxScroll);
-    });
-    _animController!.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _pauseTimer = Timer(const Duration(seconds: 2), () {
-          if (!mounted) return;
-          _scrollController.jumpTo(0);
-          _startIfNeeded();
-        });
-      }
-    });
-    _animController!.forward();
-  }
-
-  @override
-  void dispose() {
-    _pauseTimer?.cancel();
-    _animController?.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      controller: _scrollController,
-      scrollDirection: Axis.horizontal,
-      physics: const NeverScrollableScrollPhysics(),
-      child: Text(widget.text, style: widget.style, maxLines: 1),
-    );
-  }
 }
