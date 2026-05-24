@@ -29,6 +29,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   bool _lyricLoading = false;
   bool _lyricAutoScroll = true;
   String? _lastLoadedHash;
+  bool _songChangeScheduled = false;
 
   late final AnimationController _rotationController;
 
@@ -58,17 +59,22 @@ class _PlayerScreenState extends State<PlayerScreen>
         }
         final song = player.currentSong!;
 
-        if (song.hash != null && song.hash != _lastLoadedHash) {
+        if (song.hash != null && song.hash != _lastLoadedHash && !_songChangeScheduled) {
+          _songChangeScheduled = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
+            _songChangeScheduled = false;
+            if (!mounted) return;
             _resetForNewSong(song.hash!, songName: song.name);
           });
         }
 
-        if (_lyrics.isNotEmpty && player.position.inMilliseconds > 0) {
-          _updateCurrentLine(player.position);
-        }
-
-        _scheduleRotationSync(player.isPlaying);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (_lyrics.isNotEmpty && player.position.inMilliseconds > 0) {
+            _updateCurrentLine(player.position);
+          }
+          _scheduleRotationSync(player.isPlaying);
+        });
 
         return Scaffold(
           body: Stack(

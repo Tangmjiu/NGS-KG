@@ -195,22 +195,23 @@ class PlaybackControls extends StatelessWidget {
               return const Padding(
                   padding: EdgeInsets.all(24), child: Text('暂无歌单'));
             }
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text('收藏到歌单',
-                      style: Theme.of(context).textTheme.titleSmall),
-                ),
-                Divider(
-                    height: 1,
-                    color: Theme.of(context).colorScheme.outlineVariant),
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: playlists.length,
-                    itemBuilder: (_, i) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text('收藏到歌单',
+                        style: Theme.of(context).textTheme.titleSmall),
+                  ),
+                  Divider(
+                      height: 1,
+                      color: Theme.of(context).colorScheme.outlineVariant),
+                  SizedBox(
+                    height: (playlists.length * 56.0).clamp(80.0, 320.0),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: playlists.length,
+                      itemBuilder: (_, i) {
                       final pl = playlists[i];
                       return ListTile(
                         leading: const Icon(Icons.playlist_play),

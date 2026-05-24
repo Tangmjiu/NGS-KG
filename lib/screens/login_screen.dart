@@ -445,7 +445,11 @@ class _QrLoginState extends State<_QrLogin> {
   }
 
   Widget _buildQrImage() {
-    final b64 = _qrUrl!;
+    final qrUrl = _qrUrl;
+    if (qrUrl == null) {
+      return Icon(Icons.qr_code, size: 100, color: Theme.of(context).colorScheme.onSurface);
+    }
+    final b64 = qrUrl;
     if (b64.startsWith('data:image')) {
       final data = b64.split(',')[1];
       try {

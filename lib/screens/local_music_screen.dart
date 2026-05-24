@@ -64,14 +64,14 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
     final song = Song(
       id: localSong.filePath.hashCode,
       name: localSong.displayName,
-      artists: localSong.artist != null ? [localSong.artist!] : ['本地音乐'],
+      artists: [localSong.artist ?? '本地音乐'],
       albumName: localSong.album,
       filePath: localSong.filePath,
     );
     final playlist = _songs.map((s) => Song(
       id: s.filePath.hashCode,
       name: s.displayName,
-      artists: s.artist != null ? [s.artist!] : ['本地音乐'],
+      artists: [s.artist ?? '本地音乐'],
       albumName: s.album,
       filePath: s.filePath,
     )).toList();

@@ -117,34 +117,38 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
 
   void _onComplete() {
     if (!_engine.isCompleting.value) return;
+    final current = _queue.currentSong;
+    if (current == null) return;
     switch (_queue.playMode) {
       case PlayMode.repeatOne:
         _engine.isCompleting.value = false;
         _engine.seekAndPlay(Duration.zero);
         break;
       case PlayMode.shuffle:
+        final idx = _queue.nextIndex();
+        if (idx == null) return;
         _engine.resetForNewSong();
-        _queue.playIndex(_queue.nextIndex() ?? 0);
-        _engine.play(_queue.currentSong!, version: _engine.currentVersion);
+        _queue.playIndex(idx);
+        _engine.play(current, version: _engine.currentVersion);
         break;
       case PlayMode.sequential:
         if (_queue.currentIndex + 1 < _queue.playlist.length) {
           _engine.resetForNewSong();
           _queue.playIndex(_queue.currentIndex + 1);
-          _engine.play(_queue.currentSong!, version: _engine.currentVersion);
+          _engine.play(_queue.currentSong ?? current, version: _engine.currentVersion);
         } else if (_queue.playlistEndProvider != null) {
           _loadMoreAndContinue();
         } else {
           _engine.resetForNewSong();
           _queue.playIndex(0);
-          _engine.play(_queue.currentSong!, version: _engine.currentVersion);
+          _engine.play(_queue.currentSong ?? current, version: _engine.currentVersion);
         }
         break;
       case PlayMode.radio:
         if (_queue.currentIndex + 1 < _queue.playlist.length) {
           _engine.resetForNewSong();
           _queue.playIndex(_queue.currentIndex + 1);
-          _engine.play(_queue.currentSong!, version: _engine.currentVersion);
+          _engine.play(_queue.currentSong ?? current, version: _engine.currentVersion);
         } else {
           _loadMoreAndContinue();
         }
@@ -164,8 +168,11 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
         _queue.setLoadingMore(false);
         _engine.resetForNewSong();
         _queue.playIndex(_queue.currentIndex + 1);
-        _engine.play(_queue.currentSong!, version: _engine.currentVersion);
-        return;
+        final next = _queue.currentSong;
+        if (next != null) {
+          _engine.play(next, version: _engine.currentVersion);
+          return;
+        }
       }
     } catch (e, s) { Log.e('player_provider', 'loadMore error', e, s); }
     _queue.setLoadingMore(false);
@@ -178,10 +185,12 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   Future<void> playIndex(int index) async {
     if (index < 0 || index >= _queue.playlist.length) return;
     _queue.playIndex(index);
+    final current = _queue.currentSong;
+    if (current == null) return;
     _engine.resetForNewSong();
     notifyListeners();
     final version = _engine.currentVersion;
-    await _engine.play(_queue.currentSong!, version: version);
+    await _engine.play(current, version: version);
     _updateNotification();
     notifyListeners();
   }
@@ -200,16 +209,19 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     } else {
       _queue.setPlaylist([song]);
     }
+    final current = _queue.currentSong;
+    if (current == null) return;
     _engine.resetForNewSong();
     final version = _engine.currentVersion;
     notifyListeners();
-    await _engine.play(_queue.currentSong!, version: version);
+    await _engine.play(current, version: version);
     _updateNotification();
     notifyListeners();
   }
 
   Future<void> togglePlayPause() async {
-    if (_queue.currentSong == null) return;
+    final song = _queue.currentSong;
+    if (song == null) return;
     if (_isPlaying) {
       await _engine.pause();
       _isPlaying = false;
@@ -218,11 +230,11 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
         _engine.resetForNewSong();
         final version = _engine.currentVersion;
         notifyListeners();
-        await _engine.play(_queue.currentSong!, version: version);
+        await _engine.play(song, version: version);
       } else {
         _engine.clearError();
         _isLoading = false;
-        await _engine.togglePlayPause(_queue.currentSong);
+        await _engine.togglePlayPause(song);
       }
     }
     notifyListeners();

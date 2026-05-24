@@ -54,7 +54,8 @@ class AppRoutes {
       case login:
         return MaterialPageRoute(builder: (_) => const LoginScreen());
       case playlistDetail:
-        final args = settings.arguments as Map<String, dynamic>;
+        final args = settings.arguments;
+        if (args is! Map<String, dynamic>) return _fallback();
         return MaterialPageRoute(
           builder: (_) => PlaylistDetailScreen(
             gcId: args['gcId'] as String?,
@@ -62,7 +63,8 @@ class AppRoutes {
           ),
         );
       case playlistCategory:
-        final args = settings.arguments as Map<String, dynamic>;
+        final args = settings.arguments;
+        if (args is! Map<String, dynamic>) return _fallback();
         return MaterialPageRoute(
           builder: (_) => PlaylistCategoryScreen(
             categoryId: args['id'] as int,
@@ -74,7 +76,8 @@ class AppRoutes {
       case search:
         return MaterialPageRoute(builder: (_) => const SearchScreen());
       case rankDetail:
-        final args = settings.arguments as Map<String, dynamic>;
+        final args = settings.arguments;
+        if (args is! Map<String, dynamic>) return _fallback();
         return MaterialPageRoute(
           builder: (_) => RankDetailScreen(
             rankId: args['id'] as int,
@@ -84,7 +87,8 @@ class AppRoutes {
       case artistList:
         return MaterialPageRoute(builder: (_) => const ArtistListScreen());
       case artistDetail:
-        final args = settings.arguments as Map<String, dynamic>;
+        final args = settings.arguments;
+        if (args is! Map<String, dynamic>) return _fallback();
         return MaterialPageRoute(
           builder: (_) => ArtistDetailScreen(
             artistId: args['id'] as int,
@@ -92,7 +96,8 @@ class AppRoutes {
           ),
         );
       case comments:
-        final args = settings.arguments as Map<String, dynamic>;
+        final args = settings.arguments;
+        if (args is! Map<String, dynamic>) return _fallback();
         return MaterialPageRoute(
           builder: (_) => CommentsScreen(
             type: args['type'] as String? ?? 'music',
@@ -122,7 +127,8 @@ class AppRoutes {
       case artistFollowedNews:
         return MaterialPageRoute(builder: (_) => const ArtistFollowedNewsScreen());
       case albumDetail:
-        final args = settings.arguments as Map<String, dynamic>;
+        final args = settings.arguments;
+        if (args is! Map<String, dynamic>) return _fallback();
         return MaterialPageRoute(
           builder: (_) => AlbumDetailScreen(
             albumId: args['id'] as int,
@@ -130,7 +136,8 @@ class AppRoutes {
           ),
         );
       case mv:
-        final args = settings.arguments as Map<String, dynamic>;
+        final args = settings.arguments;
+        if (args is! Map<String, dynamic>) return _fallback();
         return MaterialPageRoute(
           builder: (_) => MvPlayerScreen(
             hash: args['hash'] as String?,
@@ -138,7 +145,11 @@ class AppRoutes {
           ),
         );
       default:
-        return MaterialPageRoute(builder: (_) => const HomeScreen());
+        return _fallback();
     }
+  }
+
+  static Route<dynamic> _fallback() {
+    return MaterialPageRoute(builder: (_) => const HomeScreen());
   }
 }

@@ -30,8 +30,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _loadPlaylists() {
     final auth = context.read<AuthProvider>();
-    if (auth.isLoggedIn && auth.user?.userId != null) {
-      context.read<PlaylistProvider>().fetchUserPlaylist(auth.user!.userId);
+    final uid = auth.user?.userId;
+    if (auth.isLoggedIn && uid != null) {
+      context.read<PlaylistProvider>().fetchUserPlaylist(uid);
     }
   }
 

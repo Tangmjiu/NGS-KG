@@ -234,7 +234,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   ? Stack(
                       fit: StackFit.expand,
                       children: [
-                        CachedNetworkImage(imageUrl: imgUrl, fit: BoxFit.cover),
+                        CachedNetworkImage(imageUrl: imgUrl, fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(color: cs.surfaceContainerHighest),
+                          errorWidget: (_, __, ___) => Container(color: cs.surfaceContainerHighest, child: const Icon(Icons.broken_image)),
+                        ),
                         Container(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
@@ -476,26 +479,29 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: song.albumCoverUrl != null
-                        ? CachedNetworkImage(
-                            imageUrl: song.albumCoverUrl!, width: 120, height: 120, fit: BoxFit.cover)
-                        : Container(width: 120, height: 120,
-                            color: cs.surfaceContainerHighest,
-                            child: Icon(Icons.music_note, color: cs.onSurfaceVariant)),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 2),
-                  Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
+                             ? CachedNetworkImage(
+                                 imageUrl: song.albumCoverUrl!, width: 120, height: 120, fit: BoxFit.cover,
+                                 placeholder: (_, __) => Container(width: 120, height: 120, color: cs.surfaceContainerHighest),
+                                 errorWidget: (_, __, ___) => Container(width: 120, height: 120, color: cs.surfaceContainerHighest, child: Icon(Icons.music_note, color: cs.onSurfaceVariant)),
+                               )
+                             : Container(width: 120, height: 120,
+                                 color: cs.surfaceContainerHighest,
+                                 child: Icon(Icons.music_note, color: cs.onSurfaceVariant)),
+                   ),
+                   const SizedBox(height: 6),
+                   Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                   const SizedBox(height: 2),
+                   Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis,
+                       style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                 ],
+               ),
+             ),
+           );
+         },
+       ),
+     );
+   }
 
   // ────────────── Top albums row ──────────────
 
@@ -520,11 +526,14 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: album.coverUrl != null
-                        ? CachedNetworkImage(
-                            imageUrl: album.coverUrl!, width: 140, height: 140, fit: BoxFit.cover)
-                        : Container(width: 140, height: 140,
-                            color: cs.surfaceContainerHighest,
-                            child: Icon(Icons.album, color: cs.onSurfaceVariant)),
+                             ? CachedNetworkImage(
+                                 imageUrl: album.coverUrl!, width: 140, height: 140, fit: BoxFit.cover,
+                                 placeholder: (_, __) => Container(width: 140, height: 140, color: cs.surfaceContainerHighest),
+                                 errorWidget: (_, __, ___) => Container(width: 140, height: 140, color: cs.surfaceContainerHighest, child: Icon(Icons.album, color: cs.onSurfaceVariant)),
+                               )
+                             : Container(width: 140, height: 140,
+                                 color: cs.surfaceContainerHighest,
+                                 child: Icon(Icons.album, color: cs.onSurfaceVariant)),
                   ),
                   const SizedBox(height: 6),
                   Text(album.name, maxLines: 2, overflow: TextOverflow.ellipsis,
@@ -570,8 +579,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     child: scene.iconUrl != null
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(16),
-                            child: CachedNetworkImage(
-                                imageUrl: scene.iconUrl!, width: 64, height: 64, fit: BoxFit.cover),
+                                child: CachedNetworkImage(
+                                    imageUrl: scene.iconUrl!, width: 64, height: 64, fit: BoxFit.cover,
+                                    placeholder: (_, __) => Container(width: 64, height: 64, color: cs.primaryContainer.withValues(alpha: 0.4)),
+                                    errorWidget: (_, __, ___) => Icon(Icons.explore, color: cs.primary, size: 28),
+                                  ),
                           )
                         : Icon(Icons.explore, color: cs.primary, size: 28),
                   ),
@@ -613,11 +625,14 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               children: [
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                  child: imgUrl.isNotEmpty
-                      ? CachedNetworkImage(imageUrl: imgUrl, width: 260, height: 112, fit: BoxFit.cover)
-                      : Container(width: 260, height: 112,
-                          color: cs.surfaceContainerHighest,
-                          child: Center(child: Text(name, style: TextStyle(color: cs.onSurfaceVariant)))),
+                    child: imgUrl.isNotEmpty
+                       ? CachedNetworkImage(imageUrl: imgUrl, width: 260, height: 112, fit: BoxFit.cover,
+                           placeholder: (_, __) => Container(width: 260, height: 112, color: cs.surfaceContainerHighest),
+                           errorWidget: (_, __, ___) => Container(width: 260, height: 112, color: cs.surfaceContainerHighest, child: Center(child: Text(name, style: TextStyle(color: cs.onSurfaceVariant)))),
+                         )
+                       : Container(width: 260, height: 112,
+                           color: cs.surfaceContainerHighest,
+                           child: Center(child: Text(name, style: TextStyle(color: cs.onSurfaceVariant)))),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -654,7 +669,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: img.isNotEmpty
-                        ? CachedNetworkImage(imageUrl: img, width: 64, height: 64, fit: BoxFit.cover)
+                        ? CachedNetworkImage(imageUrl: img, width: 64, height: 64, fit: BoxFit.cover,
+                            errorWidget: (_, __, ___) => Container(width: 64, height: 64, color: cs.surfaceContainerHighest, child: const Icon(Icons.radio)),
+                          )
                         : Container(width: 64, height: 64, color: cs.surfaceContainerHighest, child: const Icon(Icons.radio)),
                   ),
                   const SizedBox(height: 4),
@@ -771,7 +788,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     leading: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: r.coverUrl != null
-                          ? CachedNetworkImage(imageUrl: r.coverUrl!, width: 48, height: 48, fit: BoxFit.cover)
+                          ? CachedNetworkImage(imageUrl: r.coverUrl!, width: 48, height: 48, fit: BoxFit.cover,
+                              placeholder: (_, __) => Container(width: 48, height: 48, color: Theme.of(context).colorScheme.surfaceContainerHighest),
+                              errorWidget: (_, __, ___) => Container(width: 48, height: 48, color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.music_note)),
+                            )
                           : Container(width: 48, height: 48, color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.music_note)),
                     ),
                     title: Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis),

@@ -69,7 +69,9 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                       fit: StackFit.expand,
                       children: [
                         CachedNetworkImage(imageUrl: img.replaceAll('{size}', '500'),
-                            fit: BoxFit.cover),
+                            fit: BoxFit.cover,
+                            errorWidget: (_, __, ___) => Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
+                        ),
                         Container(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
