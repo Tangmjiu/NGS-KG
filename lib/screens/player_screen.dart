@@ -29,7 +29,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   bool _lyricLoading = false;
   bool _lyricAutoScroll = true;
   String? _lastLoadedHash;
-  bool _songChangeScheduled = false;
+  bool _rotationPlaying = false;
 
   late final AnimationController _rotationController;
 
@@ -40,10 +40,35 @@ class _PlayerScreenState extends State<PlayerScreen>
       duration: const Duration(seconds: 30),
       vsync: this,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _attachPlayerListener());
+  }
+
+  void _attachPlayerListener() {
+    if (!mounted) return;
+    final player = context.read<PlayerProvider>();
+    player.addListener(_onPlayerTick);
+  }
+
+  void _onPlayerTick() {
+    if (!mounted) return;
+    final player = context.read<PlayerProvider>();
+    final song = player.currentSong;
+    if (song == null) return;
+
+    // 歌词滚动
+    if (_lyrics.isNotEmpty) {
+      _updateCurrentLine(player.position);
+    }
+    // 封面旋转
+    _syncRotation(player.isPlaying);
   }
 
   @override
   void dispose() {
+    try {
+      // ignore: invalid_use_of_protected_member
+      context.read<PlayerProvider>().removeListener(_onPlayerTick);
+    } catch (_) {}
     _rotationController.dispose();
     _pageController.dispose();
     _lyricScrollController.dispose();
@@ -54,27 +79,15 @@ class _PlayerScreenState extends State<PlayerScreen>
   Widget build(BuildContext context) {
     return Consumer<PlayerProvider>(
       builder: (_, player, __) {
-        if (player.currentSong == null) {
+        final song = player.currentSong;
+        if (song == null) {
           return const Scaffold(body: Center(child: Text('暂无播放')));
         }
-        final song = player.currentSong!;
 
-        if (song.hash != null && song.hash != _lastLoadedHash && !_songChangeScheduled) {
-          _songChangeScheduled = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _songChangeScheduled = false;
-            if (!mounted) return;
-            _resetForNewSong(song.hash!, songName: song.name);
-          });
+        // 切歌检测（仅触发一次）
+        if (song.hash != null && song.hash != _lastLoadedHash) {
+          _loadLyricsForSong(song.hash!, songName: song.name);
         }
-
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          if (_lyrics.isNotEmpty && player.position.inMilliseconds > 0) {
-            _updateCurrentLine(player.position);
-          }
-          _scheduleRotationSync(player.isPlaying);
-        });
 
         return Scaffold(
           body: Stack(
@@ -122,49 +135,52 @@ class _PlayerScreenState extends State<PlayerScreen>
     );
   }
 
-  void _resumeAutoScroll() {
-    setState(() => _lyricAutoScroll = true);
-    _scrollToCurrentLine();
-  }
-
-  void _resetForNewSong(String hash, {String? songName}) {
+  void _loadLyricsForSong(String hash, {String? songName}) {
+    _lastLoadedHash = hash;
     _rotationController.reset();
     setState(() {
       _lyrics = [];
       _currentLine = 0;
       _lyricAutoScroll = true;
+      _lyricLoading = true;
     });
     _loadLyrics(hash, songName: songName);
   }
 
+  void _resumeAutoScroll() {
+    setState(() => _lyricAutoScroll = true);
+    _scrollToCurrentLine();
+  }
+
+  // ───── 背景 ─────
   Widget _buildBackground(Song song) {
     return ExcludeSemantics(
       child: Stack(
-      children: [
-        Container(color: Colors.black),
-        if (song.albumCoverUrl != null && song.albumCoverUrl!.isNotEmpty)
-          CachedNetworkImage(
-            imageUrl: song.albumCoverUrl!,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
-            errorWidget: (_, __, ___) => Container(color: Colors.black),
-          ),
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0.6),
-                Colors.black.withValues(alpha: 0.7),
-                Colors.black.withValues(alpha: 0.8),
-              ],
+        children: [
+          Container(color: Colors.black),
+          if (song.albumCoverUrl != null && song.albumCoverUrl!.isNotEmpty)
+            CachedNetworkImage(
+              imageUrl: song.albumCoverUrl!,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              errorWidget: (_, __, ___) => Container(color: Colors.black),
+            ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.6),
+                  Colors.black.withValues(alpha: 0.7),
+                  Colors.black.withValues(alpha: 0.8),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
-    ),
+        ],
+      ),
     );
   }
 
@@ -203,35 +219,30 @@ class _PlayerScreenState extends State<PlayerScreen>
     );
   }
 
-  // ───── Rotation sync ─────
-
-  bool _lastPlayingState = false;
-
-  void _scheduleRotationSync(bool isPlaying) {
-    if (isPlaying == _lastPlayingState) return;
-    _lastPlayingState = isPlaying;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (isPlaying && !_rotationController.isAnimating) {
-        _rotationController.repeat();
-      } else if (!isPlaying && _rotationController.isAnimating) {
-        _rotationController.stop();
-      }
-    });
+  // ───── 旋转同步 ─────
+  void _syncRotation(bool isPlaying) {
+    if (isPlaying == _rotationPlaying) return;
+    _rotationPlaying = isPlaying;
+    if (isPlaying) {
+      if (!_rotationController.isAnimating) _rotationController.repeat();
+    } else {
+      if (_rotationController.isAnimating) _rotationController.stop();
+    }
   }
 
-  // ───── Lyrics logic ─────
-
+  // ───── 歌词 ─────
   void _updateCurrentLine(Duration pos) {
     final ms = pos.inMilliseconds;
+    int found = _currentLine;
     for (int i = _lyrics.length - 1; i >= 0; i--) {
       if (_lyrics[i].time.inMilliseconds <= ms) {
-        if (_currentLine != i) {
-          _currentLine = i;
-          if (_lyricAutoScroll) _scrollToCurrentLine();
-        }
-        return;
+        found = i;
+        break;
       }
+    }
+    if (found != _currentLine) {
+      setState(() => _currentLine = found);
+      if (_lyricAutoScroll) _scrollToCurrentLine();
     }
   }
 
@@ -248,9 +259,6 @@ class _PlayerScreenState extends State<PlayerScreen>
   }
 
   Future<void> _loadLyrics(String hash, {String? songName}) async {
-    _lyricLoading = true;
-    _lastLoadedHash = hash;
-    if (mounted) setState(() {});
     try {
       final searchRes =
           await _musicService.searchLyricByHash(hash, keywords: songName);
@@ -266,15 +274,20 @@ class _PlayerScreenState extends State<PlayerScreen>
             String decoded;
             try {
               decoded = utf8.decode(base64Decode(rawContent));
-            } catch (e, s) { Log.e('player_screen', 'base64 error', e, s);
-              decoded = rawContent; }
+            } catch (e, s) {
+              Log.e('player_screen', 'base64 error', e, s);
+              decoded = rawContent;
+            }
             _lyrics = lv.parseLyrics(decoded);
-          } catch (e, s) { Log.e('player_screen', 'parse error', e, s); }
+          } catch (e, s) {
+            Log.e('player_screen', 'parse error', e, s);
+          }
         }
       }
-    } catch (e, s) { Log.e('player_screen', 'lyric load error', e, s); }
-    _lyricLoading = false;
-    if (mounted) setState(() {});
+    } catch (e, s) {
+      Log.e('player_screen', 'lyric load error', e, s);
+    }
+    if (mounted) setState(() => _lyricLoading = false);
   }
 }
 
