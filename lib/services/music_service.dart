@@ -76,6 +76,11 @@ class MusicService {
 
   Future<CardSection> getCardSongs(int cardId) => song.getCardSongs(cardId);
 
+  Future<List<Song>> getDailyRecommend() => song.getDailyRecommend();
+
+  Future<Map<String, dynamic>> searchComplex(String keyword) =>
+      song.searchComplex(keyword);
+
   // ─── Playlist ───
 
   Future<PlaylistDetail> getPlaylistDetail(String gcId) =>
@@ -283,12 +288,11 @@ class MusicService {
 
   // ─── 内部辅助 ───
 
+  /// 认证信息已由 ApiClient._AuthInterceptor 自动注入 Authorization 头
   Future<Map<String, dynamic>> _oneShotGet(String path,
       {Map<String, dynamic>? params}) async {
     final client = ApiClient.instance;
-    final p = Map<String, dynamic>.from(params ?? {});
-    p['cookie'] = await client.getCookieString();
-    final res = await client.get(path, params: p);
+    final res = await client.get(path, params: params);
     return res.data as Map<String, dynamic>;
   }
 

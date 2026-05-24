@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/api_client.dart';
+import '../services/device_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService;
@@ -125,6 +126,7 @@ class AuthProvider extends ChangeNotifier {
   void logout() {
     _user = null;
     ApiClient.clearAuth();
+    DeviceService.instance.clear();
     _clearSavedUser();
     notifyListeners();
   }

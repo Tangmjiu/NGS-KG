@@ -8,7 +8,7 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
-  int _notifId = 0;
+  final int _notifId = 0;
   VoidCallback? onNotificationTap;
   VoidCallback? onPrev;
   VoidCallback? onPlayPause;
@@ -82,7 +82,7 @@ class NotificationService {
   }
 
   Future<void> showMessageNotification(String title, String body) async {
-    final androidDetails = const AndroidNotificationDetails(
+    const androidDetails = AndroidNotificationDetails(
       'messages',
       '消息',
       channelDescription: '应用消息通知',
@@ -93,7 +93,7 @@ class NotificationService {
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
       title,
       body,
-      NotificationDetails(android: androidDetails),
+      const NotificationDetails(android: androidDetails),
     );
   }
 }

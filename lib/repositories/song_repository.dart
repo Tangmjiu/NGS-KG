@@ -133,4 +133,42 @@ class SongRepository extends BaseRepository {
     }
     return const CardSection(recDesc: '', songs: []);
   }
+
+  /// 每日推荐歌曲（对应 MoeKoeMusic /everyday/recommend）
+  ///
+  /// 返回 data.song_list，每项含 hash/ori_audio_name/sizable_cover/author_name/time_length
+  Future<List<Song>> getDailyRecommend() async {
+    final res = await get('/everyday/recommend');
+    final data = res['data'] as Map<String, dynamic>?;
+    if (data == null) return [];
+    final list = data['song_list'] as List<dynamic>? ?? [];
+    return list.map((e) {
+      final json = e as Map<String, dynamic>;
+      var cover = json['sizable_cover'] as String?;
+      if (cover != null) {
+        cover = cover.replaceAll('{size}', '240');
+        if (cover.startsWith('//')) cover = 'https:$cover';
+      }
+      final timelength = (json['time_length'] as num?)?.toInt() ?? 0;
+      return Song(
+        id: (json['hash'] as String?)?.hashCode ?? 0,
+        name: json['ori_audio_name'] as String? ?? '',
+        artists: [(json['author_name'] as String? ?? '')],
+        albumCoverUrl: cover,
+        duration: timelength > 1000 ? timelength ~/ 1000 : timelength,
+        hash: json['hash'] as String?,
+      );
+    }).toList();
+  }
+
+  /// 综合搜索（对应 MoeKoeMusic /search/complex）
+  ///
+  /// 一次请求返回多类型混合结果（歌曲/歌手/专辑/歌单/MV）
+  /// 返回原始 data Map 供上层按需解析
+  Future<Map<String, dynamic>> searchComplex(String keyword) async {
+    final res = await get('/search/complex', params: {'keywords': keyword});
+    final data = res['data'];
+    if (data is Map<String, dynamic>) return data;
+    return <String, dynamic>{};
+  }
 }

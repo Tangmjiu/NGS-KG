@@ -67,9 +67,9 @@ class SongMapper {
               final level = g['level'];
               final gh = g['hash'] as String?;
               if (gh != null && gh.isNotEmpty) {
-                if (level == 4) q['320'] = gh;
-                else if (level == 5) q['flac'] = gh;
-                else if (!q.containsKey('128')) q['128'] = gh;
+                if (level == 4) { q['320'] = gh; }
+                else if (level == 5) { q['flac'] = gh; }
+                else if (!q.containsKey('128')) { q['128'] = gh; }
               }
             }
           }

@@ -152,7 +152,7 @@ class Log {
       message: message,
       error: error,
       stackTrace:
-          stack != null ? stack.toString().split('\n').take(6).join('\n') : null,
+          stack?.toString().split('\n').take(6).join('\n'),
     );
     _entries.add(entry);
     if (_entries.length > _maxBufferLines) {

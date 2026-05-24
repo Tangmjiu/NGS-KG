@@ -24,6 +24,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentTab = 0;
   final MusicService _musicService = MusicService();
   List<Song> _recommended = [];
+  List<Song> _dailySongs = [];
+  bool _dailyLoading = true;
   LatestListenInfo? _latestListen;
   bool _showContinueBanner = false;
   final Map<int, List<Song>> _cardSongs = {};
@@ -83,6 +85,171 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildDailyRecommend(ColorScheme cs, TextTheme tt) {
+    final player = context.read<PlayerProvider>();
+    if (_dailyLoading) {
+      return _buildDailyShimmer(cs);
+    }
+    if (_dailySongs.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: Text('每日推荐', style: tt.titleLarge),
+        ),
+        SizedBox(
+          height: 180,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: _dailySongs.length,
+            itemBuilder: (_, i) {
+              final song = _dailySongs[i];
+              return GestureDetector(
+                onTap: () {
+                  player.playSong(song, playlist: _dailySongs.sublist(i));
+                },
+                child: Card(
+                  margin: const EdgeInsets.only(right: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                  color: cs.surfaceContainerHighest,
+                  child: SizedBox(
+                    width: 140,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                          child: song.albumCoverUrl != null
+                              ? CachedNetworkImage(
+                                  imageUrl: song.albumCoverUrl!,
+                                  width: 140,
+                                  height: 120,
+                                  fit: BoxFit.cover,
+                                  placeholder: (_, __) => Container(
+                                    width: 140, height: 120,
+                                    color: cs.surfaceContainerHighest,
+                                  ),
+                                  errorWidget: (_, __, ___) => Container(
+                                    width: 140, height: 120,
+                                    color: cs.surfaceContainerHighest,
+                                    child: Icon(Icons.music_note, color: cs.onSurfaceVariant),
+                                  ),
+                                )
+                              : Container(
+                                  width: 140, height: 120,
+                                  color: cs.surfaceContainerHighest,
+                                  child: Icon(Icons.music_note, color: cs.onSurfaceVariant),
+                                ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(song.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: tt.titleSmall,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(song.artistDisplay,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDailyShimmer(ColorScheme cs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: Container(
+            width: 100,
+            height: 24,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 180,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: 4,
+            itemBuilder: (_, i) {
+              return Card(
+                margin: const EdgeInsets.only(right: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+                color: cs.surfaceContainerHighest,
+                child: SizedBox(
+                  width: 140,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 140, height: 120,
+                        decoration: BoxDecoration(
+                          color: cs.surface,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 100,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                color: cs.onSurfaceVariant.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              width: 60,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: cs.onSurfaceVariant.withValues(alpha: 0.10),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   static const _cardTitles = {
     1: '私人专属好歌',
     2: '经典怀旧金曲',
@@ -98,6 +265,7 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<PlaylistProvider>().fetchTopPlaylists();
       _loadRecommended();
+      _loadDailyRecommend();
       _loadCardSongs();
       _checkLatestListen();
     });
@@ -108,6 +276,20 @@ class _HomeScreenState extends State<HomeScreen> {
       final songs = await _musicService.getTopSongs();
       if (mounted) setState(() => _recommended = songs.take(10).toList());
     } catch (e, s) { Log.e('home_screen', 'error', e, s); }
+  }
+
+  Future<void> _loadDailyRecommend() async {
+    setState(() => _dailyLoading = true);
+    try {
+      final songs = await _musicService.getDailyRecommend();
+      if (mounted) { setState(() {
+        _dailySongs = songs;
+        _dailyLoading = false;
+      }); }
+    } catch (e, s) {
+      Log.e('home_screen', 'error', e, s);
+      if (mounted) { setState(() => _dailyLoading = false); }
+    }
   }
 
   Future<void> _loadCardSongs() async {
@@ -292,6 +474,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                           ],
+                          if (_dailyLoading || _dailySongs.isNotEmpty)
+                            _buildDailyRecommend(cs, tt),
                           if (_recommended.isNotEmpty)
                             _buildSongList(_recommended, '新歌推荐', onEnd: () => _musicService.getTopSongs()),
                           if (_cardSongs[1]?.isNotEmpty ?? false)

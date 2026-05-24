@@ -19,7 +19,7 @@ class PlaylistCategoryScreen extends StatefulWidget {
 
 class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
   final _musicService = MusicService();
-  List<Playlist> _playlists = [];
+  final List<Playlist> _playlists = [];
   bool _loading = true;
   bool _hasMore = true;
   int _offset = 0;

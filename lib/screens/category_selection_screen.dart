@@ -29,10 +29,12 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   Future<void> _loadTags() async {
     try {
       final tags = await _musicService.getPlaylistTags();
-      if (mounted) setState(() {
-        _tags = tags;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _tags = tags;
+          _loading = false;
+        });
+      }
     } catch (e, s) { Log.e('category_selection_screen', 'error', e, s);
       if (mounted) setState(() => _loading = false);
     }
@@ -48,10 +50,12 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         categoryId: categoryId,
         limit: 50,
       );
-      if (mounted) setState(() {
-        _playlists = list;
-        _loadingPlaylists = false;
-      });
+      if (mounted) {
+        setState(() {
+          _playlists = list;
+          _loadingPlaylists = false;
+        });
+      }
     } catch (e, s) { Log.e('category_selection_screen', 'error', e, s);
       if (mounted) setState(() => _loadingPlaylists = false);
     }
