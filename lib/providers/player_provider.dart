@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
 import '../utils/logger.dart';
 import '../models/song.dart';
+import '../models/lyric_line.dart';
+import '../utils/palette_extractor.dart';
 import '../services/music_service.dart';
 import '../services/notification_service.dart';
 import 'mixins.dart';
@@ -22,6 +25,13 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   Duration _duration = Duration.zero;
   String? _error;
   int _qualityLevel = 0;
+
+  // ─── Dynamic palette & lyric state ───
+  ExtractedPalette? _palette;
+  List<LyricLine> _lyrics = [];
+  int _currentLyricLine = 0;
+  double _lyricLineProgress = 0.0;
+  Color? _backgroundColor;
 
   late final VoidCallback _onPositionChanged;
   late final VoidCallback _onDurationChanged;
@@ -44,6 +54,13 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   String? get error => _error;
   double get progress =>
       _duration.inMilliseconds > 0 ? _position.inMilliseconds / _duration.inMilliseconds : 0.0;
+
+  // ─── Palette & lyric getters ───
+  ExtractedPalette? get palette => _palette;
+  List<LyricLine> get lyrics => _lyrics;
+  int get currentLyricLine => _currentLyricLine;
+  double get lyricLineProgress => _lyricLineProgress;
+  Color? get backgroundColor => _backgroundColor;
 
   Future<List<Song>> Function()? get playlistEndProvider => _queue.playlistEndProvider;
   set playlistEndProvider(Future<List<Song>> Function()? v) {
@@ -185,6 +202,10 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   Future<void> playIndex(int index) async {
     if (index < 0 || index >= _queue.playlist.length) return;
     _queue.playIndex(index);
+    // Reset lyric state for new song
+    _lyrics = [];
+    _currentLyricLine = 0;
+    _lyricLineProgress = 0.0;
     final current = _queue.currentSong;
     if (current == null) return;
     _engine.resetForNewSong();
@@ -192,12 +213,20 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     final version = _engine.currentVersion;
     await _engine.play(current, version: version);
     _updateNotification();
+    // Extract palette from album art
+    if (current.albumCoverUrl != null) {
+      _extractPalette(current.albumCoverUrl!);
+    }
     notifyListeners();
   }
 
   Future<void> playSong(Song song, {List<Song>? playlist}) async {
     _queue.playlistEndProvider = null;
     _engine.clearError();
+    // Reset lyric state for new song
+    _lyrics = [];
+    _currentLyricLine = 0;
+    _lyricLineProgress = 0.0;
     if (playlist != null) {
       final idx = playlist.indexWhere((s) => s.id == song.id);
       _queue.setPlaylist(playlist, startIndex: idx < 0 ? 0 : idx);
@@ -217,6 +246,10 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     notifyListeners();
     await _engine.play(current, version: version);
     _updateNotification();
+    // Extract palette from album art
+    if (current.albumCoverUrl != null) {
+      _extractPalette(current.albumCoverUrl!);
+    }
     notifyListeners();
   }
 
@@ -308,6 +341,88 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     if (_isPlaying) {
       await playIndex(_queue.currentIndex);
     } else {
+      notifyListeners();
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  //  Palette extraction
+  // ──────────────────────────────────────────────────────────────
+
+  /// Extracts a color palette from the album art at [imageUrl] and updates
+  /// [_palette] and [_backgroundColor]. Silently fails on error (palette is
+  /// purely cosmetic).
+  Future<void> _extractPalette(String imageUrl) async {
+    try {
+      _palette = await PaletteExtractor.instance.extract(imageUrl);
+      _backgroundColor = _palette?.dominant;
+      notifyListeners();
+    } catch (_) {
+      // Palette extraction is cosmetic — ignore failures.
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  //  Lyric management
+  // ──────────────────────────────────────────────────────────────
+
+  /// Stores parsed lyrics and resets all progress state to the beginning.
+  void setLyrics(List<LyricLine> lyrics) {
+    _lyrics = lyrics;
+    _currentLyricLine = 0;
+    _lyricLineProgress = 0.0;
+    notifyListeners();
+  }
+
+  /// Clears all lyric state (called when switching to a song without lyrics).
+  void clearLyrics() {
+    _lyrics = [];
+    _currentLyricLine = 0;
+    _lyricLineProgress = 0.0;
+    notifyListeners();
+  }
+
+  /// Updates the current lyric line and intra-line progress based on
+  /// [position]. Uses binary search over [_lyrics] to find the active line,
+  /// then calculates fractional progress (0.0–1.0) between the current line
+  /// and the next. Only calls [notifyListeners] when values actually change.
+  void updateLyricProgress(Duration position) {
+    if (_lyrics.isEmpty) return;
+
+    // Binary search: find the last line whose time ≤ position
+    int lo = 0;
+    int hi = _lyrics.length - 1;
+    int idx = 0;
+    while (lo <= hi) {
+      final mid = (lo + hi) ~/ 2;
+      if (_lyrics[mid].time <= position) {
+        idx = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+
+    // Compute intra-line progress (0.0 → 1.0)
+    double progress;
+    if (idx < _lyrics.length - 1) {
+      final start = _lyrics[idx].time;
+      final end = _lyrics[idx + 1].time;
+      final range = end - start;
+      if (range > Duration.zero) {
+        progress =
+            (position.inMilliseconds - start.inMilliseconds) / range.inMilliseconds;
+        progress = progress.clamp(0.0, 1.0);
+      } else {
+        progress = 1.0;
+      }
+    } else {
+      progress = 1.0;
+    }
+
+    if (idx != _currentLyricLine || progress != _lyricLineProgress) {
+      _currentLyricLine = idx;
+      _lyricLineProgress = progress;
       notifyListeners();
     }
   }

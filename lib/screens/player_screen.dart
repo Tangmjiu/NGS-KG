@@ -2,36 +2,46 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../models/song.dart';
+import '../models/lyric_line.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
-import '../widgets/cover_art.dart';
-import '../widgets/lyrics_view.dart' as lv;
-import '../widgets/song_info_progress.dart';
-import '../widgets/playback_controls.dart';
 import '../utils/logger.dart';
+import '../widgets/player_background.dart';
+import '../widgets/player_cover_art.dart';
+import '../widgets/am_lyrics_view.dart';
+import '../widgets/player_controls_bar.dart';
+import '../widgets/player_progress_bar.dart';
+import '../widgets/playback_controls.dart' as legacy;
 import 'audio_effects_screen.dart';
 
+/// Apple Music-style full player screen with dynamic background,
+/// cover-art / lyrics PageView, and smooth transitions.
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key});
+
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
 
 class _PlayerScreenState extends State<PlayerScreen>
     with SingleTickerProviderStateMixin {
+  // ─── PageView ───
   final PageController _pageController = PageController();
-  final MusicService _musicService = MusicService();
-  final ScrollController _lyricScrollController = ScrollController();
-  List<lv.LyricLine> _lyrics = [];
-  int _currentLine = 0;
-  bool _lyricLoading = false;
-  bool _lyricAutoScroll = true;
-  String? _lastLoadedHash;
+  double _pageOffset = 0.0; // 0 = cover, 1 = lyrics
+
+  // ─── Rotation ───
+  late final AnimationController _rotationController;
   bool _rotationPlaying = false;
 
-  late final AnimationController _rotationController;
+  // ─── Lyrics ───
+  final MusicService _musicService = MusicService();
+  String? _lastLoadedHash;
+  bool _lyricLoading = false;
+
+  // ─── Drag state (progress bar) ───
+  bool _isDraggingProgress = false;
+  double _dragProgressValue = 0.0;
 
   @override
   void initState() {
@@ -40,13 +50,13 @@ class _PlayerScreenState extends State<PlayerScreen>
       duration: const Duration(seconds: 30),
       vsync: this,
     );
+    _pageController.addListener(_onPageScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) => _attachPlayerListener());
   }
 
   void _attachPlayerListener() {
     if (!mounted) return;
-    final player = context.read<PlayerProvider>();
-    player.addListener(_onPlayerTick);
+    context.read<PlayerProvider>().addListener(_onPlayerTick);
   }
 
   void _onPlayerTick() {
@@ -55,171 +65,25 @@ class _PlayerScreenState extends State<PlayerScreen>
     final song = player.currentSong;
     if (song == null) return;
 
-    // 歌词滚动
-    if (_lyrics.isNotEmpty) {
-      _updateCurrentLine(player.position);
-    }
-    // 封面旋转
+    // Lyric progress
+    player.updateLyricProgress(player.position);
+
+    // Cover rotation sync
     _syncRotation(player.isPlaying);
+
+    // Load lyrics when song changes
+    if (song.hash != null && song.hash != _lastLoadedHash) {
+      _loadLyricsForSong(song.hash!, songName: song.name);
+    }
   }
 
-  @override
-  void dispose() {
-    try {
-      // ignore: invalid_use_of_protected_member
-      context.read<PlayerProvider>().removeListener(_onPlayerTick);
-    } catch (_) {}
-    _rotationController.dispose();
-    _pageController.dispose();
-    _lyricScrollController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<PlayerProvider>(
-      builder: (_, player, __) {
-        final song = player.currentSong;
-        if (song == null) {
-          return const Scaffold(body: Center(child: Text('暂无播放')));
-        }
-
-        // 切歌检测（仅触发一次）
-        if (song.hash != null && song.hash != _lastLoadedHash) {
-          _loadLyricsForSong(song.hash!, songName: song.name);
-        }
-
-        return Scaffold(
-          body: Stack(
-            children: [
-              _buildBackground(song),
-              SafeArea(
-                child: Column(
-                  children: [
-                    _buildTopBar(),
-                    Expanded(
-                      flex: 5,
-                      child: PageView(
-                        controller: _pageController,
-                        onPageChanged: (_) => setState(() {}),
-                        children: [
-                          CoverArt(
-                            song: song,
-                            rotationController: _rotationController,
-                          ),
-                          lv.LyricsView(
-                            lyrics: _lyrics,
-                            currentLine: _currentLine,
-                            isLoading: _lyricLoading,
-                            autoScroll: _lyricAutoScroll,
-                            scrollController: _lyricScrollController,
-                            onTapLine: (d) => player.seek(d),
-                            onResumeAutoScroll: _resumeAutoScroll,
-                          ),
-                        ],
-                      ),
-                    ),
-                    SongInfoProgress(song: song),
-                    const SizedBox(height: 4),
-                    const PlaybackControls(),
-                    const SizedBox(height: 12),
-                    _buildBottomActions(),
-                    SizedBox(height: MediaQuery.of(context).padding.bottom),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _loadLyricsForSong(String hash, {String? songName}) {
-    _lastLoadedHash = hash;
-    _rotationController.reset();
+  void _onPageScroll() {
+    if (!_pageController.hasClients) return;
     setState(() {
-      _lyrics = [];
-      _currentLine = 0;
-      _lyricAutoScroll = true;
-      _lyricLoading = true;
+      _pageOffset = _pageController.page?.clamp(0.0, 1.0) ?? 0.0;
     });
-    _loadLyrics(hash, songName: songName);
   }
 
-  void _resumeAutoScroll() {
-    setState(() => _lyricAutoScroll = true);
-    _scrollToCurrentLine();
-  }
-
-  // ───── 背景 ─────
-  Widget _buildBackground(Song song) {
-    return ExcludeSemantics(
-      child: Stack(
-        children: [
-          Container(color: Colors.black),
-          if (song.albumCoverUrl != null && song.albumCoverUrl!.isNotEmpty)
-            CachedNetworkImage(
-              imageUrl: song.albumCoverUrl!,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-              errorWidget: (_, __, ___) => Container(color: Colors.black),
-            ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.6),
-                  Colors.black.withValues(alpha: 0.7),
-                  Colors.black.withValues(alpha: 0.8),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTopBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.keyboard_arrow_down, size: 28),
-            tooltip: '收起',
-            onPressed: () => Navigator.pop(context),
-          ),
-          const Spacer(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomActions() {
-    return Container(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _ActionButton(
-            icon: Icons.tune_outlined,
-            label: '音效',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AudioEffectsScreen()),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ───── 旋转同步 ─────
   void _syncRotation(bool isPlaying) {
     if (isPlaying == _rotationPlaying) return;
     _rotationPlaying = isPlaying;
@@ -230,32 +94,26 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
   }
 
-  // ───── 歌词 ─────
-  void _updateCurrentLine(Duration pos) {
-    final ms = pos.inMilliseconds;
-    int found = _currentLine;
-    for (int i = _lyrics.length - 1; i >= 0; i--) {
-      if (_lyrics[i].time.inMilliseconds <= ms) {
-        found = i;
-        break;
-      }
-    }
-    if (found != _currentLine) {
-      setState(() => _currentLine = found);
-      if (_lyricAutoScroll) _scrollToCurrentLine();
-    }
+  @override
+  void dispose() {
+    _pageController.removeListener(_onPageScroll);
+    _pageController.dispose();
+    _rotationController.dispose();
+    try {
+      context.read<PlayerProvider>().removeListener(_onPlayerTick);
+    } catch (_) {}
+    super.dispose();
   }
 
-  void _scrollToCurrentLine() {
-    if (!_lyricAutoScroll || !_lyricScrollController.hasClients) return;
-    const itemHeight = 56.0;
-    final offset = _currentLine * itemHeight -
-        (_lyricScrollController.position.viewportDimension / 2 - itemHeight);
-    _lyricScrollController.animateTo(
-      offset.clamp(0, _lyricScrollController.position.maxScrollExtent),
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.fastOutSlowIn,
-    );
+  // ────────────────────────────────────────────────────────────
+  //  Lyric loading (same API as original)
+  // ────────────────────────────────────────────────────────────
+
+  void _loadLyricsForSong(String hash, {String? songName}) {
+    _lastLoadedHash = hash;
+    _rotationController.reset();
+    setState(() => _lyricLoading = true);
+    _loadLyrics(hash, songName: songName);
   }
 
   Future<void> _loadLyrics(String hash, {String? songName}) async {
@@ -278,24 +136,252 @@ class _PlayerScreenState extends State<PlayerScreen>
               Log.e('player_screen', 'base64 error', e, s);
               decoded = rawContent;
             }
-            _lyrics = lv.parseLyrics(decoded);
+            final lyrics = parseLyrics(decoded);
+            if (mounted) {
+              context.read<PlayerProvider>().setLyrics(lyrics);
+            }
           } catch (e, s) {
             Log.e('player_screen', 'parse error', e, s);
           }
         }
+      } else if (mounted) {
+        context.read<PlayerProvider>().clearLyrics();
       }
     } catch (e, s) {
       Log.e('player_screen', 'lyric load error', e, s);
     }
     if (mounted) setState(() => _lyricLoading = false);
   }
+
+  // ────────────────────────────────────────────────────────────
+  //  Build
+  // ────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<PlayerProvider>(
+      builder: (ctx, player, _) {
+        final song = player.currentSong;
+        if (song == null) {
+          return const Scaffold(
+            backgroundColor: Colors.black,
+            body: Center(
+              child: Text('暂无播放', style: TextStyle(color: Colors.white70)),
+            ),
+          );
+        }
+
+        return Scaffold(
+          backgroundColor: Colors.black,
+          body: Stack(
+            children: [
+              // ── Dynamic background ──
+              PlayerBackground(
+                albumCoverUrl: song.albumCoverUrl,
+                paletteColor: player.backgroundColor,
+                scrollOffset: _pageOffset,
+              ),
+
+              // ── Content ──
+              SafeArea(
+                child: Column(
+                  children: [
+                    _buildTopBar(),
+                    Expanded(
+                      child: PageView(
+                        controller: _pageController,
+                        children: [
+                          // Page 0: Cover art
+                          PlayerCoverArt(
+                            song: song,
+                            rotationController: _rotationController,
+                            scrollOffset: _pageOffset,
+                          ),
+                          // Page 1: Lyrics
+                          AMLyricsView(
+                            lyrics: player.lyrics,
+                            currentLineIndex: player.currentLyricLine,
+                            currentLineProgress: player.lyricLineProgress,
+                            isLoading: _lyricLoading,
+                            onSeek: (duration) => player.seek(duration),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // ── Song info ──
+                    _buildSongInfo(song),
+
+                    // ── Progress bar ──
+                    PlayerProgressBar(
+                      position: player.position,
+                      duration: player.duration,
+                      progress: _isDraggingProgress
+                          ? _dragProgressValue
+                          : (player.progress.isFinite ? player.progress : 0.0),
+                      onDragStart: () =>
+                          setState(() => _isDraggingProgress = true),
+                      onDragEnd: () {
+                        setState(() => _isDraggingProgress = false);
+                        player.seek(Duration(
+                          milliseconds: (_dragProgressValue *
+                                  player.duration.inMilliseconds)
+                              .round(),
+                        ));
+                      },
+                      onSeek: (v) {
+                        _dragProgressValue = v;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    // ── Playback controls ──
+                    PlayerControlsBar(
+                      isPlaying: player.isPlaying,
+                      isLoading: player.isLoading,
+                      onPlayPause: player.togglePlayPause,
+                      onPrevious: player.playPrevious,
+                      onNext: player.playNext,
+                      playMode: player.playMode,
+                      onModeToggle: () {
+                        const modes = [
+                          PlayMode.sequential,
+                          PlayMode.shuffle,
+                          PlayMode.repeatOne,
+                        ];
+                        final next = modes[
+                            (modes.indexOf(player.playMode) + 1) % modes.length];
+                        player.setPlayMode(next);
+                      },
+                      onShowPlaylist: () =>
+                          legacy.PlaybackControls.showPlaylistStatic(
+                              context, player),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // ── Bottom actions ──
+                    _buildBottomActions(),
+                    SizedBox(
+                        height: MediaQuery.of(context).padding.bottom + 4),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ── Top bar ──
+
+  Widget _buildTopBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 30),
+            tooltip: '收起',
+            color: Colors.white,
+            onPressed: () => Navigator.pop(context),
+          ),
+          const Spacer(),
+          // Page indicator dots
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _PageDot(active: _pageOffset < 0.5),
+              const SizedBox(width: 6),
+              _PageDot(active: _pageOffset >= 0.5),
+            ],
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
+    );
+  }
+
+  // ── Song info ──
+
+  Widget _buildSongInfo(Song song) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            song.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            song.artistDisplay,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.white60,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Bottom actions ──
+
+  Widget _buildBottomActions() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _ActionChip(
+          icon: Icons.tune_rounded,
+          label: '音效',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AudioEffectsScreen()),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-class _ActionButton extends StatelessWidget {
+/// Small page-indicator dot in the top bar.
+class _PageDot extends StatelessWidget {
+  final bool active;
+  const _PageDot({required this.active});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: 6,
+      height: 6,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: active ? Colors.white : Colors.white38,
+      ),
+    );
+  }
+}
+
+/// Small icon+label action button used in the bottom bar.
+class _ActionChip extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _ActionButton({
+
+  const _ActionChip({
     required this.icon,
     required this.label,
     required this.onTap,
@@ -303,19 +389,18 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 22, color: cs.onSurfaceVariant),
-            const SizedBox(height: 2),
+            Icon(icon, size: 20, color: Colors.white60),
+            const SizedBox(height: 4),
             Text(label,
-                style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+                style: const TextStyle(fontSize: 10, color: Colors.white60)),
           ],
         ),
       ),
