@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../providers/playlist_provider.dart';
-import '../providers/playlist_queue.dart';
 import '../services/music_service.dart';
 
 class PlaybackControls extends StatelessWidget {
@@ -71,7 +70,7 @@ class PlaybackControls extends StatelessWidget {
                   icon: const Icon(Icons.playlist_play, size: 22),
                   tooltip: '播放列表',
                   color: cs.onSurfaceVariant,
-                  onPressed: () => _showPlaylist(context, player),
+                  onPressed: () => showPlaylistStatic(context, player),
                 ),
               ],
             );
@@ -100,7 +99,7 @@ class PlaybackControls extends StatelessWidget {
     };
   }
 
-  void _showPlaylist(BuildContext context, PlayerProvider player) {
+  static void showPlaylistStatic(BuildContext context, PlayerProvider player) {
     final cs = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
@@ -182,7 +181,7 @@ class PlaybackControls extends StatelessWidget {
     );
   }
 
-  void _showAddToPlaylist(BuildContext context, PlayerProvider player) {
+  static void _showAddToPlaylist(BuildContext context, PlayerProvider player) {
     final song = player.currentSong;
     if (song == null) return;
     showModalBottomSheet(
@@ -232,7 +231,7 @@ class PlaybackControls extends StatelessWidget {
     );
   }
 
-  Future<void> _addSongToPlaylist(
+  static Future<void> _addSongToPlaylist(
       BuildContext context, int playlistId, Song song) async {
     try {
       final data = (song.hash?.isNotEmpty ?? false)
@@ -251,7 +250,7 @@ class PlaybackControls extends StatelessWidget {
     }
   }
 
-  void _confirmClear(BuildContext context, PlayerProvider player) {
+  static void _confirmClear(BuildContext context, PlayerProvider player) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

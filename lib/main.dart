@@ -7,12 +7,14 @@ import 'providers/auth_provider.dart';
 import 'providers/player_provider.dart';
 import 'providers/playlist_provider.dart';
 import 'providers/liked_songs_provider.dart';
+import 'providers/discover_provider.dart';
 import 'routes/app_routes.dart';
 import 'utils/theme.dart';
 import 'screens/player_screen.dart';
 import 'screens/settings_screen.dart';
 import 'utils/logger.dart';
 import 'services/api_client.dart';
+import 'services/device_service.dart';
 import 'services/music_service.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
@@ -70,6 +72,7 @@ Future<void> main() async {
           ChangeNotifierProvider(create: (_) => PlayerProvider(musicService)),
           ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
           ChangeNotifierProvider(create: (_) => LikedSongsProvider(musicService)),
+          ChangeNotifierProvider(create: (_) => DiscoverProvider(musicService)),
         ],
         child: const NGSKGApp(),
       ),
@@ -81,8 +84,13 @@ Future<void> main() async {
 
 Future<void> _initDevice() async {
   try {
-    final dfid = await MusicService().registerDevice();
-    if (dfid.isNotEmpty) ApiClient.setDfid(dfid);
+    final device = await DeviceService.instance.getDeviceInfo();
+    if (device == null || !device.isValid) {
+      final newDevice = await DeviceService.instance.registerDevice();
+      ApiClient.setDfid(newDevice.dfid);
+    } else {
+      ApiClient.setDfid(device.dfid);
+    }
   } catch (_) {}
 }
 
@@ -167,6 +175,9 @@ class _PlayerBarBottom extends StatelessWidget {
         final cs = Theme.of(context).colorScheme;
         final tt = Theme.of(context).textTheme;
 
+        final dynamicBg = player.backgroundColor;
+        final surfaceColor = dynamicBg ?? cs.surfaceContainer;
+
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -174,23 +185,31 @@ class _PlayerBarBottom extends StatelessWidget {
             SizedBox(
               height: 2,
               child: ClipRRect(
-                child: LinearProgressIndicator(
-                  value: player.progress.isFinite ? player.progress : 0.0,
-                  backgroundColor: cs.surfaceContainerHighest,
-                  color: cs.primary,
-                  minHeight: 2,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 800),
+                  curve: Curves.easeInOut,
+                  child: LinearProgressIndicator(
+                    value: player.progress.isFinite ? player.progress : 0.0,
+                    backgroundColor: cs.surfaceContainerHighest,
+                    color: dynamicBg != null
+                        ? Color.lerp(dynamicBg, Colors.white, 0.4) ?? cs.primary
+                        : cs.primary,
+                    minHeight: 2,
+                  ),
                 ),
               ),
             ),
             // 主体
-            Container(
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 800),
+              curve: Curves.easeInOut,
               decoration: BoxDecoration(
-                color: cs.surfaceContainer,
+                color: surfaceColor,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 6,
-                    offset: const Offset(0, -1),
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
                   ),
                 ],
               ),
@@ -202,24 +221,33 @@ class _PlayerBarBottom extends StatelessWidget {
                 onTap: () {
                   player.setPlayerScreenVisible(true);
                   navKey.currentState
-                      ?.push(MaterialPageRoute(builder: (_) => const PlayerScreen()))
+                      ?.push(PageRouteBuilder(
+                        pageBuilder: (_, __, ___) => const PlayerScreen(),
+                        transitionsBuilder: (_, animation, __, child) {
+                          return FadeTransition(opacity: animation, child: child);
+                        },
+                        transitionDuration: const Duration(milliseconds: 300),
+                      ))
                       .then((_) => player.setPlayerScreenVisible(false));
                 },
                 child: Row(
                   children: [
-                    // 专辑封面
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: SizedBox(
-                        width: 44, height: 44,
-                        child: song.albumCoverUrl != null && song.albumCoverUrl!.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: song.albumCoverUrl!,
-                                fit: BoxFit.cover,
-                                placeholder: (_, __) => _fallbackCover(cs),
-                                errorWidget: (_, __, ___) => _fallbackCover(cs),
-                              )
-                            : _fallbackCover(cs),
+                    // 专辑封面 (Hero for shared element transition)
+                    Hero(
+                      tag: 'album_art_${song.hash ?? song.id}',
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: SizedBox(
+                          width: 44, height: 44,
+                          child: song.albumCoverUrl != null && song.albumCoverUrl!.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: song.albumCoverUrl!,
+                                  fit: BoxFit.cover,
+                                  placeholder: (_, __) => _fallbackCover(cs),
+                                  errorWidget: (_, __, ___) => _fallbackCover(cs),
+                                )
+                              : _fallbackCover(cs),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -230,19 +258,25 @@ class _PlayerBarBottom extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                              style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                              style: tt.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: dynamicBg != null ? Colors.white : tt.bodyMedium?.color)),
                           const SizedBox(height: 2),
                           Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis,
-                              style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+                              style: tt.labelSmall?.copyWith(
+                                  color: dynamicBg != null ? Colors.white70 : cs.onSurfaceVariant)),
                         ],
                       ),
                     ),
                     // 播放控制
                     if (player.isLoading)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4),
-                        child: SizedBox(width: 28, height: 28,
-                            child: CircularProgressIndicator(strokeWidth: 2.5)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: SizedBox(
+                            width: 28, height: 28,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: dynamicBg != null ? Colors.white70 : cs.primary)),
                       )
                     else ...[
                       const SizedBox(width: 4),
@@ -250,18 +284,22 @@ class _PlayerBarBottom extends StatelessWidget {
                         icon: Icons.skip_previous,
                         size: 22,
                         onTap: player.playPrevious,
+                        color: dynamicBg != null ? Colors.white70 : null,
                       ),
                       const SizedBox(width: 8),
                       Container(
                         width: 40, height: 40,
                         decoration: BoxDecoration(
-                          color: cs.primary,
+                          color: dynamicBg != null
+                              ? Colors.white
+                              : cs.primary,
                           shape: BoxShape.circle,
                         ),
                         child: IconButton(
                           icon: Icon(
                             player.isPlaying ? Icons.pause : Icons.play_arrow,
-                            color: cs.onPrimary, size: 22,
+                            color: dynamicBg != null ? Colors.black87 : cs.onPrimary,
+                            size: 22,
                           ),
                           onPressed: player.togglePlayPause,
                           padding: EdgeInsets.zero,
@@ -272,6 +310,7 @@ class _PlayerBarBottom extends StatelessWidget {
                         icon: Icons.skip_next,
                         size: 22,
                         onTap: player.playNext,
+                        color: dynamicBg != null ? Colors.white70 : null,
                       ),
                     ],
                   ],
@@ -295,14 +334,15 @@ class _MiniBtn extends StatelessWidget {
   final IconData icon;
   final double size;
   final VoidCallback? onTap;
-  const _MiniBtn({required this.icon, this.size = 22, this.onTap});
+  final Color? color;
+  const _MiniBtn({required this.icon, this.size = 22, this.onTap, this.color});
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: 36, height: 36,
       child: IconButton(
-        icon: Icon(icon, size: size),
+        icon: Icon(icon, size: size, color: color),
         onPressed: onTap,
         padding: EdgeInsets.zero,
         splashRadius: 18,
