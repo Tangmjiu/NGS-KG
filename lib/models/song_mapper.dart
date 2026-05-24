@@ -10,15 +10,19 @@ class SongMapper {
         cover = cover.replaceAll('{size}', '480');
         if (cover.startsWith('//')) cover = 'https:$cover';
       }
+      final fileHash = json['FileHash'] as String?;
       return Song(
-        id: (json['Audioid'] ?? json['id']) as int,
+        id: _tryInt(json['Audioid'] ?? json['id']),
         name: (json['OriSongName'] ?? json['SongName'] ?? json['name'] ?? '') as String,
         artists: [(json['SingerName'] ?? '') as String],
         albumName: json['AlbumName'] as String?,
         albumCoverUrl: cover,
         albumId: _tryInt(json['AlbumID']),
         duration: (json['Duration'] as int?) ?? 0,
-        hash: json['FileHash'] as String?,
+        hash: fileHash,
+        qualities: fileHash != null && fileHash.isNotEmpty
+            ? {'128': fileHash}
+            : null,
       );
     } catch (e, s) {
       Log.e('song_mapper', 'error', e, s);
@@ -82,7 +86,7 @@ class SongMapper {
             ?? '';
       }
       return Song(
-        id: (json['audio_id'] ?? json['id']) as int,
+        id: _tryInt(json['audio_id'] ?? json['id']),
         name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
         artists: [artist],
         albumCoverUrl: cover,
@@ -128,7 +132,7 @@ class SongMapper {
         if (deprecated is Map) hash = deprecated['hash'] as String?;
       }
       return Song(
-        id: (json['audio_id'] ?? json['album_audio_id'] ?? 0) as int,
+        id: _tryInt(json['audio_id'] ?? json['album_audio_id'] ?? 0),
         name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
         artists: [json['author_name'] as String? ?? ''],
         albumCoverUrl: cover,

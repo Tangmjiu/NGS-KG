@@ -150,8 +150,8 @@ class _SongInfoProgressState extends State<SongInfoProgress> {
   void _showQualitySelector(BuildContext context, PlayerProvider player) {
     final q = player.currentSong?.qualities;
     if (q == null || q.isEmpty) return;
-    const labels = ['标准 (128k)', 'HQ (320k)', '无损 (FLAC)'];
-    const keys = ['128', '320', 'high'];
+    final keys = Song.qualityKeys;
+    final labels = Song.qualityLabels;
     final available = <int>[];
     for (int i = 0; i < keys.length; i++) {
       if (q.containsKey(keys[i])) available.add(i);
@@ -170,7 +170,7 @@ class _SongInfoProgressState extends State<SongInfoProgress> {
             ),
             ...available.map((i) => ListTile(
               leading: Icon(
-                i == 0 ? Icons.sd : i == 1 ? Icons.hd : Icons.album,
+                i == 0 ? Icons.sd : i == 1 ? Icons.hd : i == 2 ? Icons.high_quality : i == 3 ? Icons.music_note : Icons.album,
                 color: player.isCurrentQuality(keys[i])
                     ? Theme.of(context).colorScheme.primary
                     : null,

@@ -196,6 +196,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   }
 
   Future<void> playSong(Song song, {List<Song>? playlist}) async {
+    _queue.playlistEndProvider = null;
     _engine.clearError();
     if (playlist != null) {
       final idx = playlist.indexWhere((s) => s.id == song.id);
@@ -282,7 +283,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   bool isCurrentQuality(String key) {
     final q = _queue.currentSong?.qualities;
     if (q == null || q.isEmpty) return false;
-    const keys = ['128', '320', 'high'];
+    const keys = Song.qualityKeys;
     final currentKey = keys[_qualityLevel % keys.length];
     return currentKey == key;
   }
@@ -290,7 +291,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   Future<void> setQualityIndex(int index) async {
     final q = _queue.currentSong?.qualities;
     if (q == null || q.isEmpty) return;
-    _qualityLevel = index % 3;
+    _qualityLevel = index % Song.qualityKeys.length;
     _engine.qualityLevel = _qualityLevel;
     if (_isPlaying) {
       await playIndex(_queue.currentIndex);
@@ -302,7 +303,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   Future<void> switchQuality() async {
     final q = _queue.currentSong?.qualities;
     if (q == null || q.isEmpty) return;
-    _qualityLevel = (_qualityLevel + 1) % 3;
+    _qualityLevel = (_qualityLevel + 1) % Song.qualityKeys.length;
     _engine.qualityLevel = _qualityLevel;
     if (_isPlaying) {
       await playIndex(_queue.currentIndex);

@@ -60,6 +60,18 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
     }
   }
 
+  Map<String, String> _buildQualityMap(LocalSong s) {
+    final q = <String, String>{};
+    if (s.codec == 'FLAC' || s.codec == 'WAV') {
+      q['flac'] = s.filePath;
+    } else if (s.bitrate != null && s.bitrate! >= 320) {
+      q['320'] = s.filePath;
+    } else {
+      q['128'] = s.filePath;
+    }
+    return q;
+  }
+
   void _playSong(LocalSong localSong) {
     final song = Song(
       id: localSong.filePath.hashCode,
@@ -67,6 +79,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
       artists: [localSong.artist ?? '本地音乐'],
       albumName: localSong.album,
       filePath: localSong.filePath,
+      qualities: localSong.bitrate != null ? _buildQualityMap(localSong) : null,
     );
     final playlist = _songs.map((s) => Song(
       id: s.filePath.hashCode,
@@ -74,6 +87,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
       artists: [s.artist ?? '本地音乐'],
       albumName: s.album,
       filePath: s.filePath,
+      qualities: s.bitrate != null ? _buildQualityMap(s) : null,
     )).toList();
     context.read<PlayerProvider>().playSong(song, playlist: playlist);
   }
@@ -161,7 +175,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis),
                             subtitle: Text(
-                              s.artist ?? '未知歌手',
+                              (s.artist ?? '未知歌手') + (s.codec != null ? ' · ${s.codec}' : '') + (s.bitrate != null ? ' ${s.bitrate}kbps' : ''),
                               style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                             ),
                             onTap: () => _playSong(s),

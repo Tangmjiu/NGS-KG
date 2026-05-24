@@ -12,7 +12,9 @@ abstract class BaseRepository {
       p['cookie'] = await client.getCookieString();
     }
     final res = await client.get(path, params: p);
-    return res.data as Map<String, dynamic>;
+    final data = res.data;
+    if (data is Map<String, dynamic>) return data;
+    return <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> cachedGet(String path,
@@ -24,6 +26,8 @@ abstract class BaseRepository {
     }
     final res = await client.getCached(path, params: p,
         ttl: ttl ?? const Duration(hours: 2));
-    return res.data as Map<String, dynamic>;
+    final data = res.data;
+    if (data is Map<String, dynamic>) return data;
+    return <String, dynamic>{};
   }
 }

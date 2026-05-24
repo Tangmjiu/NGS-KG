@@ -205,9 +205,12 @@ class AudioEngine {
   String? _currentQuality(Song? song) {
     final q = song?.qualities;
     if (q == null || q.isEmpty) return null;
-    const keys = ['128', '320', 'high'];
-    final key = keys[qualityLevel % keys.length];
-    return q.containsKey(key) ? key : keys.firstWhere((k) => q.containsKey(k), orElse: () => q.keys.first);
+    // Iterate qualityKeys in priority order, find first available
+    for (final key in Song.qualityKeys) {
+      if (q.containsKey(key)) return key;
+    }
+    // Fallback to first available key in the song's qualities map
+    return q.keys.first;
   }
 
   void dispose() {

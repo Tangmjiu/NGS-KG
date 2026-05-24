@@ -10,8 +10,9 @@ class SongRepository extends BaseRepository {
       {int limit = 30, int offset = 0, String type = 'song'}) async {
     final res = await get('/search', params: {
       'keywords': keyword,
-      'limit': limit,
-      'offset': offset,
+      'page': (offset ~/ limit) + 1,
+      'pagesize': limit,
+      'type': type,
     });
     final data = res['data'] as Map<String, dynamic>?;
     if (data == null) return [];

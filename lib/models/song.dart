@@ -34,8 +34,8 @@ class Song {
 
   String get artistDisplay => artists.join(' / ');
 
-  static const qualityLabels = ['标准', 'HQ', '无损'];
-  static const qualityKeys = ['128', '320', 'high'];
+  static const qualityLabels = ['标准', 'HQ', 'SQ', 'Hi-Res', '无损'];
+  static const qualityKeys = ['128', '320', 'flac', 'high', 'super'];
 
   String get currentQualityLabel {
     if (qualities != null && qualities!.containsKey('128')) return '标准';
