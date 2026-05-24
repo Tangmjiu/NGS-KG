@@ -23,25 +23,32 @@ Future<void> main() async {
   await Log.init();
 
   FlutterError.onError = (details) {
-    Log.e('FLUTTER', details.exceptionAsString(), details.exception, details.stack);
+    try {
+      Log.e('FLUTTER', details.exceptionAsString(), details.exception, details.stack);
+    } catch (_) {
+      debugPrint('FLUTTER_ERROR: ${details.exceptionAsString()}');
+    }
     FlutterError.dumpErrorToConsole(details);
   };
 
   PlatformDispatcher.instance.onError = (error, stack) {
-    Log.e('PLATFORM', error.toString(), error, stack);
+    try {
+      Log.e('PLATFORM', error.toString(), error, stack);
+    } catch (_) {
+      debugPrint('PLATFORM_ERROR: $error');
+    }
     return true;
   };
 
   ErrorWidget.builder = (details) {
-    Log.e('RENDER', details.exceptionAsString(), details.exception, details.stack);
-    return Material(
-      child: Container(
-        color: const Color(0xFF1A1C19),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text('渲染异常', style: TextStyle(color: Colors.white70, fontSize: 16)),
-          ),
+    // Use debugPrint instead of Log to avoid side effects during build phase
+    debugPrint('RENDER_ERROR: ${details.exceptionAsString()}');
+    return Container(
+      color: const Color(0xFF1A1C19),
+      child: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text('渲染异常', style: TextStyle(color: Colors.white70, fontSize: 16)),
         ),
       ),
     );

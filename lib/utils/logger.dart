@@ -170,11 +170,16 @@ class Log {
   }
 
   void _write(String line) {
-    if (_ready && _sink != null) {
-      _sink!.writeln(line);
-      _sink!.flush();
-    } else if (!_ready) {
-      _buffer.add(line);
+    try {
+      if (_ready && _sink != null) {
+        _sink!.writeln(line);
+        _sink!.flush();
+      } else if (!_ready) {
+        _buffer.add(line);
+      }
+    } catch (_) {
+      // Sink may be closed or in bad state — silently drop file writes
+      // Console output (print) already happened in _log(), so log isn't lost
     }
   }
 }
