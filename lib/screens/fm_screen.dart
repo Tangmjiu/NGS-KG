@@ -20,6 +20,7 @@ class _FmScreenState extends State<FmScreen> {
   List<Map<String, dynamic>> _yuekuFm = [];
   bool _isLoading = true;
   int? _selectedFmid;
+  bool _selectedIsYueku = false;  // 区分乐库/电台来源
   List<Song> _fmSongs = [];
   bool _loadingSongs = false;
 
@@ -71,6 +72,7 @@ class _FmScreenState extends State<FmScreen> {
     } else {
       setState(() {
         _selectedFmid = fmid;
+        _selectedIsYueku = false;
         _fmSongs = [];
       });
       _loadFmSongs(fmid);
@@ -118,6 +120,7 @@ class _FmScreenState extends State<FmScreen> {
 
     setState(() {
       _selectedFmid = fmid;
+      _selectedIsYueku = true;
       _fmSongs = [];
       _loadingSongs = true;
     });
@@ -221,7 +224,7 @@ class _FmScreenState extends State<FmScreen> {
             },
           ),
         ),
-        if (_selectedFmid != null && _selectedFmid! > 0) _buildExpandedSongs(cs),
+        if (_selectedFmid != null && _selectedFmid! > 0 && _selectedIsYueku) _buildExpandedSongs(cs),
       ],
     );
   }
