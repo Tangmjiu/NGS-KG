@@ -76,7 +76,7 @@ void main() {
       final song = Song.fromTrackJson(json);
       expect(song.id, 101);
       expect(song.name, 'Just a Name');
-      expect(song.artists, ['未知']);
+      expect(song.artists, ['']);
     });
 
     test('fromRankJson parses rank song format', () {
@@ -114,8 +114,8 @@ void main() {
     });
 
     test('qualityKeys order', () {
-      expect(Song.qualityKeys, ['128', '320', 'flac']);
-      expect(Song.qualityLabels, ['128K', '320K', 'FLAC']);
+      expect(Song.qualityKeys, ['128', '320', 'flac', 'high', 'super']);
+      expect(Song.qualityLabels, ['标准', 'HQ', 'SQ', 'Hi-Res', '无损']);
     });
   });
 
