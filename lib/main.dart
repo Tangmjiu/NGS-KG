@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
+import 'models/song.dart';
 import 'providers/auth_provider.dart';
 import 'providers/player_provider.dart';
 import 'providers/playlist_provider.dart';
@@ -27,7 +28,8 @@ Future<void> main() async {
 
   FlutterError.onError = (details) {
     try {
-      Log.e('FLUTTER', details.exceptionAsString(), details.exception, details.stack);
+      Log.e('FLUTTER', details.exceptionAsString(), details.exception,
+          details.stack);
     } catch (_) {
       debugPrint('FLUTTER_ERROR: ${details.exceptionAsString()}');
     }
@@ -46,7 +48,8 @@ Future<void> main() async {
   ErrorWidget.builder = (details) {
     debugPrint('RENDER_ERROR: ${details.exceptionAsString()}');
     try {
-      Log.e('RENDER', details.exceptionAsString(), details.exception, details.stack);
+      Log.e('RENDER', details.exceptionAsString(), details.exception,
+          details.stack);
     } catch (_) {
       // Log may not be ready during early build — debugPrint already fired
     }
@@ -55,35 +58,38 @@ Future<void> main() async {
       child: const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
-          child: Text('渲染异常', style: TextStyle(color: Colors.white70, fontSize: 16)),
+          child: Text('渲染异常',
+              style: TextStyle(color: Colors.white70, fontSize: 16)),
         ),
       ),
     );
   };
 
+  // 只对后台初始化任务使用 zone 捕获异常
   runZonedGuarded(() {
     _initDevice();
     _initNotifications();
-    CacheService.instance.init();
-    final musicService = MusicService();
-    final authService = AuthService();
-    runApp(
-      MultiProvider(
-        providers: [
-          Provider<MusicService>.value(value: musicService),
-          Provider<AuthService>.value(value: authService),
-          ChangeNotifierProvider(create: (_) => AuthProvider(authService)),
-          ChangeNotifierProvider(create: (_) => PlayerProvider(musicService)),
-          ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
-          ChangeNotifierProvider(create: (_) => LikedSongsProvider(musicService)),
-          ChangeNotifierProvider(create: (_) => DiscoverProvider(musicService)),
-        ],
-        child: const NGSKGApp(),
-      ),
-    );
   }, (error, stack) {
-    Log.e('ZONE', 'Unhandled async error', error, stack);
+    Log.e('ZONE', 'Background init error', error, stack);
   });
+
+  CacheService.instance.init();
+  final musicService = MusicService();
+  final authService = AuthService();
+  runApp(
+    MultiProvider(
+      providers: [
+        Provider<MusicService>.value(value: musicService),
+        Provider<AuthService>.value(value: authService),
+        ChangeNotifierProvider(create: (_) => AuthProvider(authService)),
+        ChangeNotifierProvider(create: (_) => PlayerProvider(musicService)),
+        ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
+        ChangeNotifierProvider(create: (_) => LikedSongsProvider(musicService)),
+        ChangeNotifierProvider(create: (_) => DiscoverProvider(musicService)),
+      ],
+      child: const NGSKGApp(),
+    ),
+  );
 }
 
 Future<void> _initDevice() async {
@@ -156,7 +162,9 @@ class _NGSKGAppState extends State<NGSKGApp> {
           children: [
             child ?? const SizedBox.shrink(),
             Positioned(
-              left: 0, right: 0, bottom: kBottomNavigationBarHeight,
+              left: 0,
+              right: 0,
+              bottom: kBottomNavigationBarHeight,
               child: _PlayerBarBottom(),
             ),
             const _ContinuePlayOverlay(),
@@ -175,7 +183,8 @@ class _PlayerBarBottom extends StatelessWidget {
     return Consumer<PlayerProvider>(
       builder: (_, player, __) {
         final song = player.currentSong;
-        if (song == null || player.isPlayerScreenVisible) return const SizedBox.shrink();
+        if (song == null || player.isPlayerScreenVisible)
+          return const SizedBox.shrink();
         final cs = Theme.of(context).colorScheme;
         final tt = Theme.of(context).textTheme;
 
@@ -188,19 +197,13 @@ class _PlayerBarBottom extends StatelessWidget {
             // 进度条
             SizedBox(
               height: 2,
-              child: ClipRRect(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 800),
-                  curve: Curves.easeInOut,
-                  child: LinearProgressIndicator(
-                    value: player.progress.isFinite ? player.progress : 0.0,
-                    backgroundColor: cs.surfaceContainerHighest,
-                    color: dynamicBg != null
-                        ? Color.lerp(dynamicBg, Colors.white, 0.4) ?? cs.primary
-                        : cs.primary,
-                    minHeight: 2,
-                  ),
-                ),
+              child: LinearProgressIndicator(
+                value: player.progress.isFinite ? player.progress : 0.0,
+                backgroundColor: cs.surfaceContainerHighest,
+                color: dynamicBg != null
+                    ? Color.lerp(dynamicBg, Colors.white, 0.4) ?? cs.primary
+                    : cs.primary,
+                minHeight: 2,
               ),
             ),
             // 主体
@@ -218,7 +221,9 @@ class _PlayerBarBottom extends StatelessWidget {
                 ],
               ),
               padding: EdgeInsets.only(
-                left: 8, right: 12, top: 6,
+                left: 8,
+                right: 12,
+                top: 6,
                 bottom: MediaQuery.of(context).padding.bottom + 4,
               ),
               child: GestureDetector(
@@ -228,7 +233,8 @@ class _PlayerBarBottom extends StatelessWidget {
                       ?.push(PageRouteBuilder(
                         pageBuilder: (_, __, ___) => const PlayerScreen(),
                         transitionsBuilder: (_, animation, __, child) {
-                          return FadeTransition(opacity: animation, child: child);
+                          return FadeTransition(
+                              opacity: animation, child: child);
                         },
                         transitionDuration: const Duration(milliseconds: 300),
                       ))
@@ -242,13 +248,16 @@ class _PlayerBarBottom extends StatelessWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(6),
                         child: SizedBox(
-                          width: 44, height: 44,
-                          child: song.albumCoverUrl != null && song.albumCoverUrl!.isNotEmpty
+                          width: 44,
+                          height: 44,
+                          child: song.albumCoverUrl != null &&
+                                  song.albumCoverUrl!.isNotEmpty
                               ? CachedNetworkImage(
                                   imageUrl: song.albumCoverUrl!,
                                   fit: BoxFit.cover,
                                   placeholder: (_, __) => _fallbackCover(cs),
-                                  errorWidget: (_, __, ___) => _fallbackCover(cs),
+                                  errorWidget: (_, __, ___) =>
+                                      _fallbackCover(cs),
                                 )
                               : _fallbackCover(cs),
                         ),
@@ -261,14 +270,22 @@ class _PlayerBarBottom extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                          Text(song.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: tt.bodyMedium?.copyWith(
                                   fontWeight: FontWeight.w600,
-                                  color: dynamicBg != null ? Colors.white : tt.bodyMedium?.color)),
+                                  color: dynamicBg != null
+                                      ? Colors.white
+                                      : tt.bodyMedium?.color)),
                           const SizedBox(height: 2),
-                          Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis,
+                          Text(song.artistDisplay,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: tt.labelSmall?.copyWith(
-                                  color: dynamicBg != null ? Colors.white70 : cs.onSurfaceVariant)),
+                                  color: dynamicBg != null
+                                      ? Colors.white70
+                                      : cs.onSurfaceVariant)),
                         ],
                       ),
                     ),
@@ -277,10 +294,13 @@ class _PlayerBarBottom extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: SizedBox(
-                            width: 28, height: 28,
+                            width: 28,
+                            height: 28,
                             child: CircularProgressIndicator(
                                 strokeWidth: 2.5,
-                                color: dynamicBg != null ? Colors.white70 : cs.primary)),
+                                color: dynamicBg != null
+                                    ? Colors.white70
+                                    : cs.primary)),
                       )
                     else ...[
                       const SizedBox(width: 4),
@@ -292,17 +312,18 @@ class _PlayerBarBottom extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        width: 40, height: 40,
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
-                          color: dynamicBg != null
-                              ? Colors.white
-                              : cs.primary,
+                          color: dynamicBg != null ? Colors.white : cs.primary,
                           shape: BoxShape.circle,
                         ),
                         child: IconButton(
                           icon: Icon(
                             player.isPlaying ? Icons.pause : Icons.play_arrow,
-                            color: dynamicBg != null ? Colors.black87 : cs.onPrimary,
+                            color: dynamicBg != null
+                                ? Colors.black87
+                                : cs.onPrimary,
                             size: 22,
                           ),
                           onPressed: player.togglePlayPause,
@@ -328,10 +349,11 @@ class _PlayerBarBottom extends StatelessWidget {
   }
 
   static Widget _fallbackCover(ColorScheme cs) => Container(
-    width: 44, height: 44,
-    color: cs.surfaceContainerHighest,
-    child: Icon(Icons.music_note, size: 22, color: cs.onSurfaceVariant),
-  );
+        width: 44,
+        height: 44,
+        color: cs.surfaceContainerHighest,
+        child: Icon(Icons.music_note, size: 22, color: cs.onSurfaceVariant),
+      );
 }
 
 class _MiniBtn extends StatelessWidget {
@@ -344,7 +366,8 @@ class _MiniBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 36, height: 36,
+      width: 36,
+      height: 36,
       child: IconButton(
         icon: Icon(icon, size: size, color: color),
         onPressed: onTap,
@@ -377,16 +400,37 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
       if (songs.isNotEmpty && songs[0] is Map<String, dynamic>) {
         final s = songs[0] as Map<String, dynamic>;
         if (!mounted) return;
-        showDialog(context: context, builder: (_) => AlertDialog(
-          title: const Text('继续播放'),
-          content: Text('检测到在其他设备播放了\n${s['name'] ?? ''}，是否继续？'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-            FilledButton(onPressed: () => Navigator.pop(context), child: const Text('继续')),
-          ],
-        ));
+        showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+                  title: const Text('继续播放'),
+                  content: Text('检测到在其他设备播放了\n${s['name'] ?? ''}，是否继续？'),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('取消')),
+                    FilledButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        // Trigger play from continued song info
+                        final song = Song(
+                          id: (s['id'] as num?)?.toInt() ?? 0,
+                          name: (s['name'] as String?) ?? '',
+                          artists: [(s['singer_name'] as String?) ?? ''],
+                          albumCoverUrl: s['cover_url'] as String?,
+                          duration: (s['duration'] as num?)?.toInt() ?? 0,
+                          hash: s['hash'] as String?,
+                        );
+                        context.read<PlayerProvider>().playSong(song);
+                      },
+                      child: const Text('继续'),
+                    ),
+                  ],
+                ));
       }
-    } catch (e, s) { Log.e('main', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('main', 'error', e, s);
+    }
   }
 
   @override

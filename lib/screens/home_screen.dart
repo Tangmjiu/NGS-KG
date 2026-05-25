@@ -643,6 +643,7 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
       BuildContext context, double shrinkOffset, bool overlapsContent) {
     final cs = Theme.of(context).colorScheme;
     return Container(
+      height: maxExtent,
       color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
       padding: EdgeInsets.only(top: topSafe + 8, bottom: 8),
       child: Row(
