@@ -44,8 +44,12 @@ Future<void> main() async {
   };
 
   ErrorWidget.builder = (details) {
-    // Use debugPrint instead of Log to avoid side effects during build phase
     debugPrint('RENDER_ERROR: ${details.exceptionAsString()}');
+    try {
+      Log.e('RENDER', details.exceptionAsString(), details.exception, details.stack);
+    } catch (_) {
+      // Log may not be ready during early build — debugPrint already fired
+    }
     return Container(
       color: const Color(0xFF1A1C19),
       child: const Center(

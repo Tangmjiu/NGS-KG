@@ -31,7 +31,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final Map<int, List<Song>> _cardSongs = {};
   final Map<int, String> _cardNames = {};
 
-  Widget _buildSongList(List<Song> songs, String title, {Future<List<Song>> Function()? onEnd}) {
+  Widget _buildSongList(List<Song> songs, String title,
+      {Future<List<Song>> Function()? onEnd}) {
     if (songs.isEmpty) return const SizedBox.shrink();
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
@@ -41,7 +42,8 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Text(title, style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          child: Text(title,
+              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
         ),
         SizedBox(
           height: 170,
@@ -65,15 +67,37 @@ class _HomeScreenState extends State<HomeScreen> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: song.albumCoverUrl != null
-                            ? CachedNetworkImage(imageUrl: song.albumCoverUrl!, width: 120, height: 120, fit: BoxFit.cover,
-                                placeholder: (_, __) => Container(width: 120, height: 120, color: cs.surfaceContainerHighest),
-                                errorWidget: (_, __, ___) => Container(width: 120, height: 120, color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
+                            ? CachedNetworkImage(
+                                imageUrl: song.albumCoverUrl!,
+                                width: 120,
+                                height: 120,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => Container(
+                                    width: 120,
+                                    height: 120,
+                                    color: cs.surfaceContainerHighest),
+                                errorWidget: (_, __, ___) => Container(
+                                    width: 120,
+                                    height: 120,
+                                    color: cs.surfaceContainerHighest,
+                                    child: const Icon(Icons.music_note)),
                               )
-                            : Container(width: 120, height: 120, color: cs.surfaceContainerHighest, child: const Icon(Icons.music_note)),
+                            : Container(
+                                width: 120,
+                                height: 120,
+                                color: cs.surfaceContainerHighest,
+                                child: const Icon(Icons.music_note)),
                       ),
                       const SizedBox(height: 4),
-                      Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
-                      Text(song.artistDisplay, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                      Text(song.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13)),
+                      Text(song.artistDisplay,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 11, color: cs.onSurfaceVariant)),
                     ],
                   ),
                 ),
@@ -112,7 +136,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
                 child: Card(
                   margin: const EdgeInsets.only(right: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                   color: cs.surfaceContainerHighest,
                   child: SizedBox(
@@ -121,7 +146,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         ClipRRect(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(12)),
                           child: song.albumCoverUrl != null
                               ? CachedNetworkImage(
                                   imageUrl: song.albumCoverUrl!,
@@ -129,36 +155,45 @@ class _HomeScreenState extends State<HomeScreen> {
                                   height: 120,
                                   fit: BoxFit.cover,
                                   placeholder: (_, __) => Container(
-                                    width: 140, height: 120,
+                                    width: 140,
+                                    height: 120,
                                     color: cs.surfaceContainerHighest,
                                   ),
                                   errorWidget: (_, __, ___) => Container(
-                                    width: 140, height: 120,
+                                    width: 140,
+                                    height: 120,
                                     color: cs.surfaceContainerHighest,
-                                    child: Icon(Icons.music_note, color: cs.onSurfaceVariant),
+                                    child: Icon(Icons.music_note,
+                                        color: cs.onSurfaceVariant),
                                   ),
                                 )
                               : Container(
-                                  width: 140, height: 120,
+                                  width: 140,
+                                  height: 120,
                                   color: cs.surfaceContainerHighest,
-                                  child: Icon(Icons.music_note, color: cs.onSurfaceVariant),
+                                  child: Icon(Icons.music_note,
+                                      color: cs.onSurfaceVariant),
                                 ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(song.name,
+                              Text(
+                                song.name,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: tt.titleSmall,
                               ),
                               const SizedBox(height: 2),
-                              Text(song.artistDisplay,
+                              Text(
+                                song.artistDisplay,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                                style: tt.bodySmall
+                                    ?.copyWith(color: cs.onSurfaceVariant),
                               ),
                             ],
                           ),
@@ -199,7 +234,8 @@ class _HomeScreenState extends State<HomeScreen> {
             itemBuilder: (_, i) {
               return Card(
                 margin: const EdgeInsets.only(right: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 elevation: 0,
                 color: cs.surfaceContainerHighest,
                 child: SizedBox(
@@ -208,14 +244,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        width: 140, height: 120,
+                        width: 140,
+                        height: 120,
                         decoration: BoxDecoration(
                           color: cs.surface,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(12)),
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 6),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -223,7 +262,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               width: 100,
                               height: 14,
                               decoration: BoxDecoration(
-                                color: cs.onSurfaceVariant.withValues(alpha: 0.15),
+                                color:
+                                    cs.onSurfaceVariant.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
@@ -232,7 +272,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               width: 60,
                               height: 10,
                               decoration: BoxDecoration(
-                                color: cs.onSurfaceVariant.withValues(alpha: 0.10),
+                                color:
+                                    cs.onSurfaceVariant.withValues(alpha: 0.10),
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
@@ -275,20 +316,26 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final songs = await _musicService.getTopSongs();
       if (mounted) setState(() => _recommended = songs.take(10).toList());
-    } catch (e, s) { Log.e('home_screen', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('home_screen', 'error', e, s);
+    }
   }
 
   Future<void> _loadDailyRecommend() async {
     setState(() => _dailyLoading = true);
     try {
       final songs = await _musicService.getDailyRecommend();
-      if (mounted) { setState(() {
-        _dailySongs = songs;
-        _dailyLoading = false;
-      }); }
+      if (mounted) {
+        setState(() {
+          _dailySongs = songs;
+          _dailyLoading = false;
+        });
+      }
     } catch (e, s) {
       Log.e('home_screen', 'error', e, s);
-      if (mounted) { setState(() => _dailyLoading = false); }
+      if (mounted) {
+        setState(() => _dailyLoading = false);
+      }
     }
   }
 
@@ -298,9 +345,13 @@ class _HomeScreenState extends State<HomeScreen> {
       futures.add((() async {
         try {
           final data = await _musicService.getCardSongs(id);
-          _cardNames[id] = data.recDesc.isNotEmpty ? data.recDesc : _cardTitles[id] ?? '';
+          if (!mounted) return;
+          _cardNames[id] =
+              data.recDesc.isNotEmpty ? data.recDesc : _cardTitles[id] ?? '';
           _cardSongs[id] = data.songs;
-        } catch (e, s) { Log.e('home_screen', 'error', e, s); }
+        } catch (e, s) {
+          Log.e('home_screen', 'error', e, s);
+        }
       })());
     }
     await Future.wait(futures);
@@ -318,7 +369,9 @@ class _HomeScreenState extends State<HomeScreen> {
           _showContinueBanner = true;
         });
       }
-    } catch (e, s) { Log.e('home_screen', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('home_screen', 'error', e, s);
+    }
   }
 
   Future<void> _continueListen() async {
@@ -349,9 +402,18 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedIndex: _currentTab,
         onDestinationSelected: (i) => setState(() => _currentTab = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: '首页'),
-          NavigationDestination(icon: Icon(Icons.explore_outlined), selectedIcon: Icon(Icons.explore), label: '发现'),
-          NavigationDestination(icon: Icon(Icons.person_outlined), selectedIcon: Icon(Icons.person), label: '我的'),
+          NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home),
+              label: '首页'),
+          NavigationDestination(
+              icon: Icon(Icons.explore_outlined),
+              selectedIcon: Icon(Icons.explore),
+              label: '发现'),
+          NavigationDestination(
+              icon: Icon(Icons.person_outlined),
+              selectedIcon: Icon(Icons.person),
+              label: '我的'),
         ],
       ),
     );
@@ -361,11 +423,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final topSafe = MediaQuery.of(context).padding.top;
+    final auth = context.watch<AuthProvider>();
     return Consumer<PlaylistProvider>(
       builder: (_, provider, __) {
         return LayoutBuilder(
           builder: (_, constraints) {
-            final contentWidth = constraints.maxWidth > 600 ? 600.0 : constraints.maxWidth;
+            final contentWidth =
+                constraints.maxWidth > 600 ? 600.0 : constraints.maxWidth;
             return RefreshIndicator(
               onRefresh: () async {
                 await provider.fetchTopPlaylists();
@@ -375,7 +439,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 slivers: [
                   SliverPersistentHeader(
                     pinned: true,
-                    delegate: _SearchHeaderDelegate(topSafe: topSafe),
+                    delegate: _SearchHeaderDelegate(
+                      topSafe: topSafe,
+                      isLoggedIn: auth.isLoggedIn,
+                    ),
                   ),
                   SliverToBoxAdapter(
                     child: SizedBox(
@@ -409,7 +476,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                     IconButton(
                                       icon: const Icon(Icons.close),
                                       tooltip: '关闭',
-                                      onPressed: () => setState(() => _showContinueBanner = false),
+                                      onPressed: () => setState(
+                                          () => _showContinueBanner = false),
                                     ),
                                   ],
                                 ),
@@ -420,11 +488,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             Padding(
                               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text('推荐歌单', style: tt.headlineSmall),
                                   TextButton(
-                                    onPressed: () => Navigator.pushNamed(context, '/category/selection'),
+                                    onPressed: () => Navigator.pushNamed(
+                                        context, '/category/selection'),
                                     child: const Text('更多'),
                                   ),
                                 ],
@@ -434,7 +504,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               height: 180,
                               child: ListView.builder(
                                 scrollDirection: Axis.horizontal,
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 8),
                                 itemCount: provider.topPlaylists.length,
                                 itemBuilder: (_, i) {
                                   final pl = provider.topPlaylists[i];
@@ -442,29 +513,58 @@ class _HomeScreenState extends State<HomeScreen> {
                                     padding: const EdgeInsets.only(right: 8),
                                     child: GestureDetector(
                                       onTap: () {
-                                        Navigator.pushNamed(context, '/playlist/detail', arguments: {
-                                          'gcId': pl.globalCollectionId ?? pl.id.toString(),
-                                          'name': pl.name,
-                                        });
+                                        Navigator.pushNamed(
+                                            context, '/playlist/detail',
+                                            arguments: {
+                                              'gcId': pl.globalCollectionId ??
+                                                  pl.id.toString(),
+                                              'name': pl.name,
+                                            });
                                       },
                                       child: SizedBox(
-                                      width: 130,
-                                      child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                        width: 130,
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             ClipRRect(
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                               child: pl.coverUrl != null
                                                   ? CachedNetworkImage(
-                                                      imageUrl: pl.coverUrl!, width: 130, height: 130,
+                                                      imageUrl: pl.coverUrl!,
+                                                      width: 130,
+                                                      height: 130,
                                                       fit: BoxFit.cover,
-                                                      placeholder: (_, __) => Container(color: cs.surfaceContainerHighest, width: 130, height: 130),
-                                                      errorWidget: (_, __, ___) => Container(color: cs.surfaceContainerHighest, width: 130, height: 130, child: const Icon(Icons.playlist_play)),
+                                                      placeholder: (_, __) =>
+                                                          Container(
+                                                              color: cs
+                                                                  .surfaceContainerHighest,
+                                                              width: 130,
+                                                              height: 130),
+                                                      errorWidget: (_, __, ___) =>
+                                                          Container(
+                                                              color: cs
+                                                                  .surfaceContainerHighest,
+                                                              width: 130,
+                                                              height: 130,
+                                                              child: const Icon(
+                                                                  Icons
+                                                                      .playlist_play)),
                                                     )
-                                                  : Container(color: cs.surfaceContainerHighest, width: 130, height: 130, child: const Icon(Icons.playlist_play)),
+                                                  : Container(
+                                                      color: cs
+                                                          .surfaceContainerHighest,
+                                                      width: 130,
+                                                      height: 130,
+                                                      child: const Icon(
+                                                          Icons.playlist_play)),
                                             ),
                                             const SizedBox(height: 4),
-                                            Text(pl.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: tt.bodySmall),
+                                            Text(pl.name,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: tt.bodySmall),
                                           ],
                                         ),
                                       ),
@@ -477,19 +577,44 @@ class _HomeScreenState extends State<HomeScreen> {
                           if (_dailyLoading || _dailySongs.isNotEmpty)
                             _buildDailyRecommend(cs, tt),
                           if (_recommended.isNotEmpty)
-                            _buildSongList(_recommended, '新歌推荐', onEnd: () => _musicService.getTopSongs()),
+                            _buildSongList(_recommended, '新歌推荐',
+                                onEnd: () => _musicService.getTopSongs()),
                           if (_cardSongs[1]?.isNotEmpty ?? false)
-                            _buildSongList(_cardSongs[1]!, _cardNames[1] ?? '私人专属好歌', onEnd: () => _musicService.getCardSongs(1).then((cs) => cs.songs)),
+                            _buildSongList(
+                                _cardSongs[1]!, _cardNames[1] ?? '私人专属好歌',
+                                onEnd: () => _musicService
+                                    .getCardSongs(1)
+                                    .then((cs) => cs.songs)),
                           if (_cardSongs[2]?.isNotEmpty ?? false)
-                            _buildSongList(_cardSongs[2]!, _cardNames[2] ?? '经典怀旧金曲', onEnd: () => _musicService.getCardSongs(2).then((cs) => cs.songs)),
+                            _buildSongList(
+                                _cardSongs[2]!, _cardNames[2] ?? '经典怀旧金曲',
+                                onEnd: () => _musicService
+                                    .getCardSongs(2)
+                                    .then((cs) => cs.songs)),
                           if (_cardSongs[3]?.isNotEmpty ?? false)
-                            _buildSongList(_cardSongs[3]!, _cardNames[3] ?? '热门好歌精选', onEnd: () => _musicService.getCardSongs(3).then((cs) => cs.songs)),
+                            _buildSongList(
+                                _cardSongs[3]!, _cardNames[3] ?? '热门好歌精选',
+                                onEnd: () => _musicService
+                                    .getCardSongs(3)
+                                    .then((cs) => cs.songs)),
                           if (_cardSongs[4]?.isNotEmpty ?? false)
-                            _buildSongList(_cardSongs[4]!, _cardNames[4] ?? '小众宝藏佳作', onEnd: () => _musicService.getCardSongs(4).then((cs) => cs.songs)),
+                            _buildSongList(
+                                _cardSongs[4]!, _cardNames[4] ?? '小众宝藏佳作',
+                                onEnd: () => _musicService
+                                    .getCardSongs(4)
+                                    .then((cs) => cs.songs)),
                           if (_cardSongs[5]?.isNotEmpty ?? false)
-                            _buildSongList(_cardSongs[5]!, _cardNames[5] ?? '潮流尝鲜', onEnd: () => _musicService.getCardSongs(5).then((cs) => cs.songs)),
+                            _buildSongList(
+                                _cardSongs[5]!, _cardNames[5] ?? '潮流尝鲜',
+                                onEnd: () => _musicService
+                                    .getCardSongs(5)
+                                    .then((cs) => cs.songs)),
                           if (_cardSongs[6]?.isNotEmpty ?? false)
-                            _buildSongList(_cardSongs[6]!, _cardNames[6] ?? 'VIP专属推荐', onEnd: () => _musicService.getCardSongs(6).then((cs) => cs.songs)),
+                            _buildSongList(
+                                _cardSongs[6]!, _cardNames[6] ?? 'VIP专属推荐',
+                                onEnd: () => _musicService
+                                    .getCardSongs(6)
+                                    .then((cs) => cs.songs)),
                         ],
                       ),
                     ),
@@ -506,13 +631,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
 class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
   final double topSafe;
+  final bool isLoggedIn;
 
-  const _SearchHeaderDelegate({required this.topSafe});
+  const _SearchHeaderDelegate({
+    required this.topSafe,
+    required this.isLoggedIn,
+  });
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
     final cs = Theme.of(context).colorScheme;
-    final auth = context.watch<AuthProvider>();
     return Container(
       color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
       padding: EdgeInsets.only(top: topSafe + 8, bottom: 8),
@@ -547,13 +676,15 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
                   );
                 },
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     children: [
                       Icon(Icons.search, size: 20, color: cs.onSurfaceVariant),
                       const SizedBox(width: 8),
                       Text('搜索歌曲、歌手、歌单',
-                          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant, fontSize: 14)),
                     ],
                   ),
                 ),
@@ -562,10 +693,10 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
           ),
           const SizedBox(width: 8),
           IconButton(
-            icon: Icon(auth.isLoggedIn ? Icons.person : Icons.person_outline,
+            icon: Icon(isLoggedIn ? Icons.person : Icons.person_outline,
                 color: cs.onSurfaceVariant),
             onPressed: () {
-              if (!auth.isLoggedIn) Navigator.pushNamed(context, '/login');
+              if (!isLoggedIn) Navigator.pushNamed(context, '/login');
             },
           ),
           const SizedBox(width: 8),
@@ -582,6 +713,7 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant _SearchHeaderDelegate oldDelegate) {
-    return oldDelegate.topSafe != topSafe;
+    return oldDelegate.topSafe != topSafe ||
+        oldDelegate.isLoggedIn != isLoggedIn;
   }
 }
