@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:flutter_media_metadata/flutter_media_metadata.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../utils/logger.dart';
 import '../models/local_song.dart';
+import 'metadata_reader.dart';
 
 class LocalMusicService {
   static const _audioExtensions = ['.mp3', '.flac', '.wav', '.aac', '.ogg', '.wma', '.m4a'];
@@ -52,19 +52,19 @@ class LocalMusicService {
           String? codec;
           String? coverCachePath;
 
-          try {
-            final meta = await MetadataRetriever.fromFile(entry);
-            if (meta.trackName != null && meta.trackName!.isNotEmpty) {
-              title = meta.trackName!;
+          final meta = await MetadataReader.read(entry);
+          if (meta != null) {
+            if (meta.title != null && meta.title!.isNotEmpty) {
+              title = meta.title!;
             }
-            if (meta.trackArtistNames != null && meta.trackArtistNames!.isNotEmpty) {
-              artist = meta.trackArtistNames!.join(' / ');
+            if (meta.artist != null && meta.artist!.isNotEmpty) {
+              artist = meta.artist!;
             }
-            if (meta.albumName != null && meta.albumName!.isNotEmpty) {
-              album = meta.albumName!;
+            if (meta.album != null && meta.album!.isNotEmpty) {
+              album = meta.album!;
             }
-            if (meta.trackDuration != null && meta.trackDuration! > 0) {
-              duration = (meta.trackDuration! / 1000).round();
+            if (meta.durationMs > 0) {
+              duration = (meta.durationMs / 1000).round();
             }
             if (meta.bitrate != null && meta.bitrate! > 0) {
               bitrate = meta.bitrate!;
@@ -73,9 +73,6 @@ class LocalMusicService {
             if (meta.albumArt != null && meta.albumArt!.isNotEmpty) {
               coverCachePath = await _cacheAlbumArt(entry.path, meta.albumArt!);
             }
-          } catch (e, s) {
-            Log.e('local_music_service', 'metadata read error for $name', e, s);
-            // Fallback: use filename as title
           }
 
           // Detect codec and estimate quality from file extension
