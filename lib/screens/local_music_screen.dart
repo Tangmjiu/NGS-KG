@@ -72,23 +72,25 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
     return q;
   }
 
-  void _playSong(LocalSong localSong) {
-    final song = Song(
-      id: localSong.filePath.hashCode,
-      name: localSong.displayName,
-      artists: [localSong.artist ?? '本地音乐'],
-      albumName: localSong.album,
-      filePath: localSong.filePath,
-      qualities: localSong.bitrate != null ? _buildQualityMap(localSong) : null,
-    );
-    final playlist = _songs.map((s) => Song(
+  Song _localSongToSong(LocalSong s) {
+    return Song(
       id: s.filePath.hashCode,
       name: s.displayName,
       artists: [s.artist ?? '本地音乐'],
       albumName: s.album,
+      albumCoverUrl: s.albumCoverPath != null
+          ? 'file://${s.albumCoverPath}'
+          : null,
       filePath: s.filePath,
+      duration: s.duration,
       qualities: s.bitrate != null ? _buildQualityMap(s) : null,
-    )).toList();
+      lyrics: s.lyrics,
+    );
+  }
+
+  void _playSong(LocalSong localSong) {
+    final song = _localSongToSong(localSong);
+    final playlist = _songs.map(_localSongToSong).toList();
     context.read<PlayerProvider>().playSong(song, playlist: playlist);
   }
 

@@ -14,6 +14,7 @@ class Song {
   final Map<String, String>? qualities;
   final int albumId;
   final int? fileId;
+  final String? lyrics; // embedded LRC text (local files with companion .lrc)
 
   const Song({
     required this.id,
@@ -28,6 +29,7 @@ class Song {
     this.qualities,
     this.albumId = 0,
     this.fileId,
+    this.lyrics,
   });
 
   bool get isLocal => filePath != null;
