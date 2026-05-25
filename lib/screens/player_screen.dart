@@ -24,19 +24,15 @@ class PlayerScreen extends StatefulWidget {
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends State<PlayerScreen>
-    with SingleTickerProviderStateMixin {
+class _PlayerScreenState extends State<PlayerScreen> {
   // ─── PageView ───
   final PageController _pageController = PageController();
   double _pageOffset = 0.0; // 0 = cover, 1 = lyrics
 
-  // ─── Rotation ───
-  late final AnimationController _rotationController;
-  bool _rotationPlaying = false;
-
   // ─── Lyrics ───
   final MusicService _musicService = MusicService();
   String? _lastLoadedHash;
+  int? _lastLoadedSongId; // for local songs without hash
   bool _lyricLoading = false;
 
   // ─── Drag state (progress bar) ───
@@ -46,12 +42,9 @@ class _PlayerScreenState extends State<PlayerScreen>
   @override
   void initState() {
     super.initState();
-    _rotationController = AnimationController(
-      duration: const Duration(seconds: 30),
-      vsync: this,
-    );
     _pageController.addListener(_onPageScroll);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _attachPlayerListener());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _attachPlayerListener());
   }
 
   void _attachPlayerListener() {
@@ -68,12 +61,15 @@ class _PlayerScreenState extends State<PlayerScreen>
     // Lyric progress
     player.updateLyricProgress(player.position);
 
-    // Cover rotation sync
-    _syncRotation(player.isPlaying);
-
     // Load lyrics when song changes
-    if (song.hash != null && song.hash != _lastLoadedHash) {
-      _loadLyricsForSong(song.hash!, songName: song.name);
+    final songChanged = (song.hash != null && song.hash != _lastLoadedHash) ||
+        (song.hash == null && song.id != _lastLoadedSongId);
+    if (songChanged) {
+      if (song.hash != null) {
+        _lastLoadedHash = song.hash;
+      }
+      _lastLoadedSongId = song.id;
+      _loadLyricsForSong(song);
     }
   }
 
@@ -84,21 +80,10 @@ class _PlayerScreenState extends State<PlayerScreen>
     });
   }
 
-  void _syncRotation(bool isPlaying) {
-    if (isPlaying == _rotationPlaying) return;
-    _rotationPlaying = isPlaying;
-    if (isPlaying) {
-      if (!_rotationController.isAnimating) _rotationController.repeat();
-    } else {
-      if (_rotationController.isAnimating) _rotationController.stop();
-    }
-  }
-
   @override
   void dispose() {
     _pageController.removeListener(_onPageScroll);
     _pageController.dispose();
-    _rotationController.dispose();
     try {
       context.read<PlayerProvider>().removeListener(_onPlayerTick);
     } catch (_) {}
@@ -109,12 +94,28 @@ class _PlayerScreenState extends State<PlayerScreen>
   //  Lyric loading (same API as original)
   // ────────────────────────────────────────────────────────────
 
-  void _loadLyricsForSong(String hash, {String? songName}) {
-    _lastLoadedHash = hash;
+  void _loadLyricsForSong(Song song) {
     _dragProgressValue = 0.0;
-    _rotationController.reset();
-    setState(() => _lyricLoading = true);
-    _loadLyrics(hash, songName: songName);
+
+    // Embedded lyrics from local files (companion .lrc or metadata)
+    if (song.lyrics != null && song.lyrics!.isNotEmpty) {
+      setState(() => _lyricLoading = false);
+      final parsed = parseLyrics(song.lyrics!);
+      if (mounted) {
+        context.read<PlayerProvider>().setLyrics(parsed);
+      }
+      return;
+    }
+
+    // Online lyrics via API (hash-based)
+    if (song.hash != null) {
+      setState(() => _lyricLoading = true);
+      _loadLyrics(song.hash!, songName: song.name);
+    } else {
+      if (mounted) {
+        context.read<PlayerProvider>().clearLyrics();
+      }
+    }
   }
 
   Future<void> _loadLyrics(String hash, {String? songName}) async {
@@ -125,7 +126,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       final candidates = data['candidates'] as List<dynamic>? ?? [];
       if (candidates.isNotEmpty) {
         final c = candidates[0] as Map<String, dynamic>;
-        final id = c['id'] as int;
+        final id = int.parse(c['id'].toString());
         final key = c['accesskey'] as String? ?? '';
         final rawContent = await _musicService.fetchLyricContent(id, key);
         if (rawContent.isNotEmpty) {
@@ -196,7 +197,6 @@ class _PlayerScreenState extends State<PlayerScreen>
                           // Page 0: Cover art
                           PlayerCoverArt(
                             song: song,
-                            rotationController: _rotationController,
                             scrollOffset: _pageOffset,
                           ),
                           // Page 1: Lyrics
@@ -252,7 +252,8 @@ class _PlayerScreenState extends State<PlayerScreen>
                           PlayMode.repeatOne,
                         ];
                         final next = modes[
-                            (modes.indexOf(player.playMode) + 1) % modes.length];
+                            (modes.indexOf(player.playMode) + 1) %
+                                modes.length];
                         player.setPlayMode(next);
                       },
                       onShowPlaylist: () =>
@@ -263,8 +264,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
                     // ── Bottom actions ──
                     _buildBottomActions(),
-                    SizedBox(
-                        height: MediaQuery.of(context).padding.bottom + 4),
+                    SizedBox(height: MediaQuery.of(context).padding.bottom + 4),
                   ],
                 ),
               ),
