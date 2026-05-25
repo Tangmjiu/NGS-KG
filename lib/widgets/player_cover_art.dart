@@ -2,17 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/song.dart';
 
-/// Enhanced album cover art widget with glassmorphism shadow, rotation
-/// animation, and scroll-driven crossfade for the Apple Music-style player.
+/// Enhanced album cover art widget with glassmorphism shadow and
+/// scroll-driven crossfade for the Apple Music-style player.
 class PlayerCoverArt extends StatelessWidget {
   final Song song;
-  final AnimationController rotationController;
   final double scrollOffset; // 0.0 = fully visible, 1.0 = lyrics page
 
   const PlayerCoverArt({
     super.key,
     required this.song,
-    required this.rotationController,
     required this.scrollOffset,
   });
 
@@ -30,47 +28,44 @@ class PlayerCoverArt extends StatelessWidget {
               scale: 1.0 - scrollOffset * 0.2,
               child: Hero(
                 tag: 'album_art_${song.hash ?? song.id}',
-                child: RotationTransition(
-                  turns: rotationController,
-                  child: Container(
-                    width: size,
-                    height: size,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        width: 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black54,
-                          blurRadius: 30,
-                          offset: const Offset(0, 15),
-                          spreadRadius: 5,
-                        ),
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 60,
-                          offset: const Offset(0, 30),
-                          spreadRadius: 10,
-                        ),
-                      ],
+                child: Container(
+                  width: size,
+                  height: size,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      width: 1,
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Semantics(
-                        image: true,
-                        label: '${song.name} 专辑封面',
-                        child: song.albumCoverUrl != null &&
-                                song.albumCoverUrl!.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: song.albumCoverUrl!,
-                                fit: BoxFit.cover,
-                                placeholder: (_, __) => _fallback(size),
-                                errorWidget: (_, __, ___) => _fallback(size),
-                              )
-                            : _fallback(size),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black54,
+                        blurRadius: 30,
+                        offset: const Offset(0, 15),
+                        spreadRadius: 5,
                       ),
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 60,
+                        offset: const Offset(0, 30),
+                        spreadRadius: 10,
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Semantics(
+                      image: true,
+                      label: '${song.name} 专辑封面',
+                      child: song.albumCoverUrl != null &&
+                              song.albumCoverUrl!.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: song.albumCoverUrl!,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) => _fallback(size),
+                              errorWidget: (_, __, ___) => _fallback(size),
+                            )
+                          : _fallback(size),
                     ),
                   ),
                 ),
