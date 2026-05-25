@@ -68,7 +68,7 @@ class PlayerProgressBar extends StatelessWidget {
                       onDragEnd?.call();
                       onSeek(v);
                     },
-                    onChanged: (_) {},
+                    onChanged: onSeek,
                   ),
                 ),
               ),

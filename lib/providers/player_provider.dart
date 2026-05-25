@@ -146,7 +146,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
         if (idx == null) return;
         _engine.resetForNewSong();
         _queue.playIndex(idx);
-        _engine.play(current, version: _engine.currentVersion);
+        _engine.play(_queue.currentSong ?? current, version: _engine.currentVersion);
         break;
       case PlayMode.sequential:
         if (_queue.currentIndex + 1 < _queue.playlist.length) {
@@ -302,6 +302,11 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
 
   void setPlaylist(List<Song> songs, {int startIndex = 0}) {
     _queue.setPlaylist(songs, startIndex: startIndex);
+    if (songs.isEmpty) {
+      _engine.pause();
+      _isPlaying = false;
+      notifyListeners();
+    }
   }
 
   void setPlayMode(PlayMode mode) {

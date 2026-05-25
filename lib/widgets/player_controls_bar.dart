@@ -58,8 +58,10 @@ class PlayerControlsBar extends StatelessWidget {
         ),
 
         // -- Play / Pause --
-        GestureDetector(
+        InkWell(
           onTap: onPlayPause,
+          borderRadius: BorderRadius.circular(28),
+          customBorder: const CircleBorder(),
           child: Container(
             width: 56,
             height: 56,

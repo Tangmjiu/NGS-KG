@@ -43,11 +43,7 @@ class PlaybackControls extends StatelessWidget {
                       switchInCurve: Curves.fastOutSlowIn,
                       switchOutCurve: Curves.fastOutSlowIn,
                       transitionBuilder: (child, animation) {
-                        final curved = CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.fastOutSlowIn,
-                        );
-                        return ScaleTransition(scale: curved, child: child);
+                        return ScaleTransition(scale: animation, child: child);
                       },
                       child: Icon(
                         key: ValueKey(player.isPlaying),
