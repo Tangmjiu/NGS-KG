@@ -27,3 +27,9 @@ android/app/src/main/res/values/google_maps_api.xml
 # OS
 .DS_Store
 Thumbs.db
+
+# Temp & backup
+*.副本.*
+* - 副本.*
+gradle-user-home/
+.omo/
