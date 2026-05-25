@@ -51,7 +51,7 @@ Future<void> main() async {
       Log.e('RENDER', details.exceptionAsString(), details.exception,
           details.stack);
     } catch (_) {
-      // Log may not be ready during early build — debugPrint already fired
+      // Log may not be ready during early build �?debugPrint already fired
     }
     return Container(
       color: const Color(0xFF1A1C19),
@@ -65,7 +65,7 @@ Future<void> main() async {
     );
   };
 
-  // 只对后台初始化任务使用 zone 捕获异常
+  // 只对后台初始化任务使�?zone 捕获异常
   runZonedGuarded(() {
     _initDevice();
     _initNotifications();
@@ -185,47 +185,19 @@ class _PlayerBarBottom extends StatelessWidget {
         final song = player.currentSong;
         if (song == null || player.isPlayerScreenVisible)
           return const SizedBox.shrink();
-        final cs = Theme.of(context).colorScheme;
         final tt = Theme.of(context).textTheme;
 
         final dynamicBg = player.backgroundColor;
-        final surfaceColor = dynamicBg ?? cs.surfaceContainer;
+        // 玻璃底色：取动态色或纯�?
+        final glassColor = (dynamicBg ?? const Color(0xFF1A1A1A))
+            .withValues(alpha: 0.72);
 
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 进度条
-            SizedBox(
-              height: 2,
-              child: LinearProgressIndicator(
-                value: player.progress.isFinite ? player.progress : 0.0,
-                backgroundColor: cs.surfaceContainerHighest,
-                color: dynamicBg != null
-                    ? Color.lerp(dynamicBg, Colors.white, 0.4) ?? cs.primary
-                    : cs.primary,
-                minHeight: 2,
-              ),
-            ),
-            // 主体
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 800),
-              curve: Curves.easeInOut,
-              decoration: BoxDecoration(
-                color: surfaceColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 8,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              padding: EdgeInsets.only(
-                left: 8,
-                right: 12,
-                top: 6,
-                bottom: MediaQuery.of(context).padding.bottom + 4,
-              ),
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
               child: GestureDetector(
                 onTap: () {
                   player.setPlayerScreenVisible(true);
@@ -240,121 +212,165 @@ class _PlayerBarBottom extends StatelessWidget {
                       ))
                       .then((_) => player.setPlayerScreenVisible(false));
                 },
-                child: Row(
-                  children: [
-                    // 专辑封面 (Hero for shared element transition)
-                    Hero(
-                      tag: 'album_art_${song.hash ?? song.id}',
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: song.albumCoverUrl != null &&
-                                  song.albumCoverUrl!.isNotEmpty
-                              ? CachedNetworkImage(
-                                  imageUrl: song.albumCoverUrl!,
-                                  fit: BoxFit.cover,
-                                  placeholder: (_, __) => _fallbackCover(cs),
-                                  errorWidget: (_, __, ___) =>
-                                      _fallbackCover(cs),
-                                )
-                              : _fallbackCover(cs),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // 歌名 + 歌手
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(song.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: tt.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: dynamicBg != null
-                                      ? Colors.white
-                                      : tt.bodyMedium?.color)),
-                          const SizedBox(height: 2),
-                          Text(song.artistDisplay,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: tt.labelSmall?.copyWith(
-                                  color: dynamicBg != null
-                                      ? Colors.white70
-                                      : cs.onSurfaceVariant)),
-                        ],
-                      ),
-                    ),
-                    // 播放控制
-                    if (player.isLoading)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: SizedBox(
-                            width: 28,
-                            height: 28,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                color: dynamicBg != null
-                                    ? Colors.white70
-                                    : cs.primary)),
-                      )
-                    else ...[
-                      const SizedBox(width: 4),
-                      _MiniBtn(
-                        icon: Icons.skip_previous,
-                        size: 22,
-                        onTap: player.playPrevious,
-                        color: dynamicBg != null ? Colors.white70 : null,
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: dynamicBg != null ? Colors.white : cs.primary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          icon: Icon(
-                            player.isPlaying ? Icons.pause : Icons.play_arrow,
-                            color: dynamicBg != null
-                                ? Colors.black87
-                                : cs.onPrimary,
-                            size: 22,
-                          ),
-                          onPressed: player.togglePlayPause,
-                          padding: EdgeInsets.zero,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _MiniBtn(
-                        icon: Icons.skip_next,
-                        size: 22,
-                        onTap: player.playNext,
-                        color: dynamicBg != null ? Colors.white70 : null,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: glassColor,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
                       ),
                     ],
-                  ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // ── 顶部分隔/进度�?──
+                      if (player.duration.inMilliseconds > 0)
+                        ClipRRect(
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(16),
+                            topRight: Radius.circular(16),
+                          ),
+                          child: LinearProgressIndicator(
+                            value: player.progress.isFinite
+                                ? player.progress
+                                : 0.0,
+                            backgroundColor: Colors.white10,
+                            color: Colors.white38,
+                            minHeight: 2,
+                          ),
+                        ),
+                      // ── 内容主体 ──
+                      Padding(
+                        padding: EdgeInsets.only(
+                          left: 8,
+                          right: 12,
+                          top: 6,
+                          bottom: MediaQuery.of(context).padding.bottom + 4,
+                        ),
+                        child: Row(
+                          children: [
+                            // 专辑封面
+                            Hero(
+                              tag: 'album_art_${song.hash ?? song.id}',
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: song.albumCoverUrl != null &&
+                                          song.albumCoverUrl!.isNotEmpty
+                                      ? CachedNetworkImage(
+                                          imageUrl: song.albumCoverUrl!,
+                                          fit: BoxFit.cover,
+                                          placeholder: (_, __) =>
+                                              _fallbackCover(
+                                                  Theme.of(context)
+                                                      .colorScheme),
+                                          errorWidget: (_, __, ___) =>
+                                              _fallbackCover(
+                                                  Theme.of(context)
+                                                      .colorScheme),
+                                        )
+                                      : _fallbackCover(
+                                          Theme.of(context).colorScheme),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // 歌名 + 歌手
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(song.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: tt.bodyMedium?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white)),
+                                  const SizedBox(height: 2),
+                                  Text(song.artistDisplay,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: tt.labelSmall?.copyWith(
+                                          color: Colors.white70)),
+                                ],
+                              ),
+                            ),
+                            // 播放控制
+                            if (player.isLoading)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 4),
+                                child: SizedBox(
+                                    width: 28,
+                                    height: 28,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: Colors.white70)),
+                              )
+                            else ...[
+                              const SizedBox(width: 4),
+                              _MiniBtn(
+                                icon: Icons.skip_previous,
+                                size: 22,
+                                onTap: player.playPrevious,
+                                color: Colors.white70,
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: IconButton(
+                                  icon: Icon(
+                                    player.isPlaying
+                                        ? Icons.pause
+                                        : Icons.play_arrow,
+                                    color: Colors.black87,
+                                    size: 22,
+                                  ),
+                                  onPressed: player.togglePlayPause,
+                                  padding: EdgeInsets.zero,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _MiniBtn(
+                                icon: Icons.skip_next,
+                                size: 22,
+                                onTap: player.playNext,
+                                color: Colors.white70,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ],
+          ),
         );
       },
     );
   }
-
-  static Widget _fallbackCover(ColorScheme cs) => Container(
-        width: 44,
-        height: 44,
-        color: cs.surfaceContainerHighest,
-        child: Icon(Icons.music_note, size: 22, color: cs.onSurfaceVariant),
-      );
 }
+
+Widget _fallbackCover(ColorScheme cs) => Container(
+      width: 44,
+      height: 44,
+      color: cs.surfaceContainerHighest,
+      child: Icon(Icons.music_note, size: 22, color: cs.onSurfaceVariant),
+    );
 
 class _MiniBtn extends StatelessWidget {
   final IconData icon;
