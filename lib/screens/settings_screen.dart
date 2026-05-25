@@ -1,7 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:path_provider/path_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/music_service.dart';
 import '../services/api_client.dart';
@@ -461,58 +459,6 @@ class _DeveloperScreenState extends State<DeveloperScreen> {
     }
   }
 
-  Future<void> _exportLog() async {
-    try {
-      Directory? dir;
-      if (Platform.isAndroid) {
-        dir = Directory('/storage/emulated/0/Download/NGS-KG+_Logs');
-      } else {
-        dir = await getApplicationDocumentsDirectory();
-      }
-      if (!await dir.exists()) {
-        await dir.create(recursive: true);
-      }
-      final timestamp = DateTime.now()
-          .toString()
-          .replaceAll(':', '-')
-          .split('.')
-          .first;
-      final file = File('${dir.path}/NGS-KG+_log_$timestamp.txt');
-      final header = '''
-══════════════════════════════════════════
-NGS-KG+ Debug Log
-══════════════════════════════════════════
-Export Time: ${DateTime.now().toIso8601String()}
-──────────────────────────────────────────
-dfid: $_dfid
-mid: $_mid
-guid: $_guid
-serverDev: $_serverDev
-token: $_token
-userid: $_userId
-API: $_apiUrl
-──────────────────────────────────────────
-App Version: 1.0.0
-Platform: ${Platform.operatingSystem}
-══════════════════════════════════════════
-
-''';
-      final body = Log.entries.map((e) => e.formatted).join('\n');
-      await file.writeAsString('$header$body');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text('日志已导出到: Download/NGS-KG+_Logs/'),
-          duration: const Duration(seconds: 3),
-        ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('导出失败: $e')));
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -557,11 +503,6 @@ Platform: ${Platform.operatingSystem}
             title: const Text('清除 Cookie'),
             subtitle: const Text('退出登录并清除认证信息'),
             onTap: _clearCookie,
-          ),
-          ListTile(
-            title: const Text('导出日志'),
-            subtitle: const Text('保存到 Download/NGS-KG+_Logs'),
-            onTap: _exportLog,
           ),
           ListTile(
             leading: const Icon(Icons.terminal),
