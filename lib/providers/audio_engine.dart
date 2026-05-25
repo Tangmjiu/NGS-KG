@@ -5,6 +5,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
 import '../models/song.dart';
 import '../services/music_service.dart';
+import '../services/api_exception.dart';
 
 class AudioEngine {
   final MusicService _musicService;
@@ -21,6 +22,8 @@ class AudioEngine {
   StreamSubscription? _positionSub;
   StreamSubscription? _durationSub;
   StreamSubscription? _processingStateSub;
+  StreamSubscription? _playbackSub;
+  bool _hasActivePlayback = false;
 
   final ValueNotifier<Duration> position = ValueNotifier(Duration.zero);
   final ValueNotifier<Duration> duration = ValueNotifier(Duration.zero);
@@ -49,9 +52,15 @@ class AudioEngine {
       } else if (state == ProcessingState.ready) {
         isCompleting.value = false;
         onReady?.call();
+      } else if (state == ProcessingState.idle) {
+        if (_hasActivePlayback) {
+          _hasActivePlayback = false;
+          isLoading.value = false;
+          error.value = '播放出错，请重试';
+        }
       }
     });
-    _player.playbackEventStream.listen((event) {
+    _playbackSub = _player.playbackEventStream.listen((event) {
       isPlaying.value = _player.playing;
     });
   }
@@ -60,7 +69,9 @@ class AudioEngine {
     AudioSession.instance.then((session) => session.configure(const AudioSessionConfiguration(
       androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
       androidWillPauseWhenDucked: true,
-    )));
+    ))).catchError((e) {
+      Log.e('audio_engine', 'AudioSession init failed', e);
+    });
   }
 
   int get requestVersion => _playRequestVersion;
@@ -88,10 +99,12 @@ class AudioEngine {
           await _player.setUrl(fp);
           if (version != _playRequestVersion) return;
           await _player.play();
+          _hasActivePlayback = true;
         } else {
           await _player.setFilePath(fp);
           if (version != _playRequestVersion) return;
           await _player.play();
+          _hasActivePlayback = true;
         }
       } else {
         final quality = _currentQuality(song);
@@ -103,6 +116,7 @@ class AudioEngine {
           if (version != _playRequestVersion) return;
           _lastUrlFetchTime = DateTime.now();
           await _player.play();
+          _hasActivePlayback = true;
           _musicService.uploadPlayHistory(song.id, duration: song.duration).catchError((_) {});
         } else {
           _playAttempts++;
@@ -113,6 +127,11 @@ class AudioEngine {
     } catch (e, s) {
       _playAttempts++;
       Log.w('audio_engine', 'play error (attempt $_playAttempts)', e, s);
+      if (e is NoCopyrightException || e is NeedLoginException) {
+        isLoading.value = false;
+        error.value = '播放失败: $e';
+        return;
+      }
       if (_playAttempts <= _maxRetries) {
         await play(song, version: version);
         return;
@@ -217,6 +236,7 @@ class AudioEngine {
     _positionSub?.cancel();
     _durationSub?.cancel();
     _processingStateSub?.cancel();
+    _playbackSub?.cancel();
     position.dispose();
     duration.dispose();
     isLoading.dispose();

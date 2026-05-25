@@ -38,6 +38,14 @@ class PlaylistQueue extends ValueNotifier<int> {
   void playIndex(int index) {
     if (index < 0 || index >= _playlist.length) return;
     _currentIndex = index;
+    if (_playMode == PlayMode.shuffle) {
+      final pos = _shuffleOrder.indexOf(index);
+      if (pos >= 0) {
+        _shufflePos = pos;
+      } else {
+        _initShuffle();
+      }
+    }
     notifyListeners();
   }
 

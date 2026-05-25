@@ -62,13 +62,7 @@ class _AMLyricsViewState extends State<AMLyricsView> {
     final viewportHeight = _scrollController.position.viewportDimension;
 
     // Calculate offset to the current line, accounting for variable line heights.
-    double offset = 0.0;
-    for (int i = 0; i < widget.currentLineIndex && i < widget.lyrics.length; i++) {
-      offset += (i == widget.currentLineIndex - 1) ? _otherLineHeight : _otherLineHeight;
-    }
-
-    // Recalculate more precisely using the index.
-    offset = widget.currentLineIndex * _otherLineHeight;
+    final offset = widget.currentLineIndex * _otherLineHeight;
     final target = offset - viewportHeight / 2 + _currentLineHeight / 2;
 
     _scrollController.animateTo(

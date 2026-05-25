@@ -111,6 +111,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   void _loadLyricsForSong(String hash, {String? songName}) {
     _lastLoadedHash = hash;
+    _dragProgressValue = 0.0;
     _rotationController.reset();
     setState(() => _lyricLoading = true);
     _loadLyrics(hash, songName: songName);
@@ -138,6 +139,7 @@ class _PlayerScreenState extends State<PlayerScreen>
             }
             final lyrics = parseLyrics(decoded);
             if (mounted) {
+              if (hash != _lastLoadedHash) return;
               context.read<PlayerProvider>().setLyrics(lyrics);
             }
           } catch (e, s) {
