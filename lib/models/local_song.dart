@@ -8,6 +8,8 @@ class LocalSong {
   final int? bitrate;    // kbps
   final int? sampleRate; // Hz
   final String? codec;   // e.g., mp3, flac, wav
+  final String? lyrics;  // raw LRC text from companion .lrc or metadata
+  final String? albumCoverPath; // extracted cover art cache path
 
   const LocalSong({
     required this.title,
@@ -19,6 +21,8 @@ class LocalSong {
     this.bitrate,
     this.sampleRate,
     this.codec,
+    this.lyrics,
+    this.albumCoverPath,
   });
 
   String get displayName {
