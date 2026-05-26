@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../models/user.dart';
 import '../models/playlist.dart';
 import '../models/song.dart';
 import '../providers/auth_provider.dart';
@@ -20,11 +21,15 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  final MusicService _musicService = MusicService();
+  Map<String, dynamic>? _vipInfo;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadPlaylists();
+      _loadVipInfo();
     });
   }
 
@@ -34,6 +39,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (auth.isLoggedIn && uid != null) {
       context.read<PlaylistProvider>().fetchUserPlaylist(uid);
     }
+  }
+
+  Future<void> _loadVipInfo() async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isLoggedIn) return;
+    try {
+      final info = await _musicService.getVipInfo();
+      if (mounted) {
+        setState(() {
+          _vipInfo = info['data'] as Map<String, dynamic>? ?? info;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -93,7 +111,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: Theme.of(context).textTheme.titleLarge),
                   if (user.userId != null)
                     Text('ID: ${user.userId}', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                  if (user.isVipActive)
+                  if (user.isVipActive || _vipInfo != null)
                     Container(
                       margin: const EdgeInsets.only(top: 4),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -101,8 +119,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         color: cs.primary,
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text(user.vipLevelDisplay,
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onPrimary)),
+                      child: Text(
+                        _vipText(user),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onPrimary),
+                      ),
                     ),
                 ],
               ),
@@ -182,6 +202,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
+  }
+
+  String _vipText(User user) {
+    if (_vipInfo != null) {
+      final isVip = _vipInfo!['is_vip'] as int? ?? user.isVip;
+      final vipType = _vipInfo!['vip_type'] as int? ?? user.vipType;
+      if (isVip == 1) {
+        switch (vipType) {
+          case 1: return '付费音乐包';
+          case 6: return '豪华VIP';
+          default: return 'VIP';
+        }
+      }
+    }
+    return user.vipLevelDisplay;
   }
 
   Widget _buildPlaylists(PlaylistProvider playlistProv, AuthProvider auth) {

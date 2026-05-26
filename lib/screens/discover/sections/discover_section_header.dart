@@ -22,16 +22,27 @@ class DiscoverSectionHeader extends StatelessWidget {
       padding: padding,
       child: Row(
         children: [
-          Text(title, style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-          const Spacer(),
-          if (onViewAll != null)
-            GestureDetector(
+          Expanded(
+            child: Text(
+              title,
+              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (onViewAll != null) ...[
+            const SizedBox(width: 8),
+            InkWell(
               onTap: onViewAll,
-              child: Text(
-                '查看更多',
-                style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Text(
+                  '查看更多',
+                  style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                ),
               ),
             ),
+          ],
         ],
       ),
     );

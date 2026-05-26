@@ -18,11 +18,14 @@ class AlbumRepository extends BaseRepository {
 
   Future<List<Song>> getAlbumSongs(int albumId,
       {int page = 1, int pageSize = 200}) async {
-    final res = await get('/album/songs', params: {
+    final params = <String, dynamic>{
       'id': albumId,
       'page': page,
       'pagesize': pageSize,
-    });
+    };
+    final cookie = await _getCookieString();
+    if (cookie != null) params['cookie'] = cookie;
+    final res = await get('/album/songs', params: params);
     final data = res['data'];
     List<dynamic>? list;
     if (data is Map) {
@@ -30,7 +33,10 @@ class AlbumRepository extends BaseRepository {
           ?? data['songs'] as List<dynamic>?
           ?? data['info'] as List<dynamic>?
           ?? data['list'] as List<dynamic>?
-          ?? data['audios'] as List<dynamic>?;
+          ?? data['audios'] as List<dynamic>?
+          ?? data['songlist'] as List<dynamic>?
+          ?? data['items'] as List<dynamic>?
+          ?? data['audio_list'] as List<dynamic>?;
     } else if (data is List) {
       list = data;
     }
@@ -129,5 +135,14 @@ class AlbumRepository extends BaseRepository {
       }
     }
     return [];
+  }
+
+  /// 获取 cookie 字符串用于搜索类接口的查询参数
+  Future<String?> _getCookieString() async {
+    try {
+      return await client.getCookieString();
+    } catch (_) {
+      return null;
+    }
   }
 }

@@ -442,6 +442,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     delegate: _SearchHeaderDelegate(
                       topSafe: topSafe,
                       isLoggedIn: auth.isLoggedIn,
+                      avatarUrl: auth.user?.avatarUrl,
                     ),
                   ),
                   SliverToBoxAdapter(
@@ -494,7 +495,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Text('推荐歌单', style: tt.headlineSmall),
                                   TextButton(
                                     onPressed: () => Navigator.pushNamed(
-                                        context, '/category/selection'),
+                                        context, '/recommended/playlists'),
                                     child: const Text('更多'),
                                   ),
                                 ],
@@ -632,10 +633,12 @@ class _HomeScreenState extends State<HomeScreen> {
 class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
   final double topSafe;
   final bool isLoggedIn;
+  final String? avatarUrl;
 
   const _SearchHeaderDelegate({
     required this.topSafe,
     required this.isLoggedIn,
+    this.avatarUrl,
   });
 
   @override
@@ -693,13 +696,25 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
             ),
           ),
           const SizedBox(width: 8),
-          IconButton(
-            icon: Icon(isLoggedIn ? Icons.person : Icons.person_outline,
-                color: cs.onSurfaceVariant),
-            onPressed: () {
-              if (!isLoggedIn) Navigator.pushNamed(context, '/login');
-            },
-          ),
+          if (isLoggedIn && avatarUrl != null && avatarUrl!.isNotEmpty)
+            GestureDetector(
+              onTap: () => Navigator.pushNamed(context, '/user/profile'),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundImage: CachedNetworkImageProvider(avatarUrl!),
+                onBackgroundImageError: (_, __) {},
+                child: const Icon(Icons.person, size: 20),
+              ),
+            )
+          else
+            IconButton(
+              icon: Icon(isLoggedIn ? Icons.person : Icons.person_outline,
+                  color: cs.onSurfaceVariant),
+              onPressed: () {
+                if (!isLoggedIn) Navigator.pushNamed(context, '/login');
+                if (isLoggedIn) Navigator.pushNamed(context, '/user/profile');
+              },
+            ),
           const SizedBox(width: 8),
         ],
       ),

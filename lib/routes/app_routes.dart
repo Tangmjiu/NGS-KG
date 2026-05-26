@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/playlist_detail_screen.dart';
-import '../screens/playlist_category_screen.dart';
-import '../screens/category_selection_screen.dart';
 import '../screens/search_screen.dart';
 import '../screens/rank_detail_screen.dart';
 import '../screens/artist_list_screen.dart';
@@ -21,13 +19,12 @@ import '../screens/cloud_disk_screen.dart';
 import '../screens/artist_followed_news_screen.dart';
 import '../screens/album_detail_screen.dart';
 import '../screens/mv_player_screen.dart';
+import '../screens/recommended_playlists_screen.dart';
 
 class AppRoutes {
   static const String home = '/';
   static const String login = '/login';
   static const String playlistDetail = '/playlist/detail';
-  static const String playlistCategory = '/playlist/category';
-  static const String categorySelection = '/category/selection';
   static const String search = '/search';
   static const String rankDetail = '/rank/detail';
   static const String artistList = '/artist/list';
@@ -46,6 +43,7 @@ class AppRoutes {
   static const String artistFollowedNews = '/artist/followed/news';
   static const String albumDetail = '/album/detail';
   static const String mv = '/mv';
+  static const String recommendedPlaylists = '/recommended/playlists';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -62,17 +60,6 @@ class AppRoutes {
             playlistName: args['name'] as String?,
           ),
         );
-      case playlistCategory:
-        final args = settings.arguments;
-        if (args is! Map<String, dynamic>) return _fallback();
-        return MaterialPageRoute(
-          builder: (_) => PlaylistCategoryScreen(
-            categoryId: args['id'] as int,
-            categoryName: args['name'] as String,
-          ),
-        );
-      case categorySelection:
-        return MaterialPageRoute(builder: (_) => const CategorySelectionScreen());
       case search:
         return MaterialPageRoute(builder: (_) => const SearchScreen());
       case rankDetail:
@@ -143,6 +130,10 @@ class AppRoutes {
             hash: args['hash'] as String?,
             name: args['name'] as String?,
           ),
+        );
+      case AppRoutes.recommendedPlaylists:
+        return MaterialPageRoute(
+          builder: (_) => const RecommendedPlaylistsScreen(),
         );
       default:
         return _fallback();
