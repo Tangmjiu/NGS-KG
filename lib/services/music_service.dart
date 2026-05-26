@@ -201,7 +201,10 @@ class MusicService {
           {int page = 1, int pageSize = 200}) =>
       user.getUserCloudDisk(page: page, pageSize: pageSize);
 
-  Future<String> getCloudSongUrl(String hash) => user.getCloudSongUrl(hash);
+  Future<String> getCloudSongUrl(String hash,
+          {int? albumId, String? name, int? albumAudioId}) =>
+      user.getCloudSongUrl(hash,
+          albumId: albumId, name: name, albumAudioId: albumAudioId);
 
   Future<List<Map<String, dynamic>>> getFavoriteVideos(
           {int page = 1, int pageSize = 200}) =>
@@ -231,13 +234,59 @@ class MusicService {
   Future<List<Song>> getFmSongs(int fmId) => user.getFmSongs(fmId);
 
   Future<String?> getMvUrl(String hash) {
-    return _oneShotGet('/video/url', params: {'hash': hash}).then((res) {
+    return _getMvUrlFromVideoEndpoint(hash).then((url) {
+      if (url != null) return url;
+      // Fallback: try constructing URL directly (some proxies support this)
+      return _oneShotGet('/video/url', params: {
+        'hash': hash,
+        'ext': 'mp4',
+      }).then((res) {
+        // Unwrap nested response structures
+        String? extractUrl(dynamic d) {
+          if (d is! Map) return null;
+          return (d['url'] ?? d['play_url'] ?? d['mv_url']
+              ?? d['hd_url'] ?? d['h264'] ?? d['mp4_url']
+              ?? d['video_url'] ?? d['downurl'] ?? d['down_url']
+          ) as String?;
+        }
+        final data = res['data'];
+        if (data is Map) {
+          final direct = extractUrl(data);
+          if (direct != null) return direct;
+          // Try nesting: data -> info -> first item -> url
+          final info = data['info'] as List<dynamic>?;
+          if (info != null && info.isNotEmpty) {
+            return extractUrl(info[0] as Map?);
+          }
+          final list = data['list'] as List<dynamic>?;
+          if (list != null && list.isNotEmpty) {
+            return extractUrl(list[0] as Map?);
+          }
+          final result = data['result'] as List<dynamic>?;
+          if (result != null && result.isNotEmpty) {
+            return extractUrl(result[0] as Map?);
+          }
+        }
+        return null;
+      });
+    });
+  }
+
+  Future<String?> _getMvUrlFromVideoEndpoint(String hash) async {
+    try {
+      final res = await _oneShotGet('/video/url', params: {'hash': hash});
       final data = res['data'];
       if (data is Map) {
-        return (data['url'] ?? data['play_url'] ?? data['mv_url'] ?? data['hd_url'] ?? data['h264']) as String?;
+        final url = (data['url'] ?? data['play_url'] ?? data['mv_url']
+            ?? data['hd_url'] ?? data['h264'] ?? data['mp4_url']
+            ?? data['video_url'] ?? data['downurl'] ?? data['down_url']
+        ) as String?;
+        if (url != null && url.isNotEmpty) return url;
       }
       return null;
-    });
+    } catch (_) {
+      return null;
+    }
   }
 
   // ─── Sheet / 曲谱（遗留，待删除） ───
@@ -299,15 +348,27 @@ class MusicService {
   /// Raw search helper for endpoints that haven't been fully typed yet
   Future<List<Map<String, dynamic>>> _searchRaw(String keyword, String type,
       {int limit = 30, int offset = 0}) async {
-    final res = await _oneShotGet('/search', params: {
+    final params = <String, dynamic>{
       'keywords': keyword,
       'page': (offset ~/ limit) + 1,
       'pagesize': limit,
       'type': type,
-    });
+    };
+    // 搜索接口必须携带 cookie 查询参数
+    final cookieStr = await _getCookieString();
+    if (cookieStr != null) params['cookie'] = cookieStr;
+    final res = await _oneShotGet('/search', params: params);
     final data = res['data'];
-    return (data['lists'] as List<dynamic>? ?? [])
-        .map((e) => e as Map<String, dynamic>)
-        .toList();
+    if (data == null) return [];
+    final lists = data['lists'] as List<dynamic>? ?? data['list'] as List<dynamic>? ?? [];
+    return lists.map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  Future<String?> _getCookieString() async {
+    try {
+      return await ApiClient.instance.getCookieString();
+    } catch (_) {
+      return null;
+    }
   }
 }

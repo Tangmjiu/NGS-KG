@@ -8,12 +8,16 @@ class SongRepository extends BaseRepository {
 
   Future<List<Song>> search(String keyword,
       {int limit = 30, int offset = 0, String type = 'song'}) async {
-    final res = await get('/search', params: {
+    final params = <String, dynamic>{
       'keywords': keyword,
       'page': (offset ~/ limit) + 1,
       'pagesize': limit,
       'type': type,
-    });
+    };
+    // 搜索接口需要 cookie 作为查询参数
+    final cookie = await _getCookieString();
+    if (cookie != null) params['cookie'] = cookie;
+    final res = await get('/search', params: params);
     final data = res['data'] as Map<String, dynamic>?;
     if (data == null) return [];
     final list = data['songs'] as List<dynamic>? ?? data['lists'] as List<dynamic>? ?? [];
@@ -166,9 +170,23 @@ class SongRepository extends BaseRepository {
   /// 一次请求返回多类型混合结果（歌曲/歌手/专辑/歌单/MV）
   /// 返回原始 data Map 供上层按需解析
   Future<Map<String, dynamic>> searchComplex(String keyword) async {
-    final res = await get('/search/complex', params: {'keywords': keyword});
+    final params = <String, dynamic>{'keywords': keyword};
+    final cookie = await _getCookieString();
+    if (cookie != null) params['cookie'] = cookie;
+    final res = await get('/search/complex', params: params);
     final data = res['data'];
     if (data is Map<String, dynamic>) return data;
+    final lists = res['lists'] as Map<String, dynamic>?;
+    if (lists != null) return {'lists': lists};
     return <String, dynamic>{};
+  }
+
+  /// 获取 cookie 字符串用于搜索接口查询参数
+  Future<String?> _getCookieString() async {
+    try {
+      return await client.getCookieString();
+    } catch (_) {
+      return null;
+    }
   }
 }

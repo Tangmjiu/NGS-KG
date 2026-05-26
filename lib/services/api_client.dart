@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import '../utils/constants.dart';
+import '../utils/error_dialog.dart';
 import 'api_exception.dart';
 import 'api_config.dart';
 import 'cache_interceptor.dart';
@@ -87,6 +88,44 @@ class _AuthInterceptor extends Interceptor {
   }
 }
 
+/// 错误弹窗拦截器
+///
+/// 在 Dio 请求链最后捕获所有未处理的异常，弹出错误提示。
+/// 排在最末尾，确保前面的拦截器（重试、缓存等）有机会先处理。
+class _ErrorDialogInterceptor extends Interceptor {
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) async {
+    // 网络错误已被 RetryInterceptor 重试过，到达这里说明已耗尽重试
+    final statusCode = err.response?.statusCode;
+    final data = err.response?.data;
+    String message;
+
+    if (data is Map) {
+      final code = data['status'] ?? data['code'];
+      if (code == 20010 || code == '20010') {
+        showErrorDialog(title: '登录失效', message: '登录已过期，请重新登录', showLogin: true);
+        handler.next(err);
+        return;
+      }
+      message = data['error'] as String? ??
+          data['message'] as String? ??
+          data['msg'] as String? ??
+          '请求失败';
+    } else if (statusCode != null) {
+      message = statusCode >= 500 ? '服务器错误 ($statusCode)' : '请求失败 ($statusCode)';
+    } else {
+      message = err.type == DioExceptionType.connectionTimeout
+          ? '连接超时'
+          : err.type == DioExceptionType.receiveTimeout
+              ? '响应超时'
+              : '网络连接失败';
+    }
+
+    showErrorDialog(title: '错误', message: message);
+    handler.next(err);
+  }
+}
+
 /// 动态 BaseUrl 拦截器
 ///
 /// 每次请求时读取最新的 API 地址配置，实现运行时切换。
@@ -168,6 +207,8 @@ class ApiClient {
       responseBody: true,
       logPrint: (o) {},
     ));
+    // 7. 错误弹窗（最后执行，捕获所有未被其他拦截器吞掉的异常）
+    _dio.interceptors.add(_ErrorDialogInterceptor());
   }
 
   /// 重新构建 Dio 实例（API 地址变更时调用）
@@ -304,6 +345,11 @@ class ApiClient {
     if (data is Map) {
       final status = data['status'] ?? data['code'];
       if (status == 20010 || status == '20010') {
+        showErrorDialog(
+          title: '登录失效',
+          message: '登录已过期，请重新登录',
+          showLogin: true,
+        );
         throw const NeedLoginException();
       }
     }

@@ -33,15 +33,24 @@ class PlaylistRepository extends BaseRepository {
 
   Future<List<Song>> getPlaylistTracks(String gcId,
       {int page = 1, int pageSize = 1000}) async {
-    final res = await get('/playlist/track/all',
-        params: {'id': gcId, 'page': page, 'pagesize': pageSize});
+    final params = <String, dynamic>{
+      'id': gcId, 'page': page, 'pagesize': pageSize
+    };
+    // 搜索类接口需要 cookie 查询参数
+    final cookie = await _getCookieString();
+    if (cookie != null) params['cookie'] = cookie;
+    final res = await get('/playlist/track/all', params: params);
     final data = res['data'];
     List<dynamic>? songs;
     if (data is Map) {
       songs = data['lists'] as List<dynamic>?
           ?? data['songs'] as List<dynamic>?
           ?? data['info'] as List<dynamic>?
-          ?? data['list'] as List<dynamic>?;
+          ?? data['list'] as List<dynamic>?
+          ?? data['audios'] as List<dynamic>?
+          ?? data['songlist'] as List<dynamic>?;
+    } else if (data is List) {
+      songs = data;
     }
     if (songs != null) {
       return songs
@@ -194,5 +203,14 @@ class PlaylistRepository extends BaseRepository {
   Future<void> removeTracksFromPlaylist(int listid, String fileids) async {
     await get('/playlist/tracks/del',
         params: {'listid': listid, 'fileids': fileids});
+  }
+
+  /// 获取 cookie 字符串用于搜索类接口的查询参数
+  Future<String?> _getCookieString() async {
+    try {
+      return await client.getCookieString();
+    } catch (_) {
+      return null;
+    }
   }
 }

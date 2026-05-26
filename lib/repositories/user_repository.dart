@@ -76,8 +76,13 @@ class UserRepository extends BaseRepository {
     return [];
   }
 
-  Future<String> getCloudSongUrl(String hash) async {
-    final res = await get('/user/cloud/url', params: {'hash': hash});
+  Future<String> getCloudSongUrl(String hash,
+      {int? albumId, String? name, int? albumAudioId}) async {
+    final params = <String, dynamic>{'hash': hash};
+    if (albumId != null) params['album_id'] = albumId;
+    if (name != null && name.isNotEmpty) params['name'] = name;
+    if (albumAudioId != null) params['album_audio_id'] = albumAudioId;
+    final res = await get('/user/cloud/url', params: params);
     final data = res['data'];
     if (data is Map) return data['url'] as String? ?? '';
     return '';

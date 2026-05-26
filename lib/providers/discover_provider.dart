@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import '../models/playlist_tag.dart';
 import '../models/radio.dart';
 import '../models/playlist.dart';
 import '../models/rank_entry.dart';
@@ -21,7 +20,6 @@ class DiscoverProvider extends ChangeNotifier {
 
   // ─── 数据 ───
 
-  List<PlaylistTag> _tags = [];
   List<RadioStation> _fmList = [];
   List<Playlist> _topPlaylists = [];
   List<RankEntry> _rankList = [];
@@ -30,8 +28,6 @@ class DiscoverProvider extends ChangeNotifier {
   List<Album> _topAlbums = [];
   List<SceneCategory> _sceneCategories = [];
   List<Map<String, dynamic>> _ipList = [];
-  List<Map<String, dynamic>> _styleTags = [];
-
   // ─── 状态 ───
 
   bool _loading = true;
@@ -39,7 +35,6 @@ class DiscoverProvider extends ChangeNotifier {
 
   // ─── Getters ───
 
-  List<PlaylistTag> get tags => _tags;
   List<RadioStation> get fmList => _fmList;
   List<Playlist> get topPlaylists => _topPlaylists;
   List<RankEntry> get rankList => _rankList;
@@ -48,7 +43,6 @@ class DiscoverProvider extends ChangeNotifier {
   List<Album> get topAlbums => _topAlbums;
   List<SceneCategory> get sceneCategories => _sceneCategories;
   List<Map<String, dynamic>> get ipList => _ipList;
-  List<Map<String, dynamic>> get styleTags => _styleTags;
   bool get loading => _loading;
   String? get error => _error;
 
@@ -60,7 +54,6 @@ class DiscoverProvider extends ChangeNotifier {
   bool get hasScenes => _sceneCategories.isNotEmpty;
   bool get hasIp => _ipList.isNotEmpty;
   bool get hasFm => _fmList.isNotEmpty;
-  bool get hasCategories => _styleTags.isNotEmpty || _tags.isNotEmpty;
 
   // ─── 加载 ───
 
@@ -72,7 +65,6 @@ class DiscoverProvider extends ChangeNotifier {
 
     try {
       await Future.wait([
-        _loadTags(),
         _loadFm(),
         _loadPlaylists(),
         _loadRanks(),
@@ -81,7 +73,6 @@ class DiscoverProvider extends ChangeNotifier {
         _loadTopAlbums(),
         _loadSceneCategories(),
         _loadIp(),
-        _loadStyleTags(),
       ]);
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadAll error', e, s);
@@ -90,15 +81,6 @@ class DiscoverProvider extends ChangeNotifier {
 
     _loading = false;
     notifyListeners();
-  }
-
-  Future<void> _loadTags() async {
-    try {
-      _tags = await _musicService.getPlaylistTags();
-      notifyListeners();
-    } catch (e, s) {
-      Log.e('DiscoverProvider', 'loadTags error', e, s);
-    }
   }
 
   Future<void> _loadFm() async {
@@ -181,12 +163,4 @@ class DiscoverProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _loadStyleTags() async {
-    try {
-      _styleTags = await _musicService.getStyleTags();
-      notifyListeners();
-    } catch (e, s) {
-      Log.e('DiscoverProvider', 'loadStyleTags error', e, s);
-    }
-  }
 }

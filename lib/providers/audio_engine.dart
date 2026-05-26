@@ -86,23 +86,28 @@ class AudioEngine {
 
   Future<void> play(Song song, {int? version}) async {
     version ??= _playRequestVersion;
-    if (version != _playRequestVersion) return;
+    if (version != _playRequestVersion) {
+      isLoading.value = false;
+      return;
+    }
     if (_playAttempts > _maxRetries) {
       isLoading.value = false;
       error.value = '播放失败: 已重试 $_maxRetries 次';
       return;
     }
     try {
-      if (song.isLocal && song.filePath != null) {
+      // Direct filePath URL (cloud disk, etc.)
+      if (song.filePath != null && song.filePath!.isNotEmpty) {
         final fp = song.filePath!;
-        if (fp.startsWith('http')) {
+        if (fp.startsWith('http') || fp.startsWith('https')) {
           await _player.setUrl(fp);
-          if (version != _playRequestVersion) return;
+          if (version != _playRequestVersion) { isLoading.value = false; return; }
+          _lastUrlFetchTime = DateTime.now();
           await _player.play();
           _hasActivePlayback = true;
         } else {
           await _player.setFilePath(fp);
-          if (version != _playRequestVersion) return;
+          if (version != _playRequestVersion) { isLoading.value = false; return; }
           await _player.play();
           _hasActivePlayback = true;
         }
@@ -110,10 +115,10 @@ class AudioEngine {
         final quality = _currentQuality(song);
         final songUrl = await _musicService.getSongUrl(song.id,
             hash: song.hash, quality: quality);
-        if (version != _playRequestVersion) return;
+        if (version != _playRequestVersion) { isLoading.value = false; return; }
         if (songUrl.url.isNotEmpty) {
           await _player.setUrl(songUrl.url);
-          if (version != _playRequestVersion) return;
+          if (version != _playRequestVersion) { isLoading.value = false; return; }
           _lastUrlFetchTime = DateTime.now();
           await _player.play();
           _hasActivePlayback = true;

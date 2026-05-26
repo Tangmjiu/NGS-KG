@@ -31,12 +31,9 @@ class AMLyricsView extends StatefulWidget {
 
 class _AMLyricsViewState extends State<AMLyricsView> {
   final ScrollController _scrollController = ScrollController();
+  final List<GlobalKey> _itemKeys = [];
   bool _autoScroll = true;
   Timer? _autoScrollResumeTimer;
-
-  /// Estimated line height (font size + padding) used for scroll calculations.
-  static const double _currentLineHeight = 60.0; // 24px font + 24px padding
-  static const double _otherLineHeight = 42.0; // 16px font + 20px padding
 
   @override
   void dispose() {
@@ -51,24 +48,53 @@ class _AMLyricsViewState extends State<AMLyricsView> {
     if (widget.lyrics != oldWidget.lyrics) {
       _autoScroll = true;
       _autoScrollResumeTimer?.cancel();
+      _itemKeys.clear();
+      _itemKeys.addAll(List.generate(widget.lyrics.length, (_) => GlobalKey()));
     }
     _scrollToCurrentLine();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _itemKeys.addAll(List.generate(widget.lyrics.length, (_) => GlobalKey()));
   }
 
   void _scrollToCurrentLine() {
     if (!_autoScroll || !_scrollController.hasClients) return;
     if (widget.lyrics.isEmpty) return;
+    final idx = widget.currentLineIndex.clamp(0, widget.lyrics.length - 1);
 
     final viewportHeight = _scrollController.position.viewportDimension;
 
-    // Calculate offset to the current line, accounting for variable line heights.
-    final offset = widget.currentLineIndex * _otherLineHeight;
-    final target = offset - viewportHeight / 2 + _currentLineHeight / 2;
+    // Calculate the Y position of the current line using GlobalKey
+    double offset = 0;
+    for (int i = 0; i < idx && i < _itemKeys.length; i++) {
+      final key = _itemKeys[i];
+      final ctx = key.currentContext;
+      if (ctx != null && ctx.findRenderObject() is RenderBox) {
+        final box = ctx.findRenderObject() as RenderBox;
+        offset += box.size.height;
+      } else {
+        offset += 56; // fallback default height
+      }
+    }
+
+    // Get current line height
+    double currentLineHeight = 56;
+    if (idx < _itemKeys.length) {
+      final ctx = _itemKeys[idx].currentContext;
+      if (ctx != null && ctx.findRenderObject() is RenderBox) {
+        currentLineHeight = (ctx.findRenderObject() as RenderBox).size.height;
+      }
+    }
+
+    final target = offset - viewportHeight / 2 + currentLineHeight / 2;
 
     _scrollController.animateTo(
       target.clamp(0.0, _scrollController.position.maxScrollExtent),
-      duration: const Duration(milliseconds: 600),
-      curve: Curves.easeOutCubic,
+      duration: const Duration(milliseconds: 800),
+      curve: Curves.easeInOutCubic,
     );
   }
 
@@ -113,6 +139,14 @@ class _AMLyricsViewState extends State<AMLyricsView> {
       );
     }
 
+    // Sync keys length with lyrics
+    while (_itemKeys.length < widget.lyrics.length) {
+      _itemKeys.add(GlobalKey());
+    }
+    while (_itemKeys.length > widget.lyrics.length) {
+      _itemKeys.removeLast();
+    }
+
     return Stack(
       children: [
         NotificationListener<ScrollNotification>(
@@ -135,11 +169,12 @@ class _AMLyricsViewState extends State<AMLyricsView> {
               final isCurrent = index == widget.currentLineIndex;
               final distance = (index - widget.currentLineIndex).abs();
 
-              if (isCurrent) {
-                return _buildCurrentLine(line);
-              } else {
-                return _buildOtherLine(line, distance);
-              }
+              return Container(
+                key: _itemKeys[index],
+                child: isCurrent
+                    ? _buildCurrentLine(line)
+                    : _buildOtherLine(line, distance),
+              );
             },
           ),
         ),
@@ -166,11 +201,24 @@ class _AMLyricsViewState extends State<AMLyricsView> {
 
   Widget _buildCurrentLine(LyricLine line) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 32),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
       child: GestureDetector(
         onTap: () => widget.onSeek(line.time),
         child: LayoutBuilder(
           builder: (context, constraints) {
+            // Measure text height for proper sizing
+            final tp = TextPainter(
+              text: TextSpan(
+                text: line.text,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  height: 1.4,
+                ),
+              ),
+              textDirection: TextDirection.ltr,
+            )..layout(maxWidth: constraints.maxWidth);
+
             return CustomPaint(
               painter: LyricLinePainter(
                 text: line.text,
@@ -182,13 +230,10 @@ class _AMLyricsViewState extends State<AMLyricsView> {
                   fontWeight: FontWeight.w600,
                   height: 1.4,
                 ),
-                textAlign: TextAlign.center,
+                textAlign: TextAlign.left,
                 maxWidth: constraints.maxWidth,
               ),
-              size: Size(
-                constraints.maxWidth,
-                36.0, // 24px font * 1.4 line height ≈ 34, padded to 36
-              ),
+              size: Size(constraints.maxWidth, tp.height),
             );
           },
         ),
@@ -198,17 +243,20 @@ class _AMLyricsViewState extends State<AMLyricsView> {
 
   Widget _buildOtherLine(LyricLine line, int distance) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 32),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 24),
       child: GestureDetector(
         onTap: () => widget.onSeek(line.time),
-        child: Text(
-          line.text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w400,
-            height: 1.4,
-            color: _dimColor(distance),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            line.text,
+            textAlign: TextAlign.left,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+              height: 1.4,
+              color: _dimColor(distance),
+            ),
           ),
         ),
       ),

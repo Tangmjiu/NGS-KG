@@ -11,7 +11,6 @@ import 'discover/sections/discover_album_row.dart';
 import 'discover/sections/discover_scene_row.dart';
 import 'discover/sections/discover_ip_row.dart';
 import 'discover/sections/discover_fm_row.dart';
-import 'discover/sections/discover_category_grid.dart';
 
 /// 发现页
 ///
@@ -116,7 +115,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   child: DiscoverSectionHeader(
                     title: '推荐歌单',
                     onViewAll: () =>
-                        Navigator.pushNamed(context, '/category/selection'),
+                        Navigator.pushNamed(context, '/recommended/playlists'),
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -189,23 +188,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 ),
                 SliverToBoxAdapter(
                   child: DiscoverFmRow(fmList: provider.fmList),
-                ),
-              ],
-
-              // ── 全部分类 ──
-              if (provider.hasCategories) ...[
-                SliverToBoxAdapter(
-                  child: DiscoverSectionHeader(
-                    title: '全部分类',
-                    onViewAll: () =>
-                        Navigator.pushNamed(context, '/category/selection'),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: DiscoverCategoryGrid(
-                    tags: provider.tags,
-                    styleTags: provider.styleTags,
-                  ),
                 ),
               ],
 

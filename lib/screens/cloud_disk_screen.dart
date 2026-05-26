@@ -45,7 +45,12 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
     final hash = item['hash'] as String?;
     if (hash == null) { setState(() => _playingIndex = null); return; }
     try {
-      final url = await _musicService.getCloudSongUrl(hash);
+      final url = await _musicService.getCloudSongUrl(
+        hash,
+        albumId: item['album_id'] as int?,
+        name: item['name'] as String?,
+        albumAudioId: item['album_audio_id'] as int?,
+      );
       if (!mounted) { return; }
       if (url.isEmpty) {
         if (mounted) { setState(() => _playingIndex = null); }
@@ -55,6 +60,7 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
         id: hash.hashCode,
         name: item['name'] as String? ?? '',
         artists: [item['author_name'] as String? ?? ''],
+        hash: hash,
         filePath: url,
       );
       if (!mounted) { return; }

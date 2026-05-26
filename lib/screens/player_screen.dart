@@ -341,7 +341,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // ── Bottom actions ──
 
+  static const _qualityLabels = {
+    '128': '标准',
+    '320': 'HQ',
+    'flac': '无损',
+    'high': 'Hi-Res',
+    'super': 'Super',
+  };
+
   Widget _buildBottomActions() {
+    final player = context.watch<PlayerProvider>();
+    final currentKey = Song.qualityKeys[player.qualityLevel % Song.qualityKeys.length];
+    final qualityLabel = _qualityLabels[currentKey] ?? currentKey;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -352,6 +363,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
             context,
             MaterialPageRoute(builder: (_) => const AudioEffectsScreen()),
           ),
+        ),
+        const SizedBox(width: 12),
+        _ActionChip(
+          icon: Icons.speed,
+          label: qualityLabel,
+          onTap: () => player.switchQuality(),
         ),
       ],
     );
