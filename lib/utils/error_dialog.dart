@@ -57,3 +57,5 @@ String errorMessage(dynamic error) {
     return '未知错误';
   }
 }
+
+// CI trigger
