@@ -29,9 +29,11 @@ class AuthService {
     return res.data['data'] as Map<String, dynamic>;
   }
 
-  Future<String> getQrCreate(String key) async {
-    final res = await _client.get('/login/qr/create', params: {'key': key});
-    return res.data['data']['qrUrl'] as String;
+  Future<Map<String, dynamic>> getQrCreate(String key, {bool qrimg = false}) async {
+    final params = <String, dynamic>{'key': key};
+    if (qrimg) params['qrimg'] = 1;
+    final res = await _client.get('/login/qr/create', params: params);
+    return res.data['data'] as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> checkQrStatus(String key) async {
@@ -40,16 +42,27 @@ class AuthService {
   }
 
   /// Parses checkQrStatus response, extracts User if login succeeded.
+  /// KuGou API: status=4 → 授权成功（含 token/userid）
   /// Returns (statusCode, user).
   static (int, User?) parseQrResponse(Map<String, dynamic> res) {
     final rawData = res['data'];
     final status = rawData is Map ? (rawData['status'] as int?) ?? 0 : 0;
-    if (status == 200 && rawData is Map) {
-      Map<String, dynamic>? userData = rawData['user'] as Map<String, dynamic>?;
-      if (userData == null && rawData['nickname'] != null) {
-        userData = Map<String, dynamic>.from(rawData);
+    // API 文档: status=4 表示授权成功
+    if (status == 4 && rawData is Map) {
+      final token = (rawData['token'] as String?) ??
+          rawData['token']?.toString() ?? '';
+      final userId = (rawData['userid'] as int?) ??
+          int.tryParse(rawData['userid']?.toString() ?? '');
+      if (token.isNotEmpty && userId != null) {
+        return (status, User(
+          userId: userId,
+          token: token,
+          nickname: rawData['nickname'] as String?,
+          avatarUrl: rawData['avatar'] as String?,
+          vipType: rawData['vip_type'] as int?,
+          isVip: rawData['is_vip'] as int?,
+        ));
       }
-      if (userData != null) return (status, User.fromJson(userData));
     }
     return (status, null);
   }

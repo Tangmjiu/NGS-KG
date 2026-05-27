@@ -107,8 +107,8 @@ class AuthProvider extends ChangeNotifier {
     return _authService.getQrKey();
   }
 
-  Future<String> getQrCreate(String key) async {
-    return _authService.getQrCreate(key);
+  Future<Map<String, dynamic>> getQrCreate(String key, {bool qrimg = false}) async {
+    return _authService.getQrCreate(key, qrimg: qrimg);
   }
 
   Future<int> checkQrStatus(String key) async {

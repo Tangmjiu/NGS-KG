@@ -408,11 +408,21 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
   }
 
   Future<void> _check() async {
+    // 仅在登录后检查，且失败时不弹窗（静默处理）
+    final authCtx = navKey.currentContext;
+    if (authCtx == null) return;
+    final auth = authCtx.read<AuthProvider>();
+    if (!auth.isLoggedIn) return;
+
     try {
-      final info = await MusicService().getContinuePlayInfo();
+      // 使用直接 Dio 调用，绕过全局错误弹窗拦截器
+      final client = ApiClient.instance;
+      final res = await client.get('/lastest/songs/listen',
+          params: {'pagesize': 1});
       if (!mounted) return;
-      final data = info['data'] as Map<String, dynamic>? ?? info;
-      final songs = data['songs'] as List<dynamic>? ?? [];
+      final data = res.data as Map<String, dynamic>? ?? {};
+      final body = data['data'] as Map<String, dynamic>? ?? data;
+      final songs = body['songs'] as List<dynamic>? ?? [];
       if (songs.isNotEmpty && songs[0] is Map<String, dynamic>) {
         final s = songs[0] as Map<String, dynamic>;
         if (!mounted) return;
@@ -428,7 +438,6 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
                     FilledButton(
                       onPressed: () {
                         Navigator.pop(context);
-                        // Trigger play from continued song info
                         final song = Song(
                           id: (s['id'] as num?)?.toInt() ?? 0,
                           name: (s['name'] as String?) ?? '',
@@ -444,8 +453,8 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
                   ],
                 ));
       }
-    } catch (e, s) {
-      Log.e('main', 'error', e, s);
+    } catch (_) {
+      // 静默：继续播放接口失败不重要，不弹窗不日志
     }
   }
 
