@@ -19,7 +19,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 1, vsync: this);
+    _tabCtrl = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -36,18 +36,16 @@ class _LoginScreenState extends State<LoginScreen>
         bottom: TabBar(
           controller: _tabCtrl,
           tabs: const [
-            // Tab(text: '密码'),
             Tab(text: '手机'),
-            // Tab(text: '二维码'),
+            Tab(text: '二维码'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabCtrl,
         children: const [
-          // _PasswordLogin(),
           _PhoneLogin(),
-          // _QrLogin(),
+          _QrLogin(),
         ],
       ),
     );
@@ -370,6 +368,18 @@ class _PhoneLoginState extends State<_PhoneLogin> {
 
 // ─── 二维码登录 ───
 
+/// 二维码状态码（来自 API 文档）
+///   0 → 已过期
+///   1 → 等待扫码
+///   2 → 已扫码，待确认
+///   4 → 授权成功（返回 token）
+const _qrStatusText = {
+  0: '二维码已过期，请点击刷新',
+  1: '请使用酷狗 App 扫描二维码',
+  2: '已扫码，请在手机上确认登录',
+  4: '登录成功',
+};
+
 class _QrLogin extends StatefulWidget {
   const _QrLogin();
 
@@ -378,7 +388,7 @@ class _QrLogin extends StatefulWidget {
 }
 
 class _QrLoginState extends State<_QrLogin> {
-  String? _qrUrl;
+  String? _base64Img;
   String? _qrKey;
   bool _isLoading = true;
   String _statusText = '正在获取二维码...';
@@ -400,75 +410,78 @@ class _QrLoginState extends State<_QrLogin> {
     setState(() => _isLoading = true);
     try {
       final auth = context.read<AuthProvider>();
+
+      // 1. 获取二维码 key
       final keyData = await auth.getQrKey();
-      _qrKey = keyData['qrcode'] as String?;
-      _qrUrl = keyData['qrcode_img'] as String?;
-      if (_qrKey != null) {
+      final key = keyData['qrcode'] as String?;
+      if (key == null || key.isEmpty) {
+        setState(() { _isLoading = false; _statusText = '获取二维码失败，请重试'; });
+        return;
+      }
+      _qrKey = key;
+
+      // 2. 用 key 生成二维码图片（base64）
+      final qrData = await auth.getQrCreate(key, qrimg: true);
+      _base64Img = qrData['base64'] as String?;
+
+      if (mounted) {
         setState(() {
           _isLoading = false;
-          _statusText = '请使用酷狗 App 扫描二维码';
+          _statusText = _qrStatusText[1]!;
         });
         _startPolling();
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _statusText = '获取二维码失败，请重试';
-      });
+      if (mounted) setState(() { _isLoading = false; _statusText = '获取二维码失败，请重试'; });
     }
   }
 
   void _startPolling() {
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+    // 1.5 秒间隔轮询（API 推荐 + 响应速度平衡）
+    _pollTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) async {
       if (_qrKey == null) return;
       try {
         final auth = context.read<AuthProvider>();
         final code = await auth.checkQrStatus(_qrKey!);
-        if (code == 200) {
+        if (!mounted) return;
+
+        // 4 = 授权成功
+        if (code == 4) {
           _pollTimer?.cancel();
-          if (mounted) {
-            setState(() => _statusText = '登录成功');
-            await Future.delayed(const Duration(milliseconds: 500));
-            if (mounted) Navigator.pop(context);
-          }
-        } else if (code == 800) {
-          setState(() => _statusText = '二维码已过期，请刷新');
-          _pollTimer?.cancel();
-        } else if (code == 2 || code == 201) {
-          setState(() => _statusText = '已扫码，请在手机上确认登录');
-        } else {
-          setState(() => _statusText = '请使用酷狗 App 扫描二维码');
+          setState(() => _statusText = '登录成功');
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (mounted) Navigator.pop(context);
+          return;
         }
-      } catch (e, s) { Log.e('login_screen', 'error', e, s); }
+
+        setState(() {
+          _statusText = _qrStatusText[code] ?? '请使用酷狗 App 扫描二维码';
+        });
+
+        // 0 = 过期 → 停止轮询
+        if (code == 0) _pollTimer?.cancel();
+      } catch (e, s) { Log.e('login_screen', 'qr poll error', e, s); }
     });
   }
 
   Widget _buildQrImage() {
-    final qrUrl = _qrUrl;
-    if (qrUrl == null) {
+    final b64 = _base64Img;
+    if (b64 == null || b64.isEmpty) {
       return Icon(Icons.qr_code, size: 100, color: Theme.of(context).colorScheme.onSurface);
     }
-    final b64 = qrUrl;
-    if (b64.startsWith('data:image')) {
-      final data = b64.split(',')[1];
-      try {
-        return Image.memory(
-          base64Decode(data),
-          width: 176,
-          height: 176,
-          fit: BoxFit.contain,
-        );
-      } catch (e, s) { Log.e('login_screen', 'error', e, s); }
+    // base64 格式: data:image/png;base64,xxxx
+    try {
+      final data = b64.contains(',') ? b64.split(',')[1] : b64;
+      return Image.memory(
+        base64Decode(data),
+        width: 176, height: 176, fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => Icon(Icons.qr_code, size: 100,
+            color: Theme.of(context).colorScheme.onSurface),
+      );
+    } catch (_) {
+      return Icon(Icons.qr_code, size: 100, color: Theme.of(context).colorScheme.onSurface);
     }
-    return Image.network(
-      b64,
-      width: 176,
-      height: 176,
-      fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) =>
-          Icon(Icons.qr_code, size: 100, color: Theme.of(context).colorScheme.onSurface),
-    );
   }
 
   void _refresh() {
@@ -488,16 +501,15 @@ class _QrLoginState extends State<_QrLogin> {
               const CircularProgressIndicator()
             else ...[
               Container(
-                width: 200,
-                height: 200,
+                width: 200, height: 200,
                 decoration: BoxDecoration(
-                  color: Theme.of(this.context).colorScheme.surface,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 padding: const EdgeInsets.all(12),
-                child: _qrUrl != null
-                    ? _buildQrImage()
-                    : Icon(Icons.qr_code, size: 100, color: Theme.of(this.context).colorScheme.onSurface),
+                child: _base64Img != null ? _buildQrImage()
+                    : Icon(Icons.qr_code, size: 100,
+                        color: Theme.of(context).colorScheme.onSurface),
               ),
               const SizedBox(height: 20),
               Text(_statusText, textAlign: TextAlign.center),

@@ -703,7 +703,6 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
                 radius: 18,
                 backgroundImage: CachedNetworkImageProvider(avatarUrl!),
                 onBackgroundImageError: (_, __) {},
-                child: const Icon(Icons.person, size: 20),
               ),
             )
           else
