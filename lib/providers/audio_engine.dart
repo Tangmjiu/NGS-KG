@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../utils/logger.dart';
+import '../utils/error_dialog.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
 import '../models/song.dart';
@@ -132,9 +133,16 @@ class AudioEngine {
     } catch (e, s) {
       _playAttempts++;
       Log.w('audio_engine', 'play error (attempt $_playAttempts)', e, s);
-      if (e is NoCopyrightException || e is NeedLoginException) {
+      if (e is NoCopyrightException) {
         isLoading.value = false;
         error.value = '播放失败: $e';
+        showErrorDialog(title: '播放失败', errorCode: 'API 3', message: '$e');
+        return;
+      }
+      if (e is NeedLoginException) {
+        isLoading.value = false;
+        error.value = '播放失败: $e';
+        showErrorDialog(title: '登录失效', errorCode: 'API 20010', message: '播放需要重新登录', showLogin: true);
         return;
       }
       if (_playAttempts <= _maxRetries) {

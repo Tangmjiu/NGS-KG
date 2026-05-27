@@ -69,8 +69,9 @@ class AlbumRepository extends BaseRepository {
   Future<List<Album>> getTopAlbums({int? type, int page = 1, int pageSize = 30}) async {
     final params = <String, dynamic>{'page': page, 'pagesize': pageSize};
     if (type != null) params['type'] = type;
+    // 该接口的上游 KuGou API 对认证信息敏感，不加 auth 更稳定
     final res = await cachedGet('/top/album',
-        params: params, ttl: const Duration(minutes: 15));
+        params: params, ttl: const Duration(minutes: 15), withAuth: false);
     final raw = res['data'];
     if (raw is List) {
       return raw

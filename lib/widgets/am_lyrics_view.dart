@@ -5,10 +5,11 @@ import 'lyric_line_painter.dart';
 
 /// Apple Music-style lyrics widget.
 ///
-/// Displays scrolling lyrics with an animated karaoke fill effect on the
-/// current line. Previous / upcoming lines are dimmed progressively based
-/// on distance from the active line. Auto-scroll keeps the current line
-/// centred; manual drag pauses auto-scroll for 3 seconds.
+/// 设计要点（对比主流软件）:
+///   - 当前行位于视口上方 35%（Apple Music 风格），下方留空间给即将唱的行
+///   - 首次加载等 build 完成后再滚动，避免 GlobalKey 未就绪
+///   - 动画保护，连续更新不互相打断
+///   - 手动拖拽后 5 秒自动恢复滚动（比 3 秒更宽松）
 class AMLyricsView extends StatefulWidget {
   final List<LyricLine> lyrics;
   final int currentLineIndex;
@@ -34,6 +35,23 @@ class _AMLyricsViewState extends State<AMLyricsView> {
   final List<GlobalKey> _itemKeys = [];
   bool _autoScroll = true;
   Timer? _autoScrollResumeTimer;
+  bool _isAnimating = false;
+  int _lastLyricLength = 0;
+
+  /// Apple Music 风格：当前行位于视口上方 35% 处（不是正中央）
+  static const double _sweetSpotRatio = 0.35;
+
+  // Text styles for measurement
+  static const TextStyle _currentStyle = TextStyle(
+    fontSize: 24,
+    fontWeight: FontWeight.w600,
+    height: 1.4,
+  );
+  static const TextStyle _otherStyle = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    height: 1.4,
+  );
 
   @override
   void dispose() {
@@ -43,44 +61,65 @@ class _AMLyricsViewState extends State<AMLyricsView> {
   }
 
   @override
-  void didUpdateWidget(covariant AMLyricsView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.lyrics != oldWidget.lyrics) {
-      _autoScroll = true;
-      _autoScrollResumeTimer?.cancel();
-      _itemKeys.clear();
-      _itemKeys.addAll(List.generate(widget.lyrics.length, (_) => GlobalKey()));
-    }
-    _scrollToCurrentLine();
+  void initState() {
+    super.initState();
+    _syncKeys();
   }
 
   @override
-  void initState() {
-    super.initState();
-    _itemKeys.addAll(List.generate(widget.lyrics.length, (_) => GlobalKey()));
+  void didUpdateWidget(covariant AMLyricsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 歌词列表变化（长度或引用变化）时重建 keys
+    if (widget.lyrics.length != _lastLyricLength ||
+        (widget.lyrics.isNotEmpty && oldWidget.lyrics != widget.lyrics)) {
+      _autoScroll = true;
+      _autoScrollResumeTimer?.cancel();
+      _syncKeys();
+      // 等 build 完成后再滚动，确保 GlobalKey 的 context 有效
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToCurrentLine());
+    } else {
+      // 仅仅是 currentLineIndex / progress 变化，直接滚动
+      _scrollToCurrentLine();
+    }
   }
 
-  void _scrollToCurrentLine() {
+  /// 同步 _itemKeys 长度与 lyrics 匹配
+  void _syncKeys() {
+    _lastLyricLength = widget.lyrics.length;
+    while (_itemKeys.length < widget.lyrics.length) {
+      _itemKeys.add(GlobalKey());
+    }
+    while (_itemKeys.length > widget.lyrics.length) {
+      _itemKeys.removeLast();
+    }
+  }
+
+  /// 滚动到当前行
+  ///
+  /// [snap] : 是否为"回到当前"操作（快速）还是跟随播放（平滑）
+  ///   - snap=true  : 250ms easeOutCubic  → FAB / 自动恢复
+  ///   - snap=false : 400ms easeInOutCubic → 播放进度跟踪
+  void _scrollToCurrentLine({bool snap = false}) {
     if (!_autoScroll || !_scrollController.hasClients) return;
     if (widget.lyrics.isEmpty) return;
-    final idx = widget.currentLineIndex.clamp(0, widget.lyrics.length - 1);
+    if (_isAnimating) return; // 正在动画中，跳过避免冲突
 
+    final idx = widget.currentLineIndex.clamp(0, widget.lyrics.length - 1);
     final viewportHeight = _scrollController.position.viewportDimension;
 
-    // Calculate the Y position of the current line using GlobalKey
+    // 累加当前行之前所有行的实际高度
     double offset = 0;
     for (int i = 0; i < idx && i < _itemKeys.length; i++) {
       final key = _itemKeys[i];
       final ctx = key.currentContext;
       if (ctx != null && ctx.findRenderObject() is RenderBox) {
-        final box = ctx.findRenderObject() as RenderBox;
-        offset += box.size.height;
+        offset += (ctx.findRenderObject() as RenderBox).size.height;
       } else {
-        offset += 56; // fallback default height
+        offset += 56;
       }
     }
 
-    // Get current line height
+    // 当前行高度
     double currentLineHeight = 56;
     if (idx < _itemKeys.length) {
       final ctx = _itemKeys[idx].currentContext;
@@ -89,23 +128,30 @@ class _AMLyricsViewState extends State<AMLyricsView> {
       }
     }
 
-    final target = offset - viewportHeight / 2 + currentLineHeight / 2;
+    // Apple Music 风格：当前行位于视口上方 35% 处
+    final sweetSpot = viewportHeight * _sweetSpotRatio;
+    final target = offset - sweetSpot + currentLineHeight / 2;
 
-    _scrollController.animateTo(
-      target.clamp(0.0, _scrollController.position.maxScrollExtent),
-      duration: const Duration(milliseconds: 800),
-      curve: Curves.easeInOutCubic,
-    );
+    final clamped = target.clamp(0.0, _scrollController.position.maxScrollExtent);
+
+    _isAnimating = true;
+    _scrollController
+        .animateTo(clamped,
+            duration: snap ? const Duration(milliseconds: 250) : const Duration(milliseconds: 400),
+            curve: snap ? Curves.easeOutCubic : Curves.easeInOutCubic)
+        .whenComplete(() {
+      _isAnimating = false;
+    });
   }
 
   void _onUserScroll() {
     if (!_autoScroll) return;
     _autoScroll = false;
     _autoScrollResumeTimer?.cancel();
-    _autoScrollResumeTimer = Timer(const Duration(seconds: 3), () {
+    _autoScrollResumeTimer = Timer(const Duration(seconds: 5), () {
       if (mounted) {
         setState(() => _autoScroll = true);
-        _scrollToCurrentLine();
+        _scrollToCurrentLine(snap: true);
       }
     });
   }
@@ -118,14 +164,12 @@ class _AMLyricsViewState extends State<AMLyricsView> {
 
   @override
   Widget build(BuildContext context) {
-    // Loading state
     if (widget.isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: Colors.white70),
       );
     }
 
-    // Empty state
     if (widget.lyrics.isEmpty) {
       return Center(
         child: Column(
@@ -137,14 +181,6 @@ class _AMLyricsViewState extends State<AMLyricsView> {
           ],
         ),
       );
-    }
-
-    // Sync keys length with lyrics
-    while (_itemKeys.length < widget.lyrics.length) {
-      _itemKeys.add(GlobalKey());
-    }
-    while (_itemKeys.length > widget.lyrics.length) {
-      _itemKeys.removeLast();
     }
 
     return Stack(
@@ -160,8 +196,8 @@ class _AMLyricsViewState extends State<AMLyricsView> {
           child: ListView.builder(
             controller: _scrollController,
             padding: EdgeInsets.only(
-              top: MediaQuery.of(context).size.height * 0.15,
-              bottom: MediaQuery.of(context).size.height * 0.15,
+              top: MediaQuery.of(context).size.height * 0.12,
+              bottom: MediaQuery.of(context).size.height * 0.35,
             ),
             itemCount: widget.lyrics.length,
             itemBuilder: (context, index) {
@@ -179,7 +215,6 @@ class _AMLyricsViewState extends State<AMLyricsView> {
           ),
         ),
 
-        // "回到当前" FAB when auto-scroll is paused
         if (!_autoScroll)
           Positioned(
             right: 16,
@@ -190,7 +225,7 @@ class _AMLyricsViewState extends State<AMLyricsView> {
               onPressed: () {
                 setState(() => _autoScroll = true);
                 _autoScrollResumeTimer?.cancel();
-                _scrollToCurrentLine();
+                _scrollToCurrentLine(snap: true);
               },
               child: const Icon(Icons.vertical_align_center, color: Colors.white),
             ),
@@ -206,16 +241,8 @@ class _AMLyricsViewState extends State<AMLyricsView> {
         onTap: () => widget.onSeek(line.time),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // Measure text height for proper sizing
             final tp = TextPainter(
-              text: TextSpan(
-                text: line.text,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
-                  height: 1.4,
-                ),
-              ),
+              text: TextSpan(text: line.text, style: _currentStyle),
               textDirection: TextDirection.ltr,
             )..layout(maxWidth: constraints.maxWidth);
 
@@ -225,11 +252,7 @@ class _AMLyricsViewState extends State<AMLyricsView> {
                 progress: widget.currentLineProgress,
                 fillColor: Colors.white,
                 unfilledColor: Colors.white30,
-                textStyle: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
-                  height: 1.4,
-                ),
+                textStyle: _currentStyle,
                 textAlign: TextAlign.left,
                 maxWidth: constraints.maxWidth,
               ),
@@ -246,17 +269,11 @@ class _AMLyricsViewState extends State<AMLyricsView> {
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 24),
       child: GestureDetector(
         onTap: () => widget.onSeek(line.time),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            line.text,
-            textAlign: TextAlign.left,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
-              height: 1.4,
-              color: _dimColor(distance),
-            ),
+        child: Text(
+          line.text,
+          textAlign: TextAlign.left,
+          style: _otherStyle.copyWith(
+            color: _dimColor(distance),
           ),
         ),
       ),

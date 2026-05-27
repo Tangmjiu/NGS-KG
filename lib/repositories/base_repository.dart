@@ -21,7 +21,8 @@ abstract class BaseRepository {
       {Map<String, dynamic>? params, bool withAuth = true,
       Duration? ttl}) async {
     final res = await client.getCached(path, params: params,
-        ttl: ttl ?? const Duration(hours: 2));
+        ttl: ttl ?? const Duration(hours: 2),
+        withAuth: withAuth);
     final data = res.data;
     if (data is Map<String, dynamic>) return data;
     return <String, dynamic>{};

@@ -14,6 +14,7 @@ import '../models/card_section.dart';
 import '../models/latest_listen_info.dart';
 import '../models/scene_category.dart';
 import '../models/user.dart' as models;
+import 'package:dio/dio.dart';
 import 'api_client.dart';
 
 class MusicService {
@@ -312,7 +313,7 @@ class MusicService {
   // ─── 乐库 / 电台（遗留，待删除） ───
 
   Future<List<Map<String, dynamic>>> getYuekuBanner() =>
-      _oneShotGet('/yueku/banner')
+      _oneShotGet('/yueku/banner', withAuth: false)
           .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
 
   Future<List<Map<String, dynamic>>> getYuekuRadio() =>
@@ -339,9 +340,10 @@ class MusicService {
 
   /// 认证信息已由 ApiClient._AuthInterceptor 自动注入 Authorization 头
   Future<Map<String, dynamic>> _oneShotGet(String path,
-      {Map<String, dynamic>? params}) async {
+      {Map<String, dynamic>? params, bool withAuth = true}) async {
     final client = ApiClient.instance;
-    final res = await client.get(path, params: params);
+    final options = withAuth ? null : Options(extra: {'noAuth': true});
+    final res = await client.get(path, params: params, options: options);
     return res.data as Map<String, dynamic>;
   }
 
