@@ -3,6 +3,7 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import '../utils/constants.dart';
 import '../utils/error_dialog.dart';
+import '../utils/logger.dart';
 import 'api_exception.dart';
 import 'api_config.dart';
 import 'cache_interceptor.dart';
@@ -88,6 +89,26 @@ class _AuthInterceptor extends Interceptor {
   }
 }
 
+/// KuGouMusicApi 已知错误码 → 中文释义
+const Map<Object, String> _kugouErrorMessages = {
+  '152': '搜索需要登录认证',
+  '20010': '登录已过期，请重新登录',
+  '20028': '账户触发风控，请稍后在手机上滑动验证后再试',
+  '20006': '操作频繁，请稍后重试',
+};
+
+/// KuGouMusicApi 已知 error_code → 简短标签
+const Map<Object, String> _kugouErrorLabels = {
+  '152': '缺少认证',
+  '20010': '登录失效',
+  '20028': '账户风控',
+  '20006': '操作受限',
+  152: '缺少认证',
+  20010: '登录失效',
+  20028: '账户风控',
+  20006: '操作受限',
+};
+
 /// 错误弹窗拦截器
 ///
 /// 在 Dio 请求链最后捕获所有未处理的异常，弹出错误提示。
@@ -98,30 +119,86 @@ class _ErrorDialogInterceptor extends Interceptor {
     // 网络错误已被 RetryInterceptor 重试过，到达这里说明已耗尽重试
     final statusCode = err.response?.statusCode;
     final data = err.response?.data;
+    final requestPath = err.requestOptions.path;
     String message;
+    String? codeStr;
+    String? detail;
+    bool showLogin = false;
 
     if (data is Map) {
-      final code = data['status'] ?? data['code'];
-      if (code == 20010 || code == '20010') {
-        showErrorDialog(title: '登录失效', message: '登录已过期，请重新登录', showLogin: true);
-        handler.next(err);
-        return;
+      final apiCode = data['status'] ?? data['code'];
+      final rawErrorCode = data['error_code'];
+      final rawMsg = data['error'] as String? ?? data['message'] as String? ?? data['msg'] as String?;
+
+      // 构建错误码显示字符串
+      final parts = <String>[];
+      if (statusCode != null) parts.add('HTTP $statusCode');
+      if (rawErrorCode != null) parts.add('error_code=$rawErrorCode');
+      if (apiCode != null && apiCode != rawErrorCode) {
+        parts.add('API $apiCode');
       }
-      message = data['error'] as String? ??
-          data['message'] as String? ??
-          data['msg'] as String? ??
-          '请求失败';
-    } else if (statusCode != null) {
-      message = statusCode >= 500 ? '服务器错误 ($statusCode)' : '请求失败 ($statusCode)';
+      codeStr = parts.isNotEmpty ? parts.join(' / ') : null;
+
+      // 根据错误码选择中文提示
+      final knownMsg = _kugouErrorMessages[apiCode] ?? _kugouErrorMessages[rawErrorCode];
+      final label = _kugouErrorLabels[apiCode] ?? _kugouErrorLabels[rawErrorCode];
+
+      if (knownMsg != null) {
+        message = knownMsg;
+        showLogin = (apiCode == 20010 || apiCode == '20010' || rawErrorCode == 20010 || rawErrorCode == '20010');
+      } else {
+        message = rawMsg ?? '请求失败';
+      }
+
+      // 详细信息包含请求路径 + 原始响应
+      final detailBuf = StringBuffer('请求路径: $requestPath');
+      if (rawErrorCode != null) detailBuf.writeln('\n原始错误码: $rawErrorCode');
+      if (rawMsg != null && rawMsg != message) detailBuf.writeln('\n原始消息: $rawMsg');
+      detail = detailBuf.toString();
+
+      // 日志
+      final logLabel = label ?? (statusCode != null && statusCode >= 500 ? '服务器错误' : 'API错误');
+      Log.e('ApiClient', '$logLabel $codeStr — $message | $requestPath', err);
+
+      // 弹窗
+      showErrorDialog(
+        title: label ?? '错误',
+        errorCode: codeStr,
+        message: message,
+        detail: detail,
+        showLogin: showLogin,
+      );
+      handler.next(err);
+      return;
+    }
+
+    // 非 Map 响应体（纯 HTTP 错误或网络错误）
+    if (statusCode != null) {
+      codeStr = 'HTTP $statusCode';
+      message = statusCode >= 500 ? '服务器错误' : '请求失败';
+      detail = 'HTTP $statusCode $requestPath';
+      Log.e('ApiClient', 'HTTP错误 $codeStr | $requestPath', err);
     } else {
+      codeStr = err.type == DioExceptionType.connectionTimeout
+          ? 'TIMEOUT'
+          : err.type == DioExceptionType.receiveTimeout
+              ? 'TIMEOUT'
+              : 'NETWORK';
       message = err.type == DioExceptionType.connectionTimeout
           ? '连接超时'
           : err.type == DioExceptionType.receiveTimeout
               ? '响应超时'
               : '网络连接失败';
+      detail = '${err.type.name} — $requestPath';
+      Log.e('ApiClient', '网络错误 $codeStr — $message | $requestPath', err);
     }
 
-    showErrorDialog(title: '错误', message: message);
+    showErrorDialog(
+      title: '错误',
+      errorCode: codeStr,
+      message: message,
+      detail: detail,
+    );
     handler.next(err);
   }
 }
@@ -250,12 +327,15 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? params,
     Duration ttl = const Duration(hours: 2),
+    bool withAuth = true,
   }) async {
+    final extra = <String, dynamic>{'cache_ttl': ttl};
+    if (!withAuth) extra['noAuth'] = true;
     try {
       return await _dio.get(
         path,
         queryParameters: params,
-        options: Options(extra: {'cache_ttl': ttl}),
+        options: Options(extra: extra),
       );
     } on DioException catch (e) {
       if (_isNetworkError(e)) throw NetworkErrorException.fromDio(e);
@@ -341,13 +421,16 @@ class ApiClient {
 
   // ─── 私有 ───
 
-  void _checkNeedLogin(dynamic data) {
+  void _checkNeedLogin(dynamic data, {String? requestPath}) {
     if (data is Map) {
       final status = data['status'] ?? data['code'];
       if (status == 20010 || status == '20010') {
+        Log.e('ApiClient', '登录失效 API 20010 | ${requestPath ?? "?"}');
         showErrorDialog(
           title: '登录失效',
+          errorCode: 'API 20010',
           message: '登录已过期，请重新登录',
+          detail: requestPath != null ? '请求路径: $requestPath' : null,
           showLogin: true,
         );
         throw const NeedLoginException();

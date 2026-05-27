@@ -63,7 +63,9 @@ final _actions = [
       final card = await musicService.getCardSongs(1);
       if (card.songs.isNotEmpty && context.mounted) {
         player.playSong(card.songs.first, playlist: card.songs);
-        Navigator.pushNamed(context, '/player');
+        player.setPlayerScreenVisible(true);
+        await Navigator.pushNamed(context, '/player');
+        player.setPlayerScreenVisible(false);
       }
     } catch (e, s) {
       Log.e('DiscoverQuickActions', 'dailyRec error', e, s);
@@ -76,7 +78,9 @@ final _actions = [
       final songs = await musicService.getTopSongs();
       if (songs.isNotEmpty && context.mounted) {
         player.playSong(songs.first, playlist: songs);
-        Navigator.pushNamed(context, '/player');
+        player.setPlayerScreenVisible(true);
+        await Navigator.pushNamed(context, '/player');
+        player.setPlayerScreenVisible(false);
       }
     } catch (e, s) {
       Log.e('DiscoverQuickActions', 'newSong error', e, s);

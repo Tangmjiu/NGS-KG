@@ -13,7 +13,8 @@ class DiscoverSongRow extends StatelessWidget {
   void _playFrom(BuildContext context, int index) {
     final player = context.read<PlayerProvider>();
     player.playSong(songs[index], playlist: songs.sublist(index));
-    Navigator.pushNamed(context, '/player');
+    player.setPlayerScreenVisible(true);
+    Navigator.pushNamed(context, '/player').then((_) => player.setPlayerScreenVisible(false));
   }
 
   @override
