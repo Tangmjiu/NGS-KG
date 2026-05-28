@@ -126,9 +126,17 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
       NotificationService.instance.cancelMediaNotification();
       return;
     }
+    // 当前歌词行（如果有）
+    String? lyricLine;
+    if (_lyrics.isNotEmpty && _currentLyricLine < _lyrics.length) {
+      final line = _lyrics[_currentLyricLine].text;
+      if (line.isNotEmpty) lyricLine = line;
+    }
     NotificationService.instance.showMediaNotification(
       title: song.name,
       artist: song.artistDisplay,
+      albumArtUrl: song.albumCoverUrl,
+      lyricLine: lyricLine,
       isPlaying: _isPlaying,
       duration: _duration.inSeconds,
       position: _position.inSeconds,
@@ -471,8 +479,11 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     }
 
     if (idx != _currentLyricLine || progress != _lyricLineProgress) {
+      final lineChanged = idx != _currentLyricLine;
       _currentLyricLine = idx;
       _lyricLineProgress = progress;
+      // 歌词行变化时刷新通知显示
+      if (lineChanged) _updateNotification();
       notifyListeners();
     }
   }
