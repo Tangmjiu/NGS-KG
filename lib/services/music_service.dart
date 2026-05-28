@@ -155,6 +155,11 @@ class MusicService {
 
   Future<List<Map<String, dynamic>>> getTopIp() => album.getTopIp();
 
+  Future<List<Map<String, dynamic>>> getIpZone() => album.getIpZone();
+
+  Future<Map<String, dynamic>> getIpZoneHome(int id) =>
+      album.getIpZoneHome(id);
+
   Future<List<Map<String, dynamic>>> getStyleTags() async {
     final res = await _oneShotGet('/everyday/style/recommend');
     final data = res['data'];
@@ -310,20 +315,49 @@ class MusicService {
   Future<Map<String, dynamic>> getSheetCollectionDetail(int id) =>
       _oneShotGet('/sheet/collection', params: {'collection_id': id});
 
-  // ─── 乐库 / 电台（遗留，待删除） ───
-
-  /// 乐库 banner（已知部分代理该接口已失效，标记 silent 防止弹窗）
-  Future<List<Map<String, dynamic>>> getYuekuBanner() =>
-      _oneShotGet('/yueku/banner', withAuth: false, silent: true)
-          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+  // ─── 乐库 / 电台 ───
 
   Future<List<Map<String, dynamic>>> getYuekuRadio() =>
       _oneShotGet('/yueku/fm')
           .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
 
+  Future<List<Map<String, dynamic>>> getYuekuAll() =>
+      _oneShotGet('/yueku')
+          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+
+  Future<List<Map<String, dynamic>>> getFmClass() =>
+      _oneShotGet('/fm/class')
+          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+
   Future<List<Map<String, dynamic>>> getRadioImages() =>
       _oneShotGet('/fm/image')
           .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+
+  // ─── 推荐 ───
+
+  /// 私人 FM（猜你喜欢）
+  Future<List<Map<String, dynamic>>> getPersonalFm() =>
+      _oneShotGet('/personal/fm')
+          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+
+  /// 历史推荐
+  Future<List<Map<String, dynamic>>> getHistoryRecommend() =>
+      _oneShotGet('/history/recommend')
+          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+
+  /// AI 推荐
+  Future<List<Map<String, dynamic>>> getAiRecommend() =>
+      _oneShotGet('/ai/recommend')
+          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+
+  // ─── 主题音乐 ───
+
+  Future<List<Map<String, dynamic>>> getThemeMusic() =>
+      _oneShotGet('/theme/music')
+          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+
+  Future<Map<String, dynamic>> getThemeMusicDetail(int id) =>
+      _oneShotGet('/theme/music/detail', params: {'id': id});
 
   // ─── 遗留方法（保留但已迁移到 repo） ───
 

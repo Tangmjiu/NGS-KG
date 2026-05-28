@@ -23,7 +23,6 @@ class DiscoverProvider extends ChangeNotifier {
   List<RadioStation> _fmList = [];
   List<Playlist> _topPlaylists = [];
   List<RankEntry> _rankList = [];
-  List<Map<String, dynamic>> _banners = [];
   List<Song> _topSongs = [];
   List<Album> _topAlbums = [];
   List<SceneCategory> _sceneCategories = [];
@@ -38,7 +37,6 @@ class DiscoverProvider extends ChangeNotifier {
   List<RadioStation> get fmList => _fmList;
   List<Playlist> get topPlaylists => _topPlaylists;
   List<RankEntry> get rankList => _rankList;
-  List<Map<String, dynamic>> get banners => _banners;
   List<Song> get topSongs => _topSongs;
   List<Album> get topAlbums => _topAlbums;
   List<SceneCategory> get sceneCategories => _sceneCategories;
@@ -46,7 +44,6 @@ class DiscoverProvider extends ChangeNotifier {
   bool get loading => _loading;
   String? get error => _error;
 
-  bool get hasBanners => _banners.isNotEmpty;
   bool get hasPlaylists => _topPlaylists.isNotEmpty;
   bool get hasRanks => _rankList.isNotEmpty;
   bool get hasTopSongs => _topSongs.isNotEmpty;
@@ -68,7 +65,6 @@ class DiscoverProvider extends ChangeNotifier {
         _loadFm(),
         _loadPlaylists(),
         _loadRanks(),
-        _loadBanners(),
         _loadTopSongs(),
         _loadTopAlbums(),
         _loadSceneCategories(),
@@ -110,15 +106,6 @@ class DiscoverProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadRanks error', e, s);
-    }
-  }
-
-  Future<void> _loadBanners() async {
-    try {
-      _banners = await _musicService.getYuekuBanner();
-      notifyListeners();
-    } catch (e, s) {
-      Log.e('DiscoverProvider', 'loadBanners error', e, s);
     }
   }
 

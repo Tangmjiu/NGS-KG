@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/discover_provider.dart';
-import 'discover/sections/discover_banner.dart';
 import 'discover/sections/discover_quick_actions.dart';
 import 'discover/sections/discover_section_header.dart';
 import 'discover/sections/discover_playlist_row.dart';
@@ -97,12 +96,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 ),
               )
             else ...[
-              // ── Banner ──
-              if (provider.hasBanners)
-                SliverToBoxAdapter(
-                  child: DiscoverBanner(banners: provider.banners),
-                ),
-
               // ── Quick actions ──
               SliverToBoxAdapter(
                 child: DiscoverQuickActions(rankList: provider.rankList),

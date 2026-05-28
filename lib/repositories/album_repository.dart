@@ -157,6 +157,18 @@ class AlbumRepository extends BaseRepository {
     return [];
   }
 
+  Future<List<Map<String, dynamic>>> getIpZone() async {
+    final res = await cachedGet('/ip/zone', ttl: const Duration(minutes: 30));
+    final raw = res['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  Future<Map<String, dynamic>> getIpZoneHome(int id) async {
+    final res = await get('/ip/zone/home', params: {'id': id});
+    return res;
+  }
+
   /// 获取 cookie 字符串用于搜索类接口的查询参数
   Future<String?> _getCookieString() async {
     try {
