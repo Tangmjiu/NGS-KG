@@ -99,54 +99,60 @@ class PlaybackControls extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: Text('播放列表',
-                  style: Theme.of(context).textTheme.titleSmall),
-              trailing: Text('${player.playlist.length} 首',
-                  style: Theme.of(context).textTheme.bodySmall),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            if (player.playlist.isEmpty)
-              const Padding(
-                  padding: EdgeInsets.all(32), child: Text('列表为空'))
-            else
-              SizedBox(
-                height: 320,
-                child: ListView.builder(
-                  itemCount: player.playlist.length,
-                  itemBuilder: (_, i) {
-                    final s = player.playlist[i];
-                    return ListTile(
-                      leading: CircleAvatar(
-                        radius: 14,
-                        backgroundColor: i == player.currentIndex
-                            ? cs.primaryContainer
-                            : Colors.transparent,
-                        child: Text(
-                          '${i + 1}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: i == player.currentIndex
-                                ? cs.onPrimaryContainer
-                                : cs.onSurfaceVariant,
+      isScrollControlled: true,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.85,
+        expand: false,
+        builder: (_, scrollCtrl) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: Text('播放列表',
+                    style: Theme.of(context).textTheme.titleSmall),
+                trailing: Text('${player.playlist.length} 首',
+                    style: Theme.of(context).textTheme.bodySmall),
+              ),
+              Divider(height: 1, color: cs.outlineVariant),
+              if (player.playlist.isEmpty)
+                const Expanded(
+                    child: Center(child: Text('列表为空')))
+              else
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollCtrl,
+                    itemCount: player.playlist.length,
+                    itemBuilder: (_, i) {
+                      final s = player.playlist[i];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          radius: 14,
+                          backgroundColor: i == player.currentIndex
+                              ? cs.primaryContainer
+                              : Colors.transparent,
+                          child: Text(
+                            '${i + 1}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: i == player.currentIndex
+                                  ? cs.onPrimaryContainer
+                                  : cs.onSurfaceVariant,
+                            ),
                           ),
                         ),
-                      ),
-                      title: Text(s.name,
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: Text(
-                        s.artistDisplay,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
-                      ),
-                      selected: i == player.currentIndex,
-                      selectedTileColor: cs.primaryContainer.withValues(alpha: 40/255),
-                      onTap: () {
+                        title: Text(s.name,
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(
+                          s.artistDisplay,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                        ),
+                        selected: i == player.currentIndex,
+                        selectedTileColor: cs.primaryContainer.withValues(alpha: 40/255),
+                        onTap: () {
                         Navigator.pop(context);
                         player.playIndex(i);
                       },
@@ -173,6 +179,7 @@ class PlaybackControls extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }
