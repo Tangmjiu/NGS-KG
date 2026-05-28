@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -9,6 +10,10 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
   final int _notifId = 0;
+
+  // Android 13+ 需要运行时请求通知权限
+  bool _permissionGranted = false;
+
   VoidCallback? onNotificationTap;
   VoidCallback? onPrev;
   VoidCallback? onPlayPause;
@@ -16,11 +21,24 @@ class NotificationService {
 
   Future<void> init() async {
     if (_initialized) return;
+
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     await _plugin.initialize(
       const InitializationSettings(android: androidSettings),
       onDidReceiveNotificationResponse: _onTap,
     );
+
+    // Android 13+ (API 33) 请求通知权限
+    if (Platform.isAndroid) {
+      try {
+        final granted = await _plugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission();
+        _permissionGranted = granted ?? false;
+      } catch (_) {
+        _permissionGranted = false;
+      }
+    }
+
     _initialized = true;
   }
 
@@ -48,26 +66,34 @@ class NotificationService {
     int duration = 0,
     int position = 0,
   }) async {
+    // Android 13+ 未授权时不显示
+    if (Platform.isAndroid && !_permissionGranted) return;
+
+    final importance = isPlaying ? Importance.high : Importance.defaultImportance;
+
     final androidDetails = AndroidNotificationDetails(
-      'playback',
+      'music_playback',
       '音乐播放',
-      channelDescription: '控制音乐播放',
-      importance: Importance.low,
-      priority: Priority.low,
-      ongoing: true,
+      channelDescription: '音乐播放控制',
+      importance: importance,
+      priority: Priority.high,
+      ongoing: isPlaying,
       autoCancel: false,
-      showProgress: duration > 0,
-      indeterminate: duration <= 0,
-      maxProgress: duration,
-      progress: position,
+      showProgress: false,
+      icon: '@mipmap/ic_launcher',
       actions: [
-        const AndroidNotificationAction('prev', '上一首'),
+        const AndroidNotificationAction('prev', '上一首',
+            contextual: true),
         AndroidNotificationAction(
           'play_pause',
-          isPlaying ? '暂停' : '播放'),
-        const AndroidNotificationAction('next', '下一首'),
+          isPlaying ? '暂停' : '播放',
+          contextual: true,
+        ),
+        const AndroidNotificationAction('next', '下一首',
+            contextual: true),
       ],
     );
+
     await _plugin.show(
       _notifId,
       title,
