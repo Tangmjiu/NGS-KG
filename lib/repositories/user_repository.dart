@@ -39,9 +39,19 @@ class UserRepository extends BaseRepository {
   }
 
   Future<LatestListenInfo?> getLatestListen() async {
-    final res = await get('/lastest/songs/listen', params: {'pagesize': 30});
+    final res = await get('/lastest/songs/listen', params: {'pagesize': 1});
     final raw = res['data'];
     if (raw is Map) {
+      final devInfo = raw['dev_info'] as Map<String, dynamic>?;
+      final currSong = raw['curr_song'] as Map?;
+      if (currSong is Map) {
+        return LatestListenInfo(
+          info: currSong['info'] as Map<String, dynamic>?,
+          position: currSong['pos'] as int? ?? 0,
+          devInfo: devInfo,
+        );
+      }
+      // fallback: use songs array
       final songs = raw['songs'] as List?;
       if (songs != null && songs.isNotEmpty) {
         final first = songs[0];
@@ -49,6 +59,7 @@ class UserRepository extends BaseRepository {
           return LatestListenInfo(
             info: first['info'] as Map<String, dynamic>?,
             position: first['pos'] as int? ?? 0,
+            devInfo: devInfo,
           );
         }
       }

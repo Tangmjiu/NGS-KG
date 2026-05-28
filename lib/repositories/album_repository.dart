@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'base_repository.dart';
 import '../models/song.dart';
 import '../models/album.dart';
@@ -69,14 +70,32 @@ class AlbumRepository extends BaseRepository {
   Future<List<Album>> getTopAlbums({int? type, int page = 1, int pageSize = 30}) async {
     final params = <String, dynamic>{'page': page, 'pagesize': pageSize};
     if (type != null) params['type'] = type;
-    // 该接口的上游 KuGou API 对认证信息敏感，不加 auth 更稳定
-    final res = await cachedGet('/top/album',
-        params: params, ttl: const Duration(minutes: 15), withAuth: false);
-    final raw = res['data'];
+    // 代理只支持 POST，且返回按地区分组的专辑数据。
+    // POST 需添加时间戳防止缓存（MakcRe/KuGouMusicApi 规范）。
+    params['_t'] = DateTime.now().millisecondsSinceEpoch;
+    final res = await client.dio.post('/top/album',
+        queryParameters: params, options: Options(extra: {'noAuth': true}));
+    final body = res.data;
+    if (body is! Map) return [];
+    final raw = body['data'];
+    // 标准格式：平铺 List
     if (raw is List) {
       return raw
           .map((e) => Album.fromJson(e as Map<String, dynamic>))
           .toList();
+    }
+    // 代理实际返回：按地区分组 Map
+    if (raw is Map) {
+      final albums = <Album>[];
+      for (final region in ['chn', 'eur', 'jpn', 'kor']) {
+        final list = raw[region];
+        if (list is List) {
+          albums.addAll(list
+              .whereType<Map<String, dynamic>>()
+              .map((e) => Album.fromJson(e)));
+        }
+      }
+      return albums;
     }
     return [];
   }

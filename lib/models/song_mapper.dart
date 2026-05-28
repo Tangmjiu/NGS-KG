@@ -35,7 +35,10 @@ class SongMapper {
     try {
       final rawName = (json['name'] as String?) ?? '';
       final parts = rawName.split(' - ');
-      var cover = json['cover'] as String?;
+      var cover = json['cover'] as String? ??
+          json['album_cover'] as String? ??
+          json['imgUrl'] as String? ??
+          json['album_logo'] as String?;
       if (cover != null) {
         cover = cover.replaceAll('{size}', '480');
         if (cover.startsWith('//')) cover = 'https:$cover';

@@ -38,6 +38,13 @@ class Song {
 
   static const qualityLabels = ['标准', 'HQ', 'SQ', 'Hi-Res', '无损'];
   static const qualityKeys = ['128', '320', 'flac', 'high', 'super'];
+  static const Map<String, String> qualityLabelMap = {
+    '128': '标准',
+    '320': 'HQ',
+    'flac': '无损',
+    'high': 'Hi-Res',
+    'super': 'Super',
+  };
 
   String get currentQualityLabel {
     if (qualities != null && qualities!.containsKey('128')) return '标准';
