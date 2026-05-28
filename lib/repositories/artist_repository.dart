@@ -1,6 +1,7 @@
 import 'base_repository.dart';
 import '../models/song.dart';
 import '../models/artist.dart';
+import '../models/album.dart';
 
 class ArtistRepository extends BaseRepository {
   ArtistRepository(super.client);
@@ -17,12 +18,16 @@ class ArtistRepository extends BaseRepository {
     return [];
   }
 
+  /// 获取歌手详情（头像、简介、统计等）
+  /// API: GET /artist/detail?id=xxx
   Future<Map<String, dynamic>> getArtistDetail(int artistId) async {
     return get('/artist/detail', params: {'id': artistId});
   }
 
+  /// 获取歌手单曲
+  /// API: GET /artist/audios?id=xxx&sort=hot&page=1&pagesize=50
   Future<List<Song>> getArtistAudios(int artistId,
-      {int page = 1, int pageSize = 200, String sort = 'hot'}) async {
+      {int page = 1, int pageSize = 50, String sort = 'hot'}) async {
     final res = await get('/artist/audios', params: {
       'id': artistId,
       'page': page,
@@ -33,7 +38,11 @@ class ArtistRepository extends BaseRepository {
     if (raw is List) {
       return raw.map((e) {
         final json = e as Map<String, dynamic>;
-        var cover = json['cover'] as String? ?? json['album_cover'] as String?;
+        // 多字段回退查封面
+        var cover = json['cover'] as String? ??
+            json['album_cover'] as String? ??
+            json['sizable_cover'] as String? ??
+            json['imgurl'] as String?;
         if (cover != null) {
           cover = cover.replaceAll('{size}', '480');
           if (cover.startsWith('//')) cover = 'https:$cover';
@@ -50,6 +59,39 @@ class ArtistRepository extends BaseRepository {
         );
       }).toList();
     }
+    return [];
+  }
+
+  /// 获取歌手专辑列表
+  /// API: GET /artist/albums?id=xxx&sort=hot&page=1&pagesize=50
+  Future<List<Album>> getArtistAlbums(int artistId,
+      {int page = 1, int pageSize = 50, String sort = 'hot'}) async {
+    final res = await get('/artist/albums', params: {
+      'id': artistId,
+      'page': page,
+      'pagesize': pageSize,
+      'sort': sort,
+    });
+    final raw = res['data'];
+    if (raw is List) {
+      return raw
+          .map((e) => Album.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  }
+
+  /// 获取歌手 MV 列表
+  /// API: GET /artist/videos?id=xxx&page=1&pagesize=20
+  Future<List<Map<String, dynamic>>> getArtistVideos(int artistId,
+      {int page = 1, int pageSize = 20}) async {
+    final res = await get('/artist/videos', params: {
+      'id': artistId,
+      'page': page,
+      'pagesize': pageSize,
+    });
+    final raw = res['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
   }
 
