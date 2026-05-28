@@ -113,18 +113,24 @@ class AudioEngine {
           _hasActivePlayback = true;
         }
       } else {
-        final quality = _currentQuality(song);
-        final songUrl = await _musicService.getSongUrl(song.id,
-            hash: song.hash, quality: quality);
-        if (version != _playRequestVersion) { isLoading.value = false; return; }
-        if (songUrl.url.isNotEmpty) {
-          await _player.setUrl(songUrl.url);
+        final qualities = _qualityFallbackChain(qualityLevel);
+        bool played = false;
+        for (var qi = 0; qi < qualities.length && !played; qi++) {
+          final quality = qualities[qi];
+          final songUrl = await _musicService.getSongUrl(song.id,
+              hash: song.hash, quality: quality);
           if (version != _playRequestVersion) { isLoading.value = false; return; }
-          _lastUrlFetchTime = DateTime.now();
-          await _player.play();
-          _hasActivePlayback = true;
-          _musicService.uploadPlayHistory(song.id, duration: song.duration).catchError((_) {});
-        } else {
+          if (songUrl.url.isNotEmpty) {
+            await _player.setUrl(songUrl.url);
+            if (version != _playRequestVersion) { isLoading.value = false; return; }
+            _lastUrlFetchTime = DateTime.now();
+            await _player.play();
+            _hasActivePlayback = true;
+            _musicService.uploadPlayHistory(song.id, duration: song.duration).catchError((_) {});
+            played = true;
+          }
+        }
+        if (!played) {
           _playAttempts++;
           await play(song, version: version);
           return;
@@ -234,17 +240,25 @@ class AudioEngine {
     _player.setSpeed(speed);
   }
 
-  String? _currentQuality(Song? song) {
-    final q = song?.qualities;
-    if (q == null || q.isEmpty) return null;
-    // 优先使用用户选择的音质（qualityLevel 指向 Song.qualityKeys）
-    final selectedKey = Song.qualityKeys[qualityLevel % Song.qualityKeys.length];
-    if (q.containsKey(selectedKey)) return selectedKey;
-    // 如果选择的音质歌曲不支持，回退到第一个可用音质
-    for (final key in Song.qualityKeys) {
-      if (q.containsKey(key)) return key;
+  /// 获取当前请求的音质 key
+  /// 优先用 qualityLevel 选定的音质，不依赖 song.qualities（API 端协商）
+  /// [fallbackLevel] 用于音质降级重试（0=128, 1=320, 2=high, ...）
+  String _currentQuality(Song? song, {int fallbackLevel = -1}) {
+    final level = fallbackLevel >= 0
+        ? fallbackLevel
+        : qualityLevel % Song.qualityKeys.length;
+    return Song.qualityKeys[level];
+  }
+
+  /// 音质降级链：从用户选定的音质开始，逐级降到 128
+  static List<String> _qualityFallbackChain(int startLevel) {
+    final keys = Song.qualityKeys;
+    final start = startLevel % keys.length;
+    final chain = <String>[];
+    for (var i = start; i >= 0; i--) {
+      chain.add(keys[i]);
     }
-    return q.keys.first;
+    return chain;
   }
 
   void dispose() {
