@@ -338,11 +338,33 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     }
   }
 
-  Future<void> switchQuality() async {
-    final q = _queue.currentSong?.qualities;
-    if (q == null || q.isEmpty) return;
-    _qualityLevel = (_qualityLevel + 1) % Song.qualityKeys.length;
-    _engine.qualityLevel = _qualityLevel;
+  /// 获取当前歌曲实际可用的音质列表（而非全部 5 个）
+  List<String> getAvailableQualities() {
+    final song = _queue.currentSong;
+    if (song == null || song.qualities == null) return Song.qualityKeys;
+    // 检查歌曲的 qualities 中哪些 key 实际存在
+    final available = <String>[];
+    for (final key in Song.qualityKeys) {
+      if (song.qualities!.containsKey(key)) available.add(key);
+    }
+    return available.isNotEmpty ? available : Song.qualityKeys;
+  }
+
+  /// 获取当前音质的显示标签
+  String get currentQualityLabel {
+    final key = Song.qualityKeys[_qualityLevel % Song.qualityKeys.length];
+    return Song.qualityLabelMap[key] ?? key;
+  }
+
+  Future<void> setQuality(String qualityKey) async {
+    final idx = Song.qualityKeys.indexOf(qualityKey);
+    if (idx < 0) return;
+    _qualityLevel = idx;
+    _engine.qualityLevel = idx;
+    // 强制歌词重新加载（音质切换后 hash 不变，但需要刷新歌词）
+    _lyrics = [];
+    _currentLyricLine = 0;
+    _lyricLineProgress = 0.0;
     if (_isPlaying) {
       await playIndex(_queue.currentIndex);
     } else {

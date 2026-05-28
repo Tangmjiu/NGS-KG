@@ -237,11 +237,13 @@ class AudioEngine {
   String? _currentQuality(Song? song) {
     final q = song?.qualities;
     if (q == null || q.isEmpty) return null;
-    // Iterate qualityKeys in priority order, find first available
+    // 优先使用用户选择的音质（qualityLevel 指向 Song.qualityKeys）
+    final selectedKey = Song.qualityKeys[qualityLevel % Song.qualityKeys.length];
+    if (q.containsKey(selectedKey)) return selectedKey;
+    // 如果选择的音质歌曲不支持，回退到第一个可用音质
     for (final key in Song.qualityKeys) {
       if (q.containsKey(key)) return key;
     }
-    // Fallback to first available key in the song's qualities map
     return q.keys.first;
   }
 

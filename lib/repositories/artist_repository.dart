@@ -33,11 +33,17 @@ class ArtistRepository extends BaseRepository {
     if (raw is List) {
       return raw.map((e) {
         final json = e as Map<String, dynamic>;
+        var cover = json['cover'] as String? ?? json['album_cover'] as String?;
+        if (cover != null) {
+          cover = cover.replaceAll('{size}', '480');
+          if (cover.startsWith('//')) cover = 'https:$cover';
+        }
         return Song(
           id: json['audio_id'] as int? ?? 0,
           name: json['audio_name'] as String? ?? '',
           artists: [(json['author_name'] as String? ?? '')],
           albumName: json['album_name'] as String?,
+          albumCoverUrl: cover,
           albumId: (json['album_id'] as int?) ?? 0,
           duration: ((json['timelength'] as int?) ?? 0) ~/ 1000,
           hash: json['hash'] as String?,

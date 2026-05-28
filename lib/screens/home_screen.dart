@@ -465,7 +465,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                subtitle: const Text('点击继续播放'),
+                                subtitle: Text(_latestListen?.deviceLabel ?? '点击继续播放'),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [

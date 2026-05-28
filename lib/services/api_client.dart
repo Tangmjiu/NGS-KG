@@ -116,9 +116,18 @@ const Map<Object, String> _kugouErrorLabels = {
 ///
 /// 在 Dio 请求链最后捕获所有未处理的异常，弹出错误提示。
 /// 排在最末尾，确保前面的拦截器（重试、缓存等）有机会先处理。
+///
+/// 如果请求的 extra 中标记了 `silent: true`，则跳过弹窗（仅日志），
+/// 用于已知会失败但无需打扰用户的请求（如已失效的 banner 接口）。
 class _ErrorDialogInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
+    // 静默标记的请求跳过弹窗
+    if (err.requestOptions.extra['silent'] == true) {
+      Log.w('ApiClient', '静默错误: ${err.requestOptions.path} | ${err.message}');
+      handler.next(err);
+      return;
+    }
     // 网络错误已被 RetryInterceptor 重试过，到达这里说明已耗尽重试
     final statusCode = err.response?.statusCode;
     final data = err.response?.data;

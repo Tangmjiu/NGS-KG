@@ -312,8 +312,9 @@ class MusicService {
 
   // ─── 乐库 / 电台（遗留，待删除） ───
 
+  /// 乐库 banner（已知部分代理该接口已失效，标记 silent 防止弹窗）
   Future<List<Map<String, dynamic>>> getYuekuBanner() =>
-      _oneShotGet('/yueku/banner', withAuth: false)
+      _oneShotGet('/yueku/banner', withAuth: false, silent: true)
           .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
 
   Future<List<Map<String, dynamic>>> getYuekuRadio() =>
@@ -340,9 +341,12 @@ class MusicService {
 
   /// 认证信息已由 ApiClient._AuthInterceptor 自动注入 Authorization 头
   Future<Map<String, dynamic>> _oneShotGet(String path,
-      {Map<String, dynamic>? params, bool withAuth = true}) async {
+      {Map<String, dynamic>? params, bool withAuth = true, bool silent = false}) async {
     final client = ApiClient.instance;
-    final options = withAuth ? null : Options(extra: {'noAuth': true});
+    final extra = <String, dynamic>{};
+    if (!withAuth) extra['noAuth'] = true;
+    if (silent) extra['silent'] = true;
+    final options = extra.isNotEmpty ? Options(extra: extra) : null;
     final res = await client.get(path, params: params, options: options);
     return res.data as Map<String, dynamic>;
   }

@@ -422,15 +422,40 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
       if (!mounted) return;
       final data = res.data as Map<String, dynamic>? ?? {};
       final body = data['data'] as Map<String, dynamic>? ?? data;
-      final songs = body['songs'] as List<dynamic>? ?? [];
-      if (songs.isNotEmpty && songs[0] is Map<String, dynamic>) {
-        final s = songs[0] as Map<String, dynamic>;
-        if (!mounted) return;
+      final devInfo = body['dev_info'] as Map<String, dynamic>?;
+      final wording = devInfo?['wording'] as String? ?? '其他设备';
+      // 优先用 curr_song，回退到 songs[0]
+      Map<String, dynamic>? songInfo;
+      final currSong = body['curr_song'] as Map?;
+      if (currSong is Map) {
+        songInfo = (currSong['info'] as Map<String, dynamic>?)
+            ?? currSong.cast<String, dynamic>();
+      }
+      if (songInfo == null) {
+        final songs = body['songs'] as List<dynamic>? ?? [];
+        if (songs.isNotEmpty && songs[0] is Map<String, dynamic>) {
+          songInfo = songs[0] as Map<String, dynamic>;
+        }
+      }
+      if (songInfo != null && mounted) {
+        final songName = songInfo['name'] as String?
+            ?? songInfo['songname'] as String? ?? '未知歌曲';
+        final singer = songInfo['singername'] as String?;
         showDialog(
             context: context,
             builder: (_) => AlertDialog(
                   title: const Text('继续播放'),
-                  content: Text('检测到在其他设备播放了\n${s['name'] ?? ''}，是否继续？'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('检测到在 $wording'),
+                      const SizedBox(height: 8),
+                      Text(songName,
+                          style: Theme.of(context).textTheme.titleMedium),
+                      if (singer != null) Text(singer, style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ),
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.pop(context),
@@ -438,13 +463,17 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
                     FilledButton(
                       onPressed: () {
                         Navigator.pop(context);
+                        final hash = songInfo['hash'] as String?;
+                        final songId = (songInfo['mixsongid'] as num?)?.toInt()
+                            ?? (songInfo['id'] as num?)?.toInt() ?? 0;
                         final song = Song(
-                          id: (s['id'] as num?)?.toInt() ?? 0,
-                          name: (s['name'] as String?) ?? '',
-                          artists: [(s['singer_name'] as String?) ?? ''],
-                          albumCoverUrl: s['cover_url'] as String?,
-                          duration: (s['duration'] as num?)?.toInt() ?? 0,
-                          hash: s['hash'] as String?,
+                          id: songId,
+                          name: songName,
+                          artists: singer != null ? [singer] : [],
+                          albumCoverUrl: (songInfo['cover'] as String?)
+                              ?.replaceAll('{size}', '480'),
+                          duration: (songInfo['timelen'] as num?)?.toInt() ?? 0,
+                          hash: hash,
                         );
                         context.read<PlayerProvider>().playSong(song);
                       },

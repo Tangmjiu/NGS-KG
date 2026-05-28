@@ -61,10 +61,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
     // Lyric progress
     player.updateLyricProgress(player.position);
 
-    // Load lyrics when song changes
+    // Load lyrics when song changes or lyrics were cleared (e.g. quality switch)
     final songChanged = (song.hash != null && song.hash != _lastLoadedHash) ||
         (song.hash == null && song.id != _lastLoadedSongId);
-    if (songChanged) {
+    final lyricsCleared = player.lyrics.isEmpty &&
+        _lastLoadedHash != null &&
+        song.hash == _lastLoadedHash;
+    if (songChanged || lyricsCleared) {
       if (song.hash != null) {
         _lastLoadedHash = song.hash;
       }
@@ -365,10 +368,37 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ),
         ),
         const SizedBox(width: 12),
-        _ActionChip(
-          icon: Icons.speed,
-          label: qualityLabel,
-          onTap: () => player.switchQuality(),
+        PopupMenuButton<String>(
+          onSelected: (key) => player.setQuality(key),
+          itemBuilder: (ctx) {
+            final available = player.getAvailableQualities();
+            return available.map((key) {
+              final label = Song.qualityLabelMap[key] ?? key;
+              return PopupMenuItem<String>(
+                value: key,
+                child: Row(
+                  children: [
+                    if (key == currentKey)
+                      Icon(Icons.check, size: 18, color: Theme.of(ctx).colorScheme.primary),
+                    SizedBox(width: key == currentKey ? 8 : 26),
+                    Text(label),
+                  ],
+                ),
+              );
+            }).toList();
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.speed, size: 20, color: Colors.white60),
+                const SizedBox(height: 4),
+                Text(qualityLabel,
+                    style: const TextStyle(fontSize: 10, color: Colors.white60)),
+              ],
+            ),
+          ),
         ),
       ],
     );
