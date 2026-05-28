@@ -438,9 +438,10 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
         }
       }
       if (songInfo != null && mounted) {
-        final songName = songInfo['name'] as String?
-            ?? songInfo['songname'] as String? ?? '未知歌曲';
-        final singer = songInfo['singername'] as String?;
+        final info = songInfo!;
+        final songName = info['name'] as String?
+            ?? info['songname'] as String? ?? '未知歌曲';
+        final singer = info['singername'] as String?;
         showDialog(
             context: context,
             builder: (_) => AlertDialog(
@@ -463,16 +464,16 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
                     FilledButton(
                       onPressed: () {
                         Navigator.pop(context);
-                        final hash = songInfo['hash'] as String?;
-                        final songId = (songInfo['mixsongid'] as num?)?.toInt()
-                            ?? (songInfo['id'] as num?)?.toInt() ?? 0;
+                        final hash = info['hash'] as String?;
+                        final songId = (info['mixsongid'] as num?)?.toInt()
+                            ?? (info['id'] as num?)?.toInt() ?? 0;
                         final song = Song(
                           id: songId,
                           name: songName,
                           artists: singer != null ? [singer] : [],
-                          albumCoverUrl: (songInfo['cover'] as String?)
+                          albumCoverUrl: (info['cover'] as String?)
                               ?.replaceAll('{size}', '480'),
-                          duration: (songInfo['timelen'] as num?)?.toInt() ?? 0,
+                          duration: (info['timelen'] as num?)?.toInt() ?? 0,
                           hash: hash,
                         );
                         context.read<PlayerProvider>().playSong(song);
