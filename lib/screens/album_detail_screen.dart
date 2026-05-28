@@ -28,6 +28,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
   Album? _album;
   List<Song> _songs = [];
   bool _isLoading = true;
+  bool _descExpanded = false;
 
   @override
   void initState() {
@@ -169,7 +170,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
               ),
             ),
           ),
-          // 专辑简介
+          // 专辑简介（可收起）
           if (desc.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
@@ -181,9 +182,29 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                         style: tt.labelLarge
                             ?.copyWith(color: cs.onSurfaceVariant)),
                     const SizedBox(height: 6),
-                    Text(desc,
-                        style: tt.bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant)),
+                    Text(
+                      desc,
+                      maxLines: _descExpanded ? null : 3,
+                      overflow: _descExpanded
+                          ? TextOverflow.visible
+                          : TextOverflow.ellipsis,
+                      style: tt.bodySmall
+                          ?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                    if (desc.length > 100)
+                      GestureDetector(
+                        onTap: () => setState(() => _descExpanded = !_descExpanded),
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            _descExpanded ? '收起' : '展开',
+                            style: tt.labelSmall?.copyWith(
+                              color: cs.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

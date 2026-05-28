@@ -684,7 +684,7 @@ class _SearchScreenState extends State<SearchScreen>
         final a = _albums[i];
         final name = a['albumname'] as String? ?? '';
         final img = a['imgurl'] as String? ?? a['img'] as String? ?? '';
-        final artist = a['singername'] as String? ?? a['artist'] as String? ?? '';
+        final artist = a['singer'] as String? ?? a['singername'] as String? ?? a['artist'] as String? ?? '';
         return ListTile(
           leading: img.isNotEmpty
               ? ClipRRect(

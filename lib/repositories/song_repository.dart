@@ -77,6 +77,10 @@ class SongRepository extends BaseRepository {
     if (quality != null) {
       params['quality'] = quality;
     }
+    // /song/url 需要 cookie 查询参数（含 dfid/token/userid），否则返回 20028
+    // ref: https://github.com/MakcRe/KuGouMusicApi/issues/142
+    final cookie = await _getCookieString();
+    if (cookie != null) params['cookie'] = cookie;
     final res = await get('/song/url', params: params);
     return SongUrl.fromJson(res);
   }
