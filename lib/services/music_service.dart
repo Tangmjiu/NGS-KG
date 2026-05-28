@@ -179,9 +179,18 @@ class MusicService {
       artist.getArtistDetail(artistId);
 
   Future<List<Song>> getArtistAudios(int artistId,
-          {int page = 1, int pageSize = 200, String sort = 'hot'}) =>
+          {int page = 1, int pageSize = 50, String sort = 'hot'}) =>
       artist.getArtistAudios(artistId,
           page: page, pageSize: pageSize, sort: sort);
+
+  Future<List<Album>> getArtistAlbums(int artistId,
+          {int page = 1, int pageSize = 50, String sort = 'hot'}) =>
+      artist.getArtistAlbums(artistId,
+          page: page, pageSize: pageSize, sort: sort);
+
+  Future<List<Map<String, dynamic>>> getArtistVideos(int artistId,
+          {int page = 1, int pageSize = 20}) =>
+      artist.getArtistVideos(artistId, page: page, pageSize: pageSize);
 
   Future<void> followArtist(int artistId) => artist.followArtist(artistId);
 
