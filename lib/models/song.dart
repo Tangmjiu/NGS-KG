@@ -37,12 +37,12 @@ class Song {
   String get artistDisplay => artists.join(' / ');
 
   /// 播放音质列表（flac 仅用于下载，不加入播放循环）
-  static const qualityLabels = ['标准', 'HQ', 'Hi-Res', '蝰蛇超清', 'DSD'];
+  static const qualityLabels = ['标准', 'HQ', '无损', '蝰蛇超清', 'DSD'];
   static const qualityKeys = ['128', '320', 'high', 'viper_clear', 'super'];
   static const Map<String, String> qualityLabelMap = {
     '128': '标准',
     '320': 'HQ',
-    'high': 'Hi-Res',
+    'high': '无损',
     'viper_clear': '蝰蛇超清',
     'super': 'DSD',
     'flac': 'FLAC 无损',
@@ -51,7 +51,7 @@ class Song {
   String get currentQualityLabel {
     if (qualities != null && qualities!.containsKey('viper_clear')) return '蝰蛇超清';
     if (qualities != null && qualities!.containsKey('super')) return 'DSD';
-    if (qualities != null && (qualities!.containsKey('high') || qualities!.containsKey('flac'))) return 'Hi-Res';
+    if (qualities != null && (qualities!.containsKey('high') || qualities!.containsKey('flac'))) return '无损';
     if (qualities != null && qualities!.containsKey('320')) return 'HQ';
     return '标准';
   }
