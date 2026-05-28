@@ -36,21 +36,24 @@ class Song {
 
   String get artistDisplay => artists.join(' / ');
 
-  static const qualityLabels = ['标准', 'HQ', 'SQ', 'Hi-Res', '无损'];
-  static const qualityKeys = ['128', '320', 'flac', 'high', 'super'];
+  /// 播放音质列表（flac 仅用于下载，不加入播放循环）
+  static const qualityLabels = ['标准', 'HQ', 'Hi-Res', '蝰蛇超清', 'DSD'];
+  static const qualityKeys = ['128', '320', 'high', 'viper_clear', 'super'];
   static const Map<String, String> qualityLabelMap = {
     '128': '标准',
     '320': 'HQ',
-    'flac': '无损',
     'high': 'Hi-Res',
-    'super': 'Super',
+    'viper_clear': '蝰蛇超清',
+    'super': 'DSD',
+    'flac': 'FLAC 无损',
   };
 
   String get currentQualityLabel {
-    if (qualities != null && qualities!.containsKey('128')) return '标准';
+    if (qualities != null && qualities!.containsKey('viper_clear')) return '蝰蛇超清';
+    if (qualities != null && qualities!.containsKey('super')) return 'DSD';
+    if (qualities != null && (qualities!.containsKey('high') || qualities!.containsKey('flac'))) return 'Hi-Res';
     if (qualities != null && qualities!.containsKey('320')) return 'HQ';
-    if (qualities != null && (qualities!.containsKey('high') || qualities!.containsKey('flac'))) return '无损';
-    return hash != null && hash!.length > 20 ? 'HQ' : '标准';
+    return '标准';
   }
 
   factory Song.fromJson(Map<String, dynamic> json) {

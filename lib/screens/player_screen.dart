@@ -347,9 +347,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   static const _qualityLabels = {
     '128': '标准',
     '320': 'HQ',
-    'flac': '无损',
     'high': 'Hi-Res',
-    'super': 'Super',
+    'viper_clear': '蝰蛇超清',
+    'super': 'DSD',
+    'flac': 'FLAC 无损',
   };
 
   Widget _buildBottomActions() {
