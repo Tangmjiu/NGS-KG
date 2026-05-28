@@ -31,12 +31,21 @@ class _HomeScreenState extends State<HomeScreen> {
   final Map<int, List<Song>> _cardSongs = {};
   final Map<int, String> _cardNames = {};
 
+  /// 3行/列 缩略图列表，水平滑动
   Widget _buildSongList(List<Song> songs, String title,
       {Future<List<Song>> Function()? onEnd}) {
     if (songs.isEmpty) return const SizedBox.shrink();
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
     final player = context.read<PlayerProvider>();
+
+    // 每 3 首一组
+    final chunks = <List<Song>>[];
+    for (var i = 0; i < songs.length; i += 3) {
+      final end = (i + 3 > songs.length) ? songs.length : i + 3;
+      chunks.add(songs.sublist(i, end));
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -46,60 +55,90 @@ class _HomeScreenState extends State<HomeScreen> {
               style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
         ),
         SizedBox(
-          height: 170,
+          height: 156,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: songs.length,
+            itemCount: chunks.length,
             itemBuilder: (_, i) {
-              final song = songs[i];
-              return GestureDetector(
-                onTap: () {
-                  player.playlistEndProvider = onEnd;
-                  player.playSong(song, playlist: songs.sublist(i));
-                },
-                child: Container(
-                  width: 120,
-                  margin: const EdgeInsets.only(right: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: song.albumCoverUrl != null
-                            ? CachedNetworkImage(
-                                imageUrl: song.albumCoverUrl!,
-                                width: 120,
-                                height: 120,
-                                fit: BoxFit.cover,
-                                placeholder: (_, __) => Container(
-                                    width: 120,
-                                    height: 120,
-                                    color: cs.surfaceContainerHighest),
-                                errorWidget: (_, __, ___) => Container(
-                                    width: 120,
-                                    height: 120,
-                                    color: cs.surfaceContainerHighest,
-                                    child: const Icon(Icons.music_note)),
-                              )
-                            : Container(
-                                width: 120,
-                                height: 120,
-                                color: cs.surfaceContainerHighest,
-                                child: const Icon(Icons.music_note)),
+              final chunk = chunks[i];
+              return Container(
+                width: 190,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  children: List.generate(chunk.length, (j) {
+                    final song = chunk[j];
+                    final flatIdx = i * 3 + j;
+                    return Expanded(
+                      child: InkWell(
+                        borderRadius: (j == 0)
+                            ? const BorderRadius.vertical(top: Radius.circular(10))
+                            : (j == chunk.length - 1)
+                                ? const BorderRadius.vertical(bottom: Radius.circular(10))
+                                : null,
+                        onTap: () {
+                          player.playlistEndProvider = onEnd;
+                          player.playSong(song, playlist: songs.sublist(flatIdx));
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: song.albumCoverUrl != null
+                                    ? CachedNetworkImage(
+                                        imageUrl: song.albumCoverUrl!,
+                                        width: 36,
+                                        height: 36,
+                                        fit: BoxFit.cover,
+                                        placeholder: (_, __) => Container(
+                                            width: 36,
+                                            height: 36,
+                                            color: cs.surface),
+                                        errorWidget: (_, __, ___) => Container(
+                                            width: 36,
+                                            height: 36,
+                                            color: cs.surface,
+                                            child: const Icon(Icons.music_note,
+                                                size: 18)),
+                                      )
+                                    : Container(
+                                        width: 36,
+                                        height: 36,
+                                        color: cs.surface,
+                                        child: const Icon(Icons.music_note,
+                                            size: 18)),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(song.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 13)),
+                                    Text(song.artistDisplay,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            color: cs.onSurfaceVariant)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(song.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13)),
-                      Text(song.artistDisplay,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              fontSize: 11, color: cs.onSurfaceVariant)),
-                    ],
-                  ),
+                    );
+                  }),
                 ),
               );
             },
@@ -110,104 +149,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildDailyRecommend(ColorScheme cs, TextTheme tt) {
-    final player = context.read<PlayerProvider>();
     if (_dailyLoading) {
       return _buildDailyShimmer(cs);
     }
     if (_dailySongs.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Text('每日推荐', style: tt.titleLarge),
-        ),
-        SizedBox(
-          height: 180,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: _dailySongs.length,
-            itemBuilder: (_, i) {
-              final song = _dailySongs[i];
-              return GestureDetector(
-                onTap: () {
-                  player.playSong(song, playlist: _dailySongs.sublist(i));
-                },
-                child: Card(
-                  margin: const EdgeInsets.only(right: 8),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                  color: cs.surfaceContainerHighest,
-                  child: SizedBox(
-                    width: 140,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(12)),
-                          child: song.albumCoverUrl != null
-                              ? CachedNetworkImage(
-                                  imageUrl: song.albumCoverUrl!,
-                                  width: 140,
-                                  height: 120,
-                                  fit: BoxFit.cover,
-                                  placeholder: (_, __) => Container(
-                                    width: 140,
-                                    height: 120,
-                                    color: cs.surfaceContainerHighest,
-                                  ),
-                                  errorWidget: (_, __, ___) => Container(
-                                    width: 140,
-                                    height: 120,
-                                    color: cs.surfaceContainerHighest,
-                                    child: Icon(Icons.music_note,
-                                        color: cs.onSurfaceVariant),
-                                  ),
-                                )
-                              : Container(
-                                  width: 140,
-                                  height: 120,
-                                  color: cs.surfaceContainerHighest,
-                                  child: Icon(Icons.music_note,
-                                      color: cs.onSurfaceVariant),
-                                ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 6),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                song.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: tt.titleSmall,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                song.artistDisplay,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: tt.bodySmall
-                                    ?.copyWith(color: cs.onSurfaceVariant),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
+    return _buildSongList(_dailySongs, '每日推荐',
+        onEnd: () => _musicService.getDailyRecommend());
   }
 
   Widget _buildDailyShimmer(ColorScheme cs) {
@@ -226,62 +173,64 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         SizedBox(
-          height: 180,
+          height: 156,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: 4,
             itemBuilder: (_, i) {
-              return Card(
+              return Container(
+                width: 190,
                 margin: const EdgeInsets.only(right: 8),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
-                color: cs.surfaceContainerHighest,
-                child: SizedBox(
-                  width: 140,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 140,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          color: cs.surface,
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(12)),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 6),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 100,
-                              height: 14,
-                              decoration: BoxDecoration(
-                                color:
-                                    cs.onSurfaceVariant.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  children: List.generate(3, (j) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: cs.surface,
+                              borderRadius: BorderRadius.circular(4),
                             ),
-                            const SizedBox(height: 6),
-                            Container(
-                              width: 60,
-                              height: 10,
-                              decoration: BoxDecoration(
-                                color:
-                                    cs.onSurfaceVariant.withValues(alpha: 0.10),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 100,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    color: cs.onSurfaceVariant
+                                        .withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Container(
+                                  width: 60,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: cs.onSurfaceVariant
+                                        .withValues(alpha: 0.10),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  }),
                 ),
               );
             },
