@@ -43,6 +43,13 @@ class ArtistRepository extends BaseRepository {
             json['album_cover'] as String? ??
             json['sizable_cover'] as String? ??
             json['imgurl'] as String?;
+        // /artist/audios 的封面藏在 trans_param.union_cover
+        if (cover == null || cover.isEmpty) {
+          final tp = json['trans_param'];
+          if (tp is Map) {
+            cover = tp['union_cover'] as String?;
+          }
+        }
         if (cover != null) {
           cover = cover.replaceAll('{size}', '480');
           if (cover.startsWith('//')) cover = 'https:$cover';

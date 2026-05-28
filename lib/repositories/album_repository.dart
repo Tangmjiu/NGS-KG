@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'base_repository.dart';
 import '../models/song.dart';
 import '../models/album.dart';
@@ -24,8 +23,6 @@ class AlbumRepository extends BaseRepository {
       'page': page,
       'pagesize': pageSize,
     };
-    final cookie = await _getCookieString();
-    if (cookie != null) params['cookie'] = cookie;
     final res = await get('/album/songs', params: params);
     final data = res['data'];
     List<dynamic>? list;
@@ -70,21 +67,16 @@ class AlbumRepository extends BaseRepository {
   Future<List<Album>> getTopAlbums({int? type, int page = 1, int pageSize = 30}) async {
     final params = <String, dynamic>{'page': page, 'pagesize': pageSize};
     if (type != null) params['type'] = type;
-    // 代理只支持 POST，且返回按地区分组的专辑数据。
-    // POST 需添加时间戳防止缓存（MakcRe/KuGouMusicApi 规范）。
-    params['_t'] = DateTime.now().millisecondsSinceEpoch;
-    final res = await client.dio.post('/top/album',
-        queryParameters: params, options: Options(extra: {'noAuth': true}));
-    final body = res.data;
-    if (body is! Map) return [];
+    // API 文档为 GET 请求，返回标准列表
+    final res = await get('/top/album', params: params);
+    final body = res;
     final raw = body['data'];
-    // 标准格式：平铺 List
     if (raw is List) {
       return raw
           .map((e) => Album.fromJson(e as Map<String, dynamic>))
           .toList();
     }
-    // 代理实际返回：按地区分组 Map
+    // 某些代理返回按地区分组 Map
     if (raw is Map) {
       final albums = <Album>[];
       for (final region in ['chn', 'eur', 'jpn', 'kor']) {
@@ -169,12 +161,4 @@ class AlbumRepository extends BaseRepository {
     return res;
   }
 
-  /// 获取 cookie 字符串用于搜索类接口的查询参数
-  Future<String?> _getCookieString() async {
-    try {
-      return await client.getCookieString();
-    } catch (_) {
-      return null;
-    }
-  }
 }

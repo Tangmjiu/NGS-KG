@@ -143,6 +143,14 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     );
   }
 
+  /// 应用音质设置后直接调用引擎播放（用于自动切歌等非用户触发的播放）
+  void _enginePlayWithQuality(Song? song, {int? version}) {
+    final s = song ?? _queue.currentSong;
+    if (s == null) return;
+    _applyQualityFromSettings();
+    _engine.play(s, version: version ?? _engine.currentVersion);
+  }
+
   void _onComplete() {
     if (!_engine.isCompleting.value) return;
     final current = _queue.currentSong;
@@ -157,26 +165,26 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
         if (idx == null) return;
         _engine.resetForNewSong();
         _queue.playIndex(idx);
-        _engine.play(_queue.currentSong ?? current, version: _engine.currentVersion);
+        _enginePlayWithQuality(_queue.currentSong ?? current);
         break;
       case PlayMode.sequential:
         if (_queue.currentIndex + 1 < _queue.playlist.length) {
           _engine.resetForNewSong();
           _queue.playIndex(_queue.currentIndex + 1);
-          _engine.play(_queue.currentSong ?? current, version: _engine.currentVersion);
+          _enginePlayWithQuality(_queue.currentSong ?? current);
         } else if (_queue.playlistEndProvider != null) {
           _loadMoreAndContinue();
         } else {
           _engine.resetForNewSong();
           _queue.playIndex(0);
-          _engine.play(_queue.currentSong ?? current, version: _engine.currentVersion);
+          _enginePlayWithQuality(_queue.currentSong ?? current);
         }
         break;
       case PlayMode.radio:
         if (_queue.currentIndex + 1 < _queue.playlist.length) {
           _engine.resetForNewSong();
           _queue.playIndex(_queue.currentIndex + 1);
-          _engine.play(_queue.currentSong ?? current, version: _engine.currentVersion);
+          _enginePlayWithQuality(_queue.currentSong ?? current);
         } else {
           _loadMoreAndContinue();
         }
@@ -198,7 +206,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
         _queue.playIndex(_queue.currentIndex + 1);
         final next = _queue.currentSong;
         if (next != null) {
-          _engine.play(next, version: _engine.currentVersion);
+          _enginePlayWithQuality(next);
           return;
         }
       }

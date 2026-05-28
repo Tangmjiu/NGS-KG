@@ -128,9 +128,16 @@ class _AMLyricsViewState extends State<AMLyricsView> {
       }
     }
 
+    // ListView 的 top padding（与 build 中的 padding 一致）
+    final topPadding = MediaQuery.of(context).size.height * 0.12;
+
     // Apple Music 风格：当前行位于视口上方 35% 处
+    // 当前行在列表中的位置 = topPadding + offset
+    // 目标：viewportPosition = sweetSpot
+    // (topPadding + offset) - target + currentLineHeight/2 = sweetSpot
+    // target = topPadding + offset - sweetSpot + currentLineHeight / 2
     final sweetSpot = viewportHeight * _sweetSpotRatio;
-    final target = offset - sweetSpot + currentLineHeight / 2;
+    final target = topPadding + offset - sweetSpot + currentLineHeight / 2;
 
     final clamped = target.clamp(0.0, _scrollController.position.maxScrollExtent);
 

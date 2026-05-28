@@ -114,15 +114,12 @@ class NotificationService {
       icon: '@mipmap/ic_launcher',
       largeIcon: artPath != null ? FilePathAndroidBitmap(artPath) : null,
       actions: [
-        const AndroidNotificationAction('prev', '上一首',
-            contextual: true),
+        const AndroidNotificationAction('prev', '上一首'),
         AndroidNotificationAction(
           'play_pause',
           isPlaying ? '暂停' : '播放',
-          contextual: true,
         ),
-        const AndroidNotificationAction('next', '下一首',
-            contextual: true),
+        const AndroidNotificationAction('next', '下一首'),
       ],
     );
 
