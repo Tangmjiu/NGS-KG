@@ -10,11 +10,13 @@ import '../services/notification_service.dart';
 import 'mixins.dart';
 import 'audio_engine.dart';
 import 'playlist_queue.dart';
+import 'audio_settings_provider.dart';
 
 export 'playlist_queue.dart' show PlayMode;
 
 class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMixin {
   final MusicService _musicService;
+  final AudioSettingsProvider? _audioSettings;
   late final AudioEngine _engine;
   late final PlaylistQueue _queue;
 
@@ -67,7 +69,8 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     _queue.playlistEndProvider = v;
   }
 
-  PlayerProvider(this._musicService) {
+  PlayerProvider(this._musicService, {AudioSettingsProvider? audioSettings})
+      : _audioSettings = audioSettings {
     _engine = AudioEngine(_musicService);
     _queue = PlaylistQueue();
 
@@ -199,6 +202,24 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     notifyListeners();
   }
 
+  /// 获取当前网络应是 WiFi 还是蜂窝（简单判定，无 connectivity_plus 时默认 WiFi）
+  /// TODO: 接入 connectivity_plus 后改用真实网络类型
+  bool get _isWifi {
+    return true; // 默认 WiFi，用户可在设置中分别配置
+  }
+
+  /// 播放前根据 AudioSettingsProvider 设置目标音质
+  void _applyQualityFromSettings() {
+    final settings = _audioSettings;
+    if (settings == null) return;
+    final maxKey = settings.getEffectiveQuality(_isWifi);
+    final idx = Song.qualityKeys.indexOf(maxKey);
+    if (idx >= 0 && idx != _qualityLevel) {
+      _qualityLevel = idx;
+      _engine.qualityLevel = idx;
+    }
+  }
+
   Future<void> playIndex(int index) async {
     if (index < 0 || index >= _queue.playlist.length) return;
     _queue.playIndex(index);
@@ -208,6 +229,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     _lyricLineProgress = 0.0;
     final current = _queue.currentSong;
     if (current == null) return;
+    _applyQualityFromSettings();
     _engine.resetForNewSong();
     notifyListeners();
     final version = _engine.currentVersion;
@@ -241,6 +263,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     }
     final current = _queue.currentSong;
     if (current == null) return;
+    _applyQualityFromSettings();
     _engine.resetForNewSong();
     final version = _engine.currentVersion;
     notifyListeners();

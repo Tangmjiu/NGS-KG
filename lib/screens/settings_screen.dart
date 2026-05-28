@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/audio_settings_provider.dart';
+import '../models/song.dart';
 import '../services/music_service.dart';
 import '../services/api_client.dart';
 import '../services/api_config.dart';
@@ -136,6 +138,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const AudioEffectsScreen()),
+            ),
+          ),
+          const Divider(),
+
+          // 音频质量
+          const _SectionHeader('音质'),
+          Consumer<AudioSettingsProvider>(
+            builder: (_, settings, __) => Column(
+              children: [
+                _QualityTile(
+                  icon: Icons.wifi,
+                  label: 'WiFi 网络',
+                  value: settings.wifiQuality,
+                  onSelected: (key) => settings.setWifiQuality(key),
+                ),
+                _QualityTile(
+                  icon: Icons.signal_cellular_alt,
+                  label: '蜂窝网络',
+                  value: settings.cellularQuality,
+                  onSelected: (key) => settings.setCellularQuality(key),
+                ),
+                _QualityTile(
+                  icon: Icons.download,
+                  label: '下载音质',
+                  value: settings.downloadQuality,
+                  onSelected: (key) => settings.setDownloadQuality(key),
+                ),
+                SwitchListTile(
+                  secondary: const Icon(Icons.auto_awesome),
+                  title: const Text('智能模式'),
+                  subtitle: const Text('WiFi 自动最高音质，蜂窝按设定'),
+                  value: settings.smartMode,
+                  onChanged: (v) => settings.setSmartMode(v),
+                ),
+              ],
             ),
           ),
           const Divider(),
@@ -394,6 +431,72 @@ class _ApiConfigTileState extends State<_ApiConfigTile> {
         ],
       ),
     );
+  }
+}
+
+/// 单行音质选择：标签 + 当前值 + 点击弹出选择
+class _QualityTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final ValueChanged<String> onSelected;
+
+  const _QualityTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final display = Song.qualityLabelMap[value] ?? value;
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(label),
+      subtitle: Text(display, style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => showModalBottomSheet(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('选择 $label 音质',
+                    style: Theme.of(ctx).textTheme.titleSmall),
+              ),
+              ...Song.qualityKeys.map((key) {
+                final label = Song.qualityLabelMap[key] ?? key;
+                return RadioListTile<String>(
+                  title: Text(label),
+                  subtitle: Text(_qualityDesc(key)),
+                  value: key,
+                  groupValue: value,
+                  onChanged: (v) {
+                    if (v != null) onSelected(v);
+                    Navigator.pop(ctx);
+                  },
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _qualityDesc(String key) {
+    switch (key) {
+      case '128': return '约 1 MB/min，最省流量';
+      case '320': return '约 2.4 MB/min，音质与流量均衡';
+      case 'high': return '无损格式，适合 WiFi 环境';
+      case 'viper_clear': return '蝰蛇超清音质增强';
+      case 'super': return 'DSD 超高解析，文件较大';
+      default: return '';
+    }
   }
 }
 

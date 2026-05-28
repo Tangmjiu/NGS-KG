@@ -20,6 +20,7 @@ import 'services/music_service.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/cache_service.dart';
+import 'providers/audio_settings_provider.dart';
 
 final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
 Future<void> main() async {
@@ -76,13 +77,15 @@ Future<void> main() async {
   CacheService.instance.init();
   final musicService = MusicService();
   final authService = AuthService();
+  final audioSettings = AudioSettingsProvider()..init();
   runApp(
     MultiProvider(
       providers: [
         Provider<MusicService>.value(value: musicService),
         Provider<AuthService>.value(value: authService),
+        ChangeNotifierProvider.value(value: audioSettings),
         ChangeNotifierProvider(create: (_) => AuthProvider(authService)),
-        ChangeNotifierProvider(create: (_) => PlayerProvider(musicService)),
+        ChangeNotifierProvider(create: (_) => PlayerProvider(musicService, audioSettings: audioSettings)),
         ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
         ChangeNotifierProvider(create: (_) => LikedSongsProvider(musicService)),
         ChangeNotifierProvider(create: (_) => DiscoverProvider(musicService)),
@@ -438,7 +441,7 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
         }
       }
       if (songInfo != null && mounted) {
-        final info = songInfo!;
+        final info = songInfo;
         final songName = info['name'] as String?
             ?? info['songname'] as String? ?? '未知歌曲';
         final singer = info['singername'] as String?;
