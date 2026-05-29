@@ -36,23 +36,26 @@ class Song {
 
   String get artistDisplay => artists.join(' / ');
 
-  /// 播放音质列表（flac 仅用于下载，不加入播放循环）
-  static const qualityLabels = ['标准', 'HQ', '无损', '蝰蛇超清', 'DSD'];
-  static const qualityKeys = ['128', '320', 'high', 'viper_clear', 'super'];
+  /// 播放音质列表（共 7 级，从低到高）
+  static const qualityLabels = ['标准', 'HQ', 'FLAC', 'Hi-Res', '全景声', '蝰蛇超清', '母带'];
+  static const qualityKeys = ['128', '320', 'flac', 'high', 'viper_atmos', 'viper_clear', 'viper_tape'];
   static const Map<String, String> qualityLabelMap = {
     '128': '标准',
     '320': 'HQ',
-    'high': '无损',
+    'flac': 'FLAC',
+    'high': 'Hi-Res',
+    'viper_atmos': '全景声',
     'viper_clear': '蝰蛇超清',
-    'super': 'DSD',
-    'flac': 'FLAC 无损',
+    'viper_tape': '母带',
   };
 
+  /// 根据 qualities 映射智能推断最高可用音质显示
   String get currentQualityLabel {
-    if (qualities != null && qualities!.containsKey('viper_clear')) return '蝰蛇超清';
-    if (qualities != null && qualities!.containsKey('super')) return 'DSD';
-    if (qualities != null && (qualities!.containsKey('high') || qualities!.containsKey('flac'))) return '无损';
-    if (qualities != null && qualities!.containsKey('320')) return 'HQ';
+    for (final key in qualityKeys.reversed) {
+      if (qualities != null && qualities!.containsKey(key)) {
+        return qualityLabelMap[key] ?? key;
+      }
+    }
     return '标准';
   }
 
@@ -89,9 +92,24 @@ class Song {
 class SongUrl {
   final int id;
   final String url;
-  final String type;
+  final String type; // 格式：mp3 / mp4 / flac
+  final int? timeLength; // 时长（ms）
+  final double? volume; // LUFS 响度值
+  final double? volumeGain;
+  final double? volumePeak;
 
-  const SongUrl({required this.id, required this.url, this.type = 'mp3'});
+  const SongUrl({
+    required this.id,
+    required this.url,
+    this.type = 'mp3',
+    this.timeLength,
+    this.volume,
+    this.volumeGain,
+    this.volumePeak,
+  });
+
+  /// 是否为视频格式（Kugou 有时对 VIP 歌曲返回 mp4 而非音频）
+  bool get isVideo => type == 'mp4';
 
   factory SongUrl.fromJson(Map<String, dynamic> json) {
     final status = json['status'];
@@ -106,6 +124,10 @@ class SongUrl {
       id: json['hash']?.hashCode ?? 0,
       url: firstUrl,
       type: json['extName'] as String? ?? 'mp3',
+      timeLength: json['timeLength'] as int?,
+      volume: (json['volume'] as num?)?.toDouble(),
+      volumeGain: (json['volume_gain'] as num?)?.toDouble(),
+      volumePeak: (json['volume_peak'] as num?)?.toDouble(),
     );
   }
 }
