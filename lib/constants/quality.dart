@@ -22,7 +22,7 @@ class Quality {
   static const Map<String, String> labels = {
     '128': '标准',
     '320': 'HQ',
-    'flac': 'FLAC',
+    'flac': 'SQ',
     'high': 'Hi-Res',
     'viper_atmos': '全景声',
     'viper_clear': '蝰蛇超清',
