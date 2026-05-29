@@ -119,16 +119,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            SizedBox(
-                              width: MediaQuery.of(context).size.width - 100,
-                              child: Text(name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: tt.titleMedium
-                                      ?.copyWith(color: Colors.white)),
-                            ),
                             if (artist.isNotEmpty) ...[
-                              const SizedBox(height: 2),
                               Text(artist,
                                   style: tt.bodySmall
                                       ?.copyWith(color: Colors.white70)),

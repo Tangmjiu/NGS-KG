@@ -10,6 +10,27 @@ class ArtistRepository extends BaseRepository {
     final res =
         await get('/artist/lists', params: {'limit': limit, 'offset': offset});
     final raw = res['data'];
+    // API 实际返回结构: data.info[].singer[].{singerid, singername, imgurl}
+    if (raw is Map) {
+      final info = raw['info'] as List<dynamic>?;
+      if (info != null) {
+        final artists = <Artist>[];
+        for (final entry in info) {
+          if (entry is Map) {
+            final singerList = entry['singer'] as List<dynamic>?;
+            if (singerList != null) {
+              for (final s in singerList) {
+                if (s is Map<String, dynamic>) {
+                  artists.add(Artist.fromJson(s));
+                }
+              }
+            }
+          }
+        }
+        return artists;
+      }
+    }
+    // 兼容其他代理可能直接返回列表的情况
     if (raw is List) {
       return raw
           .map((e) => Artist.fromJson(e as Map<String, dynamic>))

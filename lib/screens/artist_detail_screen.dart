@@ -85,7 +85,8 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
     if (d == null) return null;
     // 多字段回退
     final raw = d['data'] as Map<String, dynamic>? ?? d;
-    var url = raw['avatar'] as String? ??
+    var url = raw['sizable_avatar'] as String? ??
+        raw['avatar'] as String? ??
         raw['imgurl'] as String? ??
         raw['Avatar'] as String?;
     if (url != null && url.startsWith('//')) url = 'https:$url';
@@ -93,6 +94,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
   }
 
   String get _artistName =>
+      _detail?['data']?['author_name'] as String? ??
       _detail?['data']?['name'] as String? ??
       _detail?['data']?['singer_name'] as String? ??
       widget.artistName ??
@@ -112,8 +114,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                   expandedHeight: 240,
                   pinned: true,
                   flexibleSpace: FlexibleSpaceBar(
-                    title: Text(_artistName,
-                        style: const TextStyle(fontSize: 18)),
+                    title: Text(_artistName),
                     background: _buildHeaderBackground(cs, tt),
                   ),
                   actions: [
@@ -207,9 +208,6 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_artistName,
-                      style: tt.titleLarge?.copyWith(color: Colors.white)),
-                  const SizedBox(height: 4),
                   Text(
                     '${_songs.length} 首单曲 · ${_albums.length} 张专辑',
                     style: tt.bodySmall?.copyWith(color: Colors.white70),
