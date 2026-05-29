@@ -65,6 +65,10 @@ class MusicService {
   Future<SongUrl> getSongUrl(int songId, {String? hash, String? quality}) =>
       song.getSongUrl(songId, hash: hash, quality: quality);
 
+  /// 获取歌曲可用音质列表（特权信息）
+  Future<Map<String, dynamic>> getPrivilegeLite(String hash) =>
+      song.getPrivilegeLite(hash);
+
   Future<Map<String, dynamic>> getLyric(int songId) => song.getLyric(songId);
 
   Future<Map<String, dynamic>> searchLyricByHash(String hash, {String? keywords}) =>

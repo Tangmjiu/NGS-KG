@@ -89,6 +89,14 @@ class SongRepository extends BaseRepository {
     return get('/lyric', params: {'id': songId});
   }
 
+  /// 获取歌曲的音质特权信息（/privilege/lite）
+  ///
+  /// 返回该歌曲在 Kugou 服务器上实际可用的音质变体列表。
+  /// 配合 [getSongUrl] 的 quality 参数使用，可实现智能降级。
+  Future<Map<String, dynamic>> getPrivilegeLite(String hash) async {
+    return get('/privilege/lite', params: {'hash': hash});
+  }
+
   Future<Map<String, dynamic>> searchLyricByHash(String hash, {String? keywords}) async {
     final params = <String, dynamic>{'hash': hash};
     if (keywords != null && keywords.isNotEmpty) {
