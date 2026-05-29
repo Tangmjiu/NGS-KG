@@ -37,12 +37,12 @@ class Song {
   String get artistDisplay => artists.join(' / ');
 
   /// 播放音质列表（共 7 级，从低到高）
-  static const qualityLabels = ['标准', 'HQ', 'FLAC', 'Hi-Res', '全景声', '蝰蛇超清', '母带'];
+  static const qualityLabels = ['标准', 'HQ', 'SQ', 'Hi-Res', '全景声', '蝰蛇超清', '母带'];
   static const qualityKeys = ['128', '320', 'flac', 'high', 'viper_atmos', 'viper_clear', 'viper_tape'];
   static const Map<String, String> qualityLabelMap = {
     '128': '标准',
     '320': 'HQ',
-    'flac': 'FLAC',
+    'flac': 'SQ',
     'high': 'Hi-Res',
     'viper_atmos': '全景声',
     'viper_clear': '蝰蛇超清',
