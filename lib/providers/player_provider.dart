@@ -7,6 +7,7 @@ import '../models/lyric_line.dart';
 import '../utils/palette_extractor.dart';
 import '../services/music_service.dart';
 import '../services/notification_service.dart';
+import '../constants/quality.dart';
 import 'mixins.dart';
 import 'audio_engine.dart';
 import 'playlist_queue.dart';
@@ -47,6 +48,20 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   int get currentIndex => _queue.currentIndex;
   PlayMode get playMode => _queue.playMode;
   int get qualityLevel => _qualityLevel;
+
+  /// 最终解析到的音质 key（如 'flac', '320'）
+  /// 由 AudioEngine 在播放成功后设置
+  String? get resolvedQuality => _engine.resolvedQuality;
+
+  /// 当前歌曲的可用音质选项（来自 /privilege/lite）
+  List<QualityOption> get qualityOptions => _engine.currentQualityOptions;
+
+  /// 当前解析音质的显示标签
+  String get resolvedQualityLabel {
+    final q = _engine.resolvedQuality;
+    if (q != null) return Song.qualityLabelMap[q] ?? q;
+    return currentQualityLabel;
+  }
   bool get isPlaying => _isPlaying;
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _queue.isLoadingMore;
@@ -358,17 +373,12 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   }
 
   bool isCurrentQuality(String key) {
-    final q = _queue.currentSong?.qualities;
-    if (q == null || q.isEmpty) return false;
-    const keys = Song.qualityKeys;
-    final currentKey = keys[_qualityLevel % keys.length];
+    final currentKey = Quality.levels[_qualityLevel % Quality.levels.length];
     return currentKey == key;
   }
 
   Future<void> setQualityIndex(int index) async {
-    final q = _queue.currentSong?.qualities;
-    if (q == null || q.isEmpty) return;
-    _qualityLevel = index % Song.qualityKeys.length;
+    _qualityLevel = index % Quality.levels.length;
     _engine.qualityLevel = _qualityLevel;
     if (_isPlaying) {
       await playIndex(_queue.currentIndex);
@@ -377,38 +387,42 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     }
   }
 
-  /// 获取当前歌曲实际可用的音质列表（而非全部 5 个）
-  List<String> getAvailableQualities() {
-    final song = _queue.currentSong;
-    if (song == null || song.qualities == null) return Song.qualityKeys;
-    // 检查歌曲的 qualities 中哪些 key 实际存在
-    final available = <String>[];
-    for (final key in Song.qualityKeys) {
-      if (song.qualities!.containsKey(key)) available.add(key);
-    }
-    return available.isNotEmpty ? available : Song.qualityKeys;
-  }
+  /// 获取全部音质列表
+  List<String> getAvailableQualities() => List.unmodifiable(Quality.levels);
 
-  /// 获取当前音质的显示标签
+  /// 获取当前音质的显示标签（优先使用实际解析到的音质）
   String get currentQualityLabel {
-    final key = Song.qualityKeys[_qualityLevel % Song.qualityKeys.length];
-    return Song.qualityLabelMap[key] ?? key;
+    final resolved = _engine.resolvedQuality;
+    if (resolved != null && Quality.labels.containsKey(resolved)) {
+      return Quality.labels[resolved]!;
+    }
+    return Quality.label(Quality.levels[_qualityLevel % Quality.levels.length]);
   }
 
-  Future<void> setQuality(String qualityKey) async {
-    final idx = Song.qualityKeys.indexOf(qualityKey);
-    if (idx < 0) return;
+  /// 无缝切换音质（保持播放进度与播放/暂停状态）
+  Future<bool> setQuality(String qualityKey) async {
+    final song = _queue.currentSong;
+    if (song == null || song.hash == null || song.hash!.isEmpty) return false;
+
+    final idx = Quality.levels.indexOf(qualityKey);
+    if (idx < 0) return false;
+
+    // 更新 qualityLevel（用于下一首歌曲）
     _qualityLevel = idx;
     _engine.qualityLevel = idx;
-    // 强制歌词重新加载（音质切换后 hash 不变，但需要刷新歌词）
-    _lyrics = [];
-    _currentLyricLine = 0;
-    _lyricLineProgress = 0.0;
-    if (_isPlaying) {
-      await playIndex(_queue.currentIndex);
-    } else {
-      notifyListeners();
+
+    // 用 engine 的无缝切换
+    final success = await _engine.switchQuality(song, qualityKey,
+        currentPosition: _position);
+
+    // 切换成功后强制刷新歌词
+    if (success) {
+      _lyrics = [];
+      _currentLyricLine = 0;
+      _lyricLineProgress = 0.0;
     }
+    notifyListeners();
+    return success;
   }
 
   // ──────────────────────────────────────────────────────────────

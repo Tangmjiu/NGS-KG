@@ -5,6 +5,7 @@ import '../utils/error_dialog.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
 import '../models/song.dart';
+import '../constants/quality.dart';
 import '../services/music_service.dart';
 import '../services/api_exception.dart';
 
@@ -19,6 +20,25 @@ class AudioEngine {
   static const int _maxRetries = 2;
   static const _urlStaleDuration = Duration(minutes: 10);
   int qualityLevel = 0;
+
+  /// 最终解析出的音质 key（MoeKoeMusic 风格：记录实际可用的最高级别）
+  final ValueNotifier<String?> resolvedQualityNotifier = ValueNotifier(null);
+
+  /// 当前歌曲可用音质选项（来自 privilege 预查）
+  List<QualityOption> _currentQualityOptions = [];
+
+  /// Privilege 缓存（hash → PrivilegeInfo），避免重复请求
+  final Map<String, PrivilegeInfo> _privilegeCache = {};
+
+  /// 清除指定歌曲的 privilege 缓存
+  void invalidatePrivilege(String? hash) {
+    if (hash != null && hash.isNotEmpty) {
+      _privilegeCache.remove(hash);
+    }
+  }
+
+  /// 清除所有 privilege 缓存
+  void clearPrivilegeCache() => _privilegeCache.clear();
 
   StreamSubscription? _positionSub;
   StreamSubscription? _durationSub;
@@ -85,6 +105,65 @@ class AudioEngine {
   int get currentVersion => _playRequestVersion;
   bool get isPlaying_ => _player.playing;
 
+  /// 最后一次播放成功解析到的音质 key（供 Provider 读取）
+  String? get resolvedQuality => resolvedQualityNotifier.value;
+
+  /// 当前歌曲的可用音质选项列表
+  List<QualityOption> get currentQualityOptions =>
+      List.unmodifiable(_currentQualityOptions);
+
+  /// 获取当前音质 key（用于 refresh 等场景）
+  String _currentQualityKey() {
+    final keys = Song.qualityKeys;
+    return keys[qualityLevel % keys.length];
+  }
+
+  /// ─── 核心：构建候选音质列表 ───
+  ///
+  /// 1. 优先使用 /privilege/lite 获取歌曲可用音质变体（含独立 hash）
+  /// 2. 回退到根据 qualityLevel 构建降级链（使用歌曲原始 hash）
+  Future<List<_Candidate>> _buildCandidates(Song song, String preferredQuality) async {
+    final hash = song.hash;
+
+    // 本地歌曲不需要特权查询
+    if (song.isLocal && hash == null) {
+      return [_Candidate(quality: '128', hash: '', label: '标准')];
+    }
+
+    // 尝试从 privilege 获取
+    if (hash != null && hash.isNotEmpty) {
+      try {
+        PrivilegeInfo? info = _privilegeCache[hash];
+        if (info == null) {
+          final res = await _musicService.getPrivilegeLite(hash);
+          info = PrivilegeInfo.fromJson(res);
+          if (info.options.isNotEmpty) {
+            _privilegeCache[hash] = info;
+          }
+        }
+        if (info.options.isNotEmpty) {
+          final candidates = info.candidates(preferredQuality, fallbackHash: hash);
+          return candidates.map((opt) => _Candidate(
+            quality: opt.value,
+            hash: opt.hash,
+            label: opt.label,
+          )).toList();
+        }
+      } catch (e, s) {
+        Log.w('audio_engine', 'privilege query failed, fallback to chain', e, s);
+      }
+    }
+
+    // 回退：基于 qualityLevel 的降级链，使用歌曲原始 hash
+    final chain = Quality.fallbackChain(preferredQuality);
+    return chain.map((q) => _Candidate(
+      quality: q,
+      hash: hash ?? '',
+      label: Quality.label(q),
+    )).toList();
+  }
+
+  /// ─── 核心播放方法 ───
   Future<void> play(Song song, {int? version}) async {
     version ??= _playRequestVersion;
     if (version != _playRequestVersion) {
@@ -97,7 +176,7 @@ class AudioEngine {
       return;
     }
     try {
-      // Direct filePath URL (cloud disk, etc.)
+      // Direct filePath URL (cloud disk, local, etc.)
       if (song.filePath != null && song.filePath!.isNotEmpty) {
         final fp = song.filePath!;
         if (fp.startsWith('http') || fp.startsWith('https')) {
@@ -112,29 +191,64 @@ class AudioEngine {
           await _player.play();
           _hasActivePlayback = true;
         }
-      } else {
-        final qualities = _qualityFallbackChain(qualityLevel);
-        bool played = false;
-        for (var qi = 0; qi < qualities.length && !played; qi++) {
-          final quality = qualities[qi];
-          final songUrl = await _musicService.getSongUrl(song.id,
-              hash: song.hash, quality: quality);
+        isLoading.value = false;
+        return;
+      }
+
+      // 在线歌曲：特权查询 → 候选链 → 逐个尝试
+      final preferred = _currentQualityKey();
+      final candidates = await _buildCandidates(song, preferred);
+      bool played = false;
+
+      for (final c in candidates) {
+        if (version != _playRequestVersion) { isLoading.value = false; return; }
+        if (c.hash.isEmpty && c.quality == '128') continue; // 无 hash 跳过
+
+        try {
+          final songUrl = await _musicService.getSongUrl(
+            song.id,
+            hash: c.hash.isNotEmpty ? c.hash : song.hash,
+            quality: c.quality,
+          );
           if (version != _playRequestVersion) { isLoading.value = false; return; }
+
+          // 跳过 mp4 格式（Kugou 对部分 VIP 歌曲返回视频而非音频）
+          if (songUrl.isVideo) {
+            Log.w('audio_engine', 'skip mp4 quality=${c.quality}');
+            continue;
+          }
+
           if (songUrl.url.isNotEmpty) {
             await _player.setUrl(songUrl.url);
             if (version != _playRequestVersion) { isLoading.value = false; return; }
             _lastUrlFetchTime = DateTime.now();
+
             await _player.play();
             _hasActivePlayback = true;
-            _musicService.uploadPlayHistory(song.id, duration: song.duration).catchError((_) {});
             played = true;
+
+            // ✅ 记录最终解析到的音质
+            resolvedQualityNotifier.value = c.quality;
+            Log.i('audio_engine', 'resolved quality: ${c.quality} (${c.label})');
+
+            // 上报播放历史（静默失败）
+            _musicService.uploadPlayHistory(song.id, duration: song.duration)
+                .catchError((_) {});
+            break;
           }
+        } catch (e) {
+          // 特殊异常直接抛出让外层 catch 处理
+          if (e is NoCopyrightException || e is NeedLoginException) rethrow;
+          Log.w('audio_engine', 'candidate quality=${c.quality} failed: $e');
+          // 继续尝试下一个候选
         }
-        if (!played) {
-          _playAttempts++;
-          await play(song, version: version);
-          return;
-        }
+      }
+
+      if (!played) {
+        // 所有候选都失败，重试
+        _playAttempts++;
+        await play(song, version: version);
+        return;
       }
     } catch (e, s) {
       _playAttempts++;
@@ -189,7 +303,7 @@ class AudioEngine {
 
   Future<void> _refreshUrlAndPlay(Song song) async {
     try {
-      final quality = _currentQuality(song);
+      final quality = _currentQualityKey();
       final pos = position.value;
       final songUrl = await _musicService.getSongUrl(song.id,
           hash: song.hash, quality: quality);
@@ -205,6 +319,65 @@ class AudioEngine {
     }
   }
 
+  /// 切换音质（保持播放进度）
+  Future<bool> switchQuality(Song song, String qualityKey, {Duration? currentPosition}) async {
+    if (song.hash == null || song.hash!.isEmpty) return false;
+
+    final pos = currentPosition ?? position.value;
+    final wasPlaying = _player.playing;
+
+    // 暂停当前播放
+    await _player.pause();
+
+    try {
+      // 对目标音质失效缓存，_buildCandidates 会重新查询
+      invalidatePrivilege(song.hash);
+
+      final candidates = await _buildCandidates(song, qualityKey);
+      bool played = false;
+
+      for (final c in candidates) {
+        try {
+          final songUrl = await _musicService.getSongUrl(
+            song.id,
+            hash: c.hash.isNotEmpty ? c.hash : song.hash,
+            quality: c.quality,
+          );
+          if (songUrl.isVideo) continue;
+          if (songUrl.url.isNotEmpty) {
+            await _player.setUrl(songUrl.url);
+            _lastUrlFetchTime = DateTime.now();
+            resolvedQualityNotifier.value = c.quality;
+
+            // 保持播放进度
+            await _player.seek(pos);
+
+            if (wasPlaying) {
+              await _player.play();
+            }
+            played = true;
+            Log.i('audio_engine', 'quality switch: -> ${c.quality} (${c.label})');
+            break;
+          }
+        } catch (_) {
+          continue;
+        }
+      }
+
+      if (!played) {
+        // 切换失败，尝试恢复
+        if (wasPlaying) await _player.play();
+        return false;
+      }
+
+      return true;
+    } catch (e, s) {
+      Log.e('audio_engine', 'quality switch error', e, s);
+      if (wasPlaying) await _player.play();
+      return false;
+    }
+  }
+
   void clearError() {
     error.value = null;
   }
@@ -215,6 +388,7 @@ class AudioEngine {
     error.value = null;
     isLoading.value = true;
     isCompleting.value = false;
+    resolvedQualityNotifier.value = null;
   }
 
   Future<void> seek(Duration pos) async {
@@ -240,27 +414,6 @@ class AudioEngine {
     _player.setSpeed(speed);
   }
 
-  /// 获取当前请求的音质 key
-  /// 优先用 qualityLevel 选定的音质，不依赖 song.qualities（API 端协商）
-  /// [fallbackLevel] 用于音质降级重试（0=128, 1=320, 2=high, ...）
-  String _currentQuality(Song? song, {int fallbackLevel = -1}) {
-    final level = fallbackLevel >= 0
-        ? fallbackLevel
-        : qualityLevel % Song.qualityKeys.length;
-    return Song.qualityKeys[level];
-  }
-
-  /// 音质降级链：从用户选定的音质开始，逐级降到 128
-  static List<String> _qualityFallbackChain(int startLevel) {
-    final keys = Song.qualityKeys;
-    final start = startLevel % keys.length;
-    final chain = <String>[];
-    for (var i = start; i >= 0; i--) {
-      chain.add(keys[i]);
-    }
-    return chain;
-  }
-
   void dispose() {
     _positionSub?.cancel();
     _durationSub?.cancel();
@@ -272,6 +425,19 @@ class AudioEngine {
     isPlaying.dispose();
     error.dispose();
     isCompleting.dispose();
+    resolvedQualityNotifier.dispose();
     _player.dispose();
   }
+}
+
+/// 内部候选结构：一个音质候选项的 quality + hash + label
+class _Candidate {
+  final String quality;
+  final String hash;
+  final String label;
+  const _Candidate({
+    required this.quality,
+    required this.hash,
+    required this.label,
+  });
 }

@@ -7,6 +7,7 @@ import '../models/lyric_line.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
+import '../constants/quality.dart';
 import '../widgets/player_background.dart';
 import '../widgets/player_cover_art.dart';
 import '../widgets/am_lyrics_view.dart';
@@ -310,21 +311,45 @@ class _PlayerScreenState extends State<PlayerScreen> {
   // ── Song info ──
 
   Widget _buildSongInfo(Song song) {
+    final player = context.watch<PlayerProvider>();
+    final resolved = player.resolvedQuality;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            song.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
+          // 歌名行 + 解析音质徽章（MoeKoeMusic 风格）
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  song.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              if (resolved != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white30),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    Quality.label(resolved),
+                    style: const TextStyle(fontSize: 10, color: Colors.white70),
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 4),
           Text(
@@ -344,19 +369,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // ── Bottom actions ──
 
-  static const _qualityLabels = {
-    '128': '标准',
-    '320': 'HQ',
-    'high': '无损',
-    'viper_clear': '蝰蛇超清',
-    'super': 'DSD',
-    'flac': 'FLAC 无损',
-  };
-
   Widget _buildBottomActions() {
     final player = context.watch<PlayerProvider>();
-    final currentKey = Song.qualityKeys[player.qualityLevel % Song.qualityKeys.length];
-    final qualityLabel = _qualityLabels[currentKey] ?? currentKey;
+    final selectedKey =
+        Quality.levels[player.qualityLevel % Quality.levels.length];
+    final showLabel = player.resolvedQuality ?? selectedKey;
+    final qualityLabel = Quality.label(showLabel);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -372,16 +390,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
         PopupMenuButton<String>(
           onSelected: (key) => player.setQuality(key),
           itemBuilder: (ctx) {
-            final available = player.getAvailableQualities();
+            final available = Quality.levels;
             return available.map((key) {
-              final label = Song.qualityLabelMap[key] ?? key;
+              final label = Quality.label(key);
               return PopupMenuItem<String>(
                 value: key,
                 child: Row(
                   children: [
-                    if (key == currentKey)
+                    if (key == selectedKey)
                       Icon(Icons.check, size: 18, color: Theme.of(ctx).colorScheme.primary),
-                    SizedBox(width: key == currentKey ? 8 : 26),
+                    SizedBox(width: key == selectedKey ? 8 : 26),
                     Text(label),
                   ],
                 ),
@@ -404,6 +422,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       ],
     );
   }
+
+
 }
 
 /// Small page-indicator dot in the top bar.
