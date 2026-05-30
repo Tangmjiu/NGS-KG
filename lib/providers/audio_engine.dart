@@ -20,6 +20,7 @@ class AudioEngine {
   static const int _maxRetries = 2;
   static const _urlStaleDuration = Duration(minutes: 10);
   int qualityLevel = 0;
+  bool uploadHistory = true;
 
   /// 最终解析出的音质 key（MoeKoeMusic 风格：记录实际可用的最高级别）
   final ValueNotifier<String?> resolvedQualityNotifier = ValueNotifier(null);
@@ -232,8 +233,10 @@ class AudioEngine {
             Log.i('audio_engine', 'resolved quality: ${c.quality} (${c.label})');
 
             // 上报播放历史（静默失败）
-            _musicService.uploadPlayHistory(song.id, duration: song.duration)
-                .catchError((_) {});
+            if (uploadHistory) {
+              _musicService.uploadPlayHistory(song.id, duration: song.duration)
+                  .catchError((_) {});
+            }
             break;
           }
         } catch (e) {

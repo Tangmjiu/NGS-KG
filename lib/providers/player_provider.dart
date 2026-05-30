@@ -270,6 +270,8 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
       _qualityLevel = idx;
       _engine.qualityLevel = idx;
     }
+    // 同步上传开关到引擎
+    _engine.uploadHistory = settings.uploadHistory;
   }
 
   Future<void> playIndex(int index) async {

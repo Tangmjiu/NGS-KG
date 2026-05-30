@@ -39,7 +39,7 @@ class _AMLyricsViewState extends State<AMLyricsView> {
 
   int _currentLineIndex = 0;
 
-  static const double _sweetSpotRatio = 0.35;
+  static const double _sweetSpotRatio = 0.50;
   static const TextStyle _currentStyle = TextStyle(
     fontSize: 24,
     fontWeight: FontWeight.w600,
