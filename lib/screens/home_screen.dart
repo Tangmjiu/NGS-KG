@@ -258,7 +258,26 @@ class _HomeScreenState extends State<HomeScreen> {
       _loadDailyRecommend();
       _loadCardSongs();
       _checkLatestListen();
+      context.read<AuthProvider>().addListener(_onAuthChanged);
     });
+  }
+
+  @override
+  void dispose() {
+    try {
+      context.read<AuthProvider>().removeListener(_onAuthChanged);
+    } catch (_) {}
+    super.dispose();
+  }
+
+  bool _wasLoggedIn = false;
+
+  void _onAuthChanged() {
+    final loggedIn = context.read<AuthProvider>().isLoggedIn;
+    if (loggedIn && !_wasLoggedIn) {
+      _checkLatestListen();
+    }
+    _wasLoggedIn = loggedIn;
   }
 
   Future<void> _loadRecommended() async {

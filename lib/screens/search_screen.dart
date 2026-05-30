@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/rank_entry.dart';
 import '../models/song.dart';
+import '../models/song_mapper.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
@@ -588,9 +589,9 @@ class _SearchScreenState extends State<SearchScreen>
     final content = item['Lyric'] as String? ?? item['lyric'] as String? ?? item['content'] as String? ?? '';
     return GestureDetector(
       onTap: () {
-        final hash = item['FileHash'] as String? ?? item['hash'] as String?;
-        if (hash != null) {
-          Navigator.pushNamed(context, '/lyric', arguments: {'hash': hash});
+        final song = SongMapper.fromKugouJson(item);
+        if (song != null) {
+          context.read<PlayerProvider>().playSong(song);
         }
       },
       child: Card(
@@ -809,9 +810,9 @@ class _SearchScreenState extends State<SearchScreen>
           ),
           isThreeLine: true,
           onTap: () {
-            final hash = l['FileHash'] as String? ?? l['hash'] as String?;
-            if (hash != null) {
-              Navigator.pushNamed(context, '/lyric', arguments: {'hash': hash});
+            final song = SongMapper.fromKugouJson(l);
+            if (song != null) {
+              context.read<PlayerProvider>().playSong(song);
             }
           },
         );
