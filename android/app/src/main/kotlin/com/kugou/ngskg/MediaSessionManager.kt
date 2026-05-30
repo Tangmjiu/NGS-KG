@@ -1,6 +1,5 @@
 package com.kugou.ngskg
 
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -10,21 +9,15 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
-import android.os.Build
-import android.os.Bundle
-import android.support.v4.media.session.MediaSessionCompat
-import androidx.annotation.RequiresApi
+import androidx.media.session.MediaSessionCompat
 import androidx.core.app.NotificationCompat
-import io.flutter.view.FlutterCallbackInformation
 import java.net.URL
 
 /**
  * 原生媒体通知 & MediaSession 管理
  *
- * 功能：
- * - 向系统注册 MediaSession（锁屏控制、车载蓝牙 A2DP 元数据广播）
- * - 使用 MediaStyle 发布通知（显示在系统快捷面板媒体中心）
- * - 处理媒体按钮事件（上一首/播放暂停/下一首/停止）
+ * 使用平台 MediaSession API（API 21+），
+ * MediaStyle 通知通过 MediaSessionCompat.Token.fromToken() 桥接。
  */
 class MediaSessionManager(private val context: Context) {
 
@@ -40,7 +33,8 @@ class MediaSessionManager(private val context: Context) {
     private val notificationManager: NotificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-    private val mediaSession: MediaSessionCompat = MediaSessionCompat(context, "NGSKGPlayer")
+    // 使用平台 MediaSession（API 21+），避免 compat 库版本冲突
+    private val mediaSession: MediaSession = MediaSession(context, "NGSKGPlayer")
 
     var onPrev: (() -> Unit)? = null
     var onPlayPause: (() -> Unit)? = null
@@ -53,13 +47,9 @@ class MediaSessionManager(private val context: Context) {
         setupMediaSession()
     }
 
-    // ─── 通知渠道 ───
-
     private fun createChannel() {
         val channel = NotificationChannel(
-            CHANNEL_ID,
-            "音乐播放",
-            NotificationManager.IMPORTANCE_LOW  // LOW = 不弹横幅但有声音布局
+            CHANNEL_ID, "音乐播放", NotificationManager.IMPORTANCE_LOW
         ).apply {
             description = "音乐播放控制（含锁屏和车载蓝牙）"
             setShowBadge(false)
@@ -68,48 +58,34 @@ class MediaSessionManager(private val context: Context) {
         notificationManager.createNotificationChannel(channel)
     }
 
-    // ─── MediaSession ───
-
     private fun setupMediaSession() {
-        mediaSession.setCallback(object : MediaSessionCompat.Callback() {
+        mediaSession.setCallback(object : MediaSession.Callback() {
             override fun onPlay() { onPlayPause?.invoke() }
             override fun onPause() { onPlayPause?.invoke() }
             override fun onSkipToNext() { onNext?.invoke() }
             override fun onSkipToPrevious() { onPrev?.invoke() }
             override fun onStop() {
-                // 停止时会自动清除通知
                 mediaSession.isActive = false
                 notificationManager.cancel(NOTIF_ID)
             }
         })
         mediaSession.setFlags(
-            MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS or
-            MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS
+            MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or
+            MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS
         )
     }
 
-    // ─── 更新元数据 ───
-
-    fun updateMetadata(
-        title: String,
-        artist: String,
-        albumArtUrl: String?,
-        duration: Long,
-        lyricLine: String?
-    ) {
+    fun updateMetadata(title: String, artist: String, albumArtUrl: String?, duration: Long, lyricLine: String?) {
         mediaSession.isActive = true
 
-        // 下载封面
         if (albumArtUrl != null) {
             try {
                 val url = URL(albumArtUrl.replace("{size}", "480"))
                 cachedArt = BitmapFactory.decodeStream(url.openStream())
-            } catch (_: Exception) {
-                // 封面加载失败，使用已有缓存
-            }
+            } catch (_: Exception) { }
         }
 
-        // 构建 MediaMetadata
+        // 使用平台 android.media.MediaMetadata
         val metadata = android.media.MediaMetadata.Builder()
             .putString(android.media.MediaMetadata.METADATA_KEY_TITLE, title)
             .putString(android.media.MediaMetadata.METADATA_KEY_ARTIST, artist)
@@ -122,41 +98,30 @@ class MediaSessionManager(private val context: Context) {
             .build()
 
         mediaSession.setMetadata(metadata)
-
-        // 同时缓存封面用于通知
     }
-
-    // ─── 更新播放状态 ───
 
     fun updatePlaybackState(isPlaying: Boolean, position: Long) {
         val state = if (isPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED
 
+        // 使用平台 PlaybackState
         val playbackState = PlaybackState.Builder()
             .setActions(
-                PlaybackState.ACTION_PLAY or
-                PlaybackState.ACTION_PAUSE or
-                PlaybackState.ACTION_SKIP_TO_NEXT or
-                PlaybackState.ACTION_SKIP_TO_PREVIOUS or
+                PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or
+                PlaybackState.ACTION_SKIP_TO_NEXT or PlaybackState.ACTION_SKIP_TO_PREVIOUS or
                 PlaybackState.ACTION_STOP
             )
             .setState(state, position, 1.0f)
             .build()
 
         mediaSession.setPlaybackState(playbackState)
-
-        // 更新通知
-        showNotification(isPlaying, position)
+        showNotification(isPlaying)
     }
 
-    // ─── 通知 ───
-
-    private fun showNotification(isPlaying: Boolean, position: Long) {
+    private fun showNotification(isPlaying: Boolean) {
         val metadata = mediaSession.controller.metadata
-
         val title = metadata?.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) ?: "未知歌曲"
         val artist = metadata?.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST) ?: "未知歌手"
 
-        // PendingIntent: 点击通知打开 App
         val openIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("open_player", true)
@@ -166,57 +131,45 @@ class MediaSessionManager(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // 动作：上一首
         val prevIntent = Intent(ACTION_PREV).setPackage(context.packageName)
-        val prevPendingIntent = PendingIntent.getBroadcast(
-            context, 1, prevIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val prevPi = PendingIntent.getBroadcast(context, 1, prevIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-        // 动作：播放/暂停
         val ppIntent = Intent(ACTION_PLAY_PAUSE).setPackage(context.packageName)
-        val ppPendingIntent = PendingIntent.getBroadcast(
-            context, 2, ppIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val ppPi = PendingIntent.getBroadcast(context, 2, ppIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-        // 动作：下一首
         val nextIntent = Intent(ACTION_NEXT).setPackage(context.packageName)
-        val nextPendingIntent = PendingIntent.getBroadcast(
-            context, 3, nextIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val nextPi = PendingIntent.getBroadcast(context, 3, nextIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+        // 桥接：平台 MediaSession.Token → MediaSessionCompat.Token
+        val compatToken = MediaSessionCompat.Token.fromToken(mediaSession.sessionToken)
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentTitle(title)
             .setContentText(artist)
-            .setSubText(metadata?.getString(android.media.MediaMetadata.METADATA_KEY_ALBUM) ?: "")
             .setLargeIcon(cachedArt)
             .setContentIntent(openPendingIntent)
-            .setDeleteIntent(prevPendingIntent) // 滑动关闭 = 上一首
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // 锁屏显示
-            .setOngoing(isPlaying) // 播放中不可滑动清除
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(isPlaying)
             .setShowWhen(false)
-            // MediaStyle：集成 MediaSession，显示在系统媒体中心
             .setStyle(androidx.media.app.NotificationCompat.MediaStyle()
-                .setMediaSession(mediaSession.sessionToken)
-                .setShowActionsInCompactView(0, 1, 2) // 紧凑视图显示三个按钮
+                .setMediaSession(compatToken)
+                .setShowActionsInCompactView(0, 1, 2)
                 .setShowCancelButton(true))
-            // 动作按钮
-            .addAction(android.R.drawable.ic_media_previous, "上一首", prevPendingIntent)
+            .addAction(android.R.drawable.ic_media_previous, "上一首", prevPi)
             .addAction(
                 if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
                 if (isPlaying) "暂停" else "播放",
-                ppPendingIntent
+                ppPi
             )
-            .addAction(android.R.drawable.ic_media_next, "下一首", nextPendingIntent)
+            .addAction(android.R.drawable.ic_media_next, "下一首", nextPi)
             .build()
 
         notificationManager.notify(NOTIF_ID, notification)
     }
-
-    // ─── 释放 ───
 
     fun release() {
         mediaSession.isActive = false
