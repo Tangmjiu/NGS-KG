@@ -32,8 +32,6 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   // ─── Dynamic palette & lyric state ───
   ExtractedPalette? _palette;
   List<LyricLine> _lyrics = [];
-  int _currentLyricLine = 0;
-  double _lyricLineProgress = 0.0;
   Color? _backgroundColor;
 
   late final VoidCallback _onPositionChanged;
@@ -75,8 +73,21 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   // ─── Palette & lyric getters ───
   ExtractedPalette? get palette => _palette;
   List<LyricLine> get lyrics => _lyrics;
-  int get currentLyricLine => _currentLyricLine;
-  double get lyricLineProgress => _lyricLineProgress;
+
+  /// Computed: the index of the lyric line currently being sung.
+  int get currentLyricLine {
+    if (_lyrics.isEmpty) return 0;
+    final idx = _lyrics.lastIndexWhere((l) => _position >= l.startTime);
+    return idx == -1 ? 0 : idx;
+  }
+
+  /// Progress of the current line (0.0 – 1.0).  Used by the notification
+  /// layer only; the lyrics view calculates its own progress internally.
+  double get lyricLineProgress {
+    if (_lyrics.isEmpty || currentLyricLine >= _lyrics.length) return 0.0;
+    return _lyrics[currentLyricLine].getLineProgress(_position);
+  }
+
   Color? get backgroundColor => _backgroundColor;
 
   Future<List<Song>> Function()? get playlistEndProvider => _queue.playlistEndProvider;
@@ -143,8 +154,9 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     }
     // 当前歌词行（如果有）
     String? lyricLine;
-    if (_lyrics.isNotEmpty && _currentLyricLine < _lyrics.length) {
-      final line = _lyrics[_currentLyricLine].text;
+    final cl = currentLyricLine;
+    if (_lyrics.isNotEmpty && cl < _lyrics.length) {
+      final line = _lyrics[cl].text;
       if (line.isNotEmpty) lyricLine = line;
     }
     NotificationService.instance.showMediaNotification(
@@ -256,8 +268,6 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     _queue.playIndex(index);
     // Reset lyric state for new song
     _lyrics = [];
-    _currentLyricLine = 0;
-    _lyricLineProgress = 0.0;
     final current = _queue.currentSong;
     if (current == null) return;
     _applyQualityFromSettings();
@@ -278,8 +288,6 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     _engine.clearError();
     // Reset lyric state for new song
     _lyrics = [];
-    _currentLyricLine = 0;
-    _lyricLineProgress = 0.0;
     if (playlist != null) {
       final idx = playlist.indexWhere((s) => s.id == song.id);
       _queue.setPlaylist(playlist, startIndex: idx < 0 ? 0 : idx);
@@ -418,8 +426,6 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     // 切换成功后强制刷新歌词
     if (success) {
       _lyrics = [];
-      _currentLyricLine = 0;
-      _lyricLineProgress = 0.0;
     }
     notifyListeners();
     return success;
@@ -446,68 +452,16 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   //  Lyric management
   // ──────────────────────────────────────────────────────────────
 
-  /// Stores parsed lyrics and resets all progress state to the beginning.
+  /// Stores parsed lyrics.  The lyrics view handles progress internally.
   void setLyrics(List<LyricLine> lyrics) {
     _lyrics = lyrics;
-    _currentLyricLine = 0;
-    _lyricLineProgress = 0.0;
     notifyListeners();
   }
 
   /// Clears all lyric state (called when switching to a song without lyrics).
   void clearLyrics() {
     _lyrics = [];
-    _currentLyricLine = 0;
-    _lyricLineProgress = 0.0;
     notifyListeners();
-  }
-
-  /// Updates the current lyric line and intra-line progress based on
-  /// [position]. Uses binary search over [_lyrics] to find the active line,
-  /// then calculates fractional progress (0.0–1.0) between the current line
-  /// and the next. Only calls [notifyListeners] when values actually change.
-  void updateLyricProgress(Duration position) {
-    if (_lyrics.isEmpty) return;
-
-    // Binary search: find the last line whose time ≤ position
-    int lo = 0;
-    int hi = _lyrics.length - 1;
-    int idx = 0;
-    while (lo <= hi) {
-      final mid = (lo + hi) ~/ 2;
-      if (_lyrics[mid].time <= position) {
-        idx = mid;
-        lo = mid + 1;
-      } else {
-        hi = mid - 1;
-      }
-    }
-
-    // Compute intra-line progress (0.0 → 1.0)
-    double progress;
-    if (idx < _lyrics.length - 1) {
-      final start = _lyrics[idx].time;
-      final end = _lyrics[idx + 1].time;
-      final range = end - start;
-      if (range > Duration.zero) {
-        progress =
-            (position.inMilliseconds - start.inMilliseconds) / range.inMilliseconds;
-        progress = progress.clamp(0.0, 1.0);
-      } else {
-        progress = 1.0;
-      }
-    } else {
-      progress = 1.0;
-    }
-
-    if (idx != _currentLyricLine || progress != _lyricLineProgress) {
-      final lineChanged = idx != _currentLyricLine;
-      _currentLyricLine = idx;
-      _lyricLineProgress = progress;
-      // 歌词行变化时刷新通知显示
-      if (lineChanged) _updateNotification();
-      notifyListeners();
-    }
   }
 
   @override

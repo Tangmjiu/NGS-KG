@@ -114,7 +114,6 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                   expandedHeight: 240,
                   pinned: true,
                   flexibleSpace: FlexibleSpaceBar(
-                    title: Text(_artistName),
                     background: _buildHeaderBackground(cs, tt),
                   ),
                   actions: [
@@ -208,6 +207,9 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(_artistName,
+                      style: tt.titleLarge?.copyWith(color: Colors.white)),
+                  const SizedBox(height: 4),
                   Text(
                     '${_songs.length} 首单曲 · ${_albums.length} 张专辑',
                     style: tt.bodySmall?.copyWith(color: Colors.white70),
