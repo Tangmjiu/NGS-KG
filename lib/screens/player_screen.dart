@@ -274,7 +274,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               SafeArea(
                 child: Column(
                   children: [
-                    _buildTopBar(song: song),
+                    _buildTopBar(),
                     Expanded(
                       child: PageView(
                         controller: _pageController,
@@ -361,7 +361,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // ── Top bar ──
 
-  Widget _buildTopBar({required Song? song}) {
+  Widget _buildTopBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
@@ -372,28 +372,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
             color: Colors.white,
             onPressed: () => Navigator.pop(context),
           ),
-          // 收藏按钮
-          if (song != null)
-            Consumer<LikedSongsProvider>(
-              builder: (_, lp, __) {
-                final liked = lp.likedIds.contains(song.id);
-                return IconButton(
-                  icon: Icon(
-                    liked ? Icons.favorite : Icons.favorite_border,
-                    color: liked ? Colors.redAccent : Colors.white70,
-                    size: 24,
-                  ),
-                  tooltip: liked ? '取消收藏' : '收藏',
-                  onPressed: () => lp.toggle(SongInfo(
-                    id: song.id,
-                    name: song.name,
-                    hash: song.hash ?? '',
-                    albumId: song.albumId,
-                    audioId: song.id,
-                  )),
-                );
-              },
-            ),
           const Spacer(),
           // Page indicator dots
           Row(
@@ -473,6 +451,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Widget _buildBottomActions() {
     final player = context.watch<PlayerProvider>();
+    final song = player.currentSong;
     final selectedKey =
         Quality.levels[player.qualityLevel % Quality.levels.length];
     final showLabel = player.resolvedQuality ?? selectedKey;
@@ -480,6 +459,26 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        // 收藏按钮
+        if (song != null)
+          Consumer<LikedSongsProvider>(
+            builder: (_, lp, __) {
+              final liked = lp.likedIds.contains(song.id);
+              return _ActionChip(
+                icon: liked ? Icons.favorite : Icons.favorite_border,
+                label: liked ? '已收藏' : '收藏',
+                iconColor: liked ? Colors.redAccent : null,
+                onTap: () => lp.toggle(SongInfo(
+                  id: song.id,
+                  name: song.name,
+                  hash: song.hash ?? '',
+                  albumId: song.albumId,
+                  audioId: song.id,
+                )),
+              );
+            },
+          ),
+        if (song != null) const SizedBox(width: 12),
         _ActionChip(
           icon: Icons.tune_rounded,
           label: '音效',
@@ -552,11 +551,13 @@ class _ActionChip extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final Color? iconColor;
 
   const _ActionChip({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.iconColor,
   });
 
   @override
@@ -569,7 +570,7 @@ class _ActionChip extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: Colors.white60),
+            Icon(icon, size: 20, color: iconColor ?? Colors.white60),
             const SizedBox(height: 4),
             Text(label,
                 style: const TextStyle(fontSize: 10, color: Colors.white60)),
