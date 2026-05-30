@@ -36,15 +36,20 @@ class LyricLinePainter extends CustomPainter {
     if (spans.isEmpty) return 0;
     double x = 0, y = 0, rowH = 0;
     for (final span in spans) {
+      // 先用无限制宽度计算自然宽度
       final tp = TextPainter(
         text: TextSpan(text: span.text, style: style.copyWith(color: Colors.white30)),
         textDirection: dir,
-      )..layout(maxWidth: maxWidth - x);
-      if (x + tp.width > maxWidth && x > 0) {
+      )..layout();
+      final spanWidth = tp.width;
+      // 需要换行且不是行首
+      if (x + spanWidth > maxWidth && x > 0) {
         y += rowH;
         x = 0;
         rowH = 0;
       }
+      // 用剩余宽度重新布局（让 TextPainter 自行换行）
+      tp.layout(maxWidth: maxWidth - x);
       x += tp.width;
       if (tp.height > rowH) rowH = tp.height;
     }
@@ -64,6 +69,20 @@ class LyricLinePainter extends CustomPainter {
     double rowHeight = 0;
 
     for (final span in spans) {
+      // 先用无限制宽度计算是否需要换行
+      final measure = TextPainter(
+        text: TextSpan(text: span.text, style: textStyle.copyWith(color: Colors.white30)),
+        textDirection: textDirection,
+      )..layout();
+      final spanWidth = measure.width;
+
+      if (x + spanWidth > maxWidth && x > 0) {
+        y += rowHeight;
+        x = 0;
+        rowHeight = 0;
+      }
+
+      // 用剩余宽度创建实际 TextPainter
       final inactive = TextPainter(
         text: TextSpan(text: span.text, style: textStyle.copyWith(color: Colors.white30)),
         textDirection: textDirection,
@@ -73,14 +92,6 @@ class LyricLinePainter extends CustomPainter {
         text: TextSpan(text: span.text, style: textStyle.copyWith(color: Colors.white)),
         textDirection: textDirection,
       )..layout(maxWidth: maxWidth - x);
-
-      if (x + inactive.width > maxWidth && x > 0) {
-        y += rowHeight;
-        x = 0;
-        rowHeight = 0;
-        inactive.layout(maxWidth: maxWidth);
-        active.layout(maxWidth: maxWidth);
-      }
 
       layouts.add(_SpanLayout(
         span: span,

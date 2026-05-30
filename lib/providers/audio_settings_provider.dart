@@ -10,6 +10,7 @@ class AudioSettingsProvider extends ChangeNotifier {
   static const _keyCellular = 'audio_quality_cellular';
   static const _keyDownload = 'audio_quality_download';
   static const _keySmartMode = 'audio_quality_smart';
+  static const _keyUploadHistory = 'audio_upload_history';
 
   /// 默认值：WiFi 无损，蜂窝标准，下载无损，智能关
   static const defaultWifi = 'high';
@@ -20,6 +21,7 @@ class AudioSettingsProvider extends ChangeNotifier {
   String _cellularQuality = defaultCellular;
   String _downloadQuality = defaultDownload;
   bool _smartMode = false;
+  bool _uploadHistory = true;
 
   // ─── Getters ───
 
@@ -27,6 +29,7 @@ class AudioSettingsProvider extends ChangeNotifier {
   String get cellularQuality => _cellularQuality;
   String get downloadQuality => _downloadQuality;
   bool get smartMode => _smartMode;
+  bool get uploadHistory => _uploadHistory;
 
   // ─── 初始化 ───
 
@@ -37,6 +40,7 @@ class AudioSettingsProvider extends ChangeNotifier {
       _cellularQuality = prefs.getString(_keyCellular) ?? defaultCellular;
       _downloadQuality = prefs.getString(_keyDownload) ?? defaultDownload;
       _smartMode = prefs.getBool(_keySmartMode) ?? false;
+      _uploadHistory = prefs.getBool(_keyUploadHistory) ?? true;
       notifyListeners();
     } catch (e, s) {
       Log.e('AudioSettings', 'init error', e, s);
@@ -64,6 +68,13 @@ class AudioSettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyDownload, key);
+  }
+
+  Future<void> setUploadHistory(bool value) async {
+    _uploadHistory = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyUploadHistory, value);
   }
 
   Future<void> setSmartMode(bool value) async {

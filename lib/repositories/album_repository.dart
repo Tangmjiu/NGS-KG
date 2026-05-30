@@ -9,8 +9,18 @@ import '../models/song_mapper.dart';
 class AlbumRepository extends BaseRepository {
   AlbumRepository(super.client);
 
+  /// 追加 cookie 查询参数（KuGouMusicApi 代理要求）
+  Future<void> _appendCookie(Map<String, dynamic> params) async {
+    try {
+      final cookie = await client.getCookieString();
+      if (cookie.isNotEmpty) params['cookie'] = cookie;
+    } catch (_) {}
+  }
+
   Future<Album?> getAlbumDetail(int albumId) async {
-    final res = await get('/album/detail', params: {'id': albumId});
+    final params = <String, dynamic>{'id': albumId};
+    await _appendCookie(params);
+    final res = await get('/album/detail', params: params);
     final data = res['data'];
     if (data is Map) return Album.fromJson(Map<String, dynamic>.from(data));
     if (data is List && data.isNotEmpty) return Album.fromJson(Map<String, dynamic>.from(data[0] as Map));
@@ -24,6 +34,7 @@ class AlbumRepository extends BaseRepository {
       'page': page,
       'pagesize': pageSize,
     };
+    await _appendCookie(params);
     final res = await get('/album/songs', params: params);
     final data = res['data'];
     List<dynamic>? list;
@@ -68,6 +79,7 @@ class AlbumRepository extends BaseRepository {
   Future<List<Album>> getTopAlbums({int? type, int page = 1, int pageSize = 30}) async {
     final params = <String, dynamic>{'page': page, 'pagesize': pageSize};
     if (type != null) params['type'] = type;
+    await _appendCookie(params);
     final res = await get('/top/album', params: params);
     final body = res;
     final raw = body['data'];

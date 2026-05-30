@@ -462,8 +462,9 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
       }
       if (songInfo != null && mounted) {
         final info = songInfo;
-        final songName = info['name'] as String?
-            ?? info['songname'] as String? ?? '未知歌曲';
+        final songName = (info['name'] as String?
+            ?? info['songname'] as String? ?? '未知歌曲')
+            .replaceAll(RegExp(r'\.mp3$', caseSensitive: false), '');
         final singer = info['singername'] as String?;
         showDialog(
             context: context,

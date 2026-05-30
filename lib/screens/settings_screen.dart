@@ -128,6 +128,13 @@ class SettingsScreen extends StatelessWidget {
                   value: settings.smartMode,
                   onChanged: (v) => settings.setSmartMode(v),
                 ),
+                SwitchListTile(
+                  secondary: const Icon(Icons.history),
+                  title: const Text('提交听歌历史'),
+                  subtitle: const Text('关闭后不会向服务器上报播放记录'),
+                  value: settings.uploadHistory,
+                  onChanged: (v) => settings.setUploadHistory(v),
+                ),
               ],
             ),
           ),
