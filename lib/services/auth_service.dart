@@ -25,19 +25,25 @@ class AuthService {
   }
 
   Future<Map<String, dynamic>> getQrKey() async {
-    final res = await _client.get('/login/qr/key');
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final res = await _client.get('/login/qr/key',
+        params: {'timestamp': ts.toString()});
     return res.data['data'] as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> getQrCreate(String key, {bool qrimg = false}) async {
-    final params = <String, dynamic>{'key': key};
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final params = <String, dynamic>{'key': key, 'timestamp': ts.toString()};
     if (qrimg) params['qrimg'] = 1;
     final res = await _client.get('/login/qr/create', params: params);
     return res.data['data'] as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> checkQrStatus(String key) async {
-    final res = await _client.get('/login/qr/check', params: {'key': key});
+    // 加上时间戳防止 API 缓存导致状态不更新
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final res = await _client.get('/login/qr/check',
+        params: {'key': key, 'timestamp': ts.toString()});
     return res.data as Map<String, dynamic>;
   }
 

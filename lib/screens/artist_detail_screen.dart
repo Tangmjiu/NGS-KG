@@ -48,7 +48,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
     try {
       final results = await Future.wait([
         _musicService.getArtistDetail(widget.artistId),
-        _musicService.getArtistAudios(widget.artistId, pageSize: 50),
+        _musicService.getArtistAudios(widget.artistId, pageSize: 500),
         _musicService.getArtistAlbums(widget.artistId, pageSize: 50),
         _musicService.getArtistVideos(widget.artistId),
       ]);
@@ -129,7 +129,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                   bottom: TabBar(
                     controller: _tabCtrl,
                     tabs: [
-                      const Tab(text: '热门单曲'),
+                      const Tab(text: '单曲'),
                       const Tab(text: '专辑'),
                       Tab(text: 'MV (${_videos.length})'),
                     ],
@@ -229,14 +229,39 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
     if (_songs.isEmpty) {
       return const Center(child: Text('暂无歌曲'));
     }
-    return ListView.builder(
-      itemCount: _songs.length,
-      itemBuilder: (_, i) => SongTile(
-        song: _songs[i],
-        onTap: (s) => context
-            .read<PlayerProvider>()
-            .playSong(s, playlist: _songs),
-      ),
+    return Column(
+      children: [
+        // 播放全部
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Row(
+            children: [
+              Text('${_songs.length} 首单曲',
+                  style: tt.bodySmall
+                      ?.copyWith(color: cs.onSurfaceVariant)),
+              const Spacer(),
+              FilledButton.tonalIcon(
+                onPressed: () => context
+                    .read<PlayerProvider>()
+                    .playSong(_songs.first, playlist: _songs),
+                icon: const Icon(Icons.play_arrow, size: 18),
+                label: const Text('播放全部'),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: _songs.length,
+            itemBuilder: (_, i) => SongTile(
+              song: _songs[i],
+              onTap: (s) => context
+                  .read<PlayerProvider>()
+                  .playSong(s, playlist: _songs),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
