@@ -10,11 +10,16 @@ import 'providers/playlist_provider.dart';
 import 'providers/liked_songs_provider.dart';
 import 'providers/discover_provider.dart';
 import 'routes/app_routes.dart';
-import 'utils/theme.dart';
 import 'screens/player_screen.dart';
 import 'screens/settings_screen.dart';
 import 'utils/logger.dart';
 import 'services/api_client.dart';
+import 'theme/theme_assets.dart';
+import 'providers/theme_provider.dart';
+import 'widgets/support_me_dialog.dart';
+import 'widgets/update_dialog.dart';
+import 'services/update_checker.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 import 'services/device_service.dart';
 import 'services/music_service.dart';
 import 'services/auth_service.dart';
@@ -56,11 +61,19 @@ Future<void> main() async {
     }
     return Container(
       color: const Color(0xFF1A1C19),
-      child: const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text('渲染异常',
-              style: TextStyle(color: Colors.white70, fontSize: 16)),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ThemeImage(
+              assetPath: ThemeAssets.codecrash,
+              width: 120,
+              height: 120,
+            ),
+            const SizedBox(height: 12),
+            const Text('渲染异常',
+                style: TextStyle(color: Colors.white70, fontSize: 16)),
+          ],
         ),
       ),
     );
@@ -78,12 +91,14 @@ Future<void> main() async {
   final musicService = MusicService();
   final authService = AuthService();
   final audioSettings = AudioSettingsProvider()..init();
+  final themeProvider = ThemeProvider()..init();
   runApp(
     MultiProvider(
       providers: [
         Provider<MusicService>.value(value: musicService),
         Provider<AuthService>.value(value: authService),
         ChangeNotifierProvider.value(value: audioSettings),
+        ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider(create: (_) => AuthProvider(authService)),
         ChangeNotifierProvider(create: (_) => PlayerProvider(musicService, audioSettings: audioSettings)),
         ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
@@ -130,55 +145,56 @@ void _notifAction(String action) {
   }
 }
 
-class NGSKGApp extends StatefulWidget {
+class NGSKGApp extends StatelessWidget {
   const NGSKGApp({super.key});
-  @override
-  State<NGSKGApp> createState() => _NGSKGAppState();
-}
-
-class _NGSKGAppState extends State<NGSKGApp> {
-  ThemeMode _themeMode = ThemeMode.dark;
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: navKey,
-      title: 'NGS-KG+',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: _themeMode,
-      initialRoute: AppRoutes.home,
-      onGenerateRoute: (settings) {
-        if (settings.name == AppRoutes.settings) {
-          return MaterialPageRoute(
-            builder: (_) => SettingsScreen(
-              currentTheme: _themeMode,
-              onThemeChanged: (mode) => setState(() => _themeMode = mode),
-            ),
+    return DynamicColorBuilder(
+      builder: (lightDynamic, darkDynamic) {
+        return Consumer<ThemeProvider>(
+          builder: (context, themeProvider, _) {
+            return MaterialApp(
+          navigatorKey: navKey,
+          title: 'NGS-KG+',
+          debugShowCheckedModeBanner: false,
+          theme: themeProvider.buildLightTheme(context, dynamicScheme: lightDynamic),
+          darkTheme: themeProvider.buildDarkTheme(context, dynamicScheme: darkDynamic),
+          themeMode: themeProvider.themeMode,
+          initialRoute: AppRoutes.home,
+          onGenerateRoute: (settings) {
+            if (settings.name == AppRoutes.settings) {
+              return MaterialPageRoute(
+                builder: (_) => const SettingsScreen(),
+              );
+            }
+            return AppRoutes.generateRoute(settings);
+          },
+          builder: (context, child) {
+            // NavigationBar 的实际高度 = kBottomNavigationBarHeight + 底部安全区
+            // 不加 padding 的话 mini 播放栏会叠加到 NavigationBar 上
+            final bottomNavOffset =
+                kBottomNavigationBarHeight + MediaQuery.of(context).padding.bottom;
+            return Stack(
+              children: [
+                child ?? const SizedBox.shrink(),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: bottomNavOffset,
+                  child: _PlayerBarBottom(),
+                ),
+                const _ContinuePlayOverlay(),
+                const _SupportPopupHandler(),
+                const _UpdateCheckHandler(),
+              ],
+            );
+            },
           );
-        }
-        return AppRoutes.generateRoute(settings);
-      },
-      builder: (context, child) {
-        // NavigationBar 的实际高度 = kBottomNavigationBarHeight + 底部安全区
-        // 不加 padding 的话 mini 播放栏会叠加到 NavigationBar 上
-        final bottomNavOffset =
-            kBottomNavigationBarHeight + MediaQuery.of(context).padding.bottom;
-        return Stack(
-          children: [
-            child ?? const SizedBox.shrink(),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: bottomNavOffset,
-              child: _PlayerBarBottom(),
-            ),
-            const _ContinuePlayOverlay(),
-          ],
-        );
-      },
-    );
+        },
+      );
+    },
+  );
   }
 }
 
@@ -492,6 +508,71 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
       }
     } catch (_) {
       // 静默：继续播放接口失败不重要，不弹窗不日志
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
+/// 自动弹出支持作者弹窗（安装后一段时间内，每次开软件弹一次）
+class _SupportPopupHandler extends StatefulWidget {
+  const _SupportPopupHandler();
+  @override
+  State<_SupportPopupHandler> createState() => _SupportPopupHandlerState();
+}
+
+class _SupportPopupHandlerState extends State<_SupportPopupHandler> {
+  bool _shown = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_shown) {
+      _shown = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShow());
+    }
+  }
+
+  Future<void> _maybeShow() async {
+    if (!mounted) return;
+    final tp = context.read<ThemeProvider>();
+    if (!tp.shouldShowSupportPopup) return;
+
+    final dismissed = await showSupportMeDialog(context, autoPopup: true);
+    if (dismissed && mounted) {
+      tp.dismissSupportPopup();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
+/// 启动时检查 GitHub Release 更新
+class _UpdateCheckHandler extends StatefulWidget {
+  const _UpdateCheckHandler();
+  @override
+  State<_UpdateCheckHandler> createState() => _UpdateCheckHandlerState();
+}
+
+class _UpdateCheckHandlerState extends State<_UpdateCheckHandler> {
+  bool _checked = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_checked) {
+      _checked = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _check());
+    }
+  }
+
+  Future<void> _check() async {
+    if (!mounted) return;
+    final release = await UpdateChecker.check();
+    if (release != null && mounted) {
+      showUpdateDialog(context, release);
     }
   }
 

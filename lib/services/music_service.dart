@@ -15,6 +15,7 @@ import '../models/card_section.dart';
 import '../models/latest_listen_info.dart';
 import '../models/scene_category.dart';
 import '../models/user.dart' as models;
+import '../models/vip_info.dart';
 import 'package:dio/dio.dart';
 import 'api_client.dart';
 
@@ -209,7 +210,7 @@ class MusicService {
 
   Future<models.User?> getUserDetail() => user.getUserDetail();
 
-  Future<Map<String, dynamic>> getVipInfo() => user.getVipInfo();
+  Future<VipInfo?> getVipInfo() => user.getVipInfo();
 
   Future<List<Map<String, dynamic>>> getUserHistory(
           {int page = 1, int pageSize = 200}) =>

@@ -65,8 +65,8 @@ class PlayerProgressBar extends StatelessWidget {
                     value: progress.clamp(0.0, 1.0),
                     onChangeStart: (_) => onDragStart?.call(),
                     onChangeEnd: (v) {
-                      onDragEnd?.call();
-                      onSeek(v);
+                      onSeek(v); // Update _dragProgressValue FIRST
+                      onDragEnd?.call(); // Then seek with the final value
                     },
                     onChanged: onSeek,
                   ),

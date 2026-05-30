@@ -5,6 +5,7 @@ import '../models/artist.dart';
 import '../models/radio.dart';
 import '../models/song_mapper.dart';
 import '../models/latest_listen_info.dart';
+import '../models/vip_info.dart';
 
 class UserRepository extends BaseRepository {
   UserRepository(super.client);
@@ -16,8 +17,10 @@ class UserRepository extends BaseRepository {
     return null;
   }
 
-  Future<Map<String, dynamic>> getVipInfo() async {
-    return get('/user/vip/detail');
+  Future<VipInfo?> getVipInfo() async {
+    final res = await get('/user/vip/detail');
+    final data = res['data'] as Map<String, dynamic>? ?? res;
+    return VipInfo.fromJson(data);
   }
 
   Future<List<Map<String, dynamic>>> getUserHistory(

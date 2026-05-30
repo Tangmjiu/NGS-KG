@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../main.dart' as app;
+import '../theme/theme_assets.dart';
 
 /// 显示错误弹窗
 ///
@@ -44,9 +45,16 @@ void showErrorDialog({
       ),
       content: SingleChildScrollView(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 错误提示图
+            ThemeImage(
+              assetPath: ThemeAssets.sthiswrong,
+              width: 80,
+              height: 80,
+            ),
+            const SizedBox(height: 12),
             // 错误代码
             if (errorCode != null) ...[
               Container(

@@ -100,14 +100,23 @@ class _AMLyricsViewState extends State<AMLyricsView> {
 
     final idx = _currentLineIndex.clamp(0, widget.lyrics.length - 1);
     final vh = _scrollController.position.viewportDimension;
+    final measured = _lineHeights.length;
 
     double offset = 0;
-    for (int i = 0; i < idx && i < _lineHeights.length; i++) {
+    // Sum measured heights up to idx
+    for (int i = 0; i < idx && i < measured; i++) {
       offset += _lineHeights[i];
+    }
+    // Estimate unmeasured lines using average measured height
+    if (idx >= measured) {
+      final avg = measured > 0
+          ? _lineHeights.fold<double>(0, (s, h) => s + h) / measured
+          : 56.0;
+      offset += avg * (idx - measured + 1);
     }
 
     final currentH =
-        idx < _lineHeights.length ? _lineHeights[idx] : 56.0;
+        idx < measured ? _lineHeights[idx] : 56.0;
     final topPad = MediaQuery.of(context).size.height * 0.12;
     final sweetSpot = vh * _sweetSpotRatio;
 

@@ -34,6 +34,9 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   List<LyricLine> _lyrics = [];
   Color? _backgroundColor;
 
+  // ─── 通知节流 ───
+  int _lastNotifUpdateMs = 0;
+
   late final VoidCallback _onPositionChanged;
   late final VoidCallback _onDurationChanged;
   late final VoidCallback _onLoadingChanged;
@@ -108,6 +111,12 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
         _isPlaying = false;
         cancelSleepTimer();
         notifyListeners();
+      }
+      // 节流：每 10 秒更新通知位置（用于蓝牙 A2DP 进度同步）
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (now - _lastNotifUpdateMs > 10000) {
+        _lastNotifUpdateMs = now;
+        _updateNotification();
       }
     };
     _engine.position.addListener(_onPositionChanged);
