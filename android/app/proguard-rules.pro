@@ -10,5 +10,8 @@
 -keep class okhttp3.** { *; }
 -keep class okio.** { *; }
 
+# Keep Google Play Core (needed by Flutter engine for deferred components)
+-keep class com.google.android.play.core.** { *; }
+
 # Keep models
 -keep class com.kugou.ngskg.model.** { *; }
