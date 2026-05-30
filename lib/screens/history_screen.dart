@@ -32,6 +32,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
           _songs = raw
               .map((e) => Song.fromTrackJson(e))
               .whereType<Song>()
+              .map((s) => Song(
+                    id: s.id,
+                    name: s.name.replaceAll(RegExp(r'\.[^.]+$'), ''),
+                    artists: s.artists,
+                    albumName: s.albumName,
+                    albumCoverUrl: s.albumCoverUrl,
+                    duration: s.duration,
+                    lyricUrl: s.lyricUrl,
+                    filePath: s.filePath,
+                    hash: s.hash,
+                    qualities: s.qualities,
+                    albumId: s.albumId,
+                    fileId: s.fileId,
+                    lyrics: s.lyrics,
+                  ))
               .toList();
           _isLoading = false;
         });
