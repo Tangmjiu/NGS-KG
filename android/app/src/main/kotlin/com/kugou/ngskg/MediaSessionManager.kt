@@ -22,6 +22,7 @@ class MediaSessionManager(private val context: Context) {
         const val ACTION_PREV = "com.kugou.ngskg.PREV"
         const val ACTION_PLAY_PAUSE = "com.kugou.ngskg.PLAY_PAUSE"
         const val ACTION_NEXT = "com.kugou.ngskg.NEXT"
+        const val ACTION_STOP = "com.kugou.ngskg.STOP"
     }
 
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
