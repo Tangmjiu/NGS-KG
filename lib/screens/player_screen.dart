@@ -8,6 +8,7 @@ import 'package:ym_lyric/utils/krc_lyric_util.dart';
 import '../models/song.dart';
 import '../models/lyric_line.dart'; // LyricLine, LyricSpan, parseLyrics, tokenizeAndDistribute
 import '../providers/player_provider.dart';
+import '../providers/liked_songs_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../constants/quality.dart';
@@ -273,7 +274,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               SafeArea(
                 child: Column(
                   children: [
-                    _buildTopBar(),
+                    _buildTopBar(song: song),
                     Expanded(
                       child: PageView(
                         controller: _pageController,
@@ -360,7 +361,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // ── Top bar ──
 
-  Widget _buildTopBar() {
+  Widget _buildTopBar({required Song? song}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
@@ -371,6 +372,28 @@ class _PlayerScreenState extends State<PlayerScreen> {
             color: Colors.white,
             onPressed: () => Navigator.pop(context),
           ),
+          // 收藏按钮
+          if (song != null)
+            Consumer<LikedSongsProvider>(
+              builder: (_, lp, __) {
+                final liked = lp.likedIds.contains(song.id);
+                return IconButton(
+                  icon: Icon(
+                    liked ? Icons.favorite : Icons.favorite_border,
+                    color: liked ? Colors.redAccent : Colors.white70,
+                    size: 24,
+                  ),
+                  tooltip: liked ? '取消收藏' : '收藏',
+                  onPressed: () => lp.toggle(SongInfo(
+                    id: song.id,
+                    name: song.name,
+                    hash: song.hash ?? '',
+                    albumId: song.albumId,
+                    audioId: song.id,
+                  )),
+                );
+              },
+            ),
           const Spacer(),
           // Page indicator dots
           Row(
