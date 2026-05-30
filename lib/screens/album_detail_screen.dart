@@ -70,7 +70,6 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
             expandedHeight: MediaQuery.of(context).size.height * 0.35,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
-              title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
               background: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -119,7 +118,13 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            Text(name,
+                                style: tt.titleLarge
+                                    ?.copyWith(color: Colors.white),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
                             if (artist.isNotEmpty) ...[
+                              const SizedBox(height: 4),
                               Text(artist,
                                   style: tt.bodySmall
                                       ?.copyWith(color: Colors.white70)),
