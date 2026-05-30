@@ -33,3 +33,7 @@ Thumbs.db
 * - 副本.*
 gradle-user-home/
 .omo/
+
+# Android signing
+*.jks
+*.keystore
