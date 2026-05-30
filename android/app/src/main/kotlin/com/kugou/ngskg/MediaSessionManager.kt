@@ -1,5 +1,6 @@
 package com.kugou.ngskg
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -9,15 +10,15 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
-import androidx.media.session.MediaSessionCompat
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import java.net.URL
 
 /**
- * ÂéüÁîüÂ™í‰ΩìÈÄöÁü• & MediaSession ÁÆ°ÁêÜ
+ * ‘≠…˙√ΩÃÂÕ®÷™ & MediaSession π‹¿Ì
  *
- * ‰ΩøÁî®Âπ≥Âè∞ MediaSession APIÔºàAPI 21+ÔºâÔºå
- * MediaStyle ÈÄöÁü•ÈÄöËøá MediaSessionCompat.Token.fromToken() Ê°•Êé•„ÄÇ
+ * ¥ø∆ΩÃ® API£®API 21+£©£¨MediaStyle –Ë“™ API 31+£¨
+ * µÕ∞Ê±æ π”√ NotificationCompat£®Õ¨—˘À¯∆¡+Õ®÷™¿∏øÿ÷∆£©°£
  */
 class MediaSessionManager(private val context: Context) {
 
@@ -27,19 +28,15 @@ class MediaSessionManager(private val context: Context) {
         const val ACTION_PREV = "com.kugou.ngskg.PREV"
         const val ACTION_PLAY_PAUSE = "com.kugou.ngskg.PLAY_PAUSE"
         const val ACTION_NEXT = "com.kugou.ngskg.NEXT"
-        const val ACTION_STOP = "com.kugou.ngskg.STOP"
     }
 
     private val notificationManager: NotificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-    // ‰ΩøÁî®Âπ≥Âè∞ MediaSessionÔºàAPI 21+ÔºâÔºåÈÅøÂÖç compat Â∫ìÁâàÊú¨ÂÜ≤Á™Å
     private val mediaSession: MediaSession = MediaSession(context, "NGSKGPlayer")
 
     var onPrev: (() -> Unit)? = null
     var onPlayPause: (() -> Unit)? = null
     var onNext: (() -> Unit)? = null
-
     private var cachedArt: Bitmap? = null
 
     init {
@@ -49,9 +46,9 @@ class MediaSessionManager(private val context: Context) {
 
     private fun createChannel() {
         val channel = NotificationChannel(
-            CHANNEL_ID, "Èü≥‰πêÊí≠Êîæ", NotificationManager.IMPORTANCE_LOW
+            CHANNEL_ID, "“Ù¿÷≤•∑≈", NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Èü≥‰πêÊí≠ÊîæÊéßÂà∂ÔºàÂê´ÈîÅÂ±èÂíåËΩ¶ËΩΩËìùÁâôÔºâ"
+            description = "“Ù¿÷≤•∑≈øÿ÷∆£®∫¨À¯∆¡∫Õ≥µ‘ÿ¿∂—¿£©"
             setShowBadge(false)
             lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
         }
@@ -64,10 +61,7 @@ class MediaSessionManager(private val context: Context) {
             override fun onPause() { onPlayPause?.invoke() }
             override fun onSkipToNext() { onNext?.invoke() }
             override fun onSkipToPrevious() { onPrev?.invoke() }
-            override fun onStop() {
-                mediaSession.isActive = false
-                notificationManager.cancel(NOTIF_ID)
-            }
+            override fun onStop() { release() }
         })
         mediaSession.setFlags(
             MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or
@@ -77,33 +71,25 @@ class MediaSessionManager(private val context: Context) {
 
     fun updateMetadata(title: String, artist: String, albumArtUrl: String?, duration: Long, lyricLine: String?) {
         mediaSession.isActive = true
-
         if (albumArtUrl != null) {
             try {
                 val url = URL(albumArtUrl.replace("{size}", "480"))
                 cachedArt = BitmapFactory.decodeStream(url.openStream())
             } catch (_: Exception) { }
         }
-
-        // ‰ΩøÁî®Âπ≥Âè∞ android.media.MediaMetadata
         val metadata = android.media.MediaMetadata.Builder()
             .putString(android.media.MediaMetadata.METADATA_KEY_TITLE, title)
             .putString(android.media.MediaMetadata.METADATA_KEY_ARTIST, artist)
             .putLong(android.media.MediaMetadata.METADATA_KEY_DURATION, duration)
             .apply {
-                cachedArt?.let {
-                    putBitmap(android.media.MediaMetadata.METADATA_KEY_ALBUM_ART, it)
-                }
+                cachedArt?.let { putBitmap(android.media.MediaMetadata.METADATA_KEY_ALBUM_ART, it) }
             }
             .build()
-
         mediaSession.setMetadata(metadata)
     }
 
     fun updatePlaybackState(isPlaying: Boolean, position: Long) {
         val state = if (isPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED
-
-        // ‰ΩøÁî®Âπ≥Âè∞ PlaybackState
         val playbackState = PlaybackState.Builder()
             .setActions(
                 PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or
@@ -112,63 +98,64 @@ class MediaSessionManager(private val context: Context) {
             )
             .setState(state, position, 1.0f)
             .build()
-
         mediaSession.setPlaybackState(playbackState)
         showNotification(isPlaying)
     }
 
     private fun showNotification(isPlaying: Boolean) {
         val metadata = mediaSession.controller.metadata
-        val title = metadata?.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) ?: "Êú™Áü•Ê≠åÊõ≤"
-        val artist = metadata?.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST) ?: "Êú™Áü•Ê≠åÊâã"
+        val title = metadata?.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) ?: "Œ¥÷™∏Ë«˙"
+        val artist = metadata?.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST) ?: "Œ¥÷™∏Ë ÷"
 
-        val openIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("open_player", true)
-        }
-        val openPendingIntent = PendingIntent.getActivity(
-            context, 0, openIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val prevIntent = Intent(ACTION_PREV).setPackage(context.packageName)
-        val prevPi = PendingIntent.getBroadcast(context, 1, prevIntent,
+        val openPi = PendingIntent.getActivity(context, 0,
+            context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("open_player", true)
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-        val ppIntent = Intent(ACTION_PLAY_PAUSE).setPackage(context.packageName)
-        val ppPi = PendingIntent.getBroadcast(context, 2, ppIntent,
+        val prevPi = PendingIntent.getBroadcast(context, 1,
+            Intent(ACTION_PREV).setPackage(context.packageName),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val ppPi = PendingIntent.getBroadcast(context, 2,
+            Intent(ACTION_PLAY_PAUSE).setPackage(context.packageName),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val nextPi = PendingIntent.getBroadcast(context, 3,
+            Intent(ACTION_NEXT).setPackage(context.packageName),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-        val nextIntent = Intent(ACTION_NEXT).setPackage(context.packageName)
-        val nextPi = PendingIntent.getBroadcast(context, 3, nextIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-
-        // Ê°•Êé•ÔºöÂπ≥Âè∞ MediaSession.Token ‚Üí MediaSessionCompat.Token
-        val compatToken = MediaSessionCompat.Token.fromToken(mediaSession.sessionToken)
-
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle(title)
-            .setContentText(artist)
-            .setLargeIcon(cachedArt)
-            .setContentIntent(openPendingIntent)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setOngoing(isPlaying)
-            .setShowWhen(false)
-            .setStyle(androidx.media.app.NotificationCompat.MediaStyle()
-                .setMediaSession(compatToken)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // API 31+£∫‘≠…˙ MediaStyle °˙ œµÕ≥√ΩÃÂ÷––ƒ
+            val style = Notification.MediaStyle()
+                .setMediaSession(mediaSession.sessionToken)
                 .setShowActionsInCompactView(0, 1, 2)
-                .setShowCancelButton(true))
-            .addAction(android.R.drawable.ic_media_previous, "‰∏ä‰∏ÄÈ¶ñ", prevPi)
-            .addAction(
-                if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
-                if (isPlaying) "ÊöÇÂÅú" else "Êí≠Êîæ",
-                ppPi
-            )
-            .addAction(android.R.drawable.ic_media_next, "‰∏ã‰∏ÄÈ¶ñ", nextPi)
-            .build()
-
-        notificationManager.notify(NOTIF_ID, notification)
+            val notification = Notification.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_media_play)
+                .setContentTitle(title).setContentText(artist)
+                .setLargeIcon(cachedArt).setContentIntent(openPi)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setOngoing(isPlaying).setStyle(style)
+                .addAction(android.R.drawable.ic_media_previous, "…œ“ª ◊", prevPi)
+                .addAction(if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+                    if (isPlaying) "‘›Õ£" else "≤•∑≈", ppPi)
+                .addAction(android.R.drawable.ic_media_next, "œ¬“ª ◊", nextPi)
+                .build()
+            notificationManager.notify(NOTIF_ID, notification)
+        } else {
+            // API 21-30£∫NotificationCompat
+            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_media_play)
+                .setContentTitle(title).setContentText(artist)
+                .setLargeIcon(cachedArt).setContentIntent(openPi)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setOngoing(isPlaying).setPriority(NotificationCompat.PRIORITY_HIGH)
+                .addAction(android.R.drawable.ic_media_previous, "…œ“ª ◊", prevPi)
+                .addAction(if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+                    if (isPlaying) "‘›Õ£" else "≤•∑≈", ppPi)
+                .addAction(android.R.drawable.ic_media_next, "œ¬“ª ◊", nextPi)
+                .build()
+            notificationManager.notify(NOTIF_ID, notification)
+        }
     }
 
     fun release() {
