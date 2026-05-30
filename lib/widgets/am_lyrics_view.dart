@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import '../models/lyric_line.dart';
 import 'lyric_line_painter.dart';
 
@@ -9,9 +8,9 @@ import 'lyric_line_painter.dart';
 /// Design (adapted from Linx-Music):
 ///   - Current line sits at ~35% of the viewport (Apple Music style)
 ///   - Line heights tracked by [MeasureSize] instead of GlobalKey
-///   - Display position interpolated via [Ticker] for smooth animation
+///   - Uses [widget.position] directly (no ticker — avoids sync lag after seek)
 ///   - Scroll only when the active line changes (not on every progress tick)
-///   - User drag/wheel pauses auto-scroll; resumes after a timeout
+///   - User drag pauses auto-scroll; resumes after a timeout
 class AMLyricsView extends StatefulWidget {
   final List<LyricLine> lyrics;
   final Duration position;
@@ -30,20 +29,13 @@ class AMLyricsView extends StatefulWidget {
   State<AMLyricsView> createState() => _AMLyricsViewState();
 }
 
-class _AMLyricsViewState extends State<AMLyricsView>
-    with TickerProviderStateMixin {
+class _AMLyricsViewState extends State<AMLyricsView> {
   final ScrollController _scrollController = ScrollController();
   final List<double> _lineHeights = [];
 
   bool _autoScroll = true;
   bool _isAnimating = false;
   Timer? _resumeTimer;
-
-  // ── Ticker-based position interpolation ──
-  late final Ticker _positionTicker;
-  Duration _displayPosition = Duration.zero;
-  Duration _lastKnownPosition = Duration.zero;
-  DateTime _lastPositionUpdate = DateTime.now();
 
   int _currentLineIndex = 0;
 
@@ -68,33 +60,24 @@ class _AMLyricsViewState extends State<AMLyricsView>
   @override
   void initState() {
     super.initState();
-    _lastKnownPosition = widget.position;
-    _displayPosition = _lastKnownPosition;
     _updateLineIndex();
-    _positionTicker = createTicker(_onTick)..start();
   }
 
   @override
   void didUpdateWidget(covariant AMLyricsView oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Store latest raw position for the ticker to interpolate
-    _lastKnownPosition = widget.position;
-    _lastPositionUpdate = DateTime.now();
-
-    // Recalculate line index
     final oldIndex = _currentLineIndex;
     _updateLineIndex();
 
-    // Lyrics data changed → reset height cache
     if (widget.lyrics != oldWidget.lyrics) {
       _lineHeights.clear();
       _autoScroll = true;
       _resumeTimer?.cancel();
       _currentLineIndex = 0;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToCurrent(snap: true));
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _scrollToCurrent(snap: true));
     } else if (_currentLineIndex != oldIndex && _autoScroll) {
-      // Line changed → scroll (but NOT on every progress tick)
       _scrollToCurrent();
     }
   }
@@ -110,18 +93,6 @@ class _AMLyricsViewState extends State<AMLyricsView>
     _currentLineIndex = idx == -1 ? 0 : idx;
   }
 
-  void _onTick(Duration _) {
-    final now = DateTime.now();
-    final elapsed = now.difference(_lastPositionUpdate);
-    final next = elapsed.inMilliseconds > 500
-        ? _lastKnownPosition
-        : _lastKnownPosition + elapsed;
-
-    if (_displayPosition != next) {
-      setState(() => _displayPosition = next);
-    }
-  }
-
   void _scrollToCurrent({bool snap = false}) {
     if (!_autoScroll || !_scrollController.hasClients) return;
     if (_isAnimating) return;
@@ -130,7 +101,6 @@ class _AMLyricsViewState extends State<AMLyricsView>
     final idx = _currentLineIndex.clamp(0, widget.lyrics.length - 1);
     final vh = _scrollController.position.viewportDimension;
 
-    // Calculate offset from measured line heights
     double offset = 0;
     for (int i = 0; i < idx && i < _lineHeights.length; i++) {
       offset += _lineHeights[i];
@@ -204,7 +174,6 @@ class _AMLyricsViewState extends State<AMLyricsView>
       children: [
         NotificationListener<ScrollNotification>(
           onNotification: (n) {
-            // 触摸/触控板拖拽 → 用户主动滚动（dragDetails 不为 null）
             if (n is ScrollStartNotification &&
                 n.dragDetails != null &&
                 _autoScroll) {
@@ -280,13 +249,14 @@ class _AMLyricsViewState extends State<AMLyricsView>
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxW = constraints.maxWidth;
-        // Use the measured text height for the CustomPaint sizing
-        final tp = TextPainter(
-          text: TextSpan(
-              text: line.text.isEmpty ? ' ' : line.text,
-              style: _currentStyle),
-          textDirection: Directionality.of(context),
-        )..layout(maxWidth: maxW);
+
+        // 计算实际多行高度，避免长歌词重叠
+        final h = LyricLinePainter.layoutHeight(
+          line.spans,
+          _currentStyle,
+          Directionality.of(context),
+          maxW,
+        );
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,14 +265,14 @@ class _AMLyricsViewState extends State<AMLyricsView>
             CustomPaint(
               painter: LyricLinePainter(
                 spans: line.spans,
-                position: _displayPosition,
+                position: widget.position, // 直通，不经过 Ticker
                 lineStart: line.startTime,
                 lineEnd: line.endTime,
                 textStyle: _currentStyle,
                 textDirection: Directionality.of(context),
                 maxWidth: maxW,
               ),
-              size: Size(maxW, tp.height),
+              size: Size(maxW, h > 0 ? h : 34),
             ),
             if (line.translatedText != null &&
                 line.translatedText!.isNotEmpty)
@@ -349,7 +319,6 @@ class _AMLyricsViewState extends State<AMLyricsView>
 
   @override
   void dispose() {
-    _positionTicker.dispose();
     _scrollController.dispose();
     _resumeTimer?.cancel();
     super.dispose();

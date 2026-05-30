@@ -26,6 +26,31 @@ class LyricLinePainter extends CustomPainter {
     required this.maxWidth,
   });
 
+  /// Pre-compute the multi-line layout height so callers can size correctly.
+  static double layoutHeight(
+    List<LyricSpan> spans,
+    TextStyle style,
+    TextDirection dir,
+    double maxWidth,
+  ) {
+    if (spans.isEmpty) return 0;
+    double x = 0, y = 0, rowH = 0;
+    for (final span in spans) {
+      final tp = TextPainter(
+        text: TextSpan(text: span.text, style: style.copyWith(color: Colors.white30)),
+        textDirection: dir,
+      )..layout(maxWidth: maxWidth - x);
+      if (x + tp.width > maxWidth && x > 0) {
+        y += rowH;
+        x = 0;
+        rowH = 0;
+      }
+      x += tp.width;
+      if (tp.height > rowH) rowH = tp.height;
+    }
+    return y + rowH;
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     if (spans.isEmpty) return;
@@ -53,7 +78,6 @@ class LyricLinePainter extends CustomPainter {
         y += rowHeight;
         x = 0;
         rowHeight = 0;
-        // Re-layout with new max width
         inactive.layout(maxWidth: maxWidth);
         active.layout(maxWidth: maxWidth);
       }
@@ -77,13 +101,10 @@ class LyricLinePainter extends CustomPainter {
       final offset = l.offset;
 
       if (isLineCompleted || progress >= 1.0) {
-        // Fully past → bright
         l.activePainter.paint(canvas, offset);
       } else if (progress <= 0.0 || position < lineStart) {
-        // Future → dimmed
         l.inactivePainter.paint(canvas, offset);
       } else {
-        // Actively filling → paint dimmed + clipped bright overlay
         _paintFillingToken(canvas, l, progress);
       }
     }
@@ -97,14 +118,12 @@ class LyricLinePainter extends CustomPainter {
     const double softEdgeWidth = 14.0;
     final offset = token.offset;
 
-    // 1. Paint dimmed full text
     token.inactivePainter.paint(canvas, offset);
 
     final filledWidth = token.width * progress;
     final solidW = (filledWidth - softEdgeWidth).clamp(0.0, token.width);
     final fadeW = (filledWidth - solidW).clamp(0.0, token.width);
 
-    // 2. Solid filled portion
     if (solidW > 0) {
       canvas.save();
       canvas.clipRect(Rect.fromLTWH(offset.dx, offset.dy, solidW, token.height));
@@ -112,7 +131,6 @@ class LyricLinePainter extends CustomPainter {
       canvas.restore();
     }
 
-    // 3. Soft gradient edge
     if (fadeW <= 0) return;
     final fadeRect = Rect.fromLTWH(offset.dx + solidW, offset.dy, fadeW, token.height);
     canvas.saveLayer(fadeRect, Paint());
