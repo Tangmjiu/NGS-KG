@@ -58,6 +58,6 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:2.0.21"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:2.1.0"
     implementation "androidx.media:media:1.7.0"
 }
