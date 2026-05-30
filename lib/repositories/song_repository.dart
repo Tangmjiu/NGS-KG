@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'base_repository.dart';
 import '../models/song.dart';
 import '../models/song_mapper.dart';
@@ -113,6 +115,24 @@ class SongRepository extends BaseRepository {
       'decode': 'true',
     });
     return res['content'] as String? ?? '';
+  }
+
+  /// 获取 KRC 格式歌词（包含翻译信息）
+  ///
+  /// 返回原始 KRC 加密二进制数据，需用 ym_lyric 的 KrcLyricUtil 解析。
+  Future<Uint8List> fetchKrcContent(int lyricId, String accessKey) async {
+    final res = await get('/lyric', params: {
+      'id': lyricId,
+      'accesskey': accessKey,
+      'fmt': 'krc',
+    });
+    final content = res['content'] as String?;
+    if (content == null || content.isEmpty) return Uint8List(0);
+    try {
+      return base64Decode(content);
+    } catch (_) {
+      return Uint8List(0);
+    }
   }
 
   Future<List<Song>> getTopSongs() async {

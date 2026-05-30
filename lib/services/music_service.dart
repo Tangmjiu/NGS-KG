@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import '../repositories/song_repository.dart';
 import '../repositories/playlist_repository.dart';
 import '../repositories/album_repository.dart';
@@ -76,6 +77,9 @@ class MusicService {
 
   Future<String> fetchLyricContent(int lyricId, String accessKey) =>
       song.fetchLyricContent(lyricId, accessKey);
+
+  Future<Uint8List> fetchKrcContent(int lyricId, String accessKey) =>
+      song.fetchKrcContent(lyricId, accessKey);
 
   Future<List<Song>> getTopSongs() => song.getTopSongs();
 

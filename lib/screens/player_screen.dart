@@ -2,8 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:ym_lyric/model/krc_language_model.dart';
+import 'package:ym_lyric/utils/krc_lyric_util.dart';
+
 import '../models/song.dart';
-import '../models/lyric_line.dart';
+import '../models/lyric_line.dart'; // LyricLine, LyricSpan, parseLyrics, tokenizeAndDistribute
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
@@ -58,9 +61,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final player = context.read<PlayerProvider>();
     final song = player.currentSong;
     if (song == null) return;
-
-    // Lyric progress
-    player.updateLyricProgress(player.position);
 
     // Load lyrics when song changes or lyrics were cleared (e.g. quality switch)
     final songChanged = (song.hash != null && song.hash != _lastLoadedHash) ||
@@ -132,6 +132,86 @@ class _PlayerScreenState extends State<PlayerScreen> {
         final c = candidates[0] as Map<String, dynamic>;
         final id = int.parse(c['id'].toString());
         final key = c['accesskey'] as String? ?? '';
+
+        // ── Try KRC first (with translations) ──
+        final krcBytes = await _musicService.fetchKrcContent(id, key);
+        if (krcBytes.isNotEmpty) {
+          try {
+            final krcModel = KrcLyricUtil.parseLyrics(krcBytes);
+            if (krcModel.krcLyricList.isEmpty) throw 'empty krc';
+
+            // Parse translations from lyricTag.language (base64 JSON)
+            List<String>? translations;
+            if (krcModel.lyricTag.language != null &&
+                krcModel.lyricTag.language!.isNotEmpty) {
+              try {
+                final langJson = jsonDecode(
+                  utf8.decode(base64Decode(krcModel.lyricTag.language!)),
+                );
+                final krcLang = KrcLanguage.fromJson(langJson);
+                if (krcLang.content.isNotEmpty) {
+                  // language: 0 = translation (意译), 1 = transliteration (音译)
+                  final langContent = krcLang.content.first.lyricContent;
+                  translations = langContent
+                      .map((words) => words.join())
+                      .toList();
+                }
+              } catch (_) {}
+            }
+
+            final lyrics = <LyricLine>[];
+            for (int i = 0; i < krcModel.krcLyricList.length; i++) {
+              final line = krcModel.krcLyricList[i];
+              final text = line.getWordLine();
+              if (text.trim().isEmpty) continue;
+
+              // Map KRC word-level data → LyricSpan list
+              final spans = <LyricSpan>[];
+              if (line.line != null) {
+                final lineStart = line.startTime;
+                for (final w in line.line!) {
+                  if (w.word == null || w.word!.isEmpty) continue;
+                  final ws = (w.startTime ?? 0) + lineStart;
+                  final we = ws + (w.duration ?? 0);
+                  spans.add(LyricSpan(
+                    text: w.word!,
+                    start: Duration(milliseconds: ws),
+                    end: Duration(milliseconds: we),
+                  ));
+                }
+              }
+              // If KRC has no per-word data, fall back to uniform distribution
+              if (spans.isEmpty) {
+                final start = Duration(milliseconds: line.startTime);
+                final end = Duration(
+                    milliseconds: line.startTime + line.duration);
+                spans.addAll(tokenizeAndDistribute(text, start, end));
+              }
+
+              lyrics.add(LyricLine(
+                startTime: Duration(milliseconds: line.startTime),
+                endTime: Duration(
+                    milliseconds: line.startTime + line.duration),
+                text: text,
+                translatedText: translations != null && i < translations.length
+                    ? translations[i]
+                    : null,
+                spans: spans,
+              ));
+            }
+
+            if (mounted) {
+              if (hash != _lastLoadedHash) return;
+              context.read<PlayerProvider>().setLyrics(lyrics);
+            }
+            if (mounted) setState(() => _lyricLoading = false);
+            return;
+          } catch (e, s) {
+            Log.e('player_screen', 'krc parse error', e, s);
+          }
+        }
+
+        // ── Fallback to LRC ──
         final rawContent = await _musicService.fetchLyricContent(id, key);
         if (rawContent.isNotEmpty) {
           try {
@@ -206,8 +286,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           // Page 1: Lyrics
                           AMLyricsView(
                             lyrics: player.lyrics,
-                            currentLineIndex: player.currentLyricLine,
-                            currentLineProgress: player.lyricLineProgress,
+                            position: player.position,
                             isLoading: _lyricLoading,
                             onSeek: (duration) => player.seek(duration),
                           ),

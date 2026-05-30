@@ -38,6 +38,8 @@ dependencies:
   flutter_svg: ^2.0.10+1
   permission_handler: ^11.3.1
   flutter_local_notifications: ^18.0.1
+  # Lyrics
+  ym_lyric: ^0.0.4
 
 dev_dependencies:
   flutter_test:
