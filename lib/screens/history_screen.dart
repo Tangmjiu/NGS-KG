@@ -1,5 +1,7 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
@@ -51,15 +53,28 @@ class _HistoryScreenState extends State<HistoryScreen> {
           _isLoading = false;
         });
       }
-    } catch (e, s) { Log.e('history_screen', 'error', e, s);
+    } catch (e, s) {
+      Log.e('history_screen', 'error', e, s);
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  /// 取第一首歌的封面作为背景
+  String? get _bgCover =>
+      _songs.isNotEmpty ? _songs.first.albumCoverUrl : null;
+
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('听歌历史')),
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        title: const Text('听歌历史'),
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _songs.isEmpty
@@ -67,26 +82,92 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.history, size: 80, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      Icon(Icons.history,
+                          size: 80, color: cs.onSurfaceVariant),
                       const SizedBox(height: 16),
                       Text('暂无听歌历史',
-                          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                          style:
+                              TextStyle(color: cs.onSurfaceVariant)),
                     ],
                   ),
                 )
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.only(top: 8),
-                    itemCount: _songs.length,
-                    itemBuilder: (_, i) => SongTile(
-                      song: _songs[i],
-                      onTap: (s) => context
-                          .read<PlayerProvider>()
-                          .playSong(s, playlist: _songs),
+              : Stack(
+                  children: [
+                    // 背景：专辑封面 + 渐变
+                    Positioned.fill(
+                      child: _buildBackground(),
                     ),
-                  ),
+                    // 前景：歌曲列表
+                    RefreshIndicator(
+                      onRefresh: _load,
+                      color: Colors.white,
+                      child: ListView.builder(
+                        padding: EdgeInsets.only(
+                          top: MediaQuery.of(context).padding.top + 80,
+                          bottom: 24,
+                        ),
+                        itemCount: _songs.length,
+                        itemBuilder: (_, i) => SongTile(
+                          song: _songs[i],
+                          onTap: (s) => context
+                              .read<PlayerProvider>()
+                              .playSong(s, playlist: _songs),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+    );
+  }
+
+  Widget _buildBackground() {
+    final cover = _bgCover;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // 基底色
+        Container(color: const Color(0xFF1A1A2E)),
+        // 模糊的专辑封面
+        if (cover != null)
+          CachedNetworkImage(
+            imageUrl: cover.replaceAll('{size}', '480'),
+            fit: BoxFit.cover,
+            imageBuilder: (_, provider) => ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+              child: Image(image: provider, fit: BoxFit.cover),
+            ),
+            errorWidget: (_, __, ___) => const SizedBox.shrink(),
+            placeholder: (_, __) => const SizedBox.shrink(),
+          ),
+        // 从左到右渐变遮罩：左清晰→右暗色
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                Colors.transparent,
+                Colors.black.withValues(alpha: 0.85),
+              ],
+            ),
+          ),
+          child: const SizedBox.expand(),
+        ),
+        // 底部轻微暗化，让列表文字更清楚
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.transparent,
+                Colors.black.withValues(alpha: 0.4),
+              ],
+            ),
+          ),
+          child: const SizedBox.expand(),
+        ),
+      ],
     );
   }
 }
