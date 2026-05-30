@@ -14,7 +14,8 @@
   <a href="#快速开始">快速开始</a> ·
   <a href="#构建">构建</a> ·
   <a href="#API">API</a> ·
-  <a href="FAQ.md">FAQ</a>
+  <a href="FAQ.md">FAQ</a> ·
+  <a href="THEME.md">主题制作</a>
 </p>
 
 ---

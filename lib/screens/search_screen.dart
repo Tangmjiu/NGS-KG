@@ -9,6 +9,7 @@ import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
+import '../theme/theme_assets.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -42,8 +43,12 @@ class _SearchScreenState extends State<SearchScreen>
   bool _isLoading = false;
   bool _isLoadingRanks = true;
   bool _showResult = false;
+  bool _isBanned = false;
   String _currentKeyword = '';
   Timer? _debounce;
+
+  /// 搜索屏蔽关键词列表（后续可扩展或从服务器拉取）
+  static const _bannedKeywords = <String>[];
 
   @override
   void initState() {
@@ -109,6 +114,19 @@ class _SearchScreenState extends State<SearchScreen>
     if (keyword.isEmpty) return;
     _focusNode.unfocus();
     _currentKeyword = keyword;
+
+    // 检查是否屏蔽关键词
+    final lower = keyword.toLowerCase();
+    if (_bannedKeywords.any((b) => lower.contains(b.toLowerCase()))) {
+      setState(() {
+        _isBanned = true;
+        _isLoading = false;
+        _showResult = true;
+      });
+      return;
+    }
+    setState(() => _isBanned = false);
+
     final type = _types[_tabController.index];
     setState(() {
       _isLoading = true;
@@ -196,7 +214,32 @@ class _SearchScreenState extends State<SearchScreen>
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: ThemeImage(
+          assetPath: ThemeAssets.loading,
+          width: 120,
+          height: 120,
+        ),
+      );
+    }
+    if (_isBanned) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ThemeImage(
+              assetPath: ThemeAssets.ban,
+              width: 120,
+              height: 120,
+            ),
+            const SizedBox(height: 12),
+            Text('当前关键词暂时无法搜索',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    )),
+          ],
+        ),
+      );
     }
     if (_showResult) {
       return TabBarView(
@@ -328,6 +371,27 @@ class _SearchScreenState extends State<SearchScreen>
     );
   }
 
+  /// 空结果占位图（sthiswrong.png + 文字）
+  Widget _emptyResult(String message) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ThemeImage(
+            assetPath: ThemeAssets.sthiswrong,
+            width: 100,
+            height: 100,
+          ),
+          const SizedBox(height: 12),
+          Text(message,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  )),
+        ],
+      ),
+    );
+  }
+
   static const _complexTypeLabels = {
     'song': '单曲',
     'special': '歌单',
@@ -341,16 +405,7 @@ class _SearchScreenState extends State<SearchScreen>
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     if (_complexResults.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.search_off, size: 56, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
-            const SizedBox(height: 12),
-            Text('未找到相关内容', style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant)),
-          ],
-        ),
-      );
+      return _emptyResult('未找到相关内容');
     }
     final orderedKeys = _complexResults.keys.toList();
     return ListView.builder(
@@ -623,7 +678,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   Widget _buildSongsTab() {
     if (_songs.isEmpty) {
-      return const Center(child: Text('未找到歌曲'));
+      return _emptyResult('未找到歌曲');
     }
     return ListView.builder(
       itemCount: _songs.length,
@@ -638,7 +693,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   Widget _buildPlaylistsTab() {
     if (_playlists.isEmpty) {
-      return const Center(child: Text('未找到歌单'));
+      return _emptyResult('未找到歌单');
     }
     return ListView.builder(
       itemCount: _playlists.length,
@@ -677,7 +732,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   Widget _buildAlbumsTab() {
     if (_albums.isEmpty) {
-      return const Center(child: Text('未找到专辑'));
+      return _emptyResult('未找到专辑');
     }
     return ListView.builder(
       itemCount: _albums.length,
@@ -714,7 +769,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   Widget _buildArtistsTab() {
     if (_artists.isEmpty) {
-      return const Center(child: Text('未找到歌手'));
+      return _emptyResult('未找到歌手');
     }
     return ListView.builder(
       itemCount: _artists.length,
@@ -751,7 +806,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   Widget _buildMvsTab() {
     if (_mvs.isEmpty) {
-      return const Center(child: Text('未找到MV'));
+      return _emptyResult('未找到MV');
     }
     return ListView.builder(
       itemCount: _mvs.length,
@@ -787,7 +842,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   Widget _buildLyricsTab() {
     if (_lyrics.isEmpty) {
-      return const Center(child: Text('未找到歌词'));
+      return _emptyResult('未找到歌词');
     }
     return ListView.builder(
       itemCount: _lyrics.length,

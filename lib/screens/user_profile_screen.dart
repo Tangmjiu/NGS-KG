@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:dio/dio.dart';
 import '../providers/auth_provider.dart';
 import '../utils/logger.dart';
+import '../models/vip_info.dart';
+import '../services/music_service.dart';
 import '../services/api_client.dart';
 
 class UserProfileScreen extends StatefulWidget {
@@ -12,7 +15,9 @@ class UserProfileScreen extends StatefulWidget {
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
+  final MusicService _musicService = MusicService();
   Map<String, dynamic>? _detail;
+  VipInfo? _vipInfo;
   bool _isLoading = true;
 
   @override
@@ -23,12 +28,23 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Future<void> _load() async {
     try {
-      final res = await ApiClient.instance.get('/user/detail');
-      _detail = res.data['data'] as Map<String, dynamic>?;
+      final results = await Future.wait([
+        _musicService.getVipInfo(),
+        ApiClient.instance.get('/user/detail'),
+      ]);
+      if (mounted) {
+        final vipInfo = results[0] as VipInfo?;
+        final detailRes = results[1] as Response;
+        setState(() {
+          _vipInfo = vipInfo;
+          _detail = detailRes.data['data'] as Map<String, dynamic>?;
+          _isLoading = false;
+        });
+      }
     } catch (e, s) {
       Log.e('UserProfile', 'load error', e, s);
+      if (mounted) setState(() => _isLoading = false);
     }
-    if (mounted) setState(() => _isLoading = false);
   }
 
   @override
@@ -41,11 +57,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // ── 头像 ──
                 Center(
                   child: CircleAvatar(
                     radius: 48,
                     backgroundImage: user?.avatarUrl != null
-                        ? NetworkImage(user!.avatarUrl!) // guarded by avatarUrl != null
+                        ? NetworkImage(user!.avatarUrl!)
                         : null,
                     child: user?.avatarUrl == null
                         ? const Icon(Icons.person, size: 48)
@@ -62,21 +79,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     child: Text('ID: ${user.userId}',
                         style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                   ),
-                if (user != null && user.isVipActive)
-                  Center(
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(user.vipLevelDisplay,
-                          style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 13)),
-                    ),
-                  ),
+                // ── VIP 信息 ──
+                if (_vipInfo?.isVipActive ?? false) ...[
+                  const SizedBox(height: 8),
+                  _buildVipBadge(),
+                ],
                 const SizedBox(height: 24),
-                if (_detail != null) ...[
+
+                // ── 会员卡片 ──
+                if (_vipInfo?.isVipActive ?? false)
+                  _buildVipCard(),
+
+                // ── 账号卡片 ──
+                if (_detail != null)
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -97,25 +112,80 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       ),
                     ),
                   ),
-                  if (_detail!['sign']?.toString().isNotEmpty == true)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('个人签名',
-                                style: Theme.of(context).textTheme.titleMedium),
-                            const SizedBox(height: 8),
-                            Text(_detail!['sign'].toString()),
-                          ],
-                        ),
+
+                // ── 签名 ──
+                if (_detail?['sign']?.toString().isNotEmpty == true)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('个人签名',
+                              style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 8),
+                          Text(_detail!['sign'].toString()),
+                        ],
                       ),
                     ),
-                ],
+                  ),
               ],
           ),
     );
+  }
+
+  Widget _buildVipBadge() {
+    final cs = Theme.of(context).colorScheme;
+    final isSvip = _vipInfo?.badgeType.$2 == true;
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSvip ? const Color(0xFFFFD700) : cs.primary,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          _vipInfo?.summary ?? '',
+          style: TextStyle(
+            color: isSvip ? Colors.black87 : cs.onPrimary,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVipCard() {
+    final info = _vipInfo!;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('会员信息',
+                  style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              _infoRow('会员类型', info.displayName),
+              if (info.vipBeginTime != null)
+                _infoRow('开通时间', _fmt(info.vipBeginTime!)),
+              if (info.vipEndTime != null) ...[
+                _infoRow('到期时间', _fmt(info.vipEndTime!)),
+                _infoRow('状态', info.expirationText),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _fmt(DateTime dt) {
+    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
   Widget _infoRow(String label, String value) {
@@ -123,7 +193,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          SizedBox(width: 80, child: Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))),
+          SizedBox(width: 80, child: Text(label,
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))),
           Expanded(child: Text(value, overflow: TextOverflow.ellipsis)),
         ],
       ),

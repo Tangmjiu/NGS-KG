@@ -313,13 +313,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           : (player.progress.isFinite ? player.progress : 0.0),
                       onDragStart: () =>
                           setState(() => _isDraggingProgress = true),
-                      onDragEnd: () {
-                        setState(() => _isDraggingProgress = false);
-                        player.seek(Duration(
+                      onDragEnd: () async {
+                        await player.seek(Duration(
                           milliseconds: (_dragProgressValue *
                                   player.duration.inMilliseconds)
                               .round(),
                         ));
+                        if (mounted) {
+                          setState(() => _isDraggingProgress = false);
+                        }
                       },
                       onSeek: (v) {
                         _dragProgressValue = v;

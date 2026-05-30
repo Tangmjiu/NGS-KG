@@ -5,6 +5,7 @@ import '../models/rank_entry.dart';
 import '../models/scene_category.dart';
 import '../models/song_mapper.dart';
 
+
 class AlbumRepository extends BaseRepository {
   AlbumRepository(super.client);
 
@@ -67,7 +68,6 @@ class AlbumRepository extends BaseRepository {
   Future<List<Album>> getTopAlbums({int? type, int page = 1, int pageSize = 30}) async {
     final params = <String, dynamic>{'page': page, 'pagesize': pageSize};
     if (type != null) params['type'] = type;
-    // API 文档为 GET 请求，返回标准列表
     final res = await get('/top/album', params: params);
     final body = res;
     final raw = body['data'];

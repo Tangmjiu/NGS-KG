@@ -157,7 +157,11 @@ class _ErrorDialogInterceptor extends Interceptor {
 
       if (knownMsg != null) {
         message = knownMsg;
-        showLogin = (apiCode == 20010 || apiCode == '20010' || rawErrorCode == 20010 || rawErrorCode == '20010');
+        if (apiCode == 20010 || apiCode == '20010' || rawErrorCode == 20010 || rawErrorCode == '20010') {
+          showLogin = true;
+          // 清除过期 token，后续请求不再携带
+          ApiClient.clearAuth();
+        }
       } else {
         message = rawMsg ?? '请求失败';
       }
@@ -438,6 +442,8 @@ class ApiClient {
       final status = data['status'] ?? data['code'];
       if (status == 20010 || status == '20010') {
         Log.e('ApiClient', '登录失效 API 20010 | ${requestPath ?? "?"}');
+        // 立即清除过期 token，后续请求不再携带，公开接口可正常访问
+        clearAuth();
         showErrorDialog(
           title: '登录失效',
           errorCode: 'API 20010',

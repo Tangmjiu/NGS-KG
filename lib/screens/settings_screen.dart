@@ -11,38 +11,12 @@ import '../services/cache_service.dart';
 import '../utils/logger.dart';
 import 'log_viewer_screen.dart';
 import 'audio_effects_screen.dart';
+import 'theme_settings_screen.dart';
+import 'about_screen.dart';
+import '../widgets/support_me_dialog.dart';
 
-class SettingsScreen extends StatefulWidget {
-  final ValueChanged<ThemeMode>? onThemeChanged;
-  final ThemeMode currentTheme;
-
-  const SettingsScreen(
-      {super.key, this.onThemeChanged, this.currentTheme = ThemeMode.dark});
-
-  @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  final MusicService _musicService = MusicService();
-  String? _serverTime;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadServerTime();
-  }
-
-  Future<void> _loadServerTime() async {
-    try {
-      final dt = await _musicService.getServerTime();
-      if (dt != null && mounted) {
-        setState(() => _serverTime = dt.toString());
-      }
-    } catch (e, s) {
-      Log.e('Settings', 'server time error', e, s);
-    }
-  }
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -50,35 +24,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
         children: [
-          // 主题
+          // ── 主题 ──
           const _SectionHeader('主题'),
-          RadioGroup<ThemeMode>(
-            groupValue: widget.currentTheme,
-            onChanged: (v) {
-              final mode = v ?? widget.currentTheme;
-              widget.onThemeChanged?.call(mode);
-              Navigator.pop(context);
-            },
-            child: Column(
-              children: [
-                RadioListTile<ThemeMode>(
-                  title: const Text('跟随系统'),
-                  value: ThemeMode.system,
-                ),
-                RadioListTile<ThemeMode>(
-                  title: const Text('浅色模式'),
-                  value: ThemeMode.light,
-                ),
-                RadioListTile<ThemeMode>(
-                  title: const Text('深色模式'),
-                  value: ThemeMode.dark,
-                ),
-              ],
+          ListTile(
+            leading: const Icon(Icons.palette_outlined),
+            title: const Text('主题设置'),
+            subtitle: const Text('主题模式、强调色、动态取色'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const ThemeSettingsScreen()),
             ),
           ),
           const Divider(),
 
-          // 账户
+          // ── 账户 ──
           const _SectionHeader('账户'),
           Consumer<AuthProvider>(
             builder: (_, auth, __) => ListTile(
@@ -100,26 +61,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const Divider(),
 
-          // API 服务
+          // ── API 服务 ──
           const _SectionHeader('API 服务'),
           const _ApiConfigTile(),
           const Divider(),
 
-          // 缓存
+          // ── 缓存 ──
           const _SectionHeader('缓存'),
-          ListTile(
-            title: const Text('服务器时间'),
-            subtitle: Text(_serverTime ?? '获取中...'),
-            trailing: const Icon(Icons.refresh),
-            onTap: _loadServerTime,
-          ),
+          const _ServerTimeTile(),
           ListTile(
             title: const Text('清除缓存'),
             subtitle: const Text('清除临时数据和请求缓存'),
             onTap: () async {
               final messenger = ScaffoldMessenger.of(context);
               await CacheService.instance.clear();
-              if (mounted) {
+              if (context.mounted) {
                 messenger.showSnackBar(
                   const SnackBar(
                       content: Text('缓存已清除'), duration: Duration(seconds: 1)),
@@ -129,7 +85,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const Divider(),
 
-          // 播放设置
+          // ── 播放 ──
           const _SectionHeader('播放'),
           ListTile(
             title: const Text('音效'),
@@ -142,7 +98,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const Divider(),
 
-          // 音频质量
+          // ── 音质 ──
           const _SectionHeader('音质'),
           Consumer<AudioSettingsProvider>(
             builder: (_, settings, __) => Column(
@@ -177,9 +133,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const Divider(),
 
-          // 关于
+          // ── 支持作者 ──
+          const _SectionHeader('支持'),
+          ListTile(
+            leading: const Icon(Icons.favorite_outline),
+            title: const Text('支持作者'),
+            subtitle: const Text('去 GitHub 点个 star 或者赞助'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => showSupportMeDialog(context),
+          ),
+          const Divider(),
+
+          // ── 关于 ──
           const _SectionHeader('关于'),
-          const ListTile(title: Text('版本'), subtitle: Text('1.0.0+1')),
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('关于 NGS-KG+'),
+            subtitle: const Text('版本 1.0.0+1 · 开源声明'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AboutScreen()),
+            ),
+          ),
           ListTile(
             title: const Text('开发者'),
             subtitle: const Text('调试功能'),
@@ -215,9 +191,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+
 }
 
-// ─── 组件 ───
+// ─── 主题色圆点组件 ───
+
+// ─── 通用组件 ───
 
 class _SectionHeader extends StatelessWidget {
   final String title;
@@ -236,12 +215,45 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+class _ServerTimeTile extends StatefulWidget {
+  const _ServerTimeTile();
+  @override
+  State<_ServerTimeTile> createState() => _ServerTimeTileState();
+}
+
+class _ServerTimeTileState extends State<_ServerTimeTile> {
+  final MusicService _musicService = MusicService();
+  String? _serverTime;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final dt = await _musicService.getServerTime();
+      if (dt != null && mounted) {
+        setState(() => _serverTime = dt.toString());
+      }
+    } catch (e, s) {
+      Log.e('Settings', 'server time error', e, s);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: const Text('服务器时间'),
+      subtitle: Text(_serverTime ?? '获取中...'),
+      trailing: const Icon(Icons.refresh),
+      onTap: _load,
+    );
+  }
+}
+
 /// API 服务器地址配置组件
-///
-/// 仿 MoeKoeMusic 的设置页面——支持：
-/// - 输入自定义 API 地址
-/// - 测试连接（调用 /register/dev）
-/// - 恢复默认值
 class _ApiConfigTile extends StatefulWidget {
   const _ApiConfigTile();
   @override

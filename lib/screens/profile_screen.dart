@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/user.dart';
 import '../models/playlist.dart';
 import '../models/song.dart';
+import '../models/vip_info.dart';
 import '../providers/auth_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../providers/player_provider.dart';
@@ -22,7 +23,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final MusicService _musicService = MusicService();
-  Map<String, dynamic>? _vipInfo;
+  VipInfo? _vipInfo;
 
   @override
   void initState() {
@@ -47,9 +48,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final info = await _musicService.getVipInfo();
       if (mounted) {
-        setState(() {
-          _vipInfo = info['data'] as Map<String, dynamic>? ?? info;
-        });
+        setState(() => _vipInfo = info);
       }
     } catch (_) {}
   }
@@ -111,17 +110,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: Theme.of(context).textTheme.titleLarge),
                   if (user.userId != null)
                     Text('ID: ${user.userId}', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                  if (user.isVipActive || _vipInfo != null)
+                  if (user.isVipActive || (_vipInfo?.isVipActive ?? false))
                     Container(
                       margin: const EdgeInsets.only(top: 4),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: cs.primary,
+                        color: _vipInfo?.badgeType.$2 == true ? const Color(0xFFFFD700) : cs.primary,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         _vipText(user),
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onPrimary),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: _vipInfo?.badgeType.$2 == true ? Colors.black87 : cs.onPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                 ],
@@ -205,16 +207,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   String _vipText(User user) {
-    if (_vipInfo != null) {
-      final isVip = _vipInfo!['is_vip'] as int? ?? user.isVip;
-      final vipType = _vipInfo!['vip_type'] as int? ?? user.vipType;
-      if (isVip == 1) {
-        switch (vipType) {
-          case 1: return '付费音乐包';
-          case 6: return '豪华VIP';
-          default: return 'VIP';
-        }
-      }
+    if (_vipInfo?.isVipActive ?? false) {
+      final label = _vipInfo!.displayName;
+      final expire = _vipInfo!.expirationText;
+      if (expire.isNotEmpty) return '$label · $expire';
+      return label;
     }
     return user.vipLevelDisplay;
   }
