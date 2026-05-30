@@ -161,13 +161,17 @@ class _NGSKGAppState extends State<NGSKGApp> {
         return AppRoutes.generateRoute(settings);
       },
       builder: (context, child) {
+        // NavigationBar 的实际高度 = kBottomNavigationBarHeight + 底部安全区
+        // 不加 padding 的话 mini 播放栏会叠加到 NavigationBar 上
+        final bottomNavOffset =
+            kBottomNavigationBarHeight + MediaQuery.of(context).padding.bottom;
         return Stack(
           children: [
             child ?? const SizedBox.shrink(),
             Positioned(
               left: 0,
               right: 0,
-              bottom: kBottomNavigationBarHeight,
+              bottom: bottomNavOffset,
               child: _PlayerBarBottom(),
             ),
             const _ContinuePlayOverlay(),
