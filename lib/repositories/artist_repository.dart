@@ -48,13 +48,14 @@ class ArtistRepository extends BaseRepository {
   /// 获取歌手单曲
   /// API: GET /artist/audios?id=xxx&sort=hot&page=1&pagesize=50
   Future<List<Song>> getArtistAudios(int artistId,
-      {int page = 1, int pageSize = 50, String sort = 'hot'}) async {
-    final res = await get('/artist/audios', params: {
+      {int page = 1, int pageSize = 50, String? sort}) async {
+    final params = <String, dynamic>{
       'id': artistId,
       'page': page,
       'pagesize': pageSize,
-      'sort': sort,
-    });
+    };
+    if (sort != null && sort.isNotEmpty) params['sort'] = sort;
+    final res = await get('/artist/audios', params: params);
     final raw = res['data'];
     if (raw is List) {
       return raw.map((e) {
