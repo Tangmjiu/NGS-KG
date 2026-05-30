@@ -287,7 +287,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           // Page 1: Lyrics
                           AMLyricsView(
                             lyrics: player.lyrics,
-                            position: player.position,
+                            position: _isDraggingProgress
+                                ? Duration(
+                                    milliseconds: (_dragProgressValue *
+                                            player.duration.inMilliseconds)
+                                        .round(),
+                                  )
+                                : player.position,
                             isLoading: _lyricLoading,
                             onSeek: (duration) => player.seek(duration),
                           ),
