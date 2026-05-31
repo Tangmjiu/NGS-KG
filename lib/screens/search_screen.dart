@@ -470,9 +470,17 @@ class _SearchScreenState extends State<SearchScreen>
           cs: cs, tt: tt,
           icon: Icons.queue_music,
           onTap: () {
-            final gcId = item['global_collection_id'] as String? ??
-                item['id']?.toString() ??
-                item['specialid']?.toString();
+                final gcId = item['global_collection_id'] as String?
+                    ?? item['globalCollectionId'] as String?
+                    ?? item['parent_global_collection_id'] as String?
+                    ?? (() {
+                      final listId = item['id'] ?? item['specialid'];
+                      final userId = item['list_create_userid'] ?? item['userid'];
+                      if (listId != null && userId != null) {
+                        return 'collection_3_${userId}_${listId}_0';
+                      }
+                      return listId?.toString();
+                    })();
             if (gcId != null) {
               Navigator.pushNamed(context, '/playlist/detail',
                   arguments: {'gcId': gcId, 'name': item['specialname'] ?? item['name'] ?? ''});
@@ -717,9 +725,17 @@ class _SearchScreenState extends State<SearchScreen>
           title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: Text('$count首歌'),
           onTap: () {
-            final gcId = p['global_collection_id'] as String? ??
-                p['id']?.toString() ??
-                p['specialid']?.toString();
+            final gcId = p['global_collection_id'] as String?
+                ?? p['globalCollectionId'] as String?
+                ?? p['parent_global_collection_id'] as String?
+                ?? (() {
+                  final listId = p['id'] ?? p['specialid'];
+                  final userId = p['list_create_userid'] ?? p['userid'];
+                  if (listId != null && userId != null) {
+                    return 'collection_3_${userId}_${listId}_0';
+                  }
+                  return listId?.toString();
+                })();
             if (gcId != null) {
               Navigator.pushNamed(context, '/playlist/detail',
                   arguments: {'gcId': gcId, 'name': name});
