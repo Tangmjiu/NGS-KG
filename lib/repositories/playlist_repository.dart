@@ -36,9 +36,6 @@ class PlaylistRepository extends BaseRepository {
     final params = <String, dynamic>{
       'id': gcId, 'page': page, 'pagesize': pageSize
     };
-    // 搜索类接口需要 cookie 查询参数
-    final cookie = await _getCookieString();
-    if (cookie != null) params['cookie'] = cookie;
     final res = await get('/playlist/track/all', params: params);
     final data = res['data'];
     List<dynamic>? songs;
@@ -205,12 +202,4 @@ class PlaylistRepository extends BaseRepository {
         params: {'listid': listid, 'fileids': fileids});
   }
 
-  /// 获取 cookie 字符串用于搜索类接口的查询参数
-  Future<String?> _getCookieString() async {
-    try {
-      return await client.getCookieString();
-    } catch (_) {
-      return null;
-    }
-  }
 }
