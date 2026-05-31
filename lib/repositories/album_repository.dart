@@ -10,7 +10,7 @@ class AlbumRepository extends BaseRepository {
   AlbumRepository(super.client);
 
   Future<Album?> getAlbumDetail(int albumId) async {
-    final res = await get('/album/detail', params: {'id': albumId});
+    final res = await get('/album/detail', params: {'id': albumId}, withAuth: false);
     final data = res['data'];
     if (data is Map) return Album.fromJson(Map<String, dynamic>.from(data));
     if (data is List && data.isNotEmpty) return Album.fromJson(Map<String, dynamic>.from(data[0] as Map));
@@ -24,7 +24,7 @@ class AlbumRepository extends BaseRepository {
       'page': page,
       'pagesize': pageSize,
     };
-    final res = await get('/album/songs', params: params);
+    final res = await get('/album/songs', params: params, withAuth: false);
     final data = res['data'];
     List<dynamic>? list;
     if (data is Map) {
@@ -68,7 +68,7 @@ class AlbumRepository extends BaseRepository {
   Future<List<Album>> getTopAlbums({int? type, int page = 1, int pageSize = 30}) async {
     final params = <String, dynamic>{'page': page, 'pagesize': pageSize};
     if (type != null) params['type'] = type;
-    final res = await get('/top/album', params: params);
+    final res = await get('/top/album', params: params, withAuth: false);
     final body = res;
     final raw = body['data'];
     if (raw is List) {

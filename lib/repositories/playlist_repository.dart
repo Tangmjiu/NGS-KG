@@ -36,7 +36,7 @@ class PlaylistRepository extends BaseRepository {
     final params = <String, dynamic>{
       'id': gcId, 'page': page, 'pagesize': pageSize
     };
-    final res = await get('/playlist/track/all', params: params);
+    final res = await get('/playlist/track/all', params: params, withAuth: false);
     final data = res['data'];
     List<dynamic>? songs;
     if (data is Map) {
