@@ -24,7 +24,7 @@ class AlbumRepository extends BaseRepository {
       'page': page,
       'pagesize': pageSize,
     };
-    final res = await get('/album/songs', params: params, withAuth: false);
+    final res = await get('/album/songs', params: params);
     final data = res['data'];
     List<dynamic>? list;
     if (data is Map) {
