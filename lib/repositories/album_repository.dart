@@ -66,7 +66,8 @@ class AlbumRepository extends BaseRepository {
   }
 
   Future<List<Album>> getTopAlbums({int? type, int page = 1, int pageSize = 30}) async {
-    final params = <String, dynamic>{'page': page, 'pagesize': pageSize};
+    // 该服务器不支持 page/pagesize 参数（返回 20010），仅传 type
+    final params = <String, dynamic>{};
     if (type != null) params['type'] = type;
     final res = await get('/top/album', params: params, withAuth: false);
     final body = res;

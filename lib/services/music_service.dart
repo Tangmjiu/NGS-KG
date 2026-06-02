@@ -313,25 +313,12 @@ class MusicService {
     }
   }
 
-  // ─── Sheet / 曲谱（遗留，待删除） ───
-
-  Future<List<Map<String, dynamic>>> getSheetList({int limit = 100}) =>
-      _oneShotGet('/sheet/list', params: {'limit': limit})
-          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+  // ─── 曲谱（Sheet / 乐谱） ───
+  // API 文档: /sheet/song 获取曲谱, /sheet/detail 曲谱详情, /sheet/rank 曲谱排行榜
+  //          /sheet/explore 曲谱广场, /sheet/tags 曲谱标签
 
   Future<Map<String, dynamic>> getSheetDetail(int sheetId) =>
       _oneShotGet('/sheet/detail', params: {'id': sheetId});
-
-  Future<List<Map<String, dynamic>>> getHotSheets() =>
-      _oneShotGet('/sheet/hot')
-          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
-
-  Future<List<Map<String, dynamic>>> getSheetCollections() =>
-      _oneShotGet('/sheet/collection')
-          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
-
-  Future<Map<String, dynamic>> getSheetCollectionDetail(int id) =>
-      _oneShotGet('/sheet/collection', params: {'collection_id': id});
 
   // ─── 乐库 / 电台 ───
 
@@ -359,8 +346,10 @@ class MusicService {
           .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
 
   /// 历史推荐
+  /// API 文档: GET /everyday/history
+  /// mode=list 返回历史推荐列表, mode=song 需传 history_name 和 date
   Future<List<Map<String, dynamic>>> getHistoryRecommend() =>
-      _oneShotGet('/history/recommend')
+      _oneShotGet('/everyday/history', params: {'mode': 'list'})
           .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
 
   /// AI 推荐
