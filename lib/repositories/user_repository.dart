@@ -156,8 +156,12 @@ class UserRepository extends BaseRepository {
   }
 
   Future<void> uploadPlayHistory(int songId, {int? duration}) async {
-    final params = <String, dynamic>{'id': songId};
-    if (duration != null) params['duration'] = duration;
+    // API 文档: mxid=专辑音乐id(MixSongID), ot=秒级时间戳, pc=播放次数
+    final params = <String, dynamic>{'mxid': songId};
+    if (duration != null && duration > 0) {
+      params['ot'] = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      params['pc'] = 1;
+    }
     await get('/playhistory/upload', params: params);
   }
 
