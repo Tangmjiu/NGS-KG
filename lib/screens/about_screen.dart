@@ -105,12 +105,34 @@ class AboutScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
-                  AboutConfig.copyright,
+                RichText(
                   textAlign: TextAlign.center,
-                  style: tt.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontSize: 11,
+                  text: TextSpan(
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontSize: 11,
+                    ),
+                    children: [
+                      const TextSpan(text: 'Copyright © 2025-2026 '),
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.middle,
+                        child: GestureDetector(
+                          onTap: () => launchUrl(
+                            Uri.parse(AboutConfig.mjiutangUrl),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                          child: Text(
+                            'mjiutang',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: cs.primary,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const TextSpan(text: '. All Rights Reserved'),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 8),
