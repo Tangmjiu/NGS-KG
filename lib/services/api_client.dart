@@ -277,7 +277,7 @@ class ApiClient {
 
     _dio = Dio(BaseOptions(
       // 初始 baseUrl — 会被 _DynamicBaseUrlInterceptor 在运行期覆盖
-      baseUrl: ApiConfig.defaultBaseUrl,
+      baseUrl: ApiConfig.chinaUrl,
       connectTimeout: AppConstants.connectTimeout,
       receiveTimeout: AppConstants.receiveTimeout,
       headers: {
