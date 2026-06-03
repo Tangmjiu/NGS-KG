@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
@@ -172,9 +174,9 @@ class _ErrorDialogInterceptor extends Interceptor {
       if (rawMsg != null && rawMsg != message) detailBuf.writeln('\n原始消息: $rawMsg');
       detail = detailBuf.toString();
 
-      // 日志
+      // 日志 — 输出原始响应体便于调试
       final logLabel = label ?? (statusCode != null && statusCode >= 500 ? '服务器错误' : 'API错误');
-      Log.e('ApiClient', '$logLabel $codeStr — $message | $requestPath', err);
+      Log.e('ApiClient', '$logLabel $codeStr — $message | $requestPath | raw: ${jsonEncode(data)}', err);
 
       // 弹窗
       showErrorDialog(
