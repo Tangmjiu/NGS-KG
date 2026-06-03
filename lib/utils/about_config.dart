@@ -53,8 +53,12 @@ class AboutConfig {
 
   // ─── 版权（不可被 dart-define 覆盖） ───
 
+  // ─── mjiutang 个人主页（copyright 中可点击跳转） ───
+
+  static const String mjiutangUrl = 'https://github.com/Tangmjiu';
+
   static const String copyright =
-      'Copyright © 2004-2026 mjiutang. All Rights Reserved';
+      'Copyright © 2025-2026 mjiutang. All Rights Reserved';
 
   static const String copyrightNotice =
       '请遵循当地法律使用该软件，在线服务协议最终解释权由广州酷狗计算机科技有限公司所有。';
