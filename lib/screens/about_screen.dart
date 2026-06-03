@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/theme_assets.dart';
+import '../utils/about_config.dart';
 
 /// 关于页面
+///
+/// 所有显示的文本均由 [AboutConfig] 提供，
+/// 编译时可通过 --dart-define 覆盖（copyright 除外）。
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
-
-  static const _year = 2026;
 
   @override
   Widget build(BuildContext context) {
@@ -38,14 +40,18 @@ class AboutScreen extends StatelessWidget {
                         color: cs.primaryContainer,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Icon(Icons.music_note, size: 40, color: cs.primary),
+                      child:
+                          Icon(Icons.music_note, size: 40, color: cs.primary),
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text('NGS-KG+', style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.w600)),
+                Text(AboutConfig.appName,
+                    style: tt.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
-                Text('版本 1.0.0+1', style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                Text('版本 ${AboutConfig.version}',
+                    style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
               ],
             ),
           ),
@@ -54,9 +60,7 @@ class AboutScreen extends StatelessWidget {
 
           // ── 简介 ──
           Text(
-            '基于酷狗音乐第三方 API 的 Flutter 音乐播放器，'
-            '支持登录、歌单管理、音乐搜索、在线播放、歌词显示、'
-            '排行榜、本地音乐播放等功能。',
+            AboutConfig.description,
             textAlign: TextAlign.center,
             style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
           ),
@@ -68,36 +72,29 @@ class AboutScreen extends StatelessWidget {
             title: '相关链接',
             items: [
               _LinkItem(
-                icon: Icons.code,
-                label: 'GitHub 仓库',
-                url: 'https://github.com/Tangmjiu/NGS-KG/',
-              ),
+                  icon: Icons.code,
+                  label: 'GitHub 仓库',
+                  url: AboutConfig.githubUrl),
               _LinkItem(
-                icon: Icons.api,
-                label: '接口文档',
-                url: 'https://github.com/MakcRe/KuGouMusicApi',
-              ),
+                  icon: Icons.api, label: '接口文档', url: AboutConfig.apiDocUrl),
               _LinkItem(
-                icon: Icons.history,
-                label: '更新日志',
-                url: 'https://github.com/Tangmjiu/NGS-KG/releases',
-              ),
+                  icon: Icons.history,
+                  label: '更新日志',
+                  url: AboutConfig.changelogUrl),
               _LinkItem(
-                icon: Icons.help_outline,
-                label: '常见问题',
-                url: 'https://github.com/Tangmjiu/NGS-KG/blob/main/FAQ.md',
-              ),
+                  icon: Icons.help_outline,
+                  label: '常见问题',
+                  url: AboutConfig.faqUrl),
               _LinkItem(
-                icon: Icons.palette_outlined,
-                label: '主题制作',
-                url: 'https://github.com/Tangmjiu/NGS-KG/blob/main/THEME.md',
-              ),
+                  icon: Icons.palette_outlined,
+                  label: '主题制作',
+                  url: AboutConfig.themeUrl),
             ],
           ),
 
           const SizedBox(height: 32),
 
-          // ── 版权信息 ──
+          // ── 版权信息（不可编辑） ──
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -109,7 +106,7 @@ class AboutScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
-                  'Copyright  2004-$_year KuGou-Inc. All Rights Reserved',
+                  AboutConfig.copyright,
                   textAlign: TextAlign.center,
                   style: tt.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
@@ -118,7 +115,7 @@ class AboutScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '请遵循当地法律使用该软件，在线服务协议最终解释权由广州酷狗计算机科技有限公司所有。',
+                  AboutConfig.copyrightNotice,
                   textAlign: TextAlign.center,
                   style: tt.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
@@ -167,11 +164,19 @@ class _LinkSection extends StatelessWidget {
               final item = entry.value;
               return Column(
                 children: [
-                  if (i > 0) Divider(height: 1, indent: 16, endIndent: 16, color: cs.outlineVariant),
+                  if (i > 0)
+                    Divider(
+                        height: 1,
+                        indent: 16,
+                        endIndent: 16,
+                        color: cs.outlineVariant),
                   ListTile(
-                    leading: Icon(item.icon, size: 20, color: cs.onSurfaceVariant),
-                    title: Text(item.label, style: Theme.of(context).textTheme.bodyMedium),
-                    trailing: Icon(Icons.chevron_right, size: 18, color: cs.onSurfaceVariant),
+                    leading:
+                        Icon(item.icon, size: 20, color: cs.onSurfaceVariant),
+                    title: Text(item.label,
+                        style: Theme.of(context).textTheme.bodyMedium),
+                    trailing: Icon(Icons.chevron_right,
+                        size: 18, color: cs.onSurfaceVariant),
                     onTap: () => _onTap(context, item),
                   ),
                 ],
