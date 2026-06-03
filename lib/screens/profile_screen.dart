@@ -8,6 +8,7 @@ import '../models/vip_info.dart';
 import '../providers/auth_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../providers/player_provider.dart';
+import '../providers/liked_songs_provider.dart';
 import '../services/music_service.dart';
 import '../widgets/playlist_card.dart';
 import '../widgets/create_playlist_dialog.dart';
@@ -97,8 +98,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onTap: () => Navigator.pushNamed(context, '/user/profile'),
               child: CircleAvatar(
                 radius: 32,
-                backgroundImage: user.avatarUrl != null ? CachedNetworkImageProvider(user.avatarUrl!) : null,
-                child: user.avatarUrl == null ? const Icon(Icons.person, size: 32) : null,
+                backgroundImage: user.avatarUrl != null
+                    ? CachedNetworkImageProvider(user.avatarUrl!)
+                    : null,
+                child: user.avatarUrl == null
+                    ? const Icon(Icons.person, size: 32)
+                    : null,
               ),
             ),
             const SizedBox(width: 16),
@@ -109,21 +114,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Text(user.nickname ?? '用户',
                       style: Theme.of(context).textTheme.titleLarge),
                   if (user.userId != null)
-                    Text('ID: ${user.userId}', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                    Text('ID: ${user.userId}',
+                        style: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant)),
                   if (user.isVipActive || (_vipInfo?.isVipActive ?? false))
                     Container(
                       margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: _vipInfo?.badgeType.$2 == true ? const Color(0xFFFFD700) : cs.primary,
+                        color: _vipInfo?.badgeType.$2 == true
+                            ? const Color(0xFFFFD700)
+                            : cs.primary,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         _vipText(user),
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: _vipInfo?.badgeType.$2 == true ? Colors.black87 : cs.onPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
+                              color: _vipInfo?.badgeType.$2 == true
+                                  ? Colors.black87
+                                  : cs.onPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
                       ),
                     ),
                 ],
@@ -217,7 +231,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildPlaylists(PlaylistProvider playlistProv, AuthProvider auth) {
-    if (playlistProv.isLoading) return const Center(child: CircularProgressIndicator());
+    if (playlistProv.isLoading)
+      return const Center(child: CircularProgressIndicator());
 
     if (playlistProv.userPlaylists.isEmpty) {
       return const Padding(
@@ -232,7 +247,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final List<Playlist> unknown = [];
 
     for (final pl in playlistProv.userPlaylists) {
-      if (pl.createUserId != null && userId != null && pl.createUserId == userId) {
+      if (pl.createUserId != null &&
+          userId != null &&
+          pl.createUserId == userId) {
         personal.add(pl);
       } else if (pl.createUserId != null) {
         collected.add(pl);
@@ -256,7 +273,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               TextButton.icon(
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('新建'),
-                onPressed: () => showDialog(context: context, builder: (_) => const CreatePlaylistDialog()),
+                onPressed: () => showDialog(
+                    context: context,
+                    builder: (_) => const CreatePlaylistDialog()),
               ),
             ],
           ),
@@ -294,9 +313,12 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
 
   Future<void> _load() async {
     try {
-      final songs = await _musicService.getPlaylistTracksById(1);
+      final songs = await _musicService
+          .getPlaylistTracksById(LikedSongsProvider.likedListId);
       if (mounted) setState(() => _songs = songs);
-    } catch (e, s) { Log.e('profile_screen', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('profile_screen', 'error', e, s);
+    }
     if (mounted) setState(() => _loading = false);
   }
 
@@ -314,7 +336,9 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
                     final song = _songs[i];
                     return SongTile(
                       song: song,
-                      onTap: (s) => context.read<PlayerProvider>().playSong(s, playlist: _songs),
+                      onTap: (s) => context
+                          .read<PlayerProvider>()
+                          .playSong(s, playlist: _songs),
                     );
                   },
                 ),

@@ -3,6 +3,9 @@ import '../utils/logger.dart';
 import '../services/music_service.dart';
 
 class LikedSongsProvider extends ChangeNotifier {
+  /// 收藏歌单 listid，与酷狗官方客户端同步（2 = "我喜欢"）
+  static const int likedListId = 2;
+
   final MusicService _musicService;
   final Set<int> _likedIds = {};
   final Map<int, int> _fileidMap = {};
@@ -17,7 +20,7 @@ class LikedSongsProvider extends ChangeNotifier {
 
   Future<void> load() async {
     try {
-      final songs = await _musicService.getPlaylistTracksById(1);
+      final songs = await _musicService.getPlaylistTracksById(likedListId);
       _likedIds.clear();
       _fileidMap.clear();
       for (final s in songs) {
@@ -26,7 +29,9 @@ class LikedSongsProvider extends ChangeNotifier {
       }
       _loaded = true;
       notifyListeners();
-    } catch (e, s) { Log.e('liked_songs_provider', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('liked_songs_provider', 'error', e, s);
+    }
   }
 
   Future<bool> toggle(SongInfo song) async {
@@ -42,7 +47,7 @@ class LikedSongsProvider extends ChangeNotifier {
       final data = song.hash.isNotEmpty
           ? '${song.name}|${song.hash}|${song.albumId}|${song.audioId}'
           : song.name;
-      final res = await _musicService.addTracksToPlaylist(1, data);
+      final res = await _musicService.addTracksToPlaylist(likedListId, data);
       _likedIds.add(song.id);
       final dataMap = res['data'] as Map?;
       if (dataMap != null) {
@@ -50,7 +55,8 @@ class LikedSongsProvider extends ChangeNotifier {
         if (info != null && info.isNotEmpty) {
           final fid = (info[0] as Map)['fileid'];
           if (fid != null) {
-            _fileidMap[song.id] = fid is int ? fid : int.tryParse(fid.toString()) ?? 0;
+            _fileidMap[song.id] =
+                fid is int ? fid : int.tryParse(fid.toString()) ?? 0;
           }
         }
       }
@@ -66,7 +72,8 @@ class LikedSongsProvider extends ChangeNotifier {
     try {
       final fileid = _fileidMap[song.id];
       if (fileid != null) {
-        await _musicService.removeTracksFromPlaylist(1, fileid.toString());
+        await _musicService.removeTracksFromPlaylist(
+            likedListId, fileid.toString());
       }
       _likedIds.remove(song.id);
       _fileidMap.remove(song.id);
