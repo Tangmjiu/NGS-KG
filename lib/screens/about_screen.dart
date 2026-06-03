@@ -135,6 +135,15 @@ class AboutScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  'Copyright © 2004-2026 KuGou-Inc. All Rights Reserved',
+                  textAlign: TextAlign.center,
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontSize: 11,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Text(
                   AboutConfig.copyrightNotice,
