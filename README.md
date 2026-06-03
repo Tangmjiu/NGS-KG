@@ -15,7 +15,7 @@
   <a href="#构建">构建</a> ·
   <a href="#API">API</a> ·
   <a href="FAQ.md">FAQ</a> ·
-  <a href="THEME.md">主题制作</a>
+  <a href="https://github.com/Tangmjiu/NGS-KG/blob/android/THEME.md">主题制作</a>
 </p>
 
 ---
@@ -79,7 +79,7 @@ flutter run
 
 ### API 服务器
 
-默认连接公共代理 `http://111.170.14.52:42980`，可在 **设置 → API 服务** 中自定义。
+默认使用 mjiutang 提供的 Cloudflare 公共节点，可在 **设置 → API 服务器** 中选择路线或自定义地址。
 
 也可自建服务端：https://github.com/MakcRe/KuGouMusicApi
 
@@ -167,7 +167,7 @@ lib/
 | 专辑 | `/album/detail` `/album/songs` `/top/album` |
 | 歌手 | `/artist/detail` `/artist/audios` `/artist/albums` `/artist/videos` |
 | 歌单 | `/top/playlist` `/playlist/detail` `/playlist/track/all` |
-| 推荐 | `/everyday/recommend` `/personal/fm` `/history/recommend` `/ai/recommend` |
+| 推荐 | `/everyday/recommend` `/personal/fm` `/everyday/history` `/ai/recommend` |
 | 用户 | `/user/detail` `/user/playlist` `/user/history` `/user/listen` |
 | 电台 | `/fm/recommend` `/fm/songs` `/fm/class` |
 | 乐库 | `/yueku` `/yueku/fm` |
