@@ -43,12 +43,12 @@ class AboutConfig {
 
   static const String faqUrl = String.fromEnvironment(
     'ABOUT_FAQ_URL',
-    defaultValue: 'https://github.com/Tangmjiu/NGS-KG/blob/main/FAQ.md',
+    defaultValue: 'https://github.com/Tangmjiu/NGS-KG/blob/android/FAQ.md',
   );
 
   static const String themeUrl = String.fromEnvironment(
     'ABOUT_THEME_URL',
-    defaultValue: 'https://github.com/Tangmjiu/NGS-KG/blob/main/THEME.md',
+    defaultValue: 'https://github.com/Tangmjiu/NGS-KG/blob/android/THEME.md',
   );
 
   // ─── 版权（不可被 dart-define 覆盖） ───
