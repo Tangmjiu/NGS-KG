@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/icon.png" width="120" alt="NGS-KG+">
+  <img src="assets/images/icon.png" width="120" alt="NGS-KG+">
 </p>
 
 <h1 align="center">NGS-KG+</h1>
