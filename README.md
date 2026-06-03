@@ -157,39 +157,12 @@ lib/
 
 基于 [MakcRe/KuGouMusicApi](https://github.com/MakcRe/KuGouMusicApi) 的 RESTful API。
 
-### 已使用的主要接口
-
-| 分类 | 端点 |
-|------|------|
-| 登录 | `/login/cellphone` `/login/qr/key` `/login/qr/create` `/login/qr/check` |
-| 验证码 | `/captcha/sent` |
-| 歌曲 | `/song/url` `/search` `/search/complex` `/top/song` `/top/card` |
-| 专辑 | `/album/detail` `/album/songs` `/top/album` |
-| 歌手 | `/artist/detail` `/artist/audios` `/artist/albums` `/artist/videos` |
-| 歌单 | `/top/playlist` `/playlist/detail` `/playlist/track/all` |
-| 推荐 | `/everyday/recommend` `/personal/fm` `/everyday/history` `/ai/recommend` |
-| 用户 | `/user/detail` `/user/playlist` `/user/history` `/user/listen` |
-| 电台 | `/fm/recommend` `/fm/songs` `/fm/class` |
-| 乐库 | `/yueku` `/yueku/fm` |
-| 排行榜 | `/rank/list` `/rank/audio` |
-| 编辑精选 | `/top/ip` `/ip/zone` |
-
-### 音质参数
-
-| 参数 | 说明 | 码率 |
-|------|------|------|
-| `128` | 标准 | ~1 MB/min |
-| `320` | HQ | ~2.4 MB/min |
-| `high` | 无损 | ~10 MB/min |
-| `viper_clear` | 蝰蛇超清 | 音质增强 |
-| `super` | DSD | 超高解析 |
-
 ## 免责声明
 
-1. 本项目仅供学习研究使用，请尊重版权
-2. 使用产生的版权数据请在 24 小时内清除
-3. 禁止用于商业行为及非法用途
-4. 音乐平台不易，请支持正版
+1. 本项目基于 [MakcRe/KuGouMusicApi](https://github.com/MakcRe/KuGouMusicApi) 开发，仅供个人学习研究使用，严禁用于商业行为及非法用途
+2. 请尊重音乐版权，使用过程中产生的版权数据请在 24 小时内清除
+3. 本项目不存储任何音乐文件，所有音乐数据均来自酷狗音乐官方 API
+4. 音乐平台不易，请支持正版音乐
 
 ## 协议
 
