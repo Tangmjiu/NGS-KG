@@ -24,7 +24,7 @@ class Playlist {
 
   factory Playlist.fromJson(Map<String, dynamic> json) {
     return Playlist(
-      id: _toInt(json['specialid'] ?? json['id'] ?? 0),
+      id: _toInt(json['specialid'] ?? json['id'] ?? json['listid'] ?? 0),
       name: (json['specialname'] ?? json['name'] ?? '') as String? ?? '',
       coverUrl: _fixCover(json['imgurl'] as String? ?? json['coverImgUrl'] as String? ?? json['pic'] as String?),
       description: json['intro'] as String? ?? json['description'] as String?,
