@@ -15,6 +15,12 @@ class NotificationService {
   static NotificationService get instance => _instance;
   NotificationService._();
 
+  // ─── 回调 ───
+  VoidCallback? onNotificationTap;
+  VoidCallback? onPrev;
+  VoidCallback? onPlayPause;
+  VoidCallback? onNext;
+
   // ─── 原生通信 ───
 
   static const _mediaChannel = MethodChannel('com.kugou.ngskg/media_session');
@@ -23,34 +29,29 @@ class NotificationService {
     StringCodec(),
   );
 
-  // ─── 旧通知备用（fallback） ───
-  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  // ─── 旧通知备用（fallback，仅 Android） ───
+  FlutterLocalNotificationsPlugin? _plugin;
+  FlutterLocalNotificationsPlugin get _pluginInstance =>
+      _plugin ??= FlutterLocalNotificationsPlugin();
   bool _initialized = false;
   final int _notifId = 0;
-
-
-  // ─── 回调 ───
-  VoidCallback? onNotificationTap;
-  VoidCallback? onPrev;
-  VoidCallback? onPlayPause;
-  VoidCallback? onNext;
 
   // ─── 初始化 ───
 
   Future<void> init() async {
     if (_initialized) return;
 
-    // 初始化 flutter_local_notifications（作为备选）
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await _plugin.initialize(
-      const InitializationSettings(android: androidSettings),
-      onDidReceiveNotificationResponse: _onLegacyTap,
-    );
-
-    // Android 13+ 通知权限请求
+    // 初始化 flutter_local_notifications（仅 Android）
     if (Platform.isAndroid) {
+      const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+      await _pluginInstance.initialize(
+        const InitializationSettings(android: androidSettings),
+        onDidReceiveNotificationResponse: _onLegacyTap,
+      );
+
+      // Android 13+ 通知权限请求
       try {
-        final p = _plugin.resolvePlatformSpecificImplementation<
+        final p = _pluginInstance.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
         await p?.requestNotificationsPermission();
       } catch (_) {}
@@ -126,7 +127,7 @@ class NotificationService {
         await _mediaChannel.invokeMethod('release');
       } catch (_) {}
     }
-    await _plugin.cancel(_notifId);
+    await _pluginInstance.cancel(_notifId);
   }
 
   // ─── 旧版通知回退 ───
@@ -163,7 +164,7 @@ class NotificationService {
       ],
     );
 
-    await _plugin.show(
+    await _pluginInstance.show(
       _notifId,
       displayTitle,
       displayBody,
@@ -197,7 +198,7 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
     );
-    await _plugin.show(
+    await _pluginInstance.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
       title,
       body,

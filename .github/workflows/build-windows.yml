@@ -1,0 +1,100 @@
+name: Build Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [windows-desktop]
+  pull_request:
+    branches: [windows-desktop]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install Rust (smtc_windows 依赖)
+        run: |
+          rustup default stable
+
+      - name: Ensure assets directories
+        run: |
+          mkdir -Force assets\icons
+          mkdir -Force assets\images
+
+      - name: Copy app icon to assets/icons
+        run: |
+          Copy-Item windows\runner\resources\app_icon.ico assets\icons\ -Force
+
+      - name: Create placeholder assets if missing
+        run: |
+          $placeholder = @"
+          <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+            <rect width="100" height="100" fill="#2CA1F4"/>
+            <text x="50" y="65" text-anchor="middle" font-size="40" fill="white">♪</text>
+          </svg>
+          "@
+          $required = @('ban.png', 'codecrash.png', 'loading.png', 'sthiswrong.png', 'supportme.png')
+          foreach ($f in $required) {
+            $p = "assets\images\$f"
+            if (-not (Test-Path $p)) {
+              Set-Content -Path $p -Value $placeholder -Encoding utf8
+            }
+          }
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # ── Build debug ──
+      - name: Build Windows debug
+        run: flutter build windows --debug
+
+      - name: Upload debug build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ngskg-windows-debug
+          path: build\windows\x64\runner\Debug
+
+      # ── Build release (MSIX 安装包) ──
+      - name: Build Windows release
+        run: flutter build windows --release
+
+      - name: Upload release build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ngskg-windows-release
+          path: build\windows\x64\runner\Release
+
+      # ── 打包为 ZIP（方便下载） ──
+      - name: Package release as ZIP
+        run: |
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath ngskg-windows.zip
+
+      - name: Upload ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: ngskg-windows.zip
+          path: ngskg-windows.zip
+
+      - name: Get version
+        id: version
+        run: |
+          $ver = Select-String -Path pubspec.yaml -Pattern "^version: (.+)" | ForEach-Object { $_.Matches.Groups[1].Value }
+          echo "version=$ver" >> $env:GITHUB_OUTPUT
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/windows-desktop' && github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: windows-v${{ steps.version.outputs.version }}
+          name: "NGS-KG+ Windows v${{ steps.version.outputs.version }}"
+          body: "Windows 桌面版自动构建"
+          files: ngskg-windows.zip
+          draft: true

@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -28,12 +29,14 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
   }
 
   Future<void> _startScan() async {
-    final status = await Permission.audio.status;
-    if (!status.isGranted) {
-      final result = await Permission.audio.request();
-      if (!result.isGranted && mounted) {
-        setState(() => _permissionDenied = true);
-        return;
+    if (Platform.isAndroid) {
+      final status = await Permission.audio.status;
+      if (!status.isGranted) {
+        final result = await Permission.audio.request();
+        if (!result.isGranted && mounted) {
+          setState(() => _permissionDenied = true);
+          return;
+        }
       }
     }
     _permissionDenied = false;
@@ -127,7 +130,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
                   const Text('需要存储权限才能扫描本地音乐'),
                   const SizedBox(height: 24),
                   FilledButton.tonal(
-                    onPressed: openAppSettings,
+                    onPressed: Platform.isAndroid ? openAppSettings : null,
                     child: const Text('去设置开启'),
                   ),
                 ],

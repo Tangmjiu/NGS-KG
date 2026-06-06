@@ -117,7 +117,7 @@ class _AMLyricsViewState extends State<AMLyricsView> {
 
     final currentH =
         idx < measured ? _lineHeights[idx] : 56.0;
-    final topPad = MediaQuery.of(context).size.height * 0.12;
+    final topPad = (MediaQuery.of(context).size.height * 0.12).clamp(60, 140);
     final sweetSpot = vh * _sweetSpotRatio;
 
     final target = (topPad + offset - sweetSpot + currentH / 2)
@@ -193,8 +193,8 @@ class _AMLyricsViewState extends State<AMLyricsView> {
           child: ListView.builder(
             controller: _scrollController,
             padding: EdgeInsets.only(
-              top: MediaQuery.of(context).size.height * 0.12,
-              bottom: MediaQuery.of(context).size.height * 0.35,
+              top: (MediaQuery.of(context).size.height * 0.12).clamp(60, 140),
+              bottom: (MediaQuery.of(context).size.height * 0.35).clamp(120, 280),
             ),
             itemCount: widget.lyrics.length,
             itemBuilder: (context, index) {

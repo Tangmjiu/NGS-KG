@@ -382,6 +382,13 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     }
   }
 
+  void clearPlaylist() {
+    _queue.setPlaylist([]);
+    _engine.pause();
+    _isPlaying = false;
+    notifyListeners();
+  }
+
   void setPlayMode(PlayMode mode) {
     _queue.setPlayMode(mode);
   }
