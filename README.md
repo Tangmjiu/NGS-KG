@@ -10,7 +10,6 @@
 
 <p align="center">
   <a href="#功能">功能</a> ·
-  <a href="#截图">截图</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#构建">构建</a> ·
   <a href="#API">API</a> ·
@@ -63,7 +62,7 @@ flutter run
 
 ### API 服务器
 
-默认连接公共代理 `http://111.170.14.52:42980`，可在 **设置 → API 服务** 中自定义。
+可在 **设置 → API 服务** 中自定义。
 
 也可自建服务端：https://github.com/MakcRe/KuGouMusicApi
 
