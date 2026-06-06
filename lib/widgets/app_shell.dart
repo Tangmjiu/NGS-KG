@@ -1,4 +1,3 @@
-import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -149,7 +148,7 @@ class _AppShellState extends State<AppShell> {
 }
 
 // ═══════════════════════════════════════════════
-//  桌面版 MiniPlayer
+//  桌面版 MiniPlayer — 跟随主题
 // ═══════════════════════════════════════════════
 
 class _DesktopMiniPlayer extends StatelessWidget {
@@ -158,20 +157,18 @@ class _DesktopMiniPlayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Consumer<PlayerProvider>(
       builder: (_, player, __) {
         final song = player.currentSong;
         if (song == null) return const SizedBox.shrink();
-        final bg = player.backgroundColor ?? const Color(0xFF1A1A1A);
 
         return Container(
           height: 64,
           decoration: BoxDecoration(
-            color: bg.withValues(alpha: 0.92),
+            color: cs.surfaceContainerHighest,
             border: Border(
-              top: BorderSide(
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
+              top: BorderSide(color: cs.outlineVariant, width: 0.5),
             ),
           ),
           child: Material(
@@ -182,10 +179,10 @@ class _DesktopMiniPlayer extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   children: [
-                    _cover(song),
+                    _cover(song, cs),
                     const SizedBox(width: 12),
-                    Expanded(child: _info(song)),
-                    _controls(player),
+                    Expanded(child: _info(song, cs)),
+                    _controls(player, cs),
                   ],
                 ),
               ),
@@ -196,7 +193,7 @@ class _DesktopMiniPlayer extends StatelessWidget {
     );
   }
 
-  Widget _cover(Song song) {
+  Widget _cover(Song song, ColorScheme cs) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(6),
       child: SizedBox(
@@ -207,19 +204,19 @@ class _DesktopMiniPlayer extends StatelessWidget {
                 imageUrl: song.albumCoverUrl!,
                 fit: BoxFit.cover,
                 errorWidget: (_, __, ___) => Container(
-                      color: Colors.white10,
-                      child: const Icon(Icons.music_note, size: 22),
+                      color: cs.surfaceContainerHigh,
+                      child: Icon(Icons.music_note, size: 22, color: cs.onSurfaceVariant),
                     ),
               )
             : Container(
-                color: Colors.white10,
-                child: const Icon(Icons.music_note, size: 22),
+                color: cs.surfaceContainerHigh,
+                child: Icon(Icons.music_note, size: 22, color: cs.onSurfaceVariant),
               ),
       ),
     );
   }
 
-  Widget _info(Song song) {
+  Widget _info(Song song, ColorScheme cs) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -227,35 +224,35 @@ class _DesktopMiniPlayer extends StatelessWidget {
         Text(song.name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: cs.onSurface,
                 fontSize: 14)),
         const SizedBox(height: 1),
         Text(song.artistDisplay,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
+                color: cs.onSurfaceVariant, fontSize: 12)),
       ],
     );
   }
 
-  Widget _controls(PlayerProvider player) {
+  Widget _controls(PlayerProvider player, ColorScheme cs) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _miniBtn(Icons.skip_previous, player.playPrevious),
+        _miniBtn(Icons.skip_previous, player.playPrevious, cs),
         const SizedBox(width: 4),
         Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration: BoxDecoration(
+            color: cs.primary,
             shape: BoxShape.circle,
           ),
           child: IconButton(
             icon: Icon(
               player.isPlaying ? Icons.pause : Icons.play_arrow,
-              color: Colors.black87,
+              color: cs.onPrimary,
               size: 20,
             ),
             onPressed: player.togglePlayPause,
@@ -264,17 +261,17 @@ class _DesktopMiniPlayer extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 4),
-        _miniBtn(Icons.skip_next, player.playNext),
+        _miniBtn(Icons.skip_next, player.playNext, cs),
       ],
     );
   }
 
-  Widget _miniBtn(IconData icon, VoidCallback? onTap) {
+  Widget _miniBtn(IconData icon, VoidCallback? onTap, ColorScheme cs) {
     return SizedBox(
       width: 36,
       height: 36,
       child: IconButton(
-        icon: Icon(icon, size: 20, color: Colors.white70),
+        icon: Icon(icon, size: 20, color: cs.onSurfaceVariant),
         onPressed: onTap,
         padding: EdgeInsets.zero,
       ),
@@ -283,7 +280,7 @@ class _DesktopMiniPlayer extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════
-//  移动版 MiniPlayer（从 main.dart 提取）
+//  移动版 MiniPlayer — 精简版（移除 BackdropFilter 避免 Windows 渲染崩溃）
 // ═══════════════════════════════════════════════
 
 class _MobileMiniPlayer extends StatelessWidget {
@@ -291,153 +288,107 @@ class _MobileMiniPlayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Consumer<PlayerProvider>(
       builder: (_, player, __) {
         final song = player.currentSong;
         if (song == null || player.isPlayerScreenVisible)
           return const SizedBox.shrink();
         final tt = Theme.of(context).textTheme;
-        final dynamicBg = player.backgroundColor;
-        final glassColor =
-            (dynamicBg ?? const Color(0xFF1A1A1A)).withValues(alpha: 0.72);
 
         return Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-              child: GestureDetector(
-                onTap: () => _openPlayer(context, player),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: glassColor,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.25),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
+            child: Container(
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (player.duration.inMilliseconds > 0)
-                        ClipRRect(
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            topRight: Radius.circular(16),
-                          ),
-                          child: LinearProgressIndicator(
-                            value: player.progress.isFinite
-                                ? player.progress
-                                : 0.0,
-                            backgroundColor: Colors.white10,
-                            color: Colors.white38,
-                            minHeight: 2,
-                          ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (player.duration.inMilliseconds > 0)
+                    ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        topRight: Radius.circular(16),
+                      ),
+                      child: LinearProgressIndicator(
+                        value: player.progress.isFinite ? player.progress : 0.0,
+                        backgroundColor: cs.surfaceContainerHigh,
+                        color: cs.primary,
+                        minHeight: 2,
+                      ),
+                    ),
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: 8, right: 12, top: 6,
+                      bottom: MediaQuery.of(context).padding.bottom + 4,
+                    ),
+                    child: Row(
+                      children: [
+                        Hero(
+                          tag: 'album_art_${song.hash ?? song.id}',
+                          child: _miniCover(song, cs),
                         ),
-                      Padding(
-                        padding: EdgeInsets.only(
-                          left: 8,
-                          right: 12,
-                          top: 6,
-                          bottom: MediaQuery.of(context).padding.bottom + 4,
-                        ),
-                        child: Row(
-                          children: [
-                            Hero(
-                              tag: 'album_art_${song.hash ?? song.id}',
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: SizedBox(
-                                  width: 44,
-                                  height: 44,
-                                  child: song.albumCoverUrl != null &&
-                                          song.albumCoverUrl!.isNotEmpty
-                                      ? CachedNetworkImage(
-                                          imageUrl: song.albumCoverUrl!,
-                                          fit: BoxFit.cover,
-                                          placeholder: (_, __) =>
-                                              _fallback(Theme.of(context)
-                                                  .colorScheme),
-                                          errorWidget: (_, __, ___) =>
-                                              _fallback(Theme.of(context)
-                                                  .colorScheme),
-                                        )
-                                      : _fallback(
-                                          Theme.of(context).colorScheme),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(song.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: tt.bodyMedium?.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.white)),
-                                  const SizedBox(height: 2),
-                                  Text(song.artistDisplay,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: tt.labelSmall?.copyWith(
-                                          color: Colors.white70)),
-                                ],
-                              ),
-                            ),
-                            if (player.isLoading)
-                              const Padding(
-                                padding:
-                                    EdgeInsets.symmetric(horizontal: 4),
-                                child: SizedBox(
-                                    width: 28,
-                                    height: 28,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2.5,
-                                        color: Colors.white70)),
-                              )
-                            else ...[
-                              _mobileBtn(
-                                  Icons.skip_previous, player.playPrevious),
-                              const SizedBox(width: 4),
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: IconButton(
-                                  icon: Icon(
-                                    player.isPlaying
-                                        ? Icons.pause
-                                        : Icons.play_arrow,
-                                    color: Colors.black87,
-                                    size: 22,
-                                  ),
-                                  onPressed: player.togglePlayPause,
-                                  padding: EdgeInsets.zero,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              _mobileBtn(
-                                  Icons.skip_next, player.playNext),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(song.name,
+                                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                                  style: tt.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: cs.onSurface)),
+                              const SizedBox(height: 2),
+                              Text(song.artistDisplay,
+                                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                                  style: tt.labelSmall?.copyWith(
+                                      color: cs.onSurfaceVariant)),
                             ],
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
+                        if (player.isLoading)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: SizedBox(width: 28, height: 28,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2.5, color: cs.primary)),
+                          )
+                        else ...[
+                          _mobileBtn(Icons.skip_previous, player.playPrevious, cs),
+                          const SizedBox(width: 4),
+                          Container(
+                            width: 40, height: 40,
+                            decoration: BoxDecoration(
+                              color: cs.primary, shape: BoxShape.circle,
+                            ),
+                            child: IconButton(
+                              icon: Icon(
+                                player.isPlaying ? Icons.pause : Icons.play_arrow,
+                                color: cs.onPrimary, size: 22,
+                              ),
+                              onPressed: player.togglePlayPause,
+                              padding: EdgeInsets.zero,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          _mobileBtn(Icons.skip_next, player.playNext, cs),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
@@ -446,39 +397,42 @@ class _MobileMiniPlayer extends StatelessWidget {
     );
   }
 
-  Widget _fallback(ColorScheme cs) => Container(
-        color: cs.surfaceContainerHighest,
-        child: const Icon(Icons.music_note, size: 22),
-      );
+  Widget _miniCover(Song song, ColorScheme cs) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: SizedBox(
+        width: 44, height: 44,
+        child: song.albumCoverUrl != null && song.albumCoverUrl!.isNotEmpty
+            ? CachedNetworkImage(
+                imageUrl: song.albumCoverUrl!,
+                fit: BoxFit.cover,
+                errorWidget: (_, __, ___) => Container(
+                  color: cs.surfaceContainerHigh,
+                  child: Icon(Icons.music_note, size: 22, color: cs.onSurfaceVariant),
+                ),
+              )
+            : Container(
+                color: cs.surfaceContainerHigh,
+                child: Icon(Icons.music_note, size: 22, color: cs.onSurfaceVariant),
+              ),
+      ),
+    );
+  }
 
-  Widget _mobileBtn(IconData icon, VoidCallback? onTap) {
+  Widget _mobileBtn(IconData icon, VoidCallback? onTap, ColorScheme cs) {
     return SizedBox(
-      width: 36,
-      height: 36,
+      width: 36, height: 36,
       child: IconButton(
-        icon: Icon(icon, size: 22, color: Colors.white70),
+        icon: Icon(icon, size: 22, color: cs.onSurfaceVariant),
         onPressed: onTap,
         padding: EdgeInsets.zero,
       ),
     );
   }
-
-  void _openPlayer(BuildContext context, PlayerProvider player) {
-    player.setPlayerScreenVisible(true);
-    Navigator.push(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const PlayerScreen(),
-        transitionsBuilder: (_, animation, __, child) =>
-            FadeTransition(opacity: animation, child: child),
-        transitionDuration: const Duration(milliseconds: 300),
-      ),
-    ).then((_) => player.setPlayerScreenVisible(false));
-  }
 }
 
 // ═══════════════════════════════════════════════
-//  Overlay handlers（从 main.dart 迁入）
+//  Overlay handlers（简化版）
 // ═══════════════════════════════════════════════
 
 class _ContinuePlayOverlay extends StatefulWidget {

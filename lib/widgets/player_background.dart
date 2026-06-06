@@ -37,7 +37,7 @@ class PlayerBackground extends StatelessWidget {
               height: double.infinity,
               imageBuilder: (context, imageProvider) {
                 return ImageFiltered(
-                  imageFilter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
+                  imageFilter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                   child: Image(
                     image: imageProvider,
                     fit: BoxFit.cover,
