@@ -58,26 +58,9 @@ Future<void> main() async {
     try {
       Log.e('RENDER', details.exceptionAsString(), details.exception,
           details.stack);
-    } catch (_) {
-      // Log may not be ready during early build �?debugPrint already fired
-    }
-    return Container(
-      color: const Color(0xFF1A1C19),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ThemeImage(
-              assetPath: ThemeAssets.codecrash,
-              width: 120,
-              height: 120,
-            ),
-            const SizedBox(height: 12),
-            const Text('渲染异常',
-                style: TextStyle(color: Colors.white70, fontSize: 16)),
-          ],
-        ),
-      ),
+    } catch (_) {}
+    return const Center(
+      child: Text('渲染异常', style: TextStyle(color: Colors.white70, fontSize: 16)),
     );
   };
 
