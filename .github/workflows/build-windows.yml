@@ -1,4 +1,4 @@
-name: Build Windows
+name: Build Windows (Debug Only)
 
 on:
   workflow_dispatch:
@@ -21,8 +21,7 @@ jobs:
           channel: 'stable'
 
       - name: Install Rust (smtc_windows 依赖)
-        run: |
-          rustup default stable
+        run: rustup default stable
 
       - name: Ensure assets directories
         run: |
@@ -30,8 +29,7 @@ jobs:
           mkdir -Force assets\images
 
       - name: Copy app icon to assets/icons
-        run: |
-          Copy-Item windows\runner\resources\app_icon.ico assets\icons\ -Force
+        run: Copy-Item windows\runner\resources\app_icon.ico assets\icons\ -Force
 
       - name: Create placeholder assets if missing
         run: |
@@ -44,15 +42,12 @@ jobs:
           $required = @('ban.png', 'codecrash.png', 'loading.png', 'sthiswrong.png', 'supportme.png')
           foreach ($f in $required) {
             $p = "assets\images\$f"
-            if (-not (Test-Path $p)) {
-              Set-Content -Path $p -Value $placeholder -Encoding utf8
-            }
+            if (-not (Test-Path $p)) { Set-Content -Path $p -Value $placeholder -Encoding utf8 }
           }
 
       - name: Get dependencies
         run: flutter pub get
 
-      # ── Build debug ──
       - name: Build Windows debug
         run: flutter build windows --debug
 
@@ -61,40 +56,3 @@ jobs:
         with:
           name: ngskg-windows-debug
           path: build\windows\x64\runner\Debug
-
-      # ── Build release (MSIX 安装包) ──
-      - name: Build Windows release
-        run: flutter build windows --release
-
-      - name: Upload release build
-        uses: actions/upload-artifact@v4
-        with:
-          name: ngskg-windows-release
-          path: build\windows\x64\runner\Release
-
-      # ── 打包为 ZIP（方便下载） ──
-      - name: Package release as ZIP
-        run: |
-          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath ngskg-windows.zip
-
-      - name: Upload ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: ngskg-windows.zip
-          path: ngskg-windows.zip
-
-      - name: Get version
-        id: version
-        run: |
-          $ver = Select-String -Path pubspec.yaml -Pattern "^version: (.+)" | ForEach-Object { $_.Matches.Groups[1].Value }
-          echo "version=$ver" >> $env:GITHUB_OUTPUT
-
-      - name: Create Release
-        if: github.ref == 'refs/heads/windows-desktop' && github.event_name == 'push'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: windows-v${{ steps.version.outputs.version }}
-          name: "NGS-KG+ Windows v${{ steps.version.outputs.version }}"
-          body: "Windows 桌面版自动构建"
-          files: ngskg-windows.zip
-          draft: true
