@@ -357,6 +357,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.of(context).size.width >= 880;
     return Scaffold(
       body: IndexedStack(
         index: _currentTab,
@@ -366,24 +367,26 @@ class _HomeScreenState extends State<HomeScreen> {
           const ProfileScreen(),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentTab,
-        onDestinationSelected: (i) => setState(() => _currentTab = i),
-        destinations: const [
-          NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: '首页'),
-          NavigationDestination(
-              icon: Icon(Icons.explore_outlined),
-              selectedIcon: Icon(Icons.explore),
-              label: '发现'),
-          NavigationDestination(
-              icon: Icon(Icons.person_outlined),
-              selectedIcon: Icon(Icons.person),
-              label: '我的'),
-        ],
-      ),
+      bottomNavigationBar: isDesktop
+          ? null
+          : NavigationBar(
+              selectedIndex: _currentTab,
+              onDestinationSelected: (i) => setState(() => _currentTab = i),
+              destinations: const [
+                NavigationDestination(
+                    icon: Icon(Icons.home_outlined),
+                    selectedIcon: Icon(Icons.home),
+                    label: '首页'),
+                NavigationDestination(
+                    icon: Icon(Icons.explore_outlined),
+                    selectedIcon: Icon(Icons.explore),
+                    label: '发现'),
+                NavigationDestination(
+                    icon: Icon(Icons.person_outlined),
+                    selectedIcon: Icon(Icons.person),
+                    label: '我的'),
+              ],
+            ),
     );
   }
 

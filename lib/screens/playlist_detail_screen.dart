@@ -60,7 +60,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           return CustomScrollView(
             slivers: [
               SliverAppBar(
-                expandedHeight: MediaQuery.of(context).size.height * 0.32,
+                expandedHeight: (MediaQuery.of(context).size.height * 0.32).clamp(180, 300),
                 pinned: true,
                 flexibleSpace: FlexibleSpaceBar(
                   background: Stack(

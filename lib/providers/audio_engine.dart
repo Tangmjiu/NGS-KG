@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import '../utils/logger.dart';
 import '../utils/error_dialog.dart';
@@ -88,6 +89,7 @@ class AudioEngine {
   }
 
   void _initSession() {
+    if (!Platform.isAndroid) return; // 仅 Android 需要 audio focus
     AudioSession.instance.then((session) => session.configure(const AudioSessionConfiguration(
       androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
       androidWillPauseWhenDucked: true,

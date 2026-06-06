@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
@@ -15,20 +15,23 @@ class CacheService {
 
   Future<void> init() async {
     if (_initialized) return;
+    // sqfliteFfiInit() 在 main.dart 启动时已调用
     final dir = await getApplicationDocumentsDirectory();
-    _db = await openDatabase(
+    _db = await databaseFactoryFfi.openDatabase(
       path.join(dir.path, 'cache.db'),
-      version: 1,
-      onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE cache (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL,
-            expires_at INTEGER NOT NULL
-          )
-        ''');
-        await db.execute('CREATE INDEX idx_expires ON cache(expires_at)');
-      },
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, version) async {
+          await db.execute('''
+            CREATE TABLE cache (
+              key TEXT PRIMARY KEY,
+              value TEXT NOT NULL,
+              expires_at INTEGER NOT NULL
+            )
+          ''');
+          await db.execute('CREATE INDEX idx_expires ON cache(expires_at)');
+        },
+      ),
     );
     _initialized = true;
     _cleanExpired();
@@ -47,9 +50,8 @@ class CacheService {
 
   Future<void> _enforceCapacity() async {
     if (_db == null) return;
-    final count = Sqflite.firstIntValue(
-      await _db!.rawQuery('SELECT COUNT(*) FROM cache'),
-    ) ?? 0;
+    final count = (await _db!.rawQuery('SELECT COUNT(*) as cnt FROM cache'))
+            .firstOrNull?['cnt'] as int? ?? 0;
     if (count >= _maxCacheCount) {
       await _db!.rawDelete('''
         DELETE FROM cache WHERE key IN (

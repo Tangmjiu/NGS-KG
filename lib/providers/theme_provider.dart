@@ -309,41 +309,48 @@ class ThemeProvider extends ChangeNotifier {
     navigationBarIndicatorOpacity: 0.2,
   );
 
+  /// 各分支公用的 NavigationRail 主题
+  NavigationRailThemeData get _navRailTheme => const NavigationRailThemeData(
+    labelType: NavigationRailLabelType.all,
+    minWidth: 72,
+    groupAlignment: 0.0,
+  );
+
   /// 构建浅色主题
   ///
   /// [dynamicScheme] 由 main.dart 的 DynamicColorBuilder 提供
   /// （Android 12+ 壁纸动态色），仅 _useMonet=true 时生效。
   ThemeData buildLightTheme(BuildContext context, {ColorScheme? dynamicScheme}) {
-    // Monet 动态取色
+    final ThemeData base;
     if (_useMonet) {
-      return FlexThemeData.light(
+      base = FlexThemeData.light(
         colorScheme: _monetScheme(Brightness.light, dynamicScheme: dynamicScheme),
         surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
         blendLevel: 20,
         appBarElevation: 0,
         subThemesData: _subThemesData,
       );
+    } else {
+      final preset = currentPreset;
+      if (preset != null) {
+        base = FlexThemeData.light(
+          colors: preset.schemeColor,
+          surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
+          blendLevel: 20,
+          appBarElevation: 0,
+          subThemesData: _subThemesData,
+        );
+      } else {
+        base = FlexThemeData.light(
+          colors: FlexSchemeColor.from(primary: _customColor, brightness: Brightness.light),
+          surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
+          blendLevel: 20,
+          appBarElevation: 0,
+          subThemesData: _subThemesData,
+        );
+      }
     }
-
-    final preset = currentPreset;
-    if (preset != null) {
-      return FlexThemeData.light(
-        colors: preset.schemeColor,
-        surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
-        blendLevel: 20,
-        appBarElevation: 0,
-        subThemesData: _subThemesData,
-      );
-    }
-
-    // 自定义色
-    return FlexThemeData.light(
-      colors: FlexSchemeColor.from(primary: _customColor, brightness: Brightness.light),
-      surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
-      blendLevel: 20,
-      appBarElevation: 0,
-      subThemesData: _subThemesData,
-    );
+    return base.copyWith(navigationRailTheme: _navRailTheme);
   }
 
   /// 构建深色主题
@@ -351,47 +358,48 @@ class ThemeProvider extends ChangeNotifier {
   /// [dynamicScheme] 由 main.dart 的 DynamicColorBuilder 提供
   /// （Android 12+ 壁纸动态色），仅 _useMonet=true 时生效。
   ThemeData buildDarkTheme(BuildContext context, {ColorScheme? dynamicScheme}) {
+    final ThemeData base;
     if (_useMonet) {
-      return FlexThemeData.dark(
+      base = FlexThemeData.dark(
         colorScheme: _monetScheme(Brightness.dark, dynamicScheme: dynamicScheme),
         surfaceMode: FlexSurfaceMode.highScaffoldLowSurfaces,
         blendLevel: 15,
         appBarElevation: 0,
         subThemesData: _subThemesData,
       );
+    } else {
+      final preset = currentPreset;
+      if (preset != null) {
+        base = FlexThemeData.dark(
+          colors: preset.darkSchemeColor,
+          surfaceMode: FlexSurfaceMode.highScaffoldLowSurfaces,
+          blendLevel: 15,
+          appBarElevation: 0,
+          subThemesData: _subThemesData,
+        );
+      } else {
+        base = FlexThemeData.dark(
+          colors: FlexSchemeColor.from(primary: _customColor, brightness: Brightness.dark),
+          surfaceMode: FlexSurfaceMode.highScaffoldLowSurfaces,
+          blendLevel: 15,
+          appBarElevation: 0,
+          subThemesData: _subThemesData,
+        );
+      }
     }
-
-    final preset = currentPreset;
-    if (preset != null) {
-      return FlexThemeData.dark(
-        colors: preset.darkSchemeColor,
-        surfaceMode: FlexSurfaceMode.highScaffoldLowSurfaces,
-        blendLevel: 15,
-        appBarElevation: 0,
-        subThemesData: _subThemesData,
-      );
-    }
-
-    // 自定义色
-    return FlexThemeData.dark(
-      colors: FlexSchemeColor.from(primary: _customColor, brightness: Brightness.dark),
-      surfaceMode: FlexSurfaceMode.highScaffoldLowSurfaces,
-      blendLevel: 15,
-      appBarElevation: 0,
-      subThemesData: _subThemesData,
-    );
+    return base.copyWith(navigationRailTheme: _navRailTheme);
   }
 
   // ─── Monet 动态取色 ───
 
   /// 获取 Android 12+ 动态色方案
   ///
-  /// 优先使用 [dynamic_color] 包提供的系统壁纸色，
-  /// 回退到 ColorScheme.fromSeed 用预设色生成。
+  /// 优先使用 [dynamic_color] 包提供的系统壁纸色（仅 Android 12+），
+  /// 回退到 ColorScheme.fromSeed 用当前用户强调色生成。
   ColorScheme _monetScheme(Brightness brightness, {ColorScheme? dynamicScheme}) {
     if (dynamicScheme != null) return dynamicScheme;
     return ColorScheme.fromSeed(
-      seedColor: const Color(0xFF2CA1F4),
+      seedColor: effectiveColor,
       brightness: brightness,
     );
   }

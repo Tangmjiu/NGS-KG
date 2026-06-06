@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:provider/provider.dart';
@@ -77,15 +78,17 @@ class ThemeSettingsScreen extends StatelessWidget {
             const Divider(),
 
             // ── Monet ──
-            const _GroupHeader('动态取色'),
-            SwitchListTile(
-              secondary: const Icon(Icons.wallpaper),
-              title: const Text('Material You'),
-              subtitle: const Text('跟随壁纸颜色自动适配（Android 12+）'),
-              value: tp.useMonet,
-              onChanged: (v) => tp.setUseMonet(v),
-            ),
-            const Divider(),
+            if (Platform.isAndroid) ...[
+              const _GroupHeader('动态取色'),
+              SwitchListTile(
+                secondary: const Icon(Icons.wallpaper),
+                title: const Text('Material You'),
+                subtitle: const Text('跟随壁纸颜色自动适配（Android 12+）'),
+                value: tp.useMonet,
+                onChanged: (v) => tp.setUseMonet(v),
+              ),
+              const Divider(),
+            ],
 
             // ── 主题包导入 ──
             const _GroupHeader('主题包'),
