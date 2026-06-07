@@ -57,7 +57,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           final hasDesc = desc != null && desc.isNotEmpty;
           final songCount = detail.songs.length;
 
-          return CustomScrollView(
+          final isWide = MediaQuery.of(context).size.width >= 880;
+
+          Widget mainContent = CustomScrollView(
             slivers: [
               SliverAppBar(
                 expandedHeight: (MediaQuery.of(context).size.height * 0.32).clamp(180, 300),
@@ -83,7 +85,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                             end: Alignment.bottomCenter,
                             colors: [
                               Colors.transparent,
-                              Colors.black.withValues(alpha: 0.7),
+                              cs.scrim.withValues(alpha: 0.7),
                             ],
                           ),
                         ),
@@ -98,13 +100,13 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           children: [
                             Text(name,
                                 style: tt.titleLarge
-                                    ?.copyWith(color: Colors.white),
+                                    ?.copyWith(color: cs.onSurface),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis),
                             const SizedBox(height: 4),
                             Text('$songCount 首',
                                 style: tt.bodySmall
-                                    ?.copyWith(color: Colors.white70)),
+                                    ?.copyWith(color: cs.onSurfaceVariant)),
                           ],
                         ),
                       ),
@@ -165,6 +167,16 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               const SliverToBoxAdapter(child: SizedBox(height: 24)),
             ],
           );
+
+          if (isWide) {
+            mainContent = Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: mainContent,
+              ),
+            );
+          }
+          return mainContent;
         },
       ),
     );

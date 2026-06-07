@@ -164,28 +164,43 @@ class _FmScreenState extends State<FmScreen> {
                     ],
                   ),
                 )
-              : ListView(
-                  children: [
-                    if (_yuekuFm.isNotEmpty) _buildYuekuFmSection(cs, tt),
-                    if (_radios.isNotEmpty) ...[
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                        child: Row(
-                          children: [
-                            Text('推荐电台',
-                                style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-                            const SizedBox(width: 8),
-                            Text('${_radios.length} 个',
-                                style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
-                          ],
-                        ),
-                      ),
-                      ..._buildRadioList(),
-                      const SizedBox(height: 24),
-                    ],
-                  ],
-                ),
+              : _buildBodyContent(cs, tt),
     );
+  }
+
+  /// 构建带桌面端宽度约束的主体内容
+  Widget _buildBodyContent(ColorScheme cs, TextTheme tt) {
+    final isWide = MediaQuery.sizeOf(context).width >= 880;
+    Widget child = ListView(
+      children: [
+        if (_yuekuFm.isNotEmpty) _buildYuekuFmSection(cs, tt),
+        if (_radios.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+            child: Row(
+              children: [
+                Text('推荐电台',
+                    style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(width: 8),
+                Text('${_radios.length} 个',
+                    style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+              ],
+            ),
+          ),
+          ..._buildRadioList(),
+          const SizedBox(height: 24),
+        ],
+      ],
+    );
+    if (isWide) {
+      child = Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: child,
+        ),
+      );
+    }
+    return child;
   }
 
   // ────────── 乐库电台 ──────────
@@ -203,7 +218,7 @@ class _FmScreenState extends State<FmScreen> {
                   gradient: const LinearGradient(colors: [Color(0xFFFF6B6B), Color(0xFFFFE66D)]),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Icon(Icons.radio, color: Colors.white, size: 16),
+                child: Icon(Icons.radio, color: cs.onSurface, size: 16),
               ),
               const SizedBox(width: 10),
               Text('乐库电台', style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
@@ -235,8 +250,8 @@ class _FmScreenState extends State<FmScreen> {
       width: 100,
       margin: const EdgeInsets.only(right: 12),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2D2D2D), Color(0xFF1A1A2E)],
+        gradient: LinearGradient(
+          colors: [cs.surfaceContainerHighest, cs.surfaceContainerHighest],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -336,7 +351,7 @@ class _FmScreenState extends State<FmScreen> {
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                       colors: [
-                        Colors.black.withValues(alpha: 0.7),
+                        cs.scrim.withValues(alpha: 0.7),
                         Colors.transparent,
                       ],
                     ),
@@ -348,8 +363,8 @@ class _FmScreenState extends State<FmScreen> {
                       Text(name,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: cs.onSurface,
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             height: 1.2,
@@ -358,11 +373,11 @@ class _FmScreenState extends State<FmScreen> {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Icon(Icons.play_circle_fill,
-                                color: Colors.white70, size: 14),
+                            Icon(Icons.play_circle_fill,
+                                color: cs.onSurfaceVariant, size: 14),
                             const SizedBox(width: 4),
-                            const Text('播放',
-                                style: TextStyle(color: Colors.white70, fontSize: 11)),
+                            Text('播放',
+                                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11)),
                           ],
                         ),
                       ],
@@ -378,10 +393,10 @@ class _FmScreenState extends State<FmScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.3),
+                      color: cs.onSurface.withValues(alpha: 0.3),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.check, color: Colors.white, size: 14),
+                    child: Icon(Icons.check, color: cs.onSurface, size: 14),
                   ),
                 ),
             ],

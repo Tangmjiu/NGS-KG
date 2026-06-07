@@ -89,6 +89,7 @@ class DesktopService {
     bool? isPlaying,
     int? positionMs,
     int? durationMs,
+    String? lyricText,
   }) {
     if (_smtc == null) return;
     try {
@@ -100,6 +101,13 @@ class DesktopService {
           artist: song.artistDisplay ?? '',
           thumbnail: song.albumCoverUrl ?? '',
         ));
+        // 同时更新托盘提示显示当前歌词
+        final tip = lyricText != null && lyricText.isNotEmpty
+            ? '${song.name ?? ''} - ${song.artistDisplay ?? ''}\n$lyricText'
+            : '${song.name ?? ''} - ${song.artistDisplay ?? ''}';
+        try {
+          trayManager.setToolTip(tip);
+        } catch (_) {}
       }
       if (isPlaying != null) {
         _smtc!.setPlaybackStatus(
@@ -173,9 +181,18 @@ class DesktopService {
   Future<void> _initWindow() async {
     try {
       await windowManager.setMinimumSize(const Size(960, 600));
+      // 关闭按钮 → 隐藏到托盘，不退出
+      await windowManager.setPreventClose(true);
+      windowManager.addListener(_CloseToTrayListener(this));
     } catch (e) {
       debugPrint('DesktopService: Window init error: $e');
     }
+  }
+
+  void _hideWindow() async {
+    try {
+      await windowManager.hide();
+    } catch (_) {}
   }
 
   Future<void> setCloseToTray(bool enabled) async {
@@ -186,5 +203,16 @@ class DesktopService {
 
   Future<void> dispose() async {
     _smtc?.dispose();
+  }
+}
+
+/// 关闭按钮 → 隐藏到托盘
+class _CloseToTrayListener extends WindowListener {
+  final DesktopService _service;
+  _CloseToTrayListener(this._service);
+
+  @override
+  void onWindowClose() {
+    _service._hideWindow();
   }
 }

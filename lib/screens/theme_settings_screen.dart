@@ -10,164 +10,176 @@ class ThemeSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isWide = MediaQuery.of(context).size.width >= 880;
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('主题')),
       body: Consumer<ThemeProvider>(
-        builder: (_, tp, __) => ListView(
-          children: [
-            // ── 主题模式 ──
-            const _GroupHeader('主题模式'),
-            RadioListTile<ThemeMode>(
-              title: const Text('跟随系统'),
-              value: ThemeMode.system,
-              groupValue: tp.themeMode,
-              onChanged: (v) => tp.setThemeMode(v ?? ThemeMode.dark),
-            ),
-            RadioListTile<ThemeMode>(
-              title: const Text('浅色模式'),
-              value: ThemeMode.light,
-              groupValue: tp.themeMode,
-              onChanged: (v) => tp.setThemeMode(v ?? ThemeMode.dark),
-            ),
-            RadioListTile<ThemeMode>(
-              title: const Text('深色模式'),
-              value: ThemeMode.dark,
-              groupValue: tp.themeMode,
-              onChanged: (v) => tp.setThemeMode(v ?? ThemeMode.dark),
-            ),
-            const Divider(),
-
-            // ── 强调色 ──
-            const _GroupHeader('强调色'),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('当前: ${tp.accentLabel}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                          )),
-                  const SizedBox(height: 12),
-                  // 预设色圆点网格
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 14,
-                    children: [
-                      ...kThemePresets.map((preset) => _ColorDot(
-                            color: preset.lightPrimary,
-                            selected: tp.accentKey == preset.key,
-                            label: preset.label,
-                            onTap: () => tp.setAccent(preset.key),
-                          )),
-                      // 自定义取色
-                      _ColorDot(
-                        color: tp.accentKey == 'custom'
-                            ? tp.customColor
-                            : Colors.grey,
-                        selected: tp.accentKey == 'custom',
-                        label: '取色',
-                        icon: Icons.colorize,
-                        onTap: () => _showColorPicker(context, tp),
-                      ),
-                    ],
-                  ),
-                ],
+        builder: (_, tp, __) {
+          final listView = ListView(
+            children: [
+              // ── 主题模式 ──
+              const _GroupHeader('主题模式'),
+              RadioListTile<ThemeMode>(
+                title: const Text('跟随系统'),
+                value: ThemeMode.system,
+                groupValue: tp.themeMode,
+                onChanged: (v) => tp.setThemeMode(v ?? ThemeMode.dark),
               ),
-            ),
-            const Divider(),
-
-            // ── Monet ──
-            if (Platform.isAndroid) ...[
-              const _GroupHeader('动态取色'),
-              SwitchListTile(
-                secondary: const Icon(Icons.wallpaper),
-                title: const Text('Material You'),
-                subtitle: const Text('跟随壁纸颜色自动适配（Android 12+）'),
-                value: tp.useMonet,
-                onChanged: (v) => tp.setUseMonet(v),
+              RadioListTile<ThemeMode>(
+                title: const Text('浅色模式'),
+                value: ThemeMode.light,
+                groupValue: tp.themeMode,
+                onChanged: (v) => tp.setThemeMode(v ?? ThemeMode.dark),
+              ),
+              RadioListTile<ThemeMode>(
+                title: const Text('深色模式'),
+                value: ThemeMode.dark,
+                groupValue: tp.themeMode,
+                onChanged: (v) => tp.setThemeMode(v ?? ThemeMode.dark),
               ),
               const Divider(),
-            ],
 
-            // ── 主题包导入 ──
-            const _GroupHeader('主题包'),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (tp.loadedTheme != null) ...[
-                    Row(
+              // ── 强调色 ──
+              const _GroupHeader('强调色'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('当前: ${tp.accentLabel}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                            )),
+                    const SizedBox(height: 12),
+                    // 预设色圆点网格
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 14,
                       children: [
-                        const Icon(Icons.check_circle, size: 18, color: Colors.green),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '当前: ${tp.loadedTheme!.name}',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
+                        ...kThemePresets.map((preset) => _ColorDot(
+                              color: preset.lightPrimary,
+                              selected: tp.accentKey == preset.key,
+                              label: preset.label,
+                              onTap: () => tp.setAccent(preset.key),
+                            )),
+                        // 自定义取色
+                        _ColorDot(
+                          color: tp.accentKey == 'custom'
+                              ? tp.customColor
+                              : cs.outline,
+                          selected: tp.accentKey == 'custom',
+                          label: '取色',
+                          icon: Icons.colorize,
+                          onTap: () => _showColorPicker(context, tp),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '作者: ${tp.loadedTheme!.author}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      label: const Text('移除主题包'),
-                      onPressed: () {
-                        tp.removeTheme();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('已恢复默认主题')),
-                        );
-                      },
-                    ),
-                  ] else ...[
-                    const Text('导入 ZIP 主题包可替换全部状态图片和主题色',
-                        style: TextStyle(fontSize: 13)),
-                    const SizedBox(height: 8),
-                    FilledButton.icon(
-                      icon: const Icon(Icons.file_open, size: 18),
-                      label: const Text('导入 .zip 主题'),
-                      onPressed: () async {
-                        final ok = await tp.importTheme();
-                        if (ok && context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('主题包导入成功')),
-                          );
-                        } else if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('导入失败或已取消')),
-                          );
-                        }
-                      },
-                    ),
                   ],
-                ],
+                ),
               ),
-            ),
-            const Divider(),
+              const Divider(),
 
-            // ── 预览 ──
-            const _GroupHeader('预览'),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  _previewCard(context, Brightness.light),
-                  const SizedBox(height: 12),
-                  _previewCard(context, Brightness.dark),
-                ],
+              // ── Monet ──
+              if (Platform.isAndroid) ...[
+                const _GroupHeader('动态取色'),
+                SwitchListTile(
+                  secondary: const Icon(Icons.wallpaper),
+                  title: const Text('Material You'),
+                  subtitle: const Text('跟随壁纸颜色自动适配（Android 12+）'),
+                  value: tp.useMonet,
+                  onChanged: (v) => tp.setUseMonet(v),
+                ),
+                const Divider(),
+              ],
+
+              // ── 主题包导入 ──
+              const _GroupHeader('主题包'),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (tp.loadedTheme != null) ...[
+                      Row(
+                        children: [
+                          const Icon(Icons.check_circle,
+                              size: 18, color: Colors.green),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '当前: ${tp.loadedTheme!.name}',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '作者: ${tp.loadedTheme!.author}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        label: const Text('移除主题包'),
+                        onPressed: () {
+                          tp.removeTheme();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('已恢复默认主题')),
+                          );
+                        },
+                      ),
+                    ] else ...[
+                      const Text('导入 ZIP 主题包可替换全部状态图片和主题色',
+                          style: TextStyle(fontSize: 13)),
+                      const SizedBox(height: 8),
+                      FilledButton.icon(
+                        icon: const Icon(Icons.file_open, size: 18),
+                        label: const Text('导入 .zip 主题'),
+                        onPressed: () async {
+                          final ok = await tp.importTheme();
+                          if (ok && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('主题包导入成功')),
+                            );
+                          } else if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('导入失败或已取消')),
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
+              const Divider(),
+
+              // ── 预览 ──
+              const _GroupHeader('预览'),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    _previewCard(context, Brightness.light),
+                    const SizedBox(height: 12),
+                    _previewCard(context, Brightness.dark),
+                  ],
+                ),
+              ),
+            ],
+          );
+          if (isWide)
+            return Center(
+                child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: listView));
+          return listView;
+        },
       ),
     );
   }
@@ -179,9 +191,9 @@ class ThemeSettingsScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF5F5F5),
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(color: scheme.onSurface.withValues(alpha: 0.12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,7 +201,8 @@ class ThemeSettingsScreen extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 12, height: 12,
+                width: 12,
+                height: 12,
                 decoration: BoxDecoration(
                   color: scheme.primary,
                   shape: BoxShape.circle,
@@ -199,7 +212,7 @@ class ThemeSettingsScreen extends StatelessWidget {
               Text(
                 isDark ? '深色模式' : '浅色模式',
                 style: TextStyle(
-                  color: isDark ? Colors.white : Colors.black87,
+                  color: scheme.onSurface,
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),
@@ -229,7 +242,8 @@ class ThemeSettingsScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(label,
-          style: TextStyle(color: fg, fontSize: 10, fontWeight: FontWeight.w500)),
+          style:
+              TextStyle(color: fg, fontSize: 10, fontWeight: FontWeight.w500)),
     );
   }
 
@@ -316,7 +330,11 @@ class _ColorDot extends StatelessWidget {
               border: selected
                   ? Border.all(
                       color: Theme.of(context).colorScheme.primary, width: 3)
-                  : Border.all(color: Colors.white24),
+                  : Border.all(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.24)),
               boxShadow: selected
                   ? [
                       BoxShadow(
@@ -324,9 +342,8 @@ class _ColorDot extends StatelessWidget {
                     ]
                   : null,
             ),
-            child: icon != null
-                ? Icon(icon, color: Colors.white, size: 20)
-                : null,
+            child:
+                icon != null ? Icon(icon, color: Colors.white, size: 20) : null,
           ),
           const SizedBox(height: 4),
           Text(label,

@@ -45,6 +45,43 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isWide = MediaQuery.of(context).size.width >= 880;
+    final bodyContent = _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : _songs == null || _songs!.isEmpty
+            ? const Center(child: Text('暂无歌曲'))
+            : ListView.builder(
+                padding: const EdgeInsets.only(top: 8),
+                itemCount: _songs!.length,
+                itemBuilder: (_, i) {
+                  final song = _songs![i];
+                  return Row(
+                    children: [
+                      SizedBox(
+                        width: 40,
+                        child: Center(
+                          child: Text('${i + 1}',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: i < 3
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Theme.of(context).colorScheme.outline,
+                              )),
+                        ),
+                      ),
+                      Expanded(
+                        child: SongTile(
+                          song: song,
+                          onTap: (s) => context
+                              .read<PlayerProvider>()
+                              .playSong(s, playlist: _songs),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              );
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.rankName ?? '排行榜'),
@@ -59,42 +96,14 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
               )
             : null,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _songs == null || _songs!.isEmpty
-              ? const Center(child: Text('暂无歌曲'))
-              : ListView.builder(
-                  padding: const EdgeInsets.only(top: 8),
-                  itemCount: _songs!.length,
-                  itemBuilder: (_, i) {
-                    final song = _songs![i];
-                    return Row(
-                      children: [
-                        SizedBox(
-                          width: 40,
-                          child: Center(
-                            child: Text('${i + 1}',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: i < 3
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Theme.of(context).colorScheme.outline,
-                                )),
-                          ),
-                        ),
-                        Expanded(
-                          child: SongTile(
-                            song: song,
-                            onTap: (s) => context
-                                .read<PlayerProvider>()
-                                .playSong(s, playlist: _songs),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
+      body: isWide
+          ? Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: bodyContent,
+              ),
+            )
+          : bodyContent,
     );
   }
 }

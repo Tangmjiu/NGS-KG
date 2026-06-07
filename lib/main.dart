@@ -22,6 +22,7 @@ import 'services/notification_service.dart';
 import 'services/cache_service.dart';
 import 'services/desktop_service.dart';
 import 'providers/audio_settings_provider.dart';
+import 'theme/theme_assets.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
@@ -58,8 +59,37 @@ Future<void> main() async {
       Log.e('RENDER', details.exceptionAsString(), details.exception,
           details.stack);
     } catch (_) {}
-    return const Center(
-      child: Text('渲染异常', style: TextStyle(color: Colors.white70, fontSize: 16)),
+    return Material(
+      color: const Color(0xFF1E1E1E),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              ThemeAssets.codecrash,
+              width: 80,
+              height: 80,
+              errorBuilder: (_, __, ___) => const Icon(Icons.error_outline, size: 64, color: Colors.white38),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '渲染异常',
+              style: TextStyle(color: Colors.white70, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                details.exceptionAsString(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white38, fontSize: 12),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   };
 
@@ -108,11 +138,21 @@ Future<void> _initDesktopServices() async {
 
     // 监听播放器状态 → 同步桌面服务
     player.addListener(() {
+      String? lyricText;
+      final idx = player.currentLyricLine;
+      if (idx >= 0 && idx < player.lyrics.length) {
+        final line = player.lyrics[idx];
+        lyricText = line.text;
+        if (line.translatedText != null && line.translatedText!.isNotEmpty) {
+          lyricText = '$lyricText / ${line.translatedText}';
+        }
+      }
       DesktopService.instance.sync(
         song: player.currentSong,
         isPlaying: player.isPlaying,
         positionMs: player.position.inMilliseconds,
         durationMs: player.duration.inMilliseconds,
+        lyricText: lyricText,
       );
     });
   } catch (e) {

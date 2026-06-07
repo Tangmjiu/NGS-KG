@@ -6,7 +6,8 @@ class ArtistFollowedNewsScreen extends StatefulWidget {
   const ArtistFollowedNewsScreen({super.key});
 
   @override
-  State<ArtistFollowedNewsScreen> createState() => _ArtistFollowedNewsScreenState();
+  State<ArtistFollowedNewsScreen> createState() =>
+      _ArtistFollowedNewsScreenState();
 }
 
 class _ArtistFollowedNewsScreenState extends State<ArtistFollowedNewsScreen> {
@@ -24,32 +25,44 @@ class _ArtistFollowedNewsScreenState extends State<ArtistFollowedNewsScreen> {
     try {
       final list = await _musicService.getFollowedArtistNews();
       if (mounted) setState(() => _news = list);
-    } catch (e, s) { Log.e('artist_followed_news_screen', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('artist_followed_news_screen', 'error', e, s);
+    }
     if (mounted) setState(() => _isLoading = false);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isWide = MediaQuery.of(context).size.width >= 880;
+    final body = _buildBody();
     return Scaffold(
       appBar: AppBar(title: const Text('关注动态')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _news.isEmpty
-              ? const Center(child: Text('暂无动态'))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(8),
-                  itemCount: _news.length,
-                  itemBuilder: (_, i) {
-                    final item = _news[i];
-                    return Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.person),
-                        title: Text(item['artist'] as String? ?? ''),
-                        subtitle: Text(item['content'] as String? ?? item['title'] as String? ?? ''),
-                      ),
-                    );
-                  },
-                ),
+      body: isWide
+          ? Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: body))
+          : body,
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    } else if (_news.isEmpty) {
+      return const Center(child: Text('暂无动态'));
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(8),
+      itemCount: _news.length,
+      itemBuilder: (_, i) {
+        final item = _news[i];
+        return Card(
+          child: ListTile(
+            leading: const Icon(Icons.person),
+            title: Text(item['artist'] as String? ?? ''),
+            subtitle: Text(
+                item['content'] as String? ?? item['title'] as String? ?? ''),
+          ),
+        );
+      },
     );
   }
 }

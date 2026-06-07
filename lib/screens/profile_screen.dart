@@ -69,9 +69,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isWide = MediaQuery.of(context).size.width >= 880;
     return Consumer2<AuthProvider, PlaylistProvider>(
       builder: (_, auth, playlistProv, __) {
-        return ListView(
+        final body = ListView(
           padding: const EdgeInsets.all(16),
           children: [
             if (auth.isLoggedIn) _buildUserHeader(auth),
@@ -81,6 +82,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             if (auth.isLoggedIn) _buildPlaylists(playlistProv, auth),
           ],
         );
+        if (isWide) {
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: body,
+            ),
+          );
+        }
+        return body;
       },
     );
   }
@@ -115,13 +125,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       margin: const EdgeInsets.only(top: 4),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: _vipInfo?.badgeType.$2 == true ? const Color(0xFFFFD700) : cs.primary,
+                        color: _vipInfo?.badgeType.$2 == true ? cs.tertiary : cs.primary,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         _vipText(user),
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: _vipInfo?.badgeType.$2 == true ? Colors.black87 : cs.onPrimary,
+                          color: _vipInfo?.badgeType.$2 == true ? cs.onTertiary : cs.onPrimary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
