@@ -50,11 +50,11 @@ class _AMLyricsViewState extends State<AMLyricsView> {
     fontWeight: FontWeight.w400,
     height: 1.4,
   );
-  static const TextStyle _translationStyle = TextStyle(
+  static TextStyle _translationStyle(BuildContext context) => TextStyle(
     fontSize: 14,
     fontWeight: FontWeight.w300,
     height: 1.2,
-    color: Colors.white38,
+    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
   );
 
   @override
@@ -150,19 +150,20 @@ class _AMLyricsViewState extends State<AMLyricsView> {
     });
   }
 
-  Color _dimColor(int distance) {
-    if (distance == 0) return Colors.white;
-    if (distance == 1) return Colors.white54;
-    return Colors.white24;
+  Color _dimColor(int distance, ColorScheme cs) {
+    if (distance == 0) return cs.onSurface;
+    if (distance == 1) return cs.onSurface.withValues(alpha: 0.6);
+    return cs.onSurface.withValues(alpha: 0.3);
   }
 
   // ── Build ──
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     if (widget.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white70),
+      return Center(
+        child: CircularProgressIndicator(color: cs.onSurfaceVariant),
       );
     }
     if (widget.lyrics.isEmpty) {
@@ -170,10 +171,10 @@ class _AMLyricsViewState extends State<AMLyricsView> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.lyrics_outlined, size: 48, color: Colors.white54),
+            Icon(Icons.lyrics_outlined, size: 48, color: cs.onSurfaceVariant),
             const SizedBox(height: 16),
-            const Text('暂无歌词',
-                style: TextStyle(color: Colors.white54, fontSize: 16)),
+            Text('暂无歌词',
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 16)),
           ],
         ),
       );
@@ -212,14 +213,14 @@ class _AMLyricsViewState extends State<AMLyricsView> {
             bottom: 16,
             child: FloatingActionButton.small(
               heroTag: 'lyric_resume',
-              backgroundColor: Colors.white24,
+              backgroundColor: cs.surfaceContainerHighest,
               onPressed: () {
                 setState(() => _autoScroll = true);
                 _resumeTimer?.cancel();
                 _scrollToCurrent(snap: true);
               },
-              child: const Icon(Icons.vertical_align_center,
-                  color: Colors.white),
+              child: Icon(Icons.vertical_align_center,
+                  color: cs.onSurface),
             ),
           ),
       ],
@@ -258,15 +259,12 @@ class _AMLyricsViewState extends State<AMLyricsView> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxW = constraints.maxWidth;
-
-        // 计算实际多行高度，避免长歌词重叠
         final h = LyricLinePainter.layoutHeight(
           line.spans,
           _currentStyle,
           Directionality.of(context),
           maxW,
         );
-
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -274,7 +272,7 @@ class _AMLyricsViewState extends State<AMLyricsView> {
             CustomPaint(
               painter: LyricLinePainter(
                 spans: line.spans,
-                position: widget.position, // 直通，不经过 Ticker
+                position: widget.position,
                 lineStart: line.startTime,
                 lineEnd: line.endTime,
                 textStyle: _currentStyle,
@@ -290,7 +288,7 @@ class _AMLyricsViewState extends State<AMLyricsView> {
                 child: Text(
                   line.translatedText!,
                   textAlign: TextAlign.left,
-                  style: _translationStyle,
+                  style: _translationStyle(context),
                 ),
               ),
           ],
@@ -300,7 +298,8 @@ class _AMLyricsViewState extends State<AMLyricsView> {
   }
 
   Widget _buildOtherLine(LyricLine line, int distance) {
-    final color = _dimColor(distance);
+    final cs = Theme.of(context).colorScheme;
+    final color = _dimColor(distance, cs);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -317,7 +316,7 @@ class _AMLyricsViewState extends State<AMLyricsView> {
             child: Text(
               line.translatedText!,
               textAlign: TextAlign.left,
-              style: _translationStyle.copyWith(
+              style: _translationStyle(context).copyWith(
                 color: color.withValues(alpha: 0.6),
               ),
             ),

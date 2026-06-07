@@ -38,12 +38,13 @@ class PlayerControlsBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         // -- Play Mode --
         IconButton(
-          icon: Icon(_modeIcon(playMode), size: 24, color: Colors.white70),
+          icon: Icon(_modeIcon(playMode), size: 24, color: cs.onSurfaceVariant),
           onPressed: onModeToggle,
           splashRadius: 24,
           padding: EdgeInsets.zero,
@@ -51,7 +52,7 @@ class PlayerControlsBar extends StatelessWidget {
 
         // -- Previous --
         IconButton(
-          icon: const Icon(Icons.skip_previous, size: 36, color: Colors.white),
+          icon: Icon(Icons.skip_previous, size: 36, color: cs.onSurface),
           onPressed: onPrevious,
           splashRadius: 24,
           padding: EdgeInsets.zero,
@@ -65,22 +66,22 @@ class PlayerControlsBar extends StatelessWidget {
           child: Container(
             width: 56,
             height: 56,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white,
+              color: cs.primary,
             ),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
               switchInCurve: Curves.easeInOut,
               switchOutCurve: Curves.easeInOut,
-              child: _buildPlayPauseChild(),
+              child: _buildPlayPauseChild(cs),
             ),
           ),
         ),
 
         // -- Next --
         IconButton(
-          icon: const Icon(Icons.skip_next, size: 36, color: Colors.white),
+          icon: Icon(Icons.skip_next, size: 36, color: cs.onSurface),
           onPressed: onNext,
           splashRadius: 24,
           padding: EdgeInsets.zero,
@@ -88,8 +89,7 @@ class PlayerControlsBar extends StatelessWidget {
 
         // -- Playlist --
         IconButton(
-          icon:
-              const Icon(Icons.playlist_play, size: 24, color: Colors.white70),
+          icon: Icon(Icons.playlist_play, size: 24, color: cs.onSurfaceVariant),
           onPressed: onShowPlaylist,
           splashRadius: 24,
           padding: EdgeInsets.zero,
@@ -98,15 +98,15 @@ class PlayerControlsBar extends StatelessWidget {
     );
   }
 
-  Widget _buildPlayPauseChild() {
+  Widget _buildPlayPauseChild(ColorScheme cs) {
     if (isLoading) {
       return SizedBox(
         key: const ValueKey('loading'),
         width: 28,
         height: 28,
-        child: const CircularProgressIndicator(
+        child: CircularProgressIndicator(
           strokeWidth: 2.5,
-          color: Colors.black54,
+          color: cs.onPrimary,
         ),
       );
     }
@@ -115,7 +115,7 @@ class PlayerControlsBar extends StatelessWidget {
       key: ValueKey(isPlaying),
       isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
       size: 32,
-      color: Colors.black,
+      color: cs.onPrimary,
     );
   }
 }
