@@ -30,6 +30,14 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isWide = MediaQuery.of(context).size.width >= 880;
+    final tabBody = TabBarView(
+      controller: _tabCtrl,
+      children: const [
+        _PhoneLogin(),
+        _QrLogin(),
+      ],
+    );
     return Scaffold(
       appBar: AppBar(
         title: const Text('登录'),
@@ -41,13 +49,14 @@ class _LoginScreenState extends State<LoginScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabCtrl,
-        children: const [
-          _PhoneLogin(),
-          _QrLogin(),
-        ],
-      ),
+      body: isWide
+          ? Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: tabBody,
+              ),
+            )
+          : tabBody,
     );
   }
 }

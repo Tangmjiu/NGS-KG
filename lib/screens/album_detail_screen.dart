@@ -63,9 +63,9 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
     final desc = _album?.description ?? '';
     final songCount = _album?.songCount ?? _songs.length;
 
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final scrollView = CustomScrollView(
+      slivers: [
           SliverAppBar(
             expandedHeight: (MediaQuery.of(context).size.height * 0.35).clamp(200, 320),
             pinned: true,
@@ -89,7 +89,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withValues(alpha: 0.7),
+                          cs.scrim.withValues(alpha: 0.7),
                         ],
                       ),
                     ),
@@ -120,14 +120,14 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                           children: [
                             Text(name,
                                 style: tt.titleLarge
-                                    ?.copyWith(color: Colors.white),
+                                    ?.copyWith(color: cs.onSurface),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis),
                             if (artist.isNotEmpty) ...[
                               const SizedBox(height: 4),
                               Text(artist,
                                   style: tt.bodySmall
-                                      ?.copyWith(color: Colors.white70)),
+                                      ?.copyWith(color: cs.onSurfaceVariant)),
                             ],
                           ],
                         ),
@@ -237,7 +237,17 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
             ),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
-      ),
+      );
+
+    return Scaffold(
+      body: screenWidth >= 880
+          ? Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: scrollView,
+              ),
+            )
+          : scrollView,
     );
   }
 }

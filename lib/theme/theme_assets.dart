@@ -68,7 +68,12 @@ class ThemeImage extends StatelessWidget {
       width: width,
       height: height,
       fit: fit,
-      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+      errorBuilder: (_, __, ___) => Container(
+        width: width,
+        height: height,
+        color: Colors.grey.withValues(alpha: 0.1),
+        child: const Icon(Icons.broken_image_outlined, size: 32, color: Colors.white24),
+      ),
     );
 
     if (color != null) {

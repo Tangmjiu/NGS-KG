@@ -67,66 +67,95 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text('听歌历史'),
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _songs.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.history,
-                          size: 80, color: cs.onSurfaceVariant),
-                      const SizedBox(height: 16),
-                      Text('暂无听歌历史',
-                          style:
-                              TextStyle(color: cs.onSurfaceVariant)),
-                    ],
-                  ),
-                )
-              : Stack(
-                  children: [
-                    // 背景：专辑封面 + 渐变
-                    Positioned.fill(
-                      child: _buildBackground(),
-                    ),
-                    // 前景：歌曲列表
-                    RefreshIndicator(
-                      onRefresh: _load,
-                      color: Colors.white,
-                      child: ListView.builder(
-                        padding: EdgeInsets.only(
-                          top: MediaQuery.of(context).padding.top + 80,
-                          bottom: 24,
-                        ),
-                        itemCount: _songs.length,
-                        itemBuilder: (_, i) => SongTile(
-                          song: _songs[i],
-                          onTap: (s) => context
-                              .read<PlayerProvider>()
-                              .playSong(s, playlist: _songs),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 880;
+
+        return Scaffold(
+          extendBodyBehindAppBar: !isDesktop,
+          backgroundColor: isDesktop ? cs.surface : null,
+          appBar: AppBar(
+            title: const Text('听歌历史'),
+            backgroundColor:
+                isDesktop ? cs.surface : Colors.transparent,
+            foregroundColor: cs.onSurface,
+            elevation: 0,
+          ),
+          body: _buildBody(cs, isDesktop),
+        );
+      },
     );
   }
 
-  Widget _buildBackground() {
+  Widget _buildBody(ColorScheme cs, bool isDesktop) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_songs.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.history, size: 80, color: cs.onSurfaceVariant),
+            const SizedBox(height: 16),
+            Text('暂无听歌历史',
+                style: TextStyle(color: cs.onSurfaceVariant)),
+          ],
+        ),
+      );
+    }
+
+    if (isDesktop) {
+      return RefreshIndicator(
+        onRefresh: _load,
+        color: cs.onSurface,
+        child: ListView.builder(
+          padding: const EdgeInsets.only(top: 16, bottom: 24),
+          itemCount: _songs.length,
+          itemBuilder: (_, i) => SongTile(
+            song: _songs[i],
+            onTap: (s) => context
+                .read<PlayerProvider>()
+                .playSong(s, playlist: _songs),
+          ),
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: _buildBackground(cs),
+        ),
+        RefreshIndicator(
+          onRefresh: _load,
+          color: cs.onSurface,
+          child: ListView.builder(
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + 80,
+              bottom: 24,
+            ),
+            itemCount: _songs.length,
+            itemBuilder: (_, i) => SongTile(
+              song: _songs[i],
+              onTap: (s) => context
+                  .read<PlayerProvider>()
+                  .playSong(s, playlist: _songs),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBackground(ColorScheme cs) {
     final cover = _bgCover;
     return Stack(
       fit: StackFit.expand,
       children: [
         // 基底色
-        Container(color: const Color(0xFF1A1A2E)),
+        Container(color: cs.surface),
         // 模糊的专辑封面
         if (cover != null)
           CachedNetworkImage(
@@ -147,7 +176,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               end: Alignment.centerRight,
               colors: [
                 Colors.transparent,
-                Colors.black.withValues(alpha: 0.85),
+                cs.scrim.withValues(alpha: 0.85),
               ],
             ),
           ),
@@ -161,7 +190,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               end: Alignment.bottomCenter,
               colors: [
                 Colors.transparent,
-                Colors.black.withValues(alpha: 0.4),
+                cs.scrim.withValues(alpha: 0.4),
               ],
             ),
           ),

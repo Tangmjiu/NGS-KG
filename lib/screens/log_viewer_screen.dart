@@ -58,15 +58,16 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   Color _levelColor(String level) {
+    final cs = Theme.of(context).colorScheme;
     switch (level) {
       case 'E':
-        return Colors.redAccent;
+        return cs.error;
       case 'W':
-        return Colors.orangeAccent;
+        return cs.error.withValues(alpha: 0.7);
       case 'I':
-        return Colors.lightGreenAccent;
+        return cs.primary;
       default:
-        return Colors.grey;
+        return cs.onSurfaceVariant;
     }
   }
 
@@ -81,11 +82,8 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       if (!await dir.exists()) {
         await dir.create(recursive: true);
       }
-      final ts = DateTime.now()
-          .toString()
-          .replaceAll(':', '-')
-          .split('.')
-          .first;
+      final ts =
+          DateTime.now().toString().replaceAll(':', '-').split('.').first;
       final file = File('${dir.path}/ngskg_log_$ts.txt');
       final content = Log.entries.map((e) => e.formatted).join('\n');
       await file.writeAsString(content);
@@ -105,13 +103,17 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = Theme.of(context).colorScheme.surfaceContainerLowest;
+    final cs = Theme.of(context).colorScheme;
+    final bg = cs.surfaceContainerLowest;
+    final isWide = MediaQuery.of(context).size.width >= 880;
     return Scaffold(
       appBar: AppBar(
         title: const Text('输出日志'),
         actions: [
           IconButton(
-            icon: Icon(_autoScroll ? Icons.vertical_align_bottom : Icons.vertical_align_center),
+            icon: Icon(_autoScroll
+                ? Icons.vertical_align_bottom
+                : Icons.vertical_align_center),
             tooltip: '自动滚动',
             onPressed: () => setState(() => _autoScroll = !_autoScroll),
           ),
@@ -127,80 +129,88 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Filter bar
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-            child: Row(
-              children: [
-                _buildLevelChip('', 'ALL'),
-                const SizedBox(width: 4),
-                _buildLevelChip('E', 'ERR'),
-                const SizedBox(width: 4),
-                _buildLevelChip('W', 'WRN'),
-                const SizedBox(width: 4),
-                _buildLevelChip('I', 'INF'),
-                const SizedBox(width: 4),
-                _buildLevelChip('D', 'DBG'),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SizedBox(
-                    height: 32,
-                    child: TextField(
-                      controller: _filterTag,
-                      style: const TextStyle(fontSize: 12),
-                      decoration: InputDecoration(
-                        hintText: '搜索 tag...',
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: BorderSide.none,
+      body: Builder(
+        builder: (_) {
+          final inner = Column(
+            children: [
+              // Filter bar
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                child: Row(
+                  children: [
+                    _buildLevelChip('', 'ALL'),
+                    const SizedBox(width: 4),
+                    _buildLevelChip('E', 'ERR'),
+                    const SizedBox(width: 4),
+                    _buildLevelChip('W', 'WRN'),
+                    const SizedBox(width: 4),
+                    _buildLevelChip('I', 'INF'),
+                    const SizedBox(width: 4),
+                    _buildLevelChip('D', 'DBG'),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: SizedBox(
+                        height: 32,
+                        child: TextField(
+                          controller: _filterTag,
+                          style: const TextStyle(fontSize: 12),
+                          decoration: InputDecoration(
+                            hintText: '搜索 tag...',
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 0),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(4),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                          ),
+                          onChanged: (v) => setState(() => _tagFilter = v),
                         ),
-                        filled: true,
                       ),
-                      onChanged: (v) => setState(() => _tagFilter = v),
                     ),
-                  ),
+                    if (_filterTag.text.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _filterTag.clear();
+                          setState(() => _tagFilter = '');
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32),
+                      ),
+                  ],
                 ),
-                if (_filterTag.text.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
-                    onPressed: () {
-                      _filterTag.clear();
-                      setState(() => _tagFilter = '');
-                    },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          // Log list
-          Expanded(
-            child: ValueListenableBuilder<LogEntry?>(
-              valueListenable: Log.onEntry,
-              builder: (_, __, ___) {
-                final entries = _filtered;
-                if (entries.isEmpty) {
-                  return const Center(child: Text('暂无日志'));
-                }
-                return ListView.builder(
-                  controller: _scroll,
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  itemCount: entries.length,
-                  itemExtent: _showDetail ? 64 : 24,
-                  itemBuilder: (_, i) {
-                    final e = entries[i];
-                    return _buildLogRow(e, bg);
+              ),
+              const SizedBox(height: 4),
+              // Log list
+              Expanded(
+                child: ValueListenableBuilder<LogEntry?>(
+                  valueListenable: Log.onEntry,
+                  builder: (_, __, ___) {
+                    final entries = _filtered;
+                    if (entries.isEmpty) {
+                      return const Center(child: Text('暂无日志'));
+                    }
+                    return ListView.builder(
+                      controller: _scroll,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 2),
+                      itemCount: entries.length,
+                      itemExtent: _showDetail ? 64 : 24,
+                      itemBuilder: (_, i) {
+                        final e = entries[i];
+                        return _buildLogRow(e, bg);
+                      },
+                    );
                   },
-                );
-              },
-            ),
-          ),
-        ],
+                ),
+              ),
+            ],
+          );
+          if (isWide)
+            return Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: inner));
+          return inner;
+        },
       ),
     );
   }
@@ -215,7 +225,9 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           color: selected ? _levelColor(level) : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: selected ? Colors.transparent : Colors.grey,
+            color: selected
+                ? Colors.transparent
+                : Theme.of(context).colorScheme.outline,
             width: 0.5,
           ),
         ),
@@ -224,7 +236,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           style: TextStyle(
             fontSize: 11,
             fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-            color: selected ? Colors.black : null,
+            color: selected ? Theme.of(context).colorScheme.onSurface : null,
           ),
         ),
       ),
@@ -243,12 +255,17 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           children: [
             Row(
               children: [
-                Text(e.level, style: TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.bold,
-                  color: _levelColor(e.level),
-                )),
+                Text(e.level,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: _levelColor(e.level),
+                    )),
                 const SizedBox(width: 4),
-                Text(_fmtTime(e.time), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                Text(_fmtTime(e.time),
+                    style: TextStyle(
+                        fontSize: 10,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 const SizedBox(width: 4),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 3),
@@ -256,14 +273,23 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                     color: bg,
                     borderRadius: BorderRadius.circular(2),
                   ),
-                  child: Text(e.tag, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
+                  child: Text(e.tag,
+                      style: const TextStyle(
+                          fontSize: 10, fontWeight: FontWeight.w500)),
                 ),
               ],
             ),
             const SizedBox(height: 2),
-            Text(e.message, style: const TextStyle(fontSize: 11), maxLines: 2, overflow: TextOverflow.ellipsis),
+            Text(e.message,
+                style: const TextStyle(fontSize: 11),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis),
             if (e.error != null)
-              Text('${e.error}', style: TextStyle(fontSize: 10, color: Colors.red.shade300), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text('${e.error}',
+                  style: TextStyle(
+                      fontSize: 10, color: Theme.of(context).colorScheme.error),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
           ],
         ),
       );
@@ -272,16 +298,27 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         children: [
-          Text(e.level, style: TextStyle(
-            fontSize: 11, fontWeight: FontWeight.bold,
-            color: _levelColor(e.level),
-          )),
+          Text(e.level,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: _levelColor(e.level),
+              )),
           const SizedBox(width: 4),
-          Text('${_fmtTime(e.time)}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          Text('${_fmtTime(e.time)}',
+              style: TextStyle(
+                  fontSize: 10,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant)),
           const SizedBox(width: 4),
-          Text('[${e.tag}]', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
+          Text('[${e.tag}]',
+              style:
+                  const TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
           const SizedBox(width: 4),
-          Expanded(child: Text(e.message, style: const TextStyle(fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis)),
+          Expanded(
+              child: Text(e.message,
+                  style: const TextStyle(fontSize: 10),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis)),
         ],
       ),
     );

@@ -99,6 +99,77 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isWide = MediaQuery.of(context).size.width >= 880;
+    final bodyContent = _permissionDenied
+        ? Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock, size: 80, color: Theme.of(context).colorScheme.outline),
+                const SizedBox(height: 16),
+                const Text('需要存储权限才能扫描本地音乐'),
+                const SizedBox(height: 24),
+                FilledButton.tonal(
+                  onPressed: Platform.isAndroid ? openAppSettings : null,
+                  child: const Text('去设置开启'),
+                ),
+              ],
+            ),
+          )
+        : _isScanning
+        ? const Center(child: CircularProgressIndicator())
+        : _songs.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.music_note, size: 80, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    const SizedBox(height: 16),
+                    Text(_status, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                    const SizedBox(height: 24),
+                    FilledButton.tonal(
+                      onPressed: _startScan,
+                      child: const Text('重新扫描'),
+                    ),
+                  ],
+                ),
+              )
+            : Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(_status,
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _songs.length,
+                      itemBuilder: (_, i) {
+                        final s = _songs[i];
+                        return ListTile(
+                          leading: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(Icons.audiotrack),
+                          ),
+                          title: Text(s.displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          subtitle: Text(
+                            (s.artist ?? '未知歌手') + (s.codec != null ? ' · ${s.codec}' : '') + (s.bitrate != null ? ' ${s.bitrate}kbps' : ''),
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                          ),
+                          onTap: () => _playSong(s),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
     return Scaffold(
       appBar: AppBar(
         title: const Text('本地音乐'),
@@ -120,76 +191,14 @@ class _LocalMusicScreenState extends State<LocalMusicScreen> {
             ),
         ],
       ),
-      body: _permissionDenied
+      body: isWide
           ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.lock, size: 80, color: Theme.of(context).colorScheme.outline),
-                  const SizedBox(height: 16),
-                  const Text('需要存储权限才能扫描本地音乐'),
-                  const SizedBox(height: 24),
-                  FilledButton.tonal(
-                    onPressed: Platform.isAndroid ? openAppSettings : null,
-                    child: const Text('去设置开启'),
-                  ),
-                ],
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: bodyContent,
               ),
             )
-          : _isScanning
-          ? const Center(child: CircularProgressIndicator())
-          : _songs.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.music_note, size: 80, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                      const SizedBox(height: 16),
-                      Text(_status, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                      const SizedBox(height: 24),
-                      FilledButton.tonal(
-                        onPressed: _startScan,
-                        child: const Text('重新扫描'),
-                      ),
-                    ],
-                  ),
-                )
-              : Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Text(_status,
-                          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                    ),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: _songs.length,
-                        itemBuilder: (_, i) {
-                          final s = _songs[i];
-                          return ListTile(
-                            leading: Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Icon(Icons.audiotrack),
-                            ),
-                            title: Text(s.displayName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis),
-                            subtitle: Text(
-                              (s.artist ?? '未知歌手') + (s.codec != null ? ' · ${s.codec}' : '') + (s.bitrate != null ? ' ${s.bitrate}kbps' : ''),
-                              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                            ),
-                            onTap: () => _playSong(s),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
+          : bodyContent,
     );
   }
 }

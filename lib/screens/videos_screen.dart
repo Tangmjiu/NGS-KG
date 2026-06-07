@@ -49,49 +49,56 @@ class _VideosScreenState extends State<VideosScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isWide = MediaQuery.of(context).size.width >= 880;
+    final body = _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : _videos.isEmpty
+            ? Center(
+                child: Text(
+                  widget.showLiked ? '暂无喜欢的视频' : '暂无收藏的视频',
+                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.all(8),
+                itemCount: _videos.length,
+                itemBuilder: (_, i) {
+                  final v = _videos[i];
+                  return Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: ListTile(
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: v.coverUrl != null
+                            ? CachedNetworkImage(
+                                imageUrl: v.coverUrl!,
+                                width: 60,
+                                height: 60,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => _placeholderIcon(theme),
+                                errorWidget: (_, __, ___) => _placeholderIcon(theme),
+                              )
+                            : _placeholderIcon(theme),
+                      ),
+                      title: Text(v.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: Text(v.artist ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+                      trailing: Icon(Icons.play_circle_fill, color: theme.colorScheme.primary),
+                      onTap: () => _playVideo(v),
+                    ),
+                  );
+                },
+              );
     return Scaffold(
       appBar: AppBar(title: Text(widget.showLiked ? '喜欢的视频' : '收藏的视频')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _videos.isEmpty
-              ? Center(
-                  child: Text(
-                    widget.showLiked ? '暂无喜欢的视频' : '暂无收藏的视频',
-                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(8),
-                  itemCount: _videos.length,
-                  itemBuilder: (_, i) {
-                    final v = _videos[i];
-                    return Card(
-                      clipBehavior: Clip.antiAlias,
-                      child: ListTile(
-                        leading: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: v.coverUrl != null
-                              ? CachedNetworkImage(
-                                  imageUrl: v.coverUrl!,
-                                  width: 60,
-                                  height: 60,
-                                  fit: BoxFit.cover,
-                                  placeholder: (_, __) => _placeholderIcon(theme),
-                                  errorWidget: (_, __, ___) => _placeholderIcon(theme),
-                                )
-                              : _placeholderIcon(theme),
-                        ),
-                        title: Text(v.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text(v.artist ?? '',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
-                        trailing: Icon(Icons.play_circle_fill, color: theme.colorScheme.primary),
-                        onTap: () => _playVideo(v),
-                      ),
-                    );
-                  },
-                ),
+      body: isWide
+          ? Center(child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: body,
+            ))
+          : body,
     );
   }
 

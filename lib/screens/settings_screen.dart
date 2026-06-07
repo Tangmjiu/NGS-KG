@@ -20,10 +20,9 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
-      body: ListView(
-        children: [
+    final isWide = MediaQuery.of(context).size.width >= 880;
+    final body = ListView(
+      children: [
           // ── 主题 ──
           const _SectionHeader('主题'),
           ListTile(
@@ -196,6 +195,17 @@ class SettingsScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+    return Scaffold(
+      appBar: AppBar(title: const Text('设置')),
+      body: isWide
+          ? Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: body,
+              ),
+            )
+          : body,
     );
   }
 

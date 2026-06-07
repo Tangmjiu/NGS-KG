@@ -41,53 +41,62 @@ class _CommentsScreenState extends State<CommentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('评论')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _comments.isEmpty
-              ? const Center(child: Text('暂无评论'))
-              : ListView.builder(
-                  itemCount: _comments.length,
-                  itemBuilder: (_, i) {
-                    final c = _comments[i];
-                    return ListTile(
-                      leading: CircleAvatar(
-                        radius: 18,
-                        backgroundImage: c.userAvatar != null && c.userAvatar!.isNotEmpty
-                            ? NetworkImage(c.userAvatar!)
-                            : null,
-                        child: (c.userAvatar == null || c.userAvatar!.isEmpty)
-                            ? const Icon(Icons.person, size: 18)
-                            : null,
-                      ),
-                      title: Text(c.userName ?? '匿名',
-                          style: const TextStyle(fontSize: 13)),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+    final isWide = MediaQuery.of(context).size.width >= 880;
+    final bodyContent = _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : _comments.isEmpty
+            ? const Center(child: Text('暂无评论'))
+            : ListView.builder(
+                itemCount: _comments.length,
+                itemBuilder: (_, i) {
+                  final c = _comments[i];
+                  return ListTile(
+                    leading: CircleAvatar(
+                      radius: 18,
+                      backgroundImage: c.userAvatar != null && c.userAvatar!.isNotEmpty
+                          ? NetworkImage(c.userAvatar!)
+                          : null,
+                      child: (c.userAvatar == null || c.userAvatar!.isEmpty)
+                          ? const Icon(Icons.person, size: 18)
+                          : null,
+                    ),
+                    title: Text(c.userName ?? '匿名',
+                        style: const TextStyle(fontSize: 13)),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(c.content, style: const TextStyle(fontSize: 14)),
+                        if (c.time != null)
+                          Text(c.time!,
+                              style: TextStyle(
+                                  fontSize: 11, color: Theme.of(context).colorScheme.outline)),
+                      ],
+                    ),
+                    trailing: SizedBox(
+                      width: 48,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(c.content, style: const TextStyle(fontSize: 14)),
-                          if (c.time != null)
-                            Text(c.time!,
-                                style: TextStyle(
-                                    fontSize: 11, color: Theme.of(context).colorScheme.outline)),
+                          Flexible(child: Text('${c.likedCount}',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12))),
+                          const Icon(Icons.thumb_up, size: 14),
                         ],
                       ),
-                      trailing: SizedBox(
-                        width: 48,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(child: Text('${c.likedCount}',
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 12))),
-                            const Icon(Icons.thumb_up, size: 14),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
+              );
+    return Scaffold(
+      appBar: AppBar(title: const Text('评论')),
+      body: isWide
+          ? Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: bodyContent,
+              ),
+            )
+          : bodyContent,
     );
   }
 }
