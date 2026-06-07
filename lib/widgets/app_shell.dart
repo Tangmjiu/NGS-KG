@@ -3,22 +3,15 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/player_provider.dart';
 import '../models/song.dart';
-import '../screens/player_screen.dart';
-import '../screens/search_screen.dart';
-import '../widgets/player_desktop_view.dart';
-
-/// 内容区模式
-enum ContentMode { browse, player }
+import '../widgets/desktop_shell.dart';
 
 /// 自适应外壳，嵌套在 MaterialApp.builder 中。
 ///
 /// 桌面（≥880px）:
-///   browse: Row(NavigationRail + Expanded(Stack(child + MiniPlayer)))
-///   player: PlayerDesktopView（全宽沉浸，NavRail/MiniPlayer 隐藏）
+///   DesktopShell（侧边栏 + 内容区 + 底部播放条）
 ///
 /// 移动（<880px）:
 ///   Stack(child + MiniPlayer + overlays)
-///   与原有 main.dart 行为一致。
 class AppShell extends StatefulWidget {
   final Widget? child;
   const AppShell({super.key, this.child});
@@ -28,17 +21,11 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  int _currentTab = 0;
-  ContentMode _mode = ContentMode.browse;
-
-  void openPlayer() => setState(() => _mode = ContentMode.player);
-  void closePlayer() => setState(() => _mode = ContentMode.browse);
-
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth >= 880) return _desktopShell();
+        if (constraints.maxWidth >= 880) return const DesktopShell();
         return _mobileShell();
       },
     );
@@ -67,216 +54,6 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  // ═══════════════════════════════════════════════
-  //  桌面端
-  // ═══════════════════════════════════════════════
-
-  Widget _desktopShell() {
-    // Player 模式：全宽沉浸，无 NavRail，无 MiniPlayer
-    if (_mode == ContentMode.player) {
-      return PlayerDesktopView(onClose: closePlayer);
-    }
-
-    return Row(
-      children: [
-        NavigationRail(
-          selectedIndex: _currentTab,
-          onDestinationSelected: (i) {
-            setState(() => _currentTab = i);
-            if (i == 0) {
-              Navigator.of(context)
-                  .popUntil((route) => route.settings.name == '/');
-            }
-          },
-          labelType: NavigationRailLabelType.all,
-          backgroundColor: Colors.transparent,
-          indicatorColor:
-              Theme.of(context).colorScheme.secondaryContainer,
-          leading: Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: IconButton(
-              icon: const Icon(Icons.search),
-              tooltip: '搜索',
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SearchScreen()),
-              ),
-            ),
-          ),
-          trailing: Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: IconButton(
-              icon: const Icon(Icons.settings_outlined),
-              tooltip: '设置',
-              onPressed: () => Navigator.pushNamed(context, '/settings'),
-            ),
-          ),
-          destinations: const [
-            NavigationRailDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: Text('首页'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.explore_outlined),
-              selectedIcon: Icon(Icons.explore),
-              label: Text('发现'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.person_outlined),
-              selectedIcon: Icon(Icons.person),
-              label: Text('我的'),
-            ),
-          ],
-        ),
-        Expanded(
-          child: Stack(
-            children: [
-              widget.child ?? const SizedBox.shrink(),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: _DesktopMiniPlayer(onTap: openPlayer),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════
-//  桌面版 MiniPlayer — 跟随主题
-// ═══════════════════════════════════════════════
-
-class _DesktopMiniPlayer extends StatelessWidget {
-  final VoidCallback? onTap;
-  const _DesktopMiniPlayer({this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Consumer<PlayerProvider>(
-      builder: (_, player, __) {
-        final song = player.currentSong;
-        if (song == null) return const SizedBox.shrink();
-
-        return Container(
-          height: 64,
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest,
-            border: Border(
-              top: BorderSide(color: cs.outlineVariant, width: 0.5),
-            ),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onTap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    _cover(song, cs),
-                    const SizedBox(width: 12),
-                    Expanded(child: _info(song, cs)),
-                    _controls(player, cs),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _cover(Song song, ColorScheme cs) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: SizedBox(
-        width: 44,
-        height: 44,
-        child: song.albumCoverUrl != null
-            ? CachedNetworkImage(
-                imageUrl: song.albumCoverUrl!,
-                fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => Container(
-                      color: cs.surfaceContainerHigh,
-                      child: Icon(Icons.music_note, size: 22, color: cs.onSurfaceVariant),
-                    ),
-              )
-            : Container(
-                color: cs.surfaceContainerHigh,
-                child: Icon(Icons.music_note, size: 22, color: cs.onSurfaceVariant),
-              ),
-      ),
-    );
-  }
-
-  Widget _info(Song song, ColorScheme cs) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(song.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: cs.onSurface,
-                fontSize: 14)),
-        const SizedBox(height: 1),
-        Text(song.artistDisplay,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-                color: cs.onSurfaceVariant, fontSize: 12)),
-      ],
-    );
-  }
-
-  Widget _controls(PlayerProvider player, ColorScheme cs) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _miniBtn(Icons.skip_previous, player.playPrevious, cs),
-        const SizedBox(width: 4),
-        Container(
-          decoration: BoxDecoration(
-            color: cs.primary,
-            shape: BoxShape.circle,
-          ),
-          child: IconButton(
-            icon: Icon(
-              player.isPlaying ? Icons.pause : Icons.play_arrow,
-              color: cs.onPrimary,
-              size: 20,
-            ),
-            onPressed: player.togglePlayPause,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-          ),
-        ),
-        const SizedBox(width: 4),
-        _miniBtn(Icons.skip_next, player.playNext, cs),
-      ],
-    );
-  }
-
-  Widget _miniBtn(IconData icon, VoidCallback? onTap, ColorScheme cs) {
-    return SizedBox(
-      width: 36,
-      height: 36,
-      child: IconButton(
-        icon: Icon(icon, size: 20, color: cs.onSurfaceVariant),
-        onPressed: onTap,
-        padding: EdgeInsets.zero,
-      ),
-    );
-  }
 }
 
 // ═══════════════════════════════════════════════

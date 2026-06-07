@@ -16,6 +16,7 @@ class PlayerBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -23,7 +24,7 @@ class PlayerBackground extends StatelessWidget {
         AnimatedContainer(
           duration: const Duration(milliseconds: 800),
           curve: Curves.easeInOut,
-          color: paletteColor ?? Colors.black,
+          color: paletteColor ?? cs.surface,
         ),
 
         // Layer 2: Blurred album art, dims as lyrics appear
@@ -59,7 +60,7 @@ class PlayerBackground extends StatelessWidget {
               end: Alignment.bottomCenter,
               colors: [
                 Colors.transparent,
-                Colors.black.withValues(alpha: 0.7),
+                cs.scrim.withValues(alpha: 0.7),
               ],
             ),
           ),

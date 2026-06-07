@@ -10,6 +10,7 @@ import 'discover/sections/discover_album_row.dart';
 import 'discover/sections/discover_scene_row.dart';
 import 'discover/sections/discover_ip_row.dart';
 import 'discover/sections/discover_fm_row.dart';
+import 'discover/sections/discover_personal_fm_row.dart';
 
 /// 发现页
 ///
@@ -38,6 +39,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
+    final isWide = MediaQuery.of(context).size.width >= 880;
     return RefreshIndicator(
       onRefresh: () => provider.loadAll(),
       child: CustomScrollView(
@@ -46,9 +48,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                20,
-                MediaQuery.of(context).padding.top + 20,
-                20,
+                isWide ? 32 : 20,
+                (isWide ? 12 : MediaQuery.of(context).padding.top + 20),
+                isWide ? 32 : 20,
                 4,
               ),
               child: Text(
@@ -129,6 +131,16 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 ),
               ],
 
+              // ── FM ──
+              if (provider.hasPersonalFm || !provider.loading) ...[
+                SliverToBoxAdapter(
+                  child: DiscoverPersonalFmRow(
+                    songs: provider.personalFmSongs,
+                    onRefresh: () => provider.loadAll(),
+                  ),
+                ),
+              ],
+
               // ── 新歌速递 ──
               if (provider.hasTopSongs) ...[
                 const SliverToBoxAdapter(
@@ -193,52 +205,105 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   void _showRankList(List rankList) {
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('热门榜单',
-                  style: Theme.of(context).textTheme.titleMedium),
-            ),
-            const Divider(height: 1),
-            SizedBox(
-              height: 400,
-              child: ListView.builder(
-                itemCount: rankList.length,
-                itemBuilder: (_, i) {
-                  final r = rankList[i];
-                  return ListTile(
-                    leading: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: r.coverUrl != null
-                          ? Image.network(r.coverUrl!,
-                              width: 48,
-                              height: 48,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
-                                  _rankPlaceholder())
-                          : _rankPlaceholder(),
-                    ),
-                    title: Text(r.name,
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(context, '/rank/detail',
-                          arguments: {'id': r.id, 'name': r.name});
+    final isWide = MediaQuery.of(context).size.width >= 880;
+    if (isWide) {
+      showDialog(
+        context: context,
+        builder: (ctx) => Dialog(
+          child: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text('热门榜单',
+                      style: Theme.of(context).textTheme.titleMedium),
+                ),
+                const Divider(height: 1),
+                SizedBox(
+                  height: 400,
+                  child: ListView.builder(
+                    itemCount: rankList.length,
+                    itemBuilder: (_, i) {
+                      final r = rankList[i];
+                      return ListTile(
+                        leading: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: r.coverUrl != null
+                              ? Image.network(r.coverUrl!,
+                                  width: 48,
+                                  height: 48,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      _rankPlaceholder())
+                              : _rankPlaceholder(),
+                        ),
+                        title: Text(r.name,
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          Navigator.pushNamed(context, '/rank/detail',
+                              arguments: {'id': r.id, 'name': r.name});
+                        },
+                      );
                     },
-                  );
-                },
-              ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        builder: (_) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('热门榜单',
+                    style: Theme.of(context).textTheme.titleMedium),
+              ),
+              const Divider(height: 1),
+              SizedBox(
+                height: 400,
+                child: ListView.builder(
+                  itemCount: rankList.length,
+                  itemBuilder: (_, i) {
+                    final r = rankList[i];
+                    return ListTile(
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: r.coverUrl != null
+                            ? Image.network(r.coverUrl!,
+                                width: 48,
+                                height: 48,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    _rankPlaceholder())
+                            : _rankPlaceholder(),
+                      ),
+                      title: Text(r.name,
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/rank/detail',
+                            arguments: {'id': r.id, 'name': r.name});
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
 
   Widget _rankPlaceholder() {

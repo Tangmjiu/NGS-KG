@@ -354,8 +354,8 @@ class MusicService {
   // ─── 推荐 ───
 
   /// 私人 FM（猜你喜欢）
-  Future<List<Map<String, dynamic>>> getPersonalFm() =>
-      _oneShotGet('/personal/fm')
+  Future<List<Map<String, dynamic>>> getPersonalFm({String mode = 'normal', int songPoolId = 0}) =>
+      _oneShotGet('/personal/fm', params: {'mode': mode, 'song_pool_id': songPoolId})
           .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
 
   /// 历史推荐

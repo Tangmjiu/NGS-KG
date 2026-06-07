@@ -12,7 +12,6 @@ import 'routes/app_routes.dart';
 import 'screens/settings_screen.dart';
 import 'utils/logger.dart';
 import 'services/api_client.dart';
-import 'theme/theme_assets.dart';
 import 'providers/theme_provider.dart';
 import 'widgets/app_shell.dart';
 import 'package:dynamic_color/dynamic_color.dart';

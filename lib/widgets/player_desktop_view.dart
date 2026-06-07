@@ -32,20 +32,21 @@ class _PlayerDesktopViewState extends State<PlayerDesktopView> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Consumer<PlayerProvider>(
       builder: (ctx, player, _) {
         final song = player.currentSong;
         if (song == null) {
           return Scaffold(
-            backgroundColor: Colors.black,
-            body: const Center(
-              child: Text('暂无播放', style: TextStyle(color: Colors.white54)),
+            backgroundColor: cs.surface,
+            body: Center(
+              child: Text('暂无播放', style: TextStyle(color: cs.onSurfaceVariant)),
             ),
           );
         }
 
         return Scaffold(
-          backgroundColor: Colors.black,
+          backgroundColor: cs.surface,
           body: Stack(
             children: [
               // 动态背景
@@ -84,13 +85,14 @@ class _PlayerDesktopViewState extends State<PlayerDesktopView> {
   // ── 顶部：仅返回按钮 ──
 
   Widget _buildTopBar() {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.keyboard_arrow_down_rounded,
-                size: 28, color: Colors.white),
+            icon: Icon(Icons.keyboard_arrow_down_rounded,
+                size: 28, color: cs.onSurface),
             tooltip: '收起',
             onPressed: widget.onClose ?? () => Navigator.pop(context),
           ),
@@ -189,6 +191,7 @@ class _PlayerDesktopViewState extends State<PlayerDesktopView> {
   }
 
   Widget _albumArt(Song song, double size) {
+    final cs = Theme.of(context).colorScheme;
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: SizedBox(
@@ -199,23 +202,24 @@ class _PlayerDesktopViewState extends State<PlayerDesktopView> {
                 imageUrl: song.albumCoverUrl!,
                 fit: BoxFit.cover,
                 placeholder: (_, __) => Container(
-                  color: Colors.white10,
-                  child: const Icon(Icons.music_note, size: 48, color: Colors.white38),
+                  color: cs.surfaceContainerHighest,
+                  child: Icon(Icons.music_note, size: 48, color: cs.onSurfaceVariant),
                 ),
                 errorWidget: (_, __, ___) => Container(
-                  color: Colors.white10,
-                  child: const Icon(Icons.music_note, size: 48, color: Colors.white38),
+                  color: cs.surfaceContainerHighest,
+                  child: Icon(Icons.music_note, size: 48, color: cs.onSurfaceVariant),
                 ),
               )
             : Container(
-                color: Colors.white10,
-                child: const Icon(Icons.music_note, size: 48, color: Colors.white38),
+                color: cs.surfaceContainerHighest,
+                child: Icon(Icons.music_note, size: 48, color: cs.onSurfaceVariant),
               ),
       ),
     );
   }
 
   Widget _songInfo(Song song) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       children: [
         Text(
@@ -223,10 +227,10 @@ class _PlayerDesktopViewState extends State<PlayerDesktopView> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w600,
-            color: Colors.white,
+            color: cs.onSurface,
           ),
         ),
         const SizedBox(height: 4),
@@ -237,7 +241,7 @@ class _PlayerDesktopViewState extends State<PlayerDesktopView> {
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 14,
-            color: Colors.white.withValues(alpha: 0.7),
+            color: cs.onSurfaceVariant,
           ),
         ),
       ],
@@ -292,6 +296,7 @@ class _PlayerDesktopViewState extends State<PlayerDesktopView> {
   // ── 底部动作行 ──
 
   Widget _buildBottomActions(Song song, PlayerProvider player) {
+    final cs = Theme.of(context).colorScheme;
     final selectedKey =
         Quality.levels[player.qualityLevel % Quality.levels.length];
     final qualityLabel = Quality.label(player.resolvedQuality ?? selectedKey);
@@ -309,7 +314,7 @@ class _PlayerDesktopViewState extends State<PlayerDesktopView> {
               return _ActionChip(
                 icon: liked ? Icons.favorite : Icons.favorite_border,
                 label: liked ? '已收藏' : '收藏',
-                iconColor: liked ? Colors.redAccent : null,
+                iconColor: liked ? cs.error : null,
                 onTap: () => lp.toggle(SongInfo(
                   id: song.id,
                   name: song.name,
@@ -325,7 +330,7 @@ class _PlayerDesktopViewState extends State<PlayerDesktopView> {
           _ActionChip(
             icon: _showLyrics ? Icons.lyrics : Icons.lyrics_outlined,
             label: '歌词',
-            iconColor: _showLyrics ? Colors.blueAccent : null,
+            iconColor: _showLyrics ? cs.primary : null,
             onTap: () => setState(() => _showLyrics = !_showLyrics),
           ),
           const SizedBox(width: 8),
@@ -391,8 +396,9 @@ class _ActionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Material(
-      color: Colors.white.withValues(alpha: 0.08),
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.8),
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
@@ -403,11 +409,11 @@ class _ActionChip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 18,
-                  color: iconColor ?? Colors.white70),
+                  color: iconColor ?? cs.onSurfaceVariant),
               const SizedBox(width: 6),
               Text(label,
                   style: TextStyle(
-                      fontSize: 12, color: Colors.white70)),
+                      fontSize: 12, color: cs.onSurfaceVariant)),
             ],
           ),
         ),

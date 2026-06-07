@@ -350,7 +350,11 @@ class ThemeProvider extends ChangeNotifier {
         );
       }
     }
-    return base.copyWith(navigationRailTheme: _navRailTheme);
+    return base.copyWith(
+      navigationRailTheme: _navRailTheme,
+      textTheme: Typography.material2021(platform: TargetPlatform.android).black.apply(fontFamily: 'HarmonyOS Sans'),
+      primaryTextTheme: Typography.material2021(platform: TargetPlatform.android).black.apply(fontFamily: 'HarmonyOS Sans'),
+    );
   }
 
   /// 构建深色主题
@@ -387,7 +391,11 @@ class ThemeProvider extends ChangeNotifier {
         );
       }
     }
-    return base.copyWith(navigationRailTheme: _navRailTheme);
+    return base.copyWith(
+      navigationRailTheme: _navRailTheme,
+      textTheme: Typography.material2021(platform: TargetPlatform.android).white.apply(fontFamily: 'HarmonyOS Sans'),
+      primaryTextTheme: Typography.material2021(platform: TargetPlatform.android).white.apply(fontFamily: 'HarmonyOS Sans'),
+    );
   }
 
   // ─── Monet 动态取色 ───

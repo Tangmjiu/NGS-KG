@@ -16,6 +16,7 @@ class PlayerCoverArt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = (constraints.maxWidth * 0.65).clamp(200.0, 350.0);
@@ -34,18 +35,18 @@ class PlayerCoverArt extends StatelessWidget {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.15),
+                      color: cs.onSurface.withValues(alpha: 0.15),
                       width: 1,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black54,
+                        color: cs.scrim.withValues(alpha: 0.5),
                         blurRadius: 30,
                         offset: const Offset(0, 15),
                         spreadRadius: 5,
                       ),
                       BoxShadow(
-                        color: Colors.black26,
+                        color: cs.scrim.withValues(alpha: 0.3),
                         blurRadius: 60,
                         offset: const Offset(0, 30),
                         spreadRadius: 10,
