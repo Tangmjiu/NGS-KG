@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'api_client.dart';
 
 /// GitHub Release 信息
 class ReleaseInfo {
@@ -33,14 +32,8 @@ class UpdateChecker {
       final info = await PackageInfo.fromPlatform();
       final currentVersion = _cleanVersion(info.version);
 
-      // 拉取 GitHub 最新 Release
-      final client = ApiClient.instance;
-      final res = await client.get(
-        _apiUrl,
-        options: Options(extra: {'silent': true}),
-      );
-
-      final data = res.data as Map<String, dynamic>?;
+      // 拉取 GitHub 最新 Release（用 Dio 直连，避免 ApiClient 记录 404 日志）
+      final data = await _fetchLatestRelease();
       if (data == null) return null;
 
       final tagName = data['tag_name'] as String? ?? '';
@@ -81,6 +74,21 @@ class UpdateChecker {
   /// 清理版本号：去掉 v 前缀、仅保留 x.y.z
   static String _cleanVersion(String v) {
     return v.replaceFirst(RegExp(r'^v', caseSensitive: false), '').split('+').first;
+  }
+
+  /// 直接用 Dio 请求 GitHub API（不走 ApiClient，避免 404 被日志记录）
+  static Future<Map<String, dynamic>?> _fetchLatestRelease() async {
+    try {
+      final dio = Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+        headers: {'User-Agent': 'NGS-KG+'},
+      ));
+      final res = await dio.get<Map<String, dynamic>>(_apiUrl);
+      return res.data;
+    } catch (_) {
+      return null; // 404 或其他网络错误，静默处理
+    }
   }
 
   /// 语义化版本对比：返回 1 (a>b), 0 (a==b), -1 (a<b)

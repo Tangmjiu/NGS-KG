@@ -10,6 +10,7 @@ import 'discover/sections/discover_album_row.dart';
 import 'discover/sections/discover_scene_row.dart';
 import 'discover/sections/discover_ip_row.dart';
 import 'discover/sections/discover_fm_row.dart';
+import 'discover/sections/discover_personal_fm_row.dart';
 
 /// 发现页
 ///
@@ -126,6 +127,16 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 ),
                 SliverToBoxAdapter(
                   child: DiscoverRankRow(ranks: provider.rankList),
+                ),
+              ],
+
+              // ── FM ──
+              if (provider.hasPersonalFm || !provider.loading) ...[
+                SliverToBoxAdapter(
+                  child: DiscoverPersonalFmRow(
+                    songs: provider.personalFmSongs,
+                    onRefresh: () => provider.loadAll(),
+                  ),
                 ),
               ],
 

@@ -27,6 +27,7 @@ class DiscoverProvider extends ChangeNotifier {
   List<Album> _topAlbums = [];
   List<SceneCategory> _sceneCategories = [];
   List<Map<String, dynamic>> _ipList = [];
+  List<Song> _personalFmSongs = [];
   // ─── 状态 ───
 
   bool _loading = true;
@@ -41,6 +42,7 @@ class DiscoverProvider extends ChangeNotifier {
   List<Album> get topAlbums => _topAlbums;
   List<SceneCategory> get sceneCategories => _sceneCategories;
   List<Map<String, dynamic>> get ipList => _ipList;
+  List<Song> get personalFmSongs => _personalFmSongs;
   bool get loading => _loading;
   String? get error => _error;
 
@@ -51,6 +53,7 @@ class DiscoverProvider extends ChangeNotifier {
   bool get hasScenes => _sceneCategories.isNotEmpty;
   bool get hasIp => _ipList.isNotEmpty;
   bool get hasFm => _fmList.isNotEmpty;
+  bool get hasPersonalFm => _personalFmSongs.isNotEmpty;
 
   // ─── 加载 ───
 
@@ -69,6 +72,7 @@ class DiscoverProvider extends ChangeNotifier {
         _loadTopAlbums(),
         _loadSceneCategories(),
         _loadIp(),
+        _loadPersonalFm(),
       ]);
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadAll error', e, s);
@@ -147,6 +151,20 @@ class DiscoverProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadIp error', e, s);
+    }
+  }
+
+  Future<void> _loadPersonalFm() async {
+    try {
+      final raw = await _musicService.getPersonalFm();
+      _personalFmSongs = raw
+          .map((e) => Song.fromJson(e))
+          .whereType<Song>()
+          .take(DiscoverConstants.topSongsLimit)
+          .toList();
+      notifyListeners();
+    } catch (e, s) {
+      Log.e('DiscoverProvider', 'loadPersonalFm error', e, s);
     }
   }
 
