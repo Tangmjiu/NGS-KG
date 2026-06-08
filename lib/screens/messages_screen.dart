@@ -49,11 +49,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     subtitle: '暂无新消息',
                     onTap: () => Navigator.pushNamed(context, '/messages')), // Placeholder
                 const Divider(),
-                _sectionTile(Icons.video_library, '收藏的视频',
-                    onTap: () => Navigator.pushNamed(context, '/videos/favorite')),
-                const Divider(),
-                _sectionTile(Icons.thumb_up, '喜欢的视频',
-                    onTap: () => Navigator.pushNamed(context, '/videos/liked')),
+                // MV:
+                // MV: _sectionTile(Icons.video_library, '收藏的视频',
+                // MV:     onTap: () => Navigator.pushNamed(context, '/videos/favorite')),
+                // MV: const Divider(),
+                // MV: _sectionTile(Icons.thumb_up, '喜欢的视频',
+                // MV:     onTap: () => Navigator.pushNamed(context, '/videos/liked')),
               ],
             ),
     );

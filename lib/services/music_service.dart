@@ -51,9 +51,9 @@ class MusicService {
           {int limit = 30, int offset = 0}) =>
       _searchRaw(keyword, 'author', limit: limit, offset: offset);
 
-  Future<List<Map<String, dynamic>>> searchMvs(String keyword,
-          {int limit = 30, int offset = 0}) =>
-      _searchRaw(keyword, 'mv', limit: limit, offset: offset);
+  // MV: Future<List<Map<String, dynamic>>> searchMvs(String keyword,
+  // MV:         {int limit = 30, int offset = 0}) =>
+  // MV:     _searchRaw(keyword, 'mv', limit: limit, offset: offset);
 
   Future<List<Map<String, dynamic>>> searchLyrics(String keyword,
           {int limit = 30, int offset = 0}) =>
@@ -197,9 +197,9 @@ class MusicService {
       artist.getArtistAlbums(artistId,
           page: page, pageSize: pageSize, sort: sort);
 
-  Future<List<Map<String, dynamic>>> getArtistVideos(int artistId,
-          {int page = 1, int pageSize = 20}) =>
-      artist.getArtistVideos(artistId, page: page, pageSize: pageSize);
+  // MV: Future<List<Map<String, dynamic>>> getArtistVideos(int artistId,
+  // MV:         {int page = 1, int pageSize = 20}) =>
+  // MV:     artist.getArtistVideos(artistId, page: page, pageSize: pageSize);
 
   Future<void> followArtist(int artistId) => artist.followArtist(artistId);
 
@@ -230,13 +230,13 @@ class MusicService {
       user.getCloudSongUrl(hash,
           albumId: albumId, name: name, albumAudioId: albumAudioId);
 
-  Future<List<Map<String, dynamic>>> getFavoriteVideos(
-          {int page = 1, int pageSize = 200}) =>
-      user.getFavoriteVideos(page: page, pageSize: pageSize);
-
-  Future<List<Map<String, dynamic>>> getLikedVideos(
-          {int page = 1, int pageSize = 200}) =>
-      user.getLikedVideos(page: page, pageSize: pageSize);
+  // MV: Future<List<Map<String, dynamic>>> getFavoriteVideos(
+  // MV:         {int page = 1, int pageSize = 200}) =>
+  // MV:     user.getFavoriteVideos(page: page, pageSize: pageSize);
+  // MV:
+  // MV: Future<List<Map<String, dynamic>>> getLikedVideos(
+  // MV:         {int page = 1, int pageSize = 200}) =>
+  // MV:     user.getLikedVideos(page: page, pageSize: pageSize);
 
   Future<List<Map<String, dynamic>>> getFollowedArtistNews(
           {int page = 1, int pageSize = 200}) =>
@@ -257,61 +257,73 @@ class MusicService {
 
   Future<List<Song>> getFmSongs(int fmId) => user.getFmSongs(fmId);
 
-  Future<String?> getMvUrl(String hash) {
-    return _getMvUrlFromVideoEndpoint(hash).then((url) {
-      if (url != null) return url;
-      // Fallback: try constructing URL directly (some proxies support this)
-      return _oneShotGet('/video/url', params: {
-        'hash': hash,
-        'ext': 'mp4',
-      }).then((res) {
-        // Unwrap nested response structures
-        String? extractUrl(dynamic d) {
-          if (d is! Map) return null;
-          return (d['url'] ?? d['play_url'] ?? d['mv_url']
-              ?? d['hd_url'] ?? d['h264'] ?? d['mp4_url']
-              ?? d['video_url'] ?? d['downurl'] ?? d['down_url']
-          ) as String?;
-        }
-        final data = res['data'];
-        if (data is Map) {
-          final direct = extractUrl(data);
-          if (direct != null) return direct;
-          // Try nesting: data -> info -> first item -> url
-          final info = data['info'] as List<dynamic>?;
-          if (info != null && info.isNotEmpty) {
-            return extractUrl(info[0] as Map?);
-          }
-          final list = data['list'] as List<dynamic>?;
-          if (list != null && list.isNotEmpty) {
-            return extractUrl(list[0] as Map?);
-          }
-          final result = data['result'] as List<dynamic>?;
-          if (result != null && result.isNotEmpty) {
-            return extractUrl(result[0] as Map?);
-          }
-        }
-        return null;
-      });
-    });
-  }
-
-  Future<String?> _getMvUrlFromVideoEndpoint(String hash) async {
-    try {
-      final res = await _oneShotGet('/video/url', params: {'hash': hash});
-      final data = res['data'];
-      if (data is Map) {
-        final url = (data['url'] ?? data['play_url'] ?? data['mv_url']
-            ?? data['hd_url'] ?? data['h264'] ?? data['mp4_url']
-            ?? data['video_url'] ?? data['downurl'] ?? data['down_url']
-        ) as String?;
-        if (url != null && url.isNotEmpty) return url;
-      }
-      return null;
-    } catch (_) {
-      return null;
-    }
-  }
+  // MV:
+  // MV: Future<String?> getMvUrl(String hash) {
+  // MV:   return _getMvUrlFromVideoEndpoint(hash).then((url) {
+  // MV:     if (url != null) return url;
+  // MV:     return _oneShotGet('/video/url', params: {
+  // MV:       'hash': hash,
+  // MV:       'ext': 'mp4',
+  // MV:     }).then((res) {
+  // MV:       final d = res['data'];
+  // MV:       if (d is! Map) return null;
+  // MV:       return (d['url'] ?? d['play_url'] ?? d['mv_url']
+  // MV:           ?? d['hd_url'] ?? d['h264'] ?? d['mp4_url']
+  // MV:           ?? d['video_url'] ?? d['downurl'] ?? d['down_url']
+  // MV:       ) as String?;
+  // MV:     });
+  // MV:   });
+  // MV: }
+  // MV:
+  // MV: Future<String?> _getMvUrlFromVideoEndpoint(String hash) async {
+  // MV:   try {
+  // MV:     final res = await _oneShotGet('/video/url', params: {'hash': hash});
+  // MV:     final data = res['data'];
+  // MV:     if (data is Map) {
+  // MV:       final url = (data['url'] ?? data['play_url'] ?? data['mv_url']
+  // MV:           ?? data['hd_url'] ?? data['h264'] ?? data['mp4_url']
+  // MV:           ?? data['video_url'] ?? data['downurl'] ?? data['down_url']
+  // MV:       ) as String?;
+  // MV:       if (url != null && url.isNotEmpty) return url;
+  // MV:     }
+  // MV:     final data = res['data'];
+  // MV:     if (data is Map) {
+  // MV:       final direct = extractUrl(data);
+  // MV:       if (direct != null) return direct;
+  // MV:       final info = data['info'] as List<dynamic>?;
+  // MV:       if (info != null && info.isNotEmpty) {
+  // MV:         return extractUrl(info[0] as Map?);
+  // MV:       }
+  // MV:       final list = data['list'] as List<dynamic>?;
+  // MV:       if (list != null && list.isNotEmpty) {
+  // MV:         return extractUrl(list[0] as Map?);
+  // MV:       }
+  // MV:       final result = data['result'] as List<dynamic>?;
+  // MV:       if (result != null && result.isNotEmpty) {
+  // MV:         return extractUrl(result[0] as Map?);
+  // MV:       }
+  // MV:     }
+  // MV:     return null;
+  // MV:   });
+  // MV:   });
+  // MV: }
+  // MV:
+  // MV: Future<String?> _getMvUrlFromVideoEndpoint(String hash) async {
+  // MV:   try {
+  // MV:     final res = await _oneShotGet('/video/url', params: {'hash': hash});
+  // MV:     final data = res['data'];
+  // MV:     if (data is Map) {
+  // MV:       final url = (data['url'] ?? data['play_url'] ?? data['mv_url']
+  // MV:           ?? data['hd_url'] ?? data['h264'] ?? data['mp4_url']
+  // MV:           ?? data['video_url'] ?? data['downurl'] ?? data['down_url']
+  // MV:       ) as String?;
+  // MV:       if (url != null && url.isNotEmpty) return url;
+  // MV:     }
+  // MV:     return null;
+  // MV:   } catch (_) {
+  // MV:     return null;
+  // MV:   }
+  // MV: }
 
   // ─── 曲谱（Sheet / 乐谱） ───
   // API 文档: /sheet/song 获取曲谱, /sheet/detail 曲谱详情, /sheet/rank 曲谱排行榜

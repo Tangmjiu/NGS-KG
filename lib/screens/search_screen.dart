@@ -24,8 +24,8 @@ class _SearchScreenState extends State<SearchScreen>
   final _focusNode = FocusNode();
   final _musicService = MusicService();
 
-  final _tabs = ['单曲', '歌单', '专辑', '歌手', 'MV', '歌词'];
-  final _types = ['song', 'special', 'album', 'author', 'mv', 'lyric'];
+  final _tabs = ['单曲', '歌单', '专辑', '歌手', '歌词'];
+  final _types = ['song', 'special', 'album', 'author', 'lyric'];
 
   late TabController _tabController;
 
@@ -33,7 +33,7 @@ class _SearchScreenState extends State<SearchScreen>
   List<Map<String, dynamic>> _playlists = [];
   List<Map<String, dynamic>> _albums = [];
   List<Map<String, dynamic>> _artists = [];
-  List<Map<String, dynamic>> _mvs = [];
+  // MV: List<Map<String, dynamic>> _mvs = [];
   List<Map<String, dynamic>> _lyrics = [];
 
   List<String> _suggestions = [];
@@ -145,10 +145,10 @@ class _SearchScreenState extends State<SearchScreen>
         case 3:
           _artists = await _musicService.searchArtists(keyword);
           break;
+        // MV: case 4:
+        // MV:   _mvs = await _musicService.searchMvs(keyword);
+        // MV:   break;
         case 4:
-          _mvs = await _musicService.searchMvs(keyword);
-          break;
-        case 5:
           _lyrics = await _musicService.searchLyrics(keyword);
           break;
       }
@@ -231,7 +231,7 @@ class _SearchScreenState extends State<SearchScreen>
           _buildPlaylistsTab(),
           _buildAlbumsTab(),
           _buildArtistsTab(),
-          _buildMvsTab(),
+          // MV: _buildMvsTab(),
           _buildLyricsTab(),
         ],
       );
@@ -509,41 +509,41 @@ class _SearchScreenState extends State<SearchScreen>
     );
   }
 
-  Widget _buildMvsTab() {
-    if (_mvs.isEmpty) {
-      return _emptyResult('未找到MV');
-    }
-    return ListView.builder(
-      itemCount: _mvs.length,
-      itemBuilder: (_, i) {
-        final m = _mvs[i];
-        final name = m['MvName'] as String? ?? m['name'] as String? ?? m['mvname'] as String? ?? '';
-        final img = m['Pic'] as String? ?? m['imgurl'] as String? ?? m['img'] as String? ?? '';
-        final artist = m['SingerName'] as String? ?? m['singername'] as String? ?? '';
-        return ListTile(
-          leading: img.isNotEmpty
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
-                      width: 48, height: 48, fit: BoxFit.cover),
-                )
-              : Container(
-                  width: 48, height: 48,
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: const Icon(Icons.video_library),
-                ),
-          title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
-          onTap: () {
-            final hash = m['MvHash'] as String? ?? m['hash'] as String?;
-            if (hash != null) {
-              Navigator.pushNamed(context, '/mv', arguments: {'hash': hash});
-            }
-          },
-        );
-      },
-    );
-  }
+  // MV: Widget _buildMvsTab() {
+  // MV:   if (_mvs.isEmpty) {
+  // MV:     return _emptyResult('未找到MV');
+  // MV:   }
+  // MV:   return ListView.builder(
+  // MV:     itemCount: _mvs.length,
+  // MV:     itemBuilder: (_, i) {
+  // MV:       final m = _mvs[i];
+  // MV:       final name = m['MvName'] as String? ?? m['name'] as String? ?? m['mvname'] as String? ?? '';
+  // MV:       final img = m['Pic'] as String? ?? m['imgurl'] as String? ?? m['img'] as String? ?? '';
+  // MV:       final artist = m['SingerName'] as String? ?? m['singername'] as String? ?? '';
+  // MV:       return ListTile(
+  // MV:         leading: img.isNotEmpty
+  // MV:             ? ClipRRect(
+  // MV:                 borderRadius: BorderRadius.circular(4),
+  // MV:                 child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
+  // MV:                     width: 48, height: 48, fit: BoxFit.cover),
+  // MV:               )
+  // MV:             : Container(
+  // MV:                 width: 48, height: 48,
+  // MV:                 color: Theme.of(context).colorScheme.surfaceContainerHighest,
+  // MV:                 child: const Icon(Icons.video_library),
+  // MV:               ),
+  // MV:         title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+  // MV:         subtitle: Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
+  // MV:         onTap: () {
+  // MV:           final hash = m['MvHash'] as String? ?? m['hash'] as String?;
+  // MV:           if (hash != null) {
+  // MV:             Navigator.pushNamed(context, '/mv', arguments: {'hash': hash});
+  // MV:           }
+  // MV:         },
+  // MV:       );
+  // MV:     },
+  // MV:   );
+  // MV: }
 
   Widget _buildLyricsTab() {
     if (_lyrics.isEmpty) {

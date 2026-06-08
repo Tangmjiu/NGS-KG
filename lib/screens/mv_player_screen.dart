@@ -1,3 +1,5 @@
+// MV 播放功能已暂停适配，代码保留供后续参考
+/*
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
@@ -111,3 +113,4 @@ class _MvPlayerScreenState extends State<MvPlayerScreen> {
     );
   }
 }
+*/
