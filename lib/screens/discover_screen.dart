@@ -205,8 +205,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   style: Theme.of(context).textTheme.titleMedium),
             ),
             const Divider(height: 1),
-            SizedBox(
-              height: 400,
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.55,
+              ),
               child: ListView.builder(
                 itemCount: rankList.length,
                 itemBuilder: (_, i) {
