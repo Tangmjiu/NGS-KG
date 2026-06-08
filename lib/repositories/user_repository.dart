@@ -109,23 +109,24 @@ class UserRepository extends BaseRepository {
     return [];
   }
 
-  Future<List<Map<String, dynamic>>> getFavoriteVideos(
-      {int page = 1, int pageSize = 200}) async {
-    final res = await get('/user/video/collect',
-        params: {'page': page, 'pagesize': pageSize});
-    final raw = res['data'];
-    if (raw is List) return raw.cast<Map<String, dynamic>>();
-    return [];
-  }
-
-  Future<List<Map<String, dynamic>>> getLikedVideos(
-      {int page = 1, int pageSize = 200}) async {
-    final res =
-        await get('/user/video/love', params: {'page': page, 'pagesize': pageSize});
-    final raw = res['data'];
-    if (raw is List) return raw.cast<Map<String, dynamic>>();
-    return [];
-  }
+  // MV:
+  // MV: Future<List<Map<String, dynamic>>> getFavoriteVideos(
+  // MV:     {int page = 1, int pageSize = 200}) async {
+  // MV:   final res = await get('/user/video/collect',
+  // MV:       params: {'page': page, 'pagesize': pageSize});
+  // MV:   final raw = res['data'];
+  // MV:   if (raw is List) return raw.cast<Map<String, dynamic>>();
+  // MV:   return [];
+  // MV: }
+  // MV:
+  // MV: Future<List<Map<String, dynamic>>> getLikedVideos(
+  // MV:     {int page = 1, int pageSize = 200}) async {
+  // MV:   final res =
+  // MV:       await get('/user/video/love', params: {'page': page, 'pagesize': pageSize});
+  // MV:   final raw = res['data'];
+  // MV:   if (raw is List) return raw.cast<Map<String, dynamic>>();
+  // MV:   return [];
+  // MV: }
 
   Future<List<Map<String, dynamic>>> getFollowedArtistNews(
       {int page = 1, int pageSize = 200}) async {

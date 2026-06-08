@@ -188,18 +188,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 MaterialPageRoute(builder: (_) => const LikedSongsScreen()),
               ),
             ),
-            ListTile(
-              leading: const Icon(Icons.video_library),
-              title: const Text('收藏的视频'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.pushNamed(context, '/videos/favorite'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.thumb_up),
-              title: const Text('喜欢的视频'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.pushNamed(context, '/videos/liked'),
-            ),
+            // MV:
+            // MV: ListTile(
+            // MV:   leading: const Icon(Icons.video_library),
+            // MV:   title: const Text('收藏的视频'),
+            // MV:   trailing: const Icon(Icons.chevron_right),
+            // MV:   onTap: () => Navigator.pushNamed(context, '/videos/favorite'),
+            // MV: ),
+            // MV: ListTile(
+            // MV:   leading: const Icon(Icons.thumb_up),
+            // MV:   title: const Text('喜欢的视频'),
+            // MV:   trailing: const Icon(Icons.chevron_right),
+            // MV:   onTap: () => Navigator.pushNamed(context, '/videos/liked'),
+            // MV: ),
           ],
           if (auth.isLoggedIn) ...[
             ListTile(
