@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:provider/provider.dart';
 import '../utils/logger.dart';
 import '../utils/error_dialog.dart';
 import 'package:just_audio/just_audio.dart';
@@ -8,6 +9,9 @@ import '../models/song.dart';
 import '../constants/quality.dart';
 import '../services/music_service.dart';
 import '../services/api_exception.dart';
+import '../main.dart' as app;
+import '../providers/auth_provider.dart';
+import '../widgets/login_required_dialog.dart';
 
 class AudioEngine {
   final MusicService _musicService;
@@ -79,6 +83,7 @@ class AudioEngine {
           _hasActivePlayback = false;
           isLoading.value = false;
           error.value = '播放出错，请重试';
+          _showLoginIfUnauth();
         }
       }
     });
@@ -174,6 +179,7 @@ class AudioEngine {
     if (_playAttempts > _maxRetries) {
       isLoading.value = false;
       error.value = '播放失败: 已重试 $_maxRetries 次';
+      _showLoginIfUnauth();
       return;
     }
     try {
@@ -275,6 +281,7 @@ class AudioEngine {
       isLoading.value = false;
       error.value = '播放失败: $e';
       Log.e('audio_engine', '', e, s);
+      _showLoginIfUnauth();
       return;
     }
     isLoading.value = false;
@@ -415,6 +422,16 @@ class AudioEngine {
 
   void setSpeed(double speed) {
     _player.setSpeed(speed);
+  }
+
+  /// 未登录时播放失败 → 弹出登录提醒
+  void _showLoginIfUnauth() {
+    final ctx = app.navKey.currentContext;
+    if (ctx == null) return;
+    final auth = ctx.read<AuthProvider>();
+    if (!auth.isLoggedIn) {
+      showLoginRequiredDialog(ctx);
+    }
   }
 
   void dispose() {

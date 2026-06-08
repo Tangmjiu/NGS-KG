@@ -9,6 +9,7 @@ import '../models/song.dart';
 import '../models/lyric_line.dart'; // LyricLine, LyricSpan, parseLyrics, tokenizeAndDistribute
 import '../providers/player_provider.dart';
 import '../providers/liked_songs_provider.dart';
+import '../providers/auth_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../constants/quality.dart';
@@ -18,6 +19,7 @@ import '../widgets/am_lyrics_view.dart';
 import '../widgets/player_controls_bar.dart';
 import '../widgets/player_progress_bar.dart';
 import '../widgets/playback_controls.dart' as legacy;
+import '../widgets/login_required_dialog.dart';
 import 'audio_effects_screen.dart';
 
 /// Apple Music-style full player screen with dynamic background,
@@ -163,7 +165,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
             final lyrics = <LyricLine>[];
             for (int i = 0; i < krcModel.krcLyricList.length; i++) {
               final line = krcModel.krcLyricList[i];
-              final text = line.getWordLine();
+              String text;
+              try {
+                text = line.getWordLine();
+              } catch (_) {
+                continue; // 跳过解析失败的行（ym_lyric 空值问题）
+              }
               if (text.trim().isEmpty) continue;
 
               // Map KRC word-level data → LyricSpan list
@@ -476,13 +483,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 icon: liked ? Icons.favorite : Icons.favorite_border,
                 label: liked ? '已收藏' : '收藏',
                 iconColor: liked ? Colors.redAccent : null,
-                onTap: () => lp.toggle(SongInfo(
-                  id: song.id,
-                  name: song.name,
-                  hash: song.hash ?? '',
-                  albumId: song.albumId,
-                  audioId: song.id,
-                )),
+                onTap: () async {
+                  final auth = context.read<AuthProvider>();
+                  if (!auth.isLoggedIn) {
+                    final goLogin = await showLoginRequiredDialog(context);
+                    if (goLogin && mounted) {
+                      Navigator.pushNamed(context, '/login');
+                    }
+                    return;
+                  }
+                  lp.toggle(SongInfo(
+                    id: song.id,
+                    name: song.name,
+                    hash: song.hash ?? '',
+                    albumId: song.albumId,
+                    audioId: song.id,
+                  ));
+                },
               );
             },
           ),

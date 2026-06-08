@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../utils/logger.dart';
 import '../services/music_service.dart';
+import '../services/api_client.dart';
 
 class LikedSongsProvider extends ChangeNotifier {
   /// 收藏歌单 listid，与酷狗官方客户端同步（2 = "我喜欢"）
@@ -15,10 +16,17 @@ class LikedSongsProvider extends ChangeNotifier {
   bool get isLoaded => _loaded;
 
   LikedSongsProvider(this._musicService) {
-    load();
+    if (_hasLogin) load();
+  }
+
+  /// 未登录时 userId 为空或 '0'，跳过加载静默处理
+  bool get _hasLogin {
+    final uid = ApiClient.userId;
+    return uid != null && uid.isNotEmpty && uid != '0';
   }
 
   Future<void> load() async {
+    if (!_hasLogin) return;
     try {
       final songs = await _musicService.getPlaylistTracksById(likedListId);
       _likedIds.clear();
