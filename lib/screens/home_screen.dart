@@ -355,6 +355,13 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _showContinueBanner = false);
   }
 
+  void _refreshProfile() {
+    final auth = context.read<AuthProvider>();
+    if (auth.isLoggedIn && auth.user?.userId != null) {
+      context.read<PlaylistProvider>().fetchUserPlaylist(auth.user!.userId);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -368,7 +375,10 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentTab,
-        onDestinationSelected: (i) => setState(() => _currentTab = i),
+        onDestinationSelected: (i) {
+          setState(() => _currentTab = i);
+          if (i == 2) _refreshProfile();
+        },
         destinations: const [
           NavigationDestination(
               icon: Icon(Icons.home_outlined),

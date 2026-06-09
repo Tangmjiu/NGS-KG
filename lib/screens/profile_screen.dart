@@ -22,20 +22,46 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen>
+    with WidgetsBindingObserver {
   final MusicService _musicService = MusicService();
   VipInfo? _vipInfo;
+  final ScrollController _scrollCtrl = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadPlaylists();
-      _loadVipInfo();
+      _refresh();
     });
   }
 
-  void _loadPlaylists() {
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refresh();
+    }
+  }
+
+  /// 公开刷新方法，供 HomeScreen 在切到该 tab 时调用
+  void refresh() => _refresh();
+
+  Future<void> _refresh() async {
+    await Future.wait([
+      _loadPlaylists(),
+      _loadVipInfo(),
+    ]);
+  }
+
+  Future<void> _loadPlaylists() async {
     final auth = context.read<AuthProvider>();
     final uid = auth.user?.userId;
     if (auth.isLoggedIn && uid != null) {
@@ -57,30 +83,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final auth = context.read<AuthProvider>();
-      if (auth.isLoggedIn && auth.user?.userId != null) {
-        final pp = context.read<PlaylistProvider>();
-        if (pp.userPlaylists.isEmpty) {
-          pp.fetchUserPlaylist(auth.user!.userId);
-        }
-      }
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Consumer2<AuthProvider, PlaylistProvider>(
       builder: (_, auth, playlistProv, __) {
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
+        return RefreshIndicator(
+          onRefresh: _refresh,
+          child: ListView(
+            controller: _scrollCtrl,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            children: [
             if (auth.isLoggedIn) _buildUserHeader(auth),
             const SizedBox(height: 16),
             _buildMenu(auth),
             const SizedBox(height: 16),
             if (auth.isLoggedIn) _buildPlaylists(playlistProv, auth),
           ],
+          ),
         );
       },
     );
