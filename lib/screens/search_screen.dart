@@ -10,6 +10,7 @@ import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
 import '../theme/theme_assets.dart';
+import '../constants/banned_words.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -46,8 +47,8 @@ class _SearchScreenState extends State<SearchScreen>
   String _currentKeyword = '';
   Timer? _debounce;
 
-  /// 搜索屏蔽关键词列表（后续可扩展或从服务器拉取）
-  static const _bannedKeywords = <String>[];
+  /// 搜索屏蔽关键词列表
+  static const _bannedKeywords = kBannedWords;
 
   @override
   void initState() {
@@ -99,6 +100,12 @@ class _SearchScreenState extends State<SearchScreen>
         _suggestions = [];
         _showResult = false;
       });
+      return;
+    }
+    // 屏蔽词不触发建议
+    final lower = keyword.toLowerCase();
+    if (_bannedKeywords.any((b) => lower.contains(b.toLowerCase()))) {
+      setState(() => _suggestions = []);
       return;
     }
     _debounce = Timer(const Duration(milliseconds: 400), () async {
