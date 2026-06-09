@@ -1,9 +1,17 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../main.dart' as app;
 import '../providers/player_provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
 import '../models/song.dart';
+import '../services/api_client.dart';
+import '../services/update_checker.dart';
 import '../widgets/desktop_shell.dart';
+import '../widgets/support_me_dialog.dart';
+import '../widgets/update_dialog.dart';
 
 /// 自适应外壳，嵌套在 MaterialApp.builder 中。
 ///
@@ -25,7 +33,16 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth >= 880) return const DesktopShell();
+        if (constraints.maxWidth >= 880) {
+          return Stack(
+            children: [
+              const DesktopShell(),
+              const _ContinuePlayOverlay(),
+              const _SupportPopupHandler(),
+              const _UpdateCheckHandler(),
+            ],
+          );
+        }
         return _mobileShell();
       },
     );
@@ -53,7 +70,6 @@ class _AppShellState extends State<AppShell> {
       ],
     );
   }
-
 }
 
 // ═══════════════════════════════════════════════
@@ -209,7 +225,7 @@ class _MobileMiniPlayer extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════
-//  Overlay handlers（简化版）
+//  跨设备继续播放检测
 // ═══════════════════════════════════════════════
 
 class _ContinuePlayOverlay extends StatefulWidget {
@@ -222,12 +238,98 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {});
+    WidgetsBinding.instance.addPostFrameCallback((_) => _check());
+  }
+
+  Future<void> _check() async {
+    // 仅在登录后检查，且失败时不弹窗（静默处理）
+    final authCtx = app.navKey.currentContext;
+    if (authCtx == null) return;
+    final auth = authCtx.read<AuthProvider>();
+    if (!auth.isLoggedIn) return;
+
+    try {
+      // 使用直接 Dio 调用，绕过全局错误弹窗拦截器
+      final client = ApiClient.instance;
+      final res = await client.get('/lastest/songs/listen',
+          params: {'pagesize': 1});
+      if (!mounted) return;
+      final data = res.data as Map<String, dynamic>? ?? {};
+      final body = data['data'] as Map<String, dynamic>? ?? data;
+      final devInfo = body['dev_info'] as Map<String, dynamic>?;
+      final wording = devInfo?['wording'] as String? ?? '其他设备';
+      // 优先用 curr_song，回退到 songs[0]
+      Map<String, dynamic>? songInfo;
+      final currSong = body['curr_song'] as Map?;
+      if (currSong is Map) {
+        songInfo = (currSong['info'] as Map<String, dynamic>?)
+            ?? currSong.cast<String, dynamic>();
+      }
+      if (songInfo == null) {
+        final songs = body['songs'] as List<dynamic>? ?? [];
+        if (songs.isNotEmpty && songs[0] is Map<String, dynamic>) {
+          songInfo = songs[0] as Map<String, dynamic>;
+        }
+      }
+      if (songInfo != null && mounted) {
+        final info = songInfo;
+        final songName = (info['name'] as String?
+            ?? info['songname'] as String? ?? '未知歌曲')
+            .replaceAll(RegExp(r'\.mp3$', caseSensitive: false), '');
+        final singer = info['singername'] as String?;
+        showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+                  title: const Text('继续播放'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('检测到在 $wording'),
+                      const SizedBox(height: 8),
+                      Text(songName,
+                          style: Theme.of(context).textTheme.titleMedium),
+                      if (singer != null) Text(singer, style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('取消')),
+                    FilledButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        final hash = info['hash'] as String?;
+                        final songId = (info['mixsongid'] as num?)?.toInt()
+                            ?? (info['id'] as num?)?.toInt() ?? 0;
+                        final song = Song(
+                          id: songId,
+                          name: songName,
+                          artists: singer != null ? [singer] : [],
+                          albumCoverUrl: (info['cover'] as String?)
+                              ?.replaceAll('{size}', '480'),
+                          duration: (info['timelen'] as num?)?.toInt() ?? 0,
+                          hash: hash,
+                        );
+                        context.read<PlayerProvider>().playSong(song);
+                      },
+                      child: const Text('继续'),
+                    ),
+                  ],
+                ));
+      }
+    } catch (_) {
+      // 静默：继续播放接口失败不重要，不弹窗不日志
+    }
   }
 
   @override
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
+
+// ═══════════════════════════════════════════════
+//  支持作者弹窗
+// ═══════════════════════════════════════════════
 
 class _SupportPopupHandler extends StatefulWidget {
   const _SupportPopupHandler();
@@ -237,18 +339,34 @@ class _SupportPopupHandler extends StatefulWidget {
 
 class _SupportPopupHandlerState extends State<_SupportPopupHandler> {
   bool _shown = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_shown) {
       _shown = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {});
+      WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShow());
+    }
+  }
+
+  Future<void> _maybeShow() async {
+    if (!mounted) return;
+    final tp = context.read<ThemeProvider>();
+    if (!tp.shouldShowSupportPopup) return;
+
+    final dismissed = await showSupportMeDialog(context, autoPopup: true);
+    if (dismissed && mounted) {
+      tp.dismissSupportPopup();
     }
   }
 
   @override
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
+
+// ═══════════════════════════════════════════════
+//  启动时检查 GitHub Release 更新
+// ═══════════════════════════════════════════════
 
 class _UpdateCheckHandler extends StatefulWidget {
   const _UpdateCheckHandler();
@@ -258,12 +376,21 @@ class _UpdateCheckHandler extends StatefulWidget {
 
 class _UpdateCheckHandlerState extends State<_UpdateCheckHandler> {
   bool _checked = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_checked) {
       _checked = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {});
+      WidgetsBinding.instance.addPostFrameCallback((_) => _check());
+    }
+  }
+
+  Future<void> _check() async {
+    if (!mounted) return;
+    final release = await UpdateChecker.check();
+    if (release != null && mounted) {
+      showUpdateDialog(context, release);
     }
   }
 
