@@ -1,3 +1,4 @@
+import '../services/api_client.dart';
 import 'base_repository.dart';
 import '../models/song.dart';
 import '../models/user.dart';
@@ -9,6 +10,8 @@ import '../models/vip_info.dart';
 
 class UserRepository extends BaseRepository {
   UserRepository(super.client);
+
+  String get _userId => ApiClient.userId ?? '0';
 
   Future<User?> getUserDetail() async {
     final res = await get('/user/detail');
@@ -23,10 +26,10 @@ class UserRepository extends BaseRepository {
     return VipInfo.fromJson(data);
   }
 
-  Future<List<Map<String, dynamic>>> getUserHistory(
-      {int page = 1, int pageSize = 200}) async {
-    final res =
-        await get('/user/history', params: {'page': page, 'pagesize': pageSize});
+  Future<List<Map<String, dynamic>>> getUserHistory({String? bp}) async {
+    final params = <String, dynamic>{};
+    if (bp != null) params['bp'] = bp;
+    final res = await get('/user/history', params: params);
     final raw = res['data'];
     if (raw is Map) {
       final songs = raw['songs'] as List?;
@@ -131,7 +134,7 @@ class UserRepository extends BaseRepository {
   Future<List<Map<String, dynamic>>> getFollowedArtistNews(
       {int page = 1, int pageSize = 200}) async {
     final res = await get('/user/follow/message',
-        params: {'page': page, 'pagesize': pageSize});
+        params: {'id': _userId, 'page': page, 'pagesize': pageSize});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];

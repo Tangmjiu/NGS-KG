@@ -20,7 +20,8 @@ class PlaylistCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: () {
           Navigator.pushNamed(context, '/playlist/detail', arguments: {
-            'gcId': playlist.globalCollectionId ?? playlist.id.toString(),
+            'gcId': playlist.globalCollectionId ??
+                'collection_3_${playlist.createUserId}_${playlist.id}_0',
             'name': playlist.name,
           });
         },

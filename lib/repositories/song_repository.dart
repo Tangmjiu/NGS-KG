@@ -74,6 +74,7 @@ class SongRepository extends BaseRepository {
     if (hash != null) {
       params['hash'] = hash;
     } else {
+      // hash 不可用时传入 id 作为保底（部分服务器接受此参数）
       params['id'] = songId;
     }
     if (quality != null) {
@@ -85,10 +86,6 @@ class SongRepository extends BaseRepository {
     if (cookie != null) params['cookie'] = cookie;
     final res = await get('/song/url', params: params);
     return SongUrl.fromJson(res);
-  }
-
-  Future<Map<String, dynamic>> getLyric(int songId) async {
-    return get('/lyric', params: {'id': songId});
   }
 
   /// 获取歌曲的音质特权信息（/privilege/lite）
@@ -174,7 +171,7 @@ class SongRepository extends BaseRepository {
   ///
   /// 返回 data.song_list，每项含 hash/ori_audio_name/sizable_cover/author_name/time_length
   Future<List<Song>> getDailyRecommend() async {
-    final res = await get('/everyday/recommend');
+    final res = await get('/everyday/recommend', params: {'platform': 'android'});
     final data = res['data'] as Map<String, dynamic>?;
     if (data == null) return [];
     final list = data['song_list'] as List<dynamic>? ?? [];

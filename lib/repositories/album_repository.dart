@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'base_repository.dart';
 import '../models/song.dart';
 import '../models/album.dart';
@@ -19,12 +20,23 @@ class AlbumRepository extends BaseRepository {
 
   Future<List<Song>> getAlbumSongs(int albumId,
       {int page = 1, int pageSize = 200}) async {
-    final params = <String, dynamic>{
-      'id': albumId,
-      'page': page,
-      'pagesize': pageSize,
-    };
-    final res = await get('/album/songs', params: params, withAuth: false);
+    final params = <String, dynamic>{'id': albumId};
+    // 部分服务器不支持 page/pagesize（返回 20010），首次用无分页请求
+    if (pageSize <= 200) {
+      params['page'] = page;
+      params['pagesize'] = pageSize;
+    }
+    Map<String, dynamic> res;
+    try {
+      res = await get('/album/songs', params: params, withAuth: false);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 502) {
+        // 服务器不支持分页参数，降级
+        res = await get('/album/songs', params: {'id': albumId}, withAuth: false);
+      } else {
+        rethrow;
+      }
+    }
     final data = res['data'];
     List<dynamic>? list;
     if (data is Map) {

@@ -34,6 +34,9 @@ class NotificationService {
   VoidCallback? onPrev;
   VoidCallback? onPlayPause;
   VoidCallback? onNext;
+  VoidCallback? onLike;
+  VoidCallback? onSwitchMode;
+  void Function(int positionMs)? onSeekTo;
 
   // ─── 初始化 ───
 
@@ -59,13 +62,22 @@ class NotificationService {
     if (Platform.isAndroid) {
       // 注册原生回调通道（媒体按钮 → Flutter）
       _callbackChannel.setMessageHandler((msg) async {
-        switch (msg) {
-          case 'onPrev':
-            onPrev?.call();
-          case 'onPlayPause':
-            onPlayPause?.call();
-          case 'onNext':
-            onNext?.call();
+        if (msg == 'onPrev') {
+          onPrev?.call();
+        } else if (msg == 'onPlayPause') {
+          onPlayPause?.call();
+        } else if (msg == 'onNext') {
+          onNext?.call();
+        } else if (msg == 'onLike') {
+          onLike?.call();
+        } else if (msg == 'onSwitchMode') {
+          onSwitchMode?.call();
+        } else if (msg?.startsWith('onSeekTo|') == true) {
+          final parts = msg!.split('|');
+          if (parts.length >= 2) {
+            final posMs = int.tryParse(parts[1]);
+            if (posMs != null) onSeekTo?.call(posMs);
+          }
         }
         return '';
       });
@@ -90,6 +102,7 @@ class NotificationService {
     bool isPlaying = true,
     int duration = 0,    // 秒
     int position = 0,    // 秒
+    bool isBuffering = false, // 是否缓冲中
   }) async {
     if (!Platform.isAndroid) return;
 
@@ -103,10 +116,11 @@ class NotificationService {
         'lyricLine': lyricLine,
       });
 
-      // 更新播放状态（播放/暂停 + 进度）
+      // 更新播放状态（播放/暂停 + 进度 + 缓冲）
       await _mediaChannel.invokeMethod('updatePlaybackState', {
         'isPlaying': isPlaying,
         'position': position,
+        'isBuffering': isBuffering,
       });
     } catch (_) {
       // 原生通道失败时用 flutter_local_notifications 回退
@@ -118,6 +132,20 @@ class NotificationService {
         isPlaying: isPlaying,
       );
     }
+  }
+
+  /// 更新自定义按钮状态（收藏、播放模式）
+  Future<void> updateCustomButtons({
+    required bool liked,
+    required String playMode,  // "sequential" | "shuffle" | "repeatOne"
+  }) async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _mediaChannel.invokeMethod('updateCustomButtons', {
+        'liked': liked,
+        'playMode': playMode,
+      });
+    } catch (_) {}
   }
 
   Future<void> cancelMediaNotification() async {
