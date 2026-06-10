@@ -71,8 +71,6 @@ class MusicService {
   Future<Map<String, dynamic>> getPrivilegeLite(String hash) =>
       song.getPrivilegeLite(hash);
 
-  Future<Map<String, dynamic>> getLyric(int songId) => song.getLyric(songId);
-
   Future<Map<String, dynamic>> searchLyricByHash(String hash, {String? keywords}) =>
       song.searchLyricByHash(hash, keywords: keywords);
 
@@ -170,7 +168,7 @@ class MusicService {
       album.getIpZoneHome(id);
 
   Future<List<Map<String, dynamic>>> getStyleTags() async {
-    final res = await _oneShotGet('/everyday/style/recommend');
+    final res = await _oneShotGet('/everyday/style/recommend', params: {'platform': 'android'});
     final data = res['data'];
     if (data is Map) {
       final list = data['tag_list'] as List<dynamic>?;
@@ -212,9 +210,8 @@ class MusicService {
 
   Future<VipInfo?> getVipInfo() => user.getVipInfo();
 
-  Future<List<Map<String, dynamic>>> getUserHistory(
-          {int page = 1, int pageSize = 200}) =>
-      user.getUserHistory(page: page, pageSize: pageSize);
+  Future<List<Map<String, dynamic>>> getUserHistory({String? bp}) =>
+      user.getUserHistory(bp: bp);
 
   Future<LatestListenInfo?> getLatestListen() => user.getLatestListen();
 
@@ -346,8 +343,8 @@ class MusicService {
       _oneShotGet('/fm/class')
           .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
 
-  Future<List<Map<String, dynamic>>> getRadioImages() =>
-      _oneShotGet('/fm/image')
+  Future<List<Map<String, dynamic>>> getRadioImages(String fmid) =>
+      _oneShotGet('/fm/image', params: {'fmid': fmid})
           .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
 
   // ─── 推荐 ───
@@ -364,7 +361,7 @@ class MusicService {
   /// API 文档: GET /everyday/history
   /// mode=list 返回历史推荐列表, mode=song 需传 history_name 和 date
   Future<List<Map<String, dynamic>>> getHistoryRecommend() =>
-      _oneShotGet('/everyday/history', params: {'mode': 'list'})
+      _oneShotGet('/everyday/history', params: {'mode': 'list', 'platform': 'android'})
           .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
 
   /// AI 推荐

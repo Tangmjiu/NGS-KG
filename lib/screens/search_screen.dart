@@ -6,6 +6,7 @@ import '../models/rank_entry.dart';
 import '../models/song.dart';
 import '../models/song_mapper.dart';
 import '../providers/player_provider.dart';
+import '../services/api_client.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
@@ -426,7 +427,8 @@ class _SearchScreenState extends State<SearchScreen>
                 ?? p['parent_global_collection_id'] as String?
                 ?? (() {
                   final listId = p['id'] ?? p['specialid'];
-                  final userId = p['list_create_userid'] ?? p['userid'];
+                  final userId = p['list_create_userid'] ?? p['userid']
+                      ?? ApiClient.userId;
                   if (listId != null && userId != null) {
                     return 'collection_3_${userId}_${listId}_0';
                   }

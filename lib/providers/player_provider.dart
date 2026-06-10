@@ -176,6 +176,24 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
       isPlaying: _isPlaying,
       duration: _duration.inSeconds,
       position: _position.inSeconds,
+      isBuffering: _engine.isLoading.value,
+    );
+    // 同步自定义按钮状态
+    _notifyCustomButtons(song.id);
+  }
+
+  /// 同步收藏和播放模式状态到系统媒体控件
+  void _notifyCustomButtons(int songId) {
+    final liked = context.read<LikedSongsProvider>().likedIds.contains(songId);
+    final modeLabel = switch (_queue.playMode) {
+      PlayMode.sequential => 'sequential',
+      PlayMode.shuffle => 'shuffle',
+      PlayMode.repeatOne => 'repeatOne',
+      PlayMode.radio => 'sequential',
+    };
+    NotificationService.instance.updateCustomButtons(
+      liked: liked,
+      playMode: modeLabel,
     );
   }
 

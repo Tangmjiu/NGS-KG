@@ -31,7 +31,7 @@ export PATH="$PATH:$HOME/flutter/bin"
 ## 目录结构
 
 ```
-KuGouMusic/
+
 ├── lib/                    # Dart 源码
 │   ├── main.dart           # 应用入口
 │   ├── models/             # 数据模型

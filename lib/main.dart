@@ -129,6 +129,13 @@ Future<void> _initNotifications() async {
   notif.onPrev = () => _notifAction('prev');
   notif.onPlayPause = () => _notifAction('play_pause');
   notif.onNext = () => _notifAction('next');
+  notif.onLike = () => _notifAction('like');
+  notif.onSwitchMode = () => _notifAction('switch_mode');
+  notif.onSeekTo = (posMs) {
+    final ctx = navKey.currentState?.overlay?.context;
+    if (ctx == null) return;
+    ctx.read<PlayerProvider>().seekTo(Duration(milliseconds: posMs));
+  };
 }
 
 void _notifAction(String action) {
@@ -142,6 +149,15 @@ void _notifAction(String action) {
       player.togglePlayPause();
     case 'next':
       player.playNext();
+    case 'like':
+      final song = player.currentSong;
+      if (song != null) {
+        ctx.read<LikedSongsProvider>().toggle(song);
+      }
+    case 'switch_mode':
+      final modes = [PlayMode.sequential, PlayMode.shuffle, PlayMode.repeatOne];
+      final next = modes[(modes.indexOf(player.playMode) + 1) % modes.length];
+      player.setPlayMode(next);
   }
 }
 

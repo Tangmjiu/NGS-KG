@@ -496,7 +496,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             context, '/playlist/detail',
                                             arguments: {
                                               'gcId': pl.globalCollectionId ??
-                                                  pl.id.toString(),
+                                                  'collection_3_${pl.createUserId}_${pl.id}_0',
                                               'name': pl.name,
                                             });
                                       },

@@ -79,19 +79,15 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
                 final p = _playlists[index];
                 return GestureDetector(
                   onTap: () {
-                    if (p.globalCollectionId != null) {
-                      Navigator.pushNamed(
-                        context,
-                        '/playlist/detail',
-                        arguments: {'gcId': p.globalCollectionId, 'name': p.name},
-                      );
-                    } else {
-                      Navigator.pushNamed(
-                        context,
-                        '/playlist/detail',
-                        arguments: {'id': p.id, 'name': p.name},
-                      );
-                    }
+                    Navigator.pushNamed(
+                      context,
+                      '/playlist/detail',
+                      arguments: {
+                        'gcId': p.globalCollectionId ??
+                            'collection_3_${p.createUserId}_${p.id}_0',
+                        'name': p.name,
+                      },
+                    );
                   },
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
