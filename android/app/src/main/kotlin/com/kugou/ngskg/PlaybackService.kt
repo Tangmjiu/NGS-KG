@@ -284,7 +284,7 @@ class PlaybackService : android.app.Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val style = Notification.MediaStyle()
                 .setMediaSession(mediaSession.sessionToken)
-                .setShowActionsInCompactView(1, 2, 3)
+                .setShowActionsInCompactView(0, 1, 2)
 
             return Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_media_play)
@@ -302,7 +302,7 @@ class PlaybackService : android.app.Service() {
         } else {
             // Android < 12: 兼容模式（仅 3 按钮，无自定义图标库）
             val style = androidx.media.app.NotificationCompat.MediaStyle()
-                .setShowActionsInCompactView(1, 2, 3)
+                .setShowActionsInCompactView(0, 1, 2)
 
             return NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_media_play)
