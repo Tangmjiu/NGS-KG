@@ -157,7 +157,8 @@ void _notifAction(String action) {
       final song = player.currentSong;
       if (song != null) {
         ctx.read<LikedSongsProvider>().toggle(SongInfo(
-          song.id, song.name,
+          id: song.id,
+          name: song.name,
           hash: song.hash ?? '',
           albumId: song.albumId,
         ));
