@@ -2,6 +2,7 @@ package com.kugou.ngskg
 
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
 import android.view.KeyEvent
 
 /**
@@ -35,14 +36,14 @@ class MediaButtonReceiver : BroadcastReceiver() {
             }
             Intent.ACTION_MEDIA_BUTTON -> {
                 val keyEvent = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT)
-                if (keyEvent?.action == android.view.KeyEvent.ACTION_DOWN) {
+                if (keyEvent?.action == KeyEvent.ACTION_DOWN) {
                     when (keyEvent.keyCode) {
                         KeyEvent.KEYCODE_MEDIA_PLAY -> svc.onPlayPause?.invoke()
                         KeyEvent.KEYCODE_MEDIA_PAUSE -> svc.onPlayPause?.invoke()
                         KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> svc.onPlayPause?.invoke()
                         KeyEvent.KEYCODE_MEDIA_NEXT -> svc.onNext?.invoke()
                         KeyEvent.KEYCODE_MEDIA_PREVIOUS -> svc.onPrev?.invoke()
-                        android.view.KeyEvent.KEYCODE_MEDIA_STOP -> svc.exitService()
+                        KeyEvent.KEYCODE_MEDIA_STOP -> svc.exitService()
                     }
                 }
             }
