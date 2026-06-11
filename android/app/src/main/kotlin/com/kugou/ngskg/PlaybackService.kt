@@ -140,10 +140,6 @@ class PlaybackService : android.app.Service() {
             override fun onSeekTo(pos: Long) {
                 onSeekTo?.invoke(pos)
             }
-            override fun onMediaButtonEvent(mediaButtonIntent: Intent?): Boolean {
-                // Handle wired headset / Bluetooth media buttons
-                return super.onMediaButtonEvent(mediaButtonIntent)
-            }
         })
         mediaSession.setFlags(
             MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or
@@ -171,7 +167,6 @@ class PlaybackService : android.app.Service() {
                 try {
                     val u = URL(albumArtUrl.replace("{size}", "480"))
                     cachedArt = BitmapFactory.decodeStream(u.openStream())
-                    // 封面加载完成后刷新 metadata + 通知
                     pushMetadata()
                 } catch (_: Exception) {
                     cachedArt = null
@@ -202,7 +197,7 @@ class PlaybackService : android.app.Service() {
     ) {
         isLiked = liked
         playModeLabel = modeLabel
-        pushPlaybackState()      // 通过 PlaybackState 的自定义 action bits 更新按钮状态
+        pushPlaybackState()
     }
 
     // ─── MediaSession 状态推送 ───
@@ -230,7 +225,6 @@ class PlaybackService : android.app.Service() {
             else -> PlaybackState.STATE_PAUSED
         }
 
-        // 基础 action: play/pause/prev/next/stop/seek
         var actions = PlaybackState.ACTION_PLAY or
                 PlaybackState.ACTION_PAUSE or
                 PlaybackState.ACTION_SKIP_TO_NEXT or
@@ -238,11 +232,8 @@ class PlaybackService : android.app.Service() {
                 PlaybackState.ACTION_STOP or
                 PlaybackState.ACTION_SEEK_TO
 
-        // 自定义按钮: 通过额外 action bits 暴露
-        // 系统媒体控件会读取这些 actions 来决定第 4、5 槽是否显示
         actions = actions or CUSTOM_ACTION_LIKE or CUSTOM_ACTION_SWITCH_MODE
 
-        // 在 extras 中存放自定义按钮的状态（系统 UI 不读，但可通过广播扩展）
         val extras = android.os.Bundle().apply {
             putBoolean("is_liked", isLiked)
             putString("play_mode", playModeLabel)
@@ -289,11 +280,11 @@ class PlaybackService : android.app.Service() {
                        else android.R.drawable.ic_media_play
         val playText = if (isPlaying) "暂停" else "播放"
 
-        // Android 12+: MediaStyle 支持 5 个按钮
+        // Android 12+: 原生 MediaStyle API
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val style = Notification.MediaStyle()
                 .setMediaSession(mediaSession.sessionToken)
-                .setShowActionsInCompactView(1, 2, 3)  // 紧凑模式显示 3 个: prev/play/next
+                .setShowActionsInCompactView(1, 2, 3)
 
             return Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_media_play)
@@ -304,25 +295,13 @@ class PlaybackService : android.app.Service() {
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setOngoing(isPlaying)
                 .setStyle(style)
-                .addAction(android.R.drawable.ic_media_previous, "上一首", prevPi)       // slot 2
-                .addAction(playIcon, playText, ppPi)                                     // slot 1
-                .addAction(android.R.drawable.ic_media_next, "下一首", nextPi)             // slot 3
-                .addAction(
-                    if (isLiked) android.R.drawable.ic_star_on else android.R.drawable.ic_star_off,
-                    if (isLiked) "已收藏" else "收藏",
-                    // 收藏按钮通过 PendingIntent 广播触发，由 MediaButtonReceiver 路由
-                    PendingIntent.getBroadcast(this, 5,
-                        Intent(ACTION_PLAY_PAUSE).setPackage(packageName)
-                            .putExtra("command", "like"),
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
-                )                                                                         // slot 4
-                .addAction(android.R.drawable.ic_media_next, "播放模式", nextPi)           // slot 5
+                .addAction(android.R.drawable.ic_media_previous, "上一首", prevPi)
+                .addAction(playIcon, playText, ppPi)
+                .addAction(android.R.drawable.ic_media_next, "下一首", nextPi)
                 .build()
         } else {
-            // Android < 12: 兼容模式，使用 NotificationCompat
+            // Android < 12: 兼容模式（仅 3 按钮，无自定义图标库）
             val style = androidx.media.app.NotificationCompat.MediaStyle()
-                .setMediaSession(mediaSession.sessionToken)
                 .setShowActionsInCompactView(1, 2, 3)
 
             return NotificationCompat.Builder(this, CHANNEL_ID)
@@ -346,7 +325,7 @@ class PlaybackService : android.app.Service() {
         notificationManager.notify(NOTIF_ID, n)
     }
 
-    private fun exitService() {
+    fun exitService() {
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
