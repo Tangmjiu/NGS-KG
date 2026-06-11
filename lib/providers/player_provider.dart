@@ -12,12 +12,14 @@ import 'mixins.dart';
 import 'audio_engine.dart';
 import 'playlist_queue.dart';
 import 'audio_settings_provider.dart';
+import 'liked_songs_provider.dart';
 
 export 'playlist_queue.dart' show PlayMode;
 
 class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMixin {
   final MusicService _musicService;
   final AudioSettingsProvider? _audioSettings;
+  final LikedSongsProvider? _likedSongs;
   late final AudioEngine _engine;
   late final PlaylistQueue _queue;
 
@@ -98,8 +100,8 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     _queue.playlistEndProvider = v;
   }
 
-  PlayerProvider(this._musicService, {AudioSettingsProvider? audioSettings})
-      : _audioSettings = audioSettings {
+  PlayerProvider(this._musicService, {AudioSettingsProvider? audioSettings, LikedSongsProvider? likedSongs})
+      : _audioSettings = audioSettings, _likedSongs = likedSongs {
     _engine = AudioEngine(_musicService);
     _queue = PlaylistQueue();
 
@@ -184,7 +186,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
 
   /// 同步收藏和播放模式状态到系统媒体控件
   void _notifyCustomButtons(int songId) {
-    final liked = context.read<LikedSongsProvider>().likedIds.contains(songId);
+    final liked = _likedSongs?.likedIds.contains(songId) ?? false;
     final modeLabel = switch (_queue.playMode) {
       PlayMode.sequential => 'sequential',
       PlayMode.shuffle => 'shuffle',

@@ -92,6 +92,7 @@ Future<void> main() async {
   final authService = AuthService();
   final audioSettings = AudioSettingsProvider()..init();
   final themeProvider = ThemeProvider()..init();
+  final likedSongs = LikedSongsProvider(musicService);
   runApp(
     MultiProvider(
       providers: [
@@ -100,9 +101,12 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: audioSettings),
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider(create: (_) => AuthProvider(authService)),
-        ChangeNotifierProvider(create: (_) => PlayerProvider(musicService, audioSettings: audioSettings)),
+        ChangeNotifierProvider(create: (_) => PlayerProvider(musicService,
+            audioSettings: audioSettings,
+            likedSongs: likedSongs,
+        )),
         ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
-        ChangeNotifierProvider(create: (_) => LikedSongsProvider(musicService)),
+        ChangeNotifierProvider.value(value: likedSongs),
         ChangeNotifierProvider(create: (_) => DiscoverProvider(musicService)),
       ],
       child: const NGSKGApp(),
@@ -134,7 +138,7 @@ Future<void> _initNotifications() async {
   notif.onSeekTo = (posMs) {
     final ctx = navKey.currentState?.overlay?.context;
     if (ctx == null) return;
-    ctx.read<PlayerProvider>().seekTo(Duration(milliseconds: posMs));
+    ctx.read<PlayerProvider>().seek(Duration(milliseconds: posMs));
   };
 }
 
@@ -152,7 +156,11 @@ void _notifAction(String action) {
     case 'like':
       final song = player.currentSong;
       if (song != null) {
-        ctx.read<LikedSongsProvider>().toggle(song);
+        ctx.read<LikedSongsProvider>().toggle(SongInfo(
+          song.id, song.name,
+          hash: song.hash ?? '',
+          albumId: song.albumId,
+        ));
       }
     case 'switch_mode':
       final modes = [PlayMode.sequential, PlayMode.shuffle, PlayMode.repeatOne];
