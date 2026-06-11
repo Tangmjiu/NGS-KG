@@ -2,7 +2,7 @@ package com.kugou.ngskg
 
 import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
+import android.view.KeyEvent
 
 /**
  * 接收通知栏 + 蓝牙/耳机媒体按钮的广播事件
@@ -33,18 +33,15 @@ class MediaButtonReceiver : BroadcastReceiver() {
             PlaybackService.ACTION_STOP -> {
                 svc.exitService()
             }
-            android.media.session.MediaSession.ACTION_MEDIA_BUTTON -> {
-                // 处理蓝牙/耳机实体按键
-                val keyEvent = intent.getParcelableExtra<android.view.KeyEvent>(
-                    Intent.EXTRA_KEY_EVENT
-                )
+            Intent.ACTION_MEDIA_BUTTON -> {
+                val keyEvent = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT)
                 if (keyEvent?.action == android.view.KeyEvent.ACTION_DOWN) {
                     when (keyEvent.keyCode) {
-                        android.view.KeyEvent.KEYCODE_MEDIA_PLAY -> svc.onPlayPause?.invoke()
-                        android.view.KeyEvent.KEYCODE_MEDIA_PAUSE -> svc.onPlayPause?.invoke()
-                        android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> svc.onPlayPause?.invoke()
-                        android.view.KeyEvent.KEYCODE_MEDIA_NEXT -> svc.onNext?.invoke()
-                        android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS -> svc.onPrev?.invoke()
+                        KeyEvent.KEYCODE_MEDIA_PLAY -> svc.onPlayPause?.invoke()
+                        KeyEvent.KEYCODE_MEDIA_PAUSE -> svc.onPlayPause?.invoke()
+                        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> svc.onPlayPause?.invoke()
+                        KeyEvent.KEYCODE_MEDIA_NEXT -> svc.onNext?.invoke()
+                        KeyEvent.KEYCODE_MEDIA_PREVIOUS -> svc.onPrev?.invoke()
                         android.view.KeyEvent.KEYCODE_MEDIA_STOP -> svc.exitService()
                     }
                 }
