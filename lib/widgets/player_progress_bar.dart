@@ -119,7 +119,7 @@ class _ClimaxTrackShape extends SliderTrackShape {
   }) {
     final trackHeight = sliderTheme.trackHeight ?? 2.0;
     final thumb = sliderTheme.thumbShape ?? const RoundSliderThumbShape();
-    final thumbSize = thumb.getPreferredSize(isEnabled: isEnabled, isDiscrete: isDiscrete);
+    final thumbSize = thumb.getPreferredSize(isEnabled, isDiscrete);
     final thumbRadius = thumbSize.width / 2;
     final trackLeft = offset.dx + thumbRadius;
     final trackTop = offset.dy + (parentBox.size.height - trackHeight) / 2;
