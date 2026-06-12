@@ -23,11 +23,9 @@ class NotificationService {
     StringCodec(),
   );
 
-  // ─── 旧通知备用（fallback） ───
+  // ─── 全局通知（非媒体，仅用于消息提示） ───
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
-  final int _notifId = 0;
-
 
   // ─── 回调 ───
   VoidCallback? onNotificationTap;
@@ -43,12 +41,9 @@ class NotificationService {
   Future<void> init() async {
     if (_initialized) return;
 
-    // 初始化 flutter_local_notifications（作为备选）
+    // 初始化 flutter_local_notifications（仅用于非媒体消息提示）
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await _plugin.initialize(
-      const InitializationSettings(android: androidSettings),
-      onDidReceiveNotificationResponse: _onLegacyTap,
-    );
+    await _plugin.initialize(const InitializationSettings(android: androidSettings));
 
     // Android 13+ 通知权限请求
     if (Platform.isAndroid) {
@@ -82,8 +77,6 @@ class NotificationService {
         return '';
       });
 
-      // 告诉原生端设置回调
-      await _mediaChannel.invokeMethod('setCallbacks');
     }
 
     _initialized = true;
@@ -123,14 +116,7 @@ class NotificationService {
         'isBuffering': isBuffering,
       });
     } catch (_) {
-      // 原生通道失败时用 flutter_local_notifications 回退
-      await _showLegacyNotification(
-        title: title,
-        artist: artist,
-        albumArtUrl: albumArtUrl,
-        lyricLine: lyricLine,
-        isPlaying: isPlaying,
-      );
+      // 原生通道失败时不创建重复通知，静默降级
     }
   }
 
@@ -153,67 +139,6 @@ class NotificationService {
       try {
         await _mediaChannel.invokeMethod('release');
       } catch (_) {}
-    }
-    await _plugin.cancel(_notifId);
-  }
-
-  // ─── 旧版通知回退 ───
-
-  Future<void> _showLegacyNotification({
-    required String title,
-    required String artist,
-    String? albumArtUrl,
-    String? lyricLine,
-    bool isPlaying = true,
-  }) async {
-    final importance = isPlaying ? Importance.high : Importance.defaultImportance;
-    final displayTitle = lyricLine != null && lyricLine.isNotEmpty
-        ? '$title - $artist'
-        : title;
-    final displayBody = (lyricLine != null && lyricLine.isNotEmpty)
-        ? lyricLine
-        : artist;
-
-    final androidDetails = AndroidNotificationDetails(
-      'music_playback',
-      '音乐播放',
-      channelDescription: '音乐播放控制',
-      importance: importance,
-      priority: Priority.high,
-      ongoing: isPlaying,
-      autoCancel: false,
-      showProgress: false,
-      icon: '@mipmap/ic_launcher',
-      actions: [
-        const AndroidNotificationAction('prev', '上一首'),
-        AndroidNotificationAction('play_pause', isPlaying ? '暂停' : '播放'),
-        const AndroidNotificationAction('next', '下一首'),
-      ],
-    );
-
-    await _plugin.show(
-      _notifId,
-      displayTitle,
-      displayBody,
-      NotificationDetails(android: androidDetails),
-      payload: 'open_player',
-    );
-  }
-
-  void _onLegacyTap(NotificationResponse res) {
-    switch (res.actionId) {
-      case 'prev':
-        onPrev?.call();
-        return;
-      case 'play_pause':
-        onPlayPause?.call();
-        return;
-      case 'next':
-        onNext?.call();
-        return;
-    }
-    if (res.payload == 'open_player') {
-      // 点击通知打开播放器
     }
   }
 
