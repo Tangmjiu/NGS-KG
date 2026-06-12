@@ -295,29 +295,31 @@ class _QualityTile extends StatelessWidget {
       onTap: () => showModalBottomSheet(
         context: context,
         builder: (ctx) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text('选择 $label 音质',
-                    style: Theme.of(ctx).textTheme.titleSmall),
-              ),
-              ...Song.qualityKeys.map((key) {
-                final label = Song.qualityLabelMap[key] ?? key;
-                return RadioListTile<String>(
-                  title: Text(label),
-                  subtitle: Text(_qualityDesc(key)),
-                  value: key,
-                  groupValue: value,
-                  onChanged: (v) {
-                    if (v != null) onSelected(v);
-                    Navigator.pop(ctx);
-                  },
-                );
-              }),
-              const SizedBox(height: 8),
-            ],
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text('选择 $label 音质',
+                      style: Theme.of(ctx).textTheme.titleSmall),
+                ),
+                ...Song.qualityKeys.map((key) {
+                  final label = Song.qualityLabelMap[key] ?? key;
+                  return RadioListTile<String>(
+                    title: Text(label),
+                    subtitle: Text(_qualityDesc(key)),
+                    value: key,
+                    groupValue: value,
+                    onChanged: (v) {
+                      if (v != null) onSelected(v);
+                      Navigator.pop(ctx);
+                    },
+                  );
+                }),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         ),
       ),

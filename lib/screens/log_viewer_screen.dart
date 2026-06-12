@@ -250,14 +250,16 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                 const SizedBox(width: 4),
                 Text(_fmtTime(e.time), style: const TextStyle(fontSize: 10, color: Colors.grey)),
                 const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  decoration: BoxDecoration(
-                    color: bg,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  child: Text(e.tag, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(2),
                 ),
+                child: Text(e.tag, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
+              ),
+            ),
               ],
             ),
             const SizedBox(height: 2),
@@ -272,16 +274,16 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         children: [
-          Text(e.level, style: TextStyle(
-            fontSize: 11, fontWeight: FontWeight.bold,
-            color: _levelColor(e.level),
-          )),
-          const SizedBox(width: 4),
-          Text('${_fmtTime(e.time)}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          const SizedBox(width: 4),
-          Text('[${e.tag}]', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
-          const SizedBox(width: 4),
-          Expanded(child: Text(e.message, style: const TextStyle(fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis)),
+            Text(e.level, style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.bold,
+              color: _levelColor(e.level),
+            )),
+            const SizedBox(width: 4),
+            Text('${_fmtTime(e.time)}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            const SizedBox(width: 4),
+            Flexible(child: Text('[${e.tag}]', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+            const SizedBox(width: 4),
+            Expanded(child: Text(e.message, style: const TextStyle(fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis)),
         ],
       ),
     );
