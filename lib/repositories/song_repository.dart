@@ -218,4 +218,27 @@ class SongRepository extends BaseRepository {
       return null;
     }
   }
+
+  /// 获取歌曲高潮开始时间（/song/climax）
+  ///
+  /// 返回毫秒级时间戳，若接口返回空或异常则返回 null。
+  Future<int?> getSongClimax(String hash) async {
+    try {
+      final res = await get('/song/climax', params: {'hash': hash});
+      final data = res['data'];
+      if (data is Map) {
+        final list = data['list'] as List<dynamic>?;
+        if (list != null && list.isNotEmpty) {
+          final first = list.first as Map?;
+          if (first != null) {
+            final begin = first['begin'] as num?;
+            if (begin != null) return (begin * 1000).toInt();
+          }
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
 }

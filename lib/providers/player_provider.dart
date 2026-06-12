@@ -36,6 +36,11 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   List<LyricLine> _lyrics = [];
   Color? _backgroundColor;
 
+  // ─── 歌曲高潮标记 ───
+  int? _climaxMs;  // 毫秒，当前歌曲的高潮开始时间
+
+  int? get climaxMs => _climaxMs;
+
   // ─── 通知节流 ───
   int _lastNotifUpdateMs = 0;
 
@@ -299,6 +304,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     _queue.playIndex(index);
     // Reset lyric state for new song
     _lyrics = [];
+    _climaxMs = null;
     final current = _queue.currentSong;
     if (current == null) return;
     _applyQualityFromSettings();
@@ -311,6 +317,17 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     if (current.albumCoverUrl != null) {
       _extractPalette(current.albumCoverUrl!);
     }
+    // 异步查询高潮时间（不阻塞播放，失败静默）
+    _fetchClimax(current);
+    notifyListeners();
+  }
+
+  /// 异步获取歌曲高潮开始时间并更新到 Song 模型
+  Future<void> _fetchClimax(Song song) async {
+    final hash = song.hash;
+    if (hash == null || hash.isEmpty) return;
+    final ms = await _musicService.getSongClimax(hash);
+    _climaxMs = ms;
     notifyListeners();
   }
 

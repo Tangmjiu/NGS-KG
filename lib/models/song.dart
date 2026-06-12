@@ -15,6 +15,7 @@ class Song {
   final int albumId;
   final int? fileId;
   final String? lyrics; // embedded LRC text (local files with companion .lrc)
+  final int? climaxMs; // 歌曲高潮开始时间（毫秒），来自 /song/climax
 
   const Song({
     required this.id,
@@ -30,6 +31,7 @@ class Song {
     this.albumId = 0,
     this.fileId,
     this.lyrics,
+    this.climaxMs,
   });
 
   bool get isLocal => filePath != null;

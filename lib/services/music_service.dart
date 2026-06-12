@@ -71,6 +71,8 @@ class MusicService {
   Future<Map<String, dynamic>> getPrivilegeLite(String hash) =>
       song.getPrivilegeLite(hash);
 
+  Future<int?> getSongClimax(String hash) => song.getSongClimax(hash);
+
   Future<Map<String, dynamic>> searchLyricByHash(String hash, {String? keywords}) =>
       song.searchLyricByHash(hash, keywords: keywords);
 
