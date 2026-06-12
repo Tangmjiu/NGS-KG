@@ -318,6 +318,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       progress: _isDraggingProgress
                           ? _dragProgressValue
                           : (player.progress.isFinite ? player.progress : 0.0),
+                      climaxPosition: player.climaxMs,
                       onDragStart: () =>
                           setState(() => _isDraggingProgress = true),
                       onDragEnd: () async {
