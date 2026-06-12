@@ -5,28 +5,19 @@
 ## 项目概述
 
 - **项目名称**：NGS-KG+
-- **目标平台**：移动端（Android），桌面端（Electron + Vue3/React，待开发）
+- **目标平台**：移动端（Android），桌面端（Flutter Windows，开发中）
 - **核心功能**：基于酷狗音乐第三方 API，实现用户登录、歌单管理、音乐搜索、在线播放、歌词显示、排行榜、本地音乐播放等
 - **主要技术栈**：
-  - 移动端：Flutter（Dart）
-  - 桌面端：Electron + Vue3/React（待开发）
-  - 音频播放：just_audio
+  - 框架：Flutter（Dart）
+  - 音频播放：just_audio + audio_session
+  - 前台媒体服务：PlaybackService（Kotlin，Android 原生 MediaSession）
   - 状态管理：Provider
   - 网络请求：Dio + CookieJar
-  - 本地存储：sqflite + path_provider
+  - 本地存储：sqflite + SharedPreferences
+  - 通知：flutter_local_notifications + 原生 MediaStyle 通知
   - 权限管理：permission_handler
-- **开发环境**：Linux ARM64 无桌面版 Ubuntu（只能通过 GitHub Actions 构建 APK）
-
-## 环境配置
-
-```bash
-# Android SDK (ARM64)
-export ANDROID_HOME="$HOME/Android/Sdk"
-# Flutter SDK
-export FLUTTER_STORAGE_BASE_URL="https://storage.flutter-io.cn"
-export PUB_HOSTED_URL="https://pub.flutter-io.cn"
-export PATH="$PATH:$HOME/flutter/bin"
-```
+- **开发环境**：Windows（本地构建 Android APK 与 Windows 桌面）
+- **CI 构建**：GitHub Actions（仅构建 Android APK，含 Gradle/Pub/Flutter SDK 缓存）
 
 ## 目录结构
 
@@ -42,11 +33,14 @@ export PATH="$PATH:$HOME/flutter/bin"
 │   ├── utils/              # 工具
 │   └── widgets/            # 通用组件
 ├── android/                # Android 原生工程
+│   └── app/src/main/kotlin/com/kugou/ngskg/
+│       ├── PlaybackService.kt    # 前台媒体服务（MediaSession + 5槽位系统控件）
+│       ├── MainActivity.kt       # Flutter Activity + MethodChannel 桥接
+│       └── MediaButtonReceiver.kt # 蓝牙/耳机媒体按键广播接收器
 ├── assets/                 # 静态资源
 ├── test/                   # 测试
 ├── web/                    # Web 平台（未使用）
-├── .github/workflows/      # GitHub Actions 构建配置
-└── desktop/                # 桌面端（待创建）
+└── .github/workflows/      # GitHub Actions 构建配置
 ```
 
 ## 常用命令
@@ -68,11 +62,10 @@ flutter analyze
 dart format lib/
 ```
 
-### 桌面端
+### 桌面端（Windows）
 
 ```bash
-cd desktop && npm install
-npm run dev
+flutter build windows --debug
 ```
 
 
