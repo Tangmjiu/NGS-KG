@@ -144,9 +144,8 @@ class MusicService {
   Future<Album?> getAlbumDetail(int albumId) =>
       album.getAlbumDetail(albumId);
 
-  Future<List<Song>> getAlbumSongs(int albumId,
-          {int page = 1, int pageSize = 200}) =>
-      album.getAlbumSongs(albumId, page: page, pageSize: pageSize);
+  Future<List<Song>> getAlbumSongs(int albumId) =>
+      album.getAlbumSongs(albumId);
 
   Future<List<RankEntry>> getRankList() => album.getRankList();
 
