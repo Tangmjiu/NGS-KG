@@ -19,8 +19,9 @@ class AlbumRepository extends BaseRepository {
 
   Future<List<Song>> getAlbumSongs(int albumId) async {
     // 部分服务器不支持 page/pagesize（返回 20010），仅传 id
+    // 部分服务器需要 cookie 查询参数，否则返回空列表
     final params = <String, dynamic>{'id': albumId};
-    final res = await get('/album/songs', params: params, withAuth: false);
+    final res = await get('/album/songs', params: params, withCookie: true);
     final data = res['data'];
     List<dynamic>? list;
     if (data is Map) {

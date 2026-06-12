@@ -37,3 +37,5 @@ gradle-user-home/
 # Android signing
 *.jks
 *.keystore
+# 本地 API 文档参考
+APIDOCS/

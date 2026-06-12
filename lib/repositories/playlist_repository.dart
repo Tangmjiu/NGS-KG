@@ -12,7 +12,7 @@ class PlaylistRepository extends BaseRepository {
   String get _userId => ApiClient.userId ?? '0';
 
   Future<PlaylistDetail> getPlaylistDetail(String gcId) async {
-    final res = await get('/playlist/detail', params: {'ids': gcId});
+    final res = await get('/playlist/detail', params: {'ids': gcId}, withCookie: true);
     final data = res['data'];
     if (data is List && data.isNotEmpty) {
       return PlaylistDetail.fromKugouJson(Map<String, dynamic>.from(data[0] as Map));
@@ -36,7 +36,7 @@ class PlaylistRepository extends BaseRepository {
     final params = <String, dynamic>{
       'id': gcId, 'page': page, 'pagesize': pageSize
     };
-    final res = await get('/playlist/track/all', params: params);
+    final res = await get('/playlist/track/all', params: params, withCookie: true);
     final data = res['data'];
     List<dynamic>? songs;
     if (data is Map) {
@@ -64,7 +64,7 @@ class PlaylistRepository extends BaseRepository {
       'id': 'collection_3_${_userId}_${listid}_0',
       'page': page,
       'pagesize': pageSize,
-    });
+    }, withCookie: true);
     final data = res['data'];
     if (data is Map) {
       final songs = data['lists'] as List<dynamic>?
