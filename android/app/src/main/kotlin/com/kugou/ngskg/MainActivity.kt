@@ -94,14 +94,14 @@ class MainActivity : FlutterActivity() {
                     val title = call.argument<String>("title") ?: "未知歌曲"
                     val artist = call.argument<String>("artist") ?: "未知歌手"
                     val albumArtUrl = call.argument<String>("albumArtUrl")
-                    val durationSec = call.argument<Long>("duration") ?: 0L
+                    val durationSec = (call.argument<Number>("duration")?.toLong() ?: 0L)
                     val lyricLine = call.argument<String>("lyricLine")
                     svc.updateMetadata(title, artist, albumArtUrl, durationSec, lyricLine)
                     result.success(null)
                 }
                 "updatePlaybackState" -> {
                     val isPlaying = call.argument<Boolean>("isPlaying") ?: false
-                    val positionSec = call.argument<Long>("position") ?: 0L
+                    val positionSec = (call.argument<Number>("position")?.toLong() ?: 0L)
                     val isBuffering = call.argument<Boolean>("isBuffering") ?: false
                     svc.updatePlaybackState(isPlaying, positionSec, isBuffering)
                     result.success(null)
