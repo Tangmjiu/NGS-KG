@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../../../models/song.dart';
+import '../../../models/song_mapper.dart';
 import '../../../providers/player_provider.dart';
 import '../../../services/music_service.dart';
 
@@ -39,15 +40,17 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
       final raw = await musicService.getPersonalFm(mode: mode, songPoolId: poolId);
       if (mounted) {
         final songs = raw
-            .map((e) => Song.fromJson(e))
+            .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
             .whereType<Song>()
             .toList();
         if (songs.isNotEmpty) {
           final player = context.read<PlayerProvider>();
           player.playSong(songs.first, playlist: songs);
+          return; // 播放成功后不触发全页刷新
         }
       }
     } catch (_) {}
+    // 获取失败时刷新页面显示空状态
     widget.onRefresh();
   }
 
