@@ -1,3 +1,6 @@
+// Copyright (c) 2025-2026 mjiutang
+// SPDX-License-Identifier: MIT
+
 import 'dart:async';
 import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';

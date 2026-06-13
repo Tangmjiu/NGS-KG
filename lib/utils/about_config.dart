@@ -1,3 +1,6 @@
+// Copyright (c) 2025-2026 mjiutang
+// SPDX-License-Identifier: MIT
+
 /// 关于页面配置（编译时可覆盖）
 ///
 /// 构建时通过 --dart-define 传入自定义值，例如：
