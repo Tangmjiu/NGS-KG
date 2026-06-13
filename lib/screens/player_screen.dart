@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_lyric/flutter_lyric.dart';
+import 'package:flutter_lyric/core/lyric_model.dart';
 import 'package:provider/provider.dart';
 import 'package:ym_lyric/model/krc_language_model.dart';
 import 'package:ym_lyric/utils/krc_lyric_util.dart';
 
 import '../models/song.dart';
-import '../models/lyric_line.dart'; // LyricLine, LyricSpan, parseLyrics, tokenizeAndDistribute
 import '../providers/player_provider.dart';
 import '../providers/liked_songs_provider.dart';
 import '../providers/auth_provider.dart';
@@ -15,7 +16,6 @@ import '../utils/logger.dart';
 import '../constants/quality.dart';
 import '../widgets/player_background.dart';
 import '../widgets/player_cover_art.dart';
-import '../widgets/am_lyrics_view.dart';
 import '../widgets/player_controls_bar.dart';
 import '../widgets/player_progress_bar.dart';
 import '../widgets/playback_controls.dart' as legacy;
@@ -32,6 +32,53 @@ class PlayerScreen extends StatefulWidget {
 }
 
 class _PlayerScreenState extends State<PlayerScreen> {
+  // ─── LyricView 样式（Apple Music 风格） ───
+  static final _lyricStyle = LyricStyle(
+    textStyle: const TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w400,
+      height: 1.4,
+      color: Colors.white54,
+    ),
+    activeStyle: const TextStyle(
+      fontSize: 24,
+      fontWeight: FontWeight.w600,
+      height: 1.4,
+      color: Colors.white,
+    ),
+    translationStyle: const TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w300,
+      height: 1.2,
+      color: Colors.white38,
+    ),
+    translationActiveColor: Colors.white60,
+    lineGap: 8,
+    translationLineGap: 2,
+    lineTextAlign: TextAlign.center,
+    contentAlignment: CrossAxisAlignment.center,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+    selectionAnchorPosition: 0.5,
+    selectionAlignment: MainAxisAlignment.center,
+    activeAnchorPosition: 0.5,
+    activeAlignment: MainAxisAlignment.center,
+    activeHighlightColor: Colors.white,
+    activeHighlightExtraFadeWidth: 14,
+    selectedColor: Colors.white38,
+    selectedTranslationColor: Colors.white38,
+    scrollDuration: const Duration(milliseconds: 400),
+    scrollCurve: Curves.easeInOutCubic,
+    scrollDurations: {},
+    enableSwitchAnimation: true,
+    switchEnterDuration: const Duration(milliseconds: 200),
+    switchExitDuration: const Duration(milliseconds: 200),
+    switchEnterCurve: Curves.easeIn,
+    switchExitCurve: Curves.easeOut,
+    selectionAutoResumeMode: SelectionAutoResumeMode.selecting,
+    selectionAutoResumeDuration: const Duration(milliseconds: 500),
+    activeAutoResumeDuration: const Duration(milliseconds: 3000),
+  );
+
   // ─── PageView ───
   final PageController _pageController = PageController();
   double _pageOffset = 0.0; // 0 = cover, 1 = lyrics
@@ -52,6 +99,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _pageController.addListener(_onPageScroll);
     WidgetsBinding.instance
         .addPostFrameCallback((_) => _attachPlayerListener());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final player = context.read<PlayerProvider>();
+        player.lyricController.setOnTapLineCallback((duration) {
+          player.seek(duration);
+        });
+      }
+    });
   }
 
   void _attachPlayerListener() {
@@ -65,10 +120,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final song = player.currentSong;
     if (song == null) return;
 
+    // 拖拽中时同步歌词滚动
+    if (_isDraggingProgress) {
+      final dragPos = Duration(
+        milliseconds: (_dragProgressValue * player.duration.inMilliseconds)
+            .round(),
+      );
+      player.lyricController.setProgress(dragPos);
+    }
+
     // Load lyrics when song changes or lyrics were cleared (e.g. quality switch)
     final songChanged = (song.hash != null && song.hash != _lastLoadedHash) ||
         (song.hash == null && song.id != _lastLoadedSongId);
-    final lyricsCleared = player.lyrics.isEmpty &&
+    final currentLines = player.lyricController.lyricNotifier.value?.lines ?? [];
+    final lyricsCleared = currentLines.isEmpty &&
         _lastLoadedHash != null &&
         song.hash == _lastLoadedHash;
     if (songChanged || lyricsCleared) {
@@ -107,9 +172,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
     // Embedded lyrics from local files (companion .lrc or metadata)
     if (song.lyrics != null && song.lyrics!.isNotEmpty) {
       setState(() => _lyricLoading = false);
-      final parsed = parseLyrics(song.lyrics!);
       if (mounted) {
-        context.read<PlayerProvider>().setLyrics(parsed);
+        context.read<PlayerProvider>().lyricController.loadLyric(song.lyrics!);
       }
       return;
     }
@@ -162,7 +226,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
               } catch (_) {}
             }
 
-            final lyrics = <LyricLine>[];
+            // 构建翻译时间戳映射 (ms → translation text)
+            final transMap = <int, String>{};
+            if (translations != null) {
+              for (int i = 0; i < krcModel.krcLyricList.length && i < translations.length; i++) {
+                transMap[krcModel.krcLyricList[i].startTime] = translations[i];
+              }
+            }
+
+            // 直接构造 flutter_lyric 的 LyricWord / LyricLine / LyricModel
+            final lines = <LyricLine>[];
             for (int i = 0; i < krcModel.krcLyricList.length; i++) {
               final line = krcModel.krcLyricList[i];
               String text;
@@ -173,44 +246,36 @@ class _PlayerScreenState extends State<PlayerScreen> {
               }
               if (text.trim().isEmpty) continue;
 
-              // Map KRC word-level data → LyricSpan list
-              final spans = <LyricSpan>[];
+              // 构造逐字时间信息 LyricWord
+              final words = <LyricWord>[];
               if (line.line != null) {
                 final lineStart = line.startTime;
                 for (final w in line.line!) {
                   if (w.word == null || w.word!.isEmpty) continue;
                   final ws = (w.startTime ?? 0) + lineStart;
                   final we = ws + (w.duration ?? 0);
-                  spans.add(LyricSpan(
+                  words.add(LyricWord(
                     text: w.word!,
                     start: Duration(milliseconds: ws),
                     end: Duration(milliseconds: we),
                   ));
                 }
               }
-              // If KRC has no per-word data, fall back to uniform distribution
-              if (spans.isEmpty) {
-                final start = Duration(milliseconds: line.startTime);
-                final end = Duration(
-                    milliseconds: line.startTime + line.duration);
-                spans.addAll(tokenizeAndDistribute(text, start, end));
-              }
 
-              lyrics.add(LyricLine(
-                startTime: Duration(milliseconds: line.startTime),
-                endTime: Duration(
-                    milliseconds: line.startTime + line.duration),
+              lines.add(LyricLine(
+                start: Duration(milliseconds: line.startTime),
+                end: Duration(milliseconds: line.startTime + line.duration),
                 text: text,
-                translatedText: translations != null && i < translations.length
-                    ? translations[i]
-                    : null,
-                spans: spans,
+                words: words.isNotEmpty ? words : null,
+                translation: transMap[line.startTime],
               ));
             }
 
             if (mounted) {
               if (hash != _lastLoadedHash) return;
-              context.read<PlayerProvider>().setLyrics(lyrics);
+              context.read<PlayerProvider>().loadLyricModel(
+                LyricModel(lines: lines),
+              );
             }
             if (mounted) setState(() => _lyricLoading = false);
             return;
@@ -230,10 +295,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
               Log.e('player_screen', 'base64 error', e, s);
               decoded = rawContent;
             }
-            final lyrics = parseLyrics(decoded);
             if (mounted) {
               if (hash != _lastLoadedHash) return;
-              context.read<PlayerProvider>().setLyrics(lyrics);
+              context.read<PlayerProvider>().lyricController.loadLyric(decoded);
             }
           } catch (e, s) {
             Log.e('player_screen', 'parse error', e, s);
@@ -246,6 +310,36 @@ class _PlayerScreenState extends State<PlayerScreen> {
       Log.e('player_screen', 'lyric load error', e, s);
     }
     if (mounted) setState(() => _lyricLoading = false);
+  }
+
+  Widget _buildLyricsPage(PlayerProvider player) {
+    if (_lyricLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white70),
+      );
+    }
+
+    final model = player.lyricController.lyricNotifier.value;
+    final hasLyrics = model != null && model.lines.isNotEmpty;
+
+    if (!hasLyrics) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.lyrics_outlined, size: 48, color: Colors.white54),
+            const SizedBox(height: 16),
+            const Text('暂无歌词',
+                style: TextStyle(color: Colors.white54, fontSize: 16)),
+          ],
+        ),
+      );
+    }
+
+    return LyricView(
+      controller: player.lyricController,
+      style: _lyricStyle,
+    );
   }
 
   // ────────────────────────────────────────────────────────────
@@ -292,18 +386,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             scrollOffset: _pageOffset,
                           ),
                           // Page 1: Lyrics
-                          AMLyricsView(
-                            lyrics: player.lyrics,
-                            position: _isDraggingProgress
-                                ? Duration(
-                                    milliseconds: (_dragProgressValue *
-                                            player.duration.inMilliseconds)
-                                        .round(),
-                                  )
-                                : player.position,
-                            isLoading: _lyricLoading,
-                            onSeek: (duration) => player.seek(duration),
-                          ),
+                          _buildLyricsPage(player),
                         ],
                       ),
                     ),
@@ -319,8 +402,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           ? _dragProgressValue
                           : (player.progress.isFinite ? player.progress : 0.0),
                       climaxPosition: player.climaxMs,
-                      onDragStart: () =>
-                          setState(() => _isDraggingProgress = true),
+                      onDragStart: () {
+                        setState(() => _isDraggingProgress = true);
+                        // 拖拽开始时同步歌词进度
+                        final pos = Duration(
+                          milliseconds:
+                              (_dragProgressValue * player.duration.inMilliseconds)
+                                  .round(),
+                        );
+                        player.lyricController.setProgress(pos);
+                      },
                       onDragEnd: () async {
                         await player.seek(Duration(
                           milliseconds: (_dragProgressValue *
@@ -333,6 +424,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       },
                       onSeek: (v) {
                         _dragProgressValue = v;
+                        if (_isDraggingProgress) {
+                          final pos = Duration(
+                            milliseconds:
+                                (v * player.duration.inMilliseconds).round(),
+                          );
+                          player.lyricController.setProgress(pos);
+                        }
                       },
                     ),
                     const SizedBox(height: 12),

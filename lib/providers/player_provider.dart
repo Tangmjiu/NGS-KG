@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
+import 'package:flutter_lyric/flutter_lyric.dart';
+import 'package:flutter_lyric/core/lyric_model.dart';
 import '../utils/logger.dart';
 import '../models/song.dart';
-import '../models/lyric_line.dart';
 import '../utils/palette_extractor.dart';
 import '../services/music_service.dart';
 import '../services/notification_service.dart';
@@ -33,7 +34,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
 
   // ─── Dynamic palette & lyric state ───
   ExtractedPalette? _palette;
-  List<LyricLine> _lyrics = [];
+  final LyricController _lyricController = LyricController();
   Color? _backgroundColor;
 
   // ─── 歌曲高潮标记 ───
@@ -82,20 +83,22 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
 
   // ─── Palette & lyric getters ───
   ExtractedPalette? get palette => _palette;
-  List<LyricLine> get lyrics => _lyrics;
+  LyricController get lyricController => _lyricController;
 
   /// Computed: the index of the lyric line currently being sung.
-  int get currentLyricLine {
-    if (_lyrics.isEmpty) return 0;
-    final idx = _lyrics.lastIndexWhere((l) => _position >= l.startTime);
-    return idx == -1 ? 0 : idx;
-  }
+  int get currentLyricLine => _lyricController.activeIndexNotifiter.value;
 
   /// Progress of the current line (0.0 – 1.0).  Used by the notification
-  /// layer only; the lyrics view calculates its own progress internally.
+  /// layer only.
   double get lyricLineProgress {
-    if (_lyrics.isEmpty || currentLyricLine >= _lyrics.length) return 0.0;
-    return _lyrics[currentLyricLine].getLineProgress(_position);
+    final model = _lyricController.lyricNotifier.value;
+    final idx = _lyricController.activeIndexNotifiter.value;
+    if (model == null || idx >= model.lines.length) return 0.0;
+    final line = model.lines[idx];
+    final total = (line.end ?? (line.start + const Duration(seconds: 5))).inMilliseconds - line.start.inMilliseconds;
+    if (total <= 0) return 0.0;
+    final current = _position.inMilliseconds - line.start.inMilliseconds;
+    return (current / total).clamp(0.0, 1.0);
   }
 
   Color? get backgroundColor => _backgroundColor;
@@ -112,6 +115,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
 
     _onPositionChanged = () {
       _position = _engine.position.value;
+      _lyricController.setProgress(_position);
       notifyListeners();
       if (sleepTimerRemaining != null && sleepTimerRemaining!.inSeconds <= 0) {
         _engine.pause();
@@ -171,8 +175,9 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     // 当前歌词行（如果有）
     String? lyricLine;
     final cl = currentLyricLine;
-    if (_lyrics.isNotEmpty && cl < _lyrics.length) {
-      final line = _lyrics[cl].text;
+    final model = _lyricController.lyricNotifier.value;
+    if (model != null && cl < model.lines.length) {
+      final line = model.lines[cl].text;
       if (line.isNotEmpty) lyricLine = line;
     }
     NotificationService.instance.showMediaNotification(
@@ -303,7 +308,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     if (index < 0 || index >= _queue.playlist.length) return;
     _queue.playIndex(index);
     // Reset lyric state for new song
-    _lyrics = [];
+    _lyricController.loadLyricModel(LyricModel(lines: []));
     _climaxMs = null;
     final current = _queue.currentSong;
     if (current == null) return;
@@ -335,7 +340,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     _queue.playlistEndProvider = null;
     _engine.clearError();
     // Reset lyric state for new song
-    _lyrics = [];
+    _lyricController.loadLyricModel(LyricModel(lines: []));
     if (playlist != null) {
       final idx = playlist.indexWhere((s) => s.id == song.id);
       _queue.setPlaylist(playlist, startIndex: idx < 0 ? 0 : idx);
@@ -473,7 +478,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
 
     // 切换成功后强制刷新歌词
     if (success) {
-      _lyrics = [];
+      _lyricController.loadLyricModel(LyricModel(lines: []));
     }
     notifyListeners();
     return success;
@@ -500,16 +505,14 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   //  Lyric management
   // ──────────────────────────────────────────────────────────────
 
-  /// Stores parsed lyrics.  The lyrics view handles progress internally.
-  void setLyrics(List<LyricLine> lyrics) {
-    _lyrics = lyrics;
-    notifyListeners();
+  /// Loads a [LyricModel] into the controller (replaces current lyrics).
+  void loadLyricModel(LyricModel model) {
+    _lyricController.loadLyricModel(model);
   }
 
   /// Clears all lyric state (called when switching to a song without lyrics).
   void clearLyrics() {
-    _lyrics = [];
-    notifyListeners();
+    _lyricController.loadLyricModel(LyricModel(lines: []));
   }
 
   @override
@@ -538,6 +541,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     disposeKeepScreenOn();
     _engine.dispose();
     _queue.dispose();
+    _lyricController.dispose();
     super.dispose();
   }
 }
