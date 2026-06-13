@@ -302,6 +302,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "8.0.0"
+  flutter_lyric:
+    dependency: "direct main"
+    description:
+      name: flutter_lyric
+      sha256: b48b07d47136406e95180f3b3d97c596682164817df967933c3d4a3bfe46a9bd
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "3.0.6"
   flutter_plugin_android_lifecycle:
     dependency: transitive
     description:
