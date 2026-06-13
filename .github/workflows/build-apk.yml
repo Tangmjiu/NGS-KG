@@ -66,13 +66,111 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      # ── Build debug APK ──
-      - name: Build debug APK
-        run: flutter build apk --debug
+      # ── Build debug APKs (all architectures) ──
+      - name: Build debug APK (arm64-v8a)
+        run: flutter build apk --debug --target-platform android-arm64
 
-      - name: Upload debug APK
+      - name: Build debug APK (armeabi-v7a)
+        run: flutter build apk --debug --target-platform android-arm
+
+      - name: Build debug APK (x86_64)
+        run: flutter build apk --debug --target-platform android-x64
+
+      # ── Upload artifacts ──
+      - name: Upload arm64-v8a debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug.apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: NGS-KG-v1.0.1-debug-arm64-v8a
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
 
+      - name: Upload armeabi-v7a debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NGS-KG-v1.0.1-debug-armeabi-v7a
+          path: build/app/outputs/flutter-apk/armeabi-v7a-debug.apk
+
+      - name: Upload x86_64 debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NGS-KG-v1.0.1-debug-x86_64
+          path: build/app/outputs/flutter-apk/x86_64-debug.apk
+
+      # ── Try release build (requires keystore, skip if missing) ──
+      - name: Check keystore exists
+        id: check_keystore
+        run: |
+          if [ -f android/upload-keystore.jks ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build release APK (arm64-v8a)
+        if: steps.check_keystore.outputs.exists == 'true'
+        run: flutter build apk --release --target-platform android-arm64
+
+      - name: Build release APK (armeabi-v7a)
+        if: steps.check_keystore.outputs.exists == 'true'
+        run: flutter build apk --release --target-platform android-arm
+
+      - name: Build release APK (x86_64)
+        if: steps.check_keystore.outputs.exists == 'true'
+        run: flutter build apk --release --target-platform android-x64
+
+      - name: Upload release APKs
+        if: steps.check_keystore.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: NGS-KG-v1.0.1-release-all-abi
+          path: |
+            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            build/app/outputs/flutter-apk/armeabi-v7a-release.apk
+            build/app/outputs/flutter-apk/x86_64-release.apk
+
+      # ── Create GitHub Release ──
+      - name: Create Release
+        if: github.ref == 'refs/heads/android' && github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.1
+          name: NGS-KG+ v1.0.1
+          body: |
+            # NGS-KG+ v1.0.1 更新日志
+
+            ## 新增
+
+            - **歌词引擎迁移至 flutter_lyric**：KRC 解析后直接构造 LyricModel，逐字卡拉 OK 时序 100% 保留，零字符串格式转换
+            - **Android 通知栏歌词**：Media3 系统媒体控件现在正确显示当前歌词行（标题 = ♪ 歌词，正文 = 歌名 - 歌手）
+            - **歌词行切换动画**：进入/退出行缩放 + 颜色过渡
+            - **歌词顶部/底部渐隐**：视口边缘半透明渐变
+            - **API 请求静默降级**：专辑/歌单列表先试 `pagesize=1000`，502 不弹窗自动降级重试
+
+            ## 修复
+
+            - 播放器通知不显示歌词（Kotlin 侧 `lyricLine` 参数未存储/使用）
+            - 逐字卡拉 OK 效果不可见（`activeStyle.color` 与 `activeHighlightColor` 同为白色）
+            - 拖拽进度条后进入歌词页焦点丢失
+            - 发现页私人 FM 列表为空（`Song.fromJson` 不兼容酷狗数据格式）
+            - 发现页「播放全部」触发全页刷新
+            - 专辑/歌单列表因缺少 `pagesize` 参数返回空结果
+            - 歌单列表 `gid` 字段缺失拼错 `gcId`
+            - 专辑详情页 `songCount` 显示为 0
+
+            ## 移除
+
+            - 乐库电台（`/yueku/fm`）UI 及代码
+            - 自建歌词模型/渲染/视图（`LyricLine`/`LyricSpan`/`LyricLinePainter`/`AMLyricsView`）
+
+            ## 已有 UI 但未实现的功能
+
+            | 功能 | 状态 |
+            |------|------|
+            | **MV/视频播放** | 搜索中有 MV 类型选项、歌手页有 MV 选项卡、路由中有 `MvPlayerScreen`，但所有后端代码已注释暂停适配 |
+            | **私人 FM（猜你喜欢）** | 发现页有 UI 入口和「播放全部」按钮，但 `/personal/fm` API 端点可能因服务器节点不支持而失效 |
+            | **网络类型检测** | `_isWifi` 硬编码返回 `true`，未接入 `connectivity_plus`，WiFi/蜂窝独立音质设置无法按实际网络生效 |
+          files: |
+            build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
+            build/app/outputs/flutter-apk/armeabi-v7a-debug.apk
+            build/app/outputs/flutter-apk/x86_64-debug.apk
+          draft: true
+          prerelease: false
