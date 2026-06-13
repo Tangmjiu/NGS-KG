@@ -1,0 +1,139 @@
+name: Build Release APK + GitHub Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag (e.g. v1.0.1)'
+        required: true
+        default: 'v1.0.1'
+      release_name:
+        description: 'Release name (e.g. NGS-KG+ v1.0.1)'
+        required: true
+        default: 'NGS-KG+ v1.0.1'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ═══ Cache ═══
+
+      - name: Cache Flutter SDK
+        uses: actions/cache@v4
+        with:
+          path: /opt/hostedtoolcache/flutter
+          key: flutter-${{ runner.os }}-3.41.0-stable
+          restore-keys: |
+            flutter-${{ runner.os }}-
+
+      - name: Cache Pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool
+          key: pub-${{ runner.os }}-${{ hashFiles('pubspec.yaml', 'pubspec.lock') }}
+          restore-keys: |
+            pub-${{ runner.os }}-
+
+      - name: Cache Android SDK
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/lib/android/sdk
+          key: android-sdk-${{ runner.os }}
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/caches
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.0'
+          channel: 'stable'
+
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v2
+
+      - name: Create assets directories
+        run: |
+          mkdir -p assets/images
+          mkdir -p assets/icons
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # ── Build release APK (split-per-abi) ──
+      - name: Build release APK
+        run: flutter build apk --release --split-per-abi
+
+      # ── Build debug APK (split-per-abi) ──
+      - name: Build debug APK
+        run: flutter build apk --debug --split-per-abi
+
+      # ── Upload artifacts ──
+      - name: Upload release APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: NGS-KG-${{ github.event.inputs.tag_name }}-release
+          path: build/app/outputs/flutter-apk/*-release.apk
+
+      - name: Upload debug APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: NGS-KG-${{ github.event.inputs.tag_name }}-debug
+          path: build/app/outputs/flutter-apk/*-debug.apk
+
+      # ── Create GitHub Release ──
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag_name }}
+          name: ${{ github.event.inputs.release_name }}
+          body: |
+            # NGS-KG+ 更新日志
+
+            ## 新增
+
+            - **歌词引擎迁移至 flutter_lyric**：KRC 解析后直接构造 LyricModel，逐字卡拉 OK 时序 100% 保留，零字符串格式转换
+            - **Android 通知栏歌词**：Media3 系统媒体控件现在正确显示当前歌词行（标题 = ♪ 歌词，正文 = 歌名 - 歌手）
+            - **歌词行切换动画**：进入/退出行缩放 + 颜色过渡
+            - **歌词顶部/底部渐隐**：视口边缘半透明渐变
+            - **API 请求静默降级**：专辑/歌单列表先试 `pagesize=1000`，502 不弹窗自动降级重试
+
+            ## 修复
+
+            - 播放器通知不显示歌词（Kotlin 侧 `lyricLine` 参数未存储/使用）
+            - 逐字卡拉 OK 效果不可见（`activeStyle.color` 与 `activeHighlightColor` 同为白色）
+            - 拖拽进度条后进入歌词页焦点丢失
+            - 发现页私人 FM 列表为空（`Song.fromJson` 不兼容酷狗数据格式）
+            - 发现页「播放全部」触发全页刷新
+            - 专辑/歌单列表因缺少 `pagesize` 参数返回空结果
+            - 歌单列表 `gid` 字段缺失拼错 `gcId`
+            - 专辑详情页 `songCount` 显示为 0
+
+            ## 移除
+
+            - 乐库电台（`/yueku/fm`）UI 及代码
+            - 自建歌词模型/渲染/视图（`LyricLine`/`LyricSpan`/`LyricLinePainter`/`AMLyricsView`）
+
+            ## 已有 UI 但未实现的功能
+
+            | 功能 | 状态 |
+            |------|------|
+            | **MV/视频播放** | 搜索中有 MV 类型选项、歌手页有 MV 选项卡、路由中有 `MvPlayerScreen`，但所有后端代码已注释暂停适配 |
+            | **私人 FM（猜你喜欢）** | 发现页有 UI 入口和「播放全部」按钮，但 `/personal/fm` API 端点可能因服务器节点不支持而失效 |
+            | **网络类型检测** | `_isWifi` 硬编码返回 `true`，未接入 `connectivity_plus`，WiFi/蜂窝独立音质设置无法按实际网络生效 |
+          files: |
+            build/app/outputs/flutter-apk/*-debug.apk
+            build/app/outputs/flutter-apk/*-release.apk
+          draft: true
+          prerelease: false
