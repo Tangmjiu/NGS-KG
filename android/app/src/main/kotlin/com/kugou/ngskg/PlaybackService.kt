@@ -297,10 +297,12 @@ class PlaybackService : android.app.Service() {
                        else android.R.drawable.ic_media_play
         val playText = if (isPlaying) "暂停" else "播放"
 
-        // 通知内容：有歌词时显示"歌手 · ♪ 当前歌词"，否则仅歌手
+        // 通知：有歌词时标题显示歌词，正文显示"歌名 - 歌手"
+        // 这样 Media3 系统控件的大字是歌词，小字是歌曲信息
         val lyricDisplay = currentLyricDisplay()
-        val contentText = if (lyricDisplay != null) {
-            "$currentArtist · $lyricDisplay"
+        val displayTitle = lyricDisplay ?: currentTitle
+        val displayContent = if (lyricDisplay != null) {
+            "$currentTitle - $currentArtist"
         } else {
             currentArtist
         }
@@ -315,8 +317,8 @@ class PlaybackService : android.app.Service() {
 
             return Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_media_play)
-                .setContentTitle(currentTitle)
-                .setContentText(contentText)
+                .setContentTitle(displayTitle)
+                .setContentText(displayContent)
                 .setLargeIcon(cachedArt)
                 .setContentIntent(openPi)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
@@ -333,8 +335,8 @@ class PlaybackService : android.app.Service() {
 
             return NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_media_play)
-                .setContentTitle(currentTitle)
-                .setContentText(contentText)
+                .setContentTitle(displayTitle)
+                .setContentText(displayContent)
                 .setLargeIcon(cachedArt)
                 .setContentIntent(openPi)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
