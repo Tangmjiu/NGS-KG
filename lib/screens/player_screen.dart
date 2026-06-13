@@ -44,7 +44,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       fontSize: 24,
       fontWeight: FontWeight.w600,
       height: 1.4,
-      color: Colors.white,
+      color: Colors.white38,
     ),
     translationStyle: const TextStyle(
       fontSize: 14,
@@ -55,8 +55,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
     translationActiveColor: Colors.white60,
     lineGap: 8,
     translationLineGap: 2,
-    lineTextAlign: TextAlign.center,
-    contentAlignment: CrossAxisAlignment.center,
+    lineTextAlign: TextAlign.left,
+    contentAlignment: CrossAxisAlignment.start,
     contentPadding: const EdgeInsets.symmetric(horizontal: 24),
     selectionAnchorPosition: 0.5,
     selectionAlignment: MainAxisAlignment.center,
@@ -120,8 +120,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final song = player.currentSong;
     if (song == null) return;
 
-    // 拖拽中时同步歌词滚动
-    if (_isDraggingProgress) {
+    // 拖拽进度条时同步歌词滚动（仅在歌词页可见时才更新 controller）
+    // 否则 controller 会被拖拽位置污染，进歌词页时第一帧显示错误
+    if (_isDraggingProgress && _pageOffset >= 0.5) {
       final dragPos = Duration(
         milliseconds: (_dragProgressValue * player.duration.inMilliseconds)
             .round(),
@@ -147,9 +148,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   void _onPageScroll() {
     if (!_pageController.hasClients) return;
+    final newOffset = _pageController.page?.clamp(0.0, 1.0) ?? 0.0;
+    final wasBelowHalf = _pageOffset < 0.5;
     setState(() {
-      _pageOffset = _pageController.page?.clamp(0.0, 1.0) ?? 0.0;
+      _pageOffset = newOffset;
     });
+    // 进入歌词页面时同步 controller 到实际播放位置
+    if (wasBelowHalf && newOffset >= 0.5 && mounted) {
+      final player = context.read<PlayerProvider>();
+      if (!_isDraggingProgress) {
+        player.lyricController.setProgress(player.position);
+      }
+    }
   }
 
   @override

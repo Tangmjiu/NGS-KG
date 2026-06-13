@@ -63,6 +63,7 @@ class PlaybackService : android.app.Service() {
     private var currentArtist: String = ""
     private var currentDuration: Long = 0L
     private var currentPosition: Long = 0L
+    private var currentLyricLine: String? = null
     private var isCurrentlyPlaying: Boolean = false
     private var isCurrentlyBuffering: Boolean = false
     private var isLiked: Boolean = false
@@ -160,6 +161,7 @@ class PlaybackService : android.app.Service() {
         currentTitle = title
         currentArtist = artist
         currentDuration = durationSec * 1000L  // 毫秒
+        currentLyricLine = lyricLine
 
         // 异步加载封面（避免主线程 ANR）
         if (albumArtUrl != null) {
@@ -203,7 +205,7 @@ class PlaybackService : android.app.Service() {
     // ─── MediaSession 状态推送 ───
 
     private fun pushMetadata() {
-        val meta = android.media.MediaMetadata.Builder()
+        val metaBuilder = android.media.MediaMetadata.Builder()
             .putString(android.media.MediaMetadata.METADATA_KEY_TITLE, currentTitle)
             .putString(android.media.MediaMetadata.METADATA_KEY_ARTIST, currentArtist)
             .putLong(android.media.MediaMetadata.METADATA_KEY_DURATION, currentDuration)
@@ -212,9 +214,24 @@ class PlaybackService : android.app.Service() {
                     putBitmap(android.media.MediaMetadata.METADATA_KEY_ALBUM_ART, it)
                 }
             }
-            .build()
-        mediaSession.setMetadata(meta)
+        // 歌词行写入 MediaMetadata extras（供系统/蓝牙/穿戴设备读取）
+        currentLyricLine?.let { line ->
+            val bundle = android.os.Bundle()
+            bundle.putString("lyricLine", line)
+            metaBuilder.putString(
+                android.media.MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE,
+                line
+            )
+        }
+        mediaSession.setMetadata(metaBuilder.build())
         updateNotification()
+    }
+
+    /** 当前歌词行（用于通知栏显示） */
+    private fun currentLyricDisplay(): String? {
+        val line = currentLyricLine ?: return null
+        if (line.isBlank()) return null
+        return "♪ $line"
     }
 
     @Suppress("DEPRECATION")
@@ -280,6 +297,8 @@ class PlaybackService : android.app.Service() {
                        else android.R.drawable.ic_media_play
         val playText = if (isPlaying) "暂停" else "播放"
 
+        val lyricDisplay = currentLyricDisplay()
+
         // Android 12+: 原生 MediaStyle API
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val style = Notification.MediaStyle()
@@ -290,6 +309,7 @@ class PlaybackService : android.app.Service() {
                 .setSmallIcon(android.R.drawable.ic_media_play)
                 .setContentTitle(currentTitle)
                 .setContentText(currentArtist)
+                .setSubText(lyricDisplay)
                 .setLargeIcon(cachedArt)
                 .setContentIntent(openPi)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
@@ -307,7 +327,7 @@ class PlaybackService : android.app.Service() {
             return NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_media_play)
                 .setContentTitle(currentTitle)
-                .setContentText(currentArtist)
+                .setContentText(lyricDisplay ?: currentArtist)
                 .setLargeIcon(cachedArt)
                 .setContentIntent(openPi)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
