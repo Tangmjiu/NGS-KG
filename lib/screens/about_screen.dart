@@ -1,14 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/theme_assets.dart';
 import '../utils/about_config.dart';
 
 /// 关于页面
 ///
-/// 所有显示的文本均由 [AboutConfig] 提供，
-/// 编译时可通过 --dart-define 覆盖（copyright 除外）。
-class AboutScreen extends StatelessWidget {
+/// 版本号由 pubspec.yaml 统一管理，运行时通过 package_info_plus 读取。
+/// 其他文本由 [AboutConfig] 提供，编译时可通过 --dart-define 覆盖。
+class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
+
+  @override
+  State<AboutScreen> createState() => _AboutScreenState();
+}
+
+class _AboutScreenState extends State<AboutScreen> {
+  String _version = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    // CI 构建时可通过 --dart-define=ABOUT_VERSION 覆盖版本显示
+    final override = AboutConfig.versionOverride;
+    if (override.isNotEmpty) {
+      setState(() => _version = override);
+      return;
+    }
+    try {
+      final info = await PackageInfo.fromPlatform();
+      setState(() => _version = '${info.version}+${info.buildNumber}');
+    } catch (_) {
+      setState(() => _version = '未知');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +79,7 @@ class AboutScreen extends StatelessWidget {
                     style: tt.headlineSmall
                         ?.copyWith(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
-                Text('版本 ${AboutConfig.version}',
+                Text('版本 $_version',
                     style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
               ],
             ),
