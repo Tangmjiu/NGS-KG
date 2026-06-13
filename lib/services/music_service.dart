@@ -354,9 +354,15 @@ class MusicService {
   ///
   /// [mode] normal=红心 small=小众
   /// [songPoolId] 0=Alpha 1=Beta 2=Gamma
-  Future<List<Map<String, dynamic>>> getPersonalFm({String mode = 'normal', int songPoolId = 0}) =>
-      _oneShotGet('/personal/fm', params: {'mode': mode, 'song_pool_id': songPoolId})
-          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+  Future<List<Map<String, dynamic>>> getPersonalFm({String mode = 'normal', int songPoolId = 0}) async {
+    final params = <String, dynamic>{'mode': mode, 'song_pool_id': songPoolId};
+    // 部分服务器需要 cookie 查询参数
+    final cookieStr = await _getCookieString();
+    if (cookieStr != null) params['cookie'] = cookieStr;
+    final res = await _oneShotGet('/personal/fm', params: params, silent: true);
+    if (res['data'] is List) return (res['data'] as List).cast<Map<String, dynamic>>();
+    return [];
+  }
 
   /// 历史推荐
   /// API 文档: GET /everyday/history
