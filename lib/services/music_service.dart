@@ -97,11 +97,11 @@ class MusicService {
       playlist.getPlaylistDetail(gcId);
 
   Future<List<Song>> getPlaylistTracks(String gcId,
-          {int page = 1, int pageSize = 1000}) =>
+          {int page = 1, int pageSize = 30}) =>
       playlist.getPlaylistTracks(gcId, page: page, pageSize: pageSize);
 
   Future<List<Song>> getPlaylistTracksById(int listid,
-          {int page = 1, int pageSize = 1000}) =>
+          {int page = 1, int pageSize = 30}) =>
       playlist.getPlaylistTracksById(listid, page: page, pageSize: pageSize);
 
   Future<List<Playlist>> getUserPlaylist(

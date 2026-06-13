@@ -32,7 +32,7 @@ class PlaylistRepository extends BaseRepository {
   }
 
   Future<List<Song>> getPlaylistTracks(String gcId,
-      {int page = 1, int pageSize = 1000}) async {
+      {int page = 1, int pageSize = 30}) async {
     final params = <String, dynamic>{
       'id': gcId, 'page': page, 'pagesize': pageSize
     };
@@ -59,7 +59,7 @@ class PlaylistRepository extends BaseRepository {
   }
 
   Future<List<Song>> getPlaylistTracksById(int listid,
-      {int page = 1, int pageSize = 1000}) async {
+      {int page = 1, int pageSize = 30}) async {
     final res = await get('/playlist/track/all', params: {
       'id': 'collection_3_${_userId}_${listid}_0',
       'page': page,
