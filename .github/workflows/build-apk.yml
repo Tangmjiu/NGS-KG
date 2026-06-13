@@ -66,66 +66,27 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      # ── Build debug APKs (all architectures) ──
-      - name: Build debug APK (arm64-v8a)
-        run: flutter build apk --debug --target-platform android-arm64
+      # ── Build debug APK (split-per-abi → arm64-v8a + armeabi-v7a + x86_64) ──
+      - name: Build debug APK
+        run: flutter build apk --debug --split-per-abi
 
-      - name: Build debug APK (armeabi-v7a)
-        run: flutter build apk --debug --target-platform android-arm
-
-      - name: Build debug APK (x86_64)
-        run: flutter build apk --debug --target-platform android-x64
-
-      # ── Upload artifacts ──
-      - name: Upload arm64-v8a debug APK
+      # ── Upload debug APKs ──
+      - name: Upload debug APKs
         uses: actions/upload-artifact@v4
         with:
-          name: NGS-KG-v1.0.1-debug-arm64-v8a
-          path: build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
+          name: NGS-KG-v1.0.1-debug
+          path: build/app/outputs/flutter-apk/*-debug.apk
 
-      - name: Upload armeabi-v7a debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: NGS-KG-v1.0.1-debug-armeabi-v7a
-          path: build/app/outputs/flutter-apk/armeabi-v7a-debug.apk
+      # ── Build release APK (split-per-abi) ──
+      - name: Build release APK
+        run: flutter build apk --release --split-per-abi
 
-      - name: Upload x86_64 debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: NGS-KG-v1.0.1-debug-x86_64
-          path: build/app/outputs/flutter-apk/x86_64-debug.apk
-
-      # ── Try release build (requires keystore, skip if missing) ──
-      - name: Check keystore exists
-        id: check_keystore
-        run: |
-          if [ -f android/upload-keystore.jks ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Build release APK (arm64-v8a)
-        if: steps.check_keystore.outputs.exists == 'true'
-        run: flutter build apk --release --target-platform android-arm64
-
-      - name: Build release APK (armeabi-v7a)
-        if: steps.check_keystore.outputs.exists == 'true'
-        run: flutter build apk --release --target-platform android-arm
-
-      - name: Build release APK (x86_64)
-        if: steps.check_keystore.outputs.exists == 'true'
-        run: flutter build apk --release --target-platform android-x64
-
+      # ── Upload release APKs ──
       - name: Upload release APKs
-        if: steps.check_keystore.outputs.exists == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: NGS-KG-v1.0.1-release-all-abi
-          path: |
-            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-            build/app/outputs/flutter-apk/armeabi-v7a-release.apk
-            build/app/outputs/flutter-apk/x86_64-release.apk
+          name: NGS-KG-v1.0.1-release
+          path: build/app/outputs/flutter-apk/*-release.apk
 
       # ── Create GitHub Release ──
       - name: Create Release
@@ -169,8 +130,7 @@ jobs:
             | **私人 FM（猜你喜欢）** | 发现页有 UI 入口和「播放全部」按钮，但 `/personal/fm` API 端点可能因服务器节点不支持而失效 |
             | **网络类型检测** | `_isWifi` 硬编码返回 `true`，未接入 `connectivity_plus`，WiFi/蜂窝独立音质设置无法按实际网络生效 |
           files: |
-            build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
-            build/app/outputs/flutter-apk/armeabi-v7a-debug.apk
-            build/app/outputs/flutter-apk/x86_64-debug.apk
+            build/app/outputs/flutter-apk/*-debug.apk
+            build/app/outputs/flutter-apk/*-release.apk
           draft: true
           prerelease: false
