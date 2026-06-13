@@ -297,9 +297,17 @@ class PlaybackService : android.app.Service() {
                        else android.R.drawable.ic_media_play
         val playText = if (isPlaying) "暂停" else "播放"
 
+        // 通知内容：有歌词时显示"歌手 · ♪ 当前歌词"，否则仅歌手
         val lyricDisplay = currentLyricDisplay()
+        val contentText = if (lyricDisplay != null) {
+            "$currentArtist · $lyricDisplay"
+        } else {
+            currentArtist
+        }
 
         // Android 12+: 原生 MediaStyle API
+        // 注意：setSubText 在 Android 12+ 系统媒体通知模板中不显示，
+        // 歌词必须放在 setContentText 中才能在所有版本可见
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val style = Notification.MediaStyle()
                 .setMediaSession(mediaSession.sessionToken)
@@ -308,8 +316,7 @@ class PlaybackService : android.app.Service() {
             return Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_media_play)
                 .setContentTitle(currentTitle)
-                .setContentText(currentArtist)
-                .setSubText(lyricDisplay)
+                .setContentText(contentText)
                 .setLargeIcon(cachedArt)
                 .setContentIntent(openPi)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
@@ -327,7 +334,7 @@ class PlaybackService : android.app.Service() {
             return NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_media_play)
                 .setContentTitle(currentTitle)
-                .setContentText(lyricDisplay ?: currentArtist)
+                .setContentText(contentText)
                 .setLargeIcon(cachedArt)
                 .setContentIntent(openPi)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
