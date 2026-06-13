@@ -47,6 +47,7 @@ dependencies:
   flutter_local_notifications: ^18.0.1
   # Lyrics
   ym_lyric: ^0.0.4
+  flutter_lyric: ^3.0.6
 
 dev_dependencies:
   flutter_test:
