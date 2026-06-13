@@ -425,6 +425,7 @@ class _SearchScreenState extends State<SearchScreen>
             final gcId = p['global_collection_id'] as String?
                 ?? p['globalCollectionId'] as String?
                 ?? p['parent_global_collection_id'] as String?
+                ?? p['gid'] as String?
                 ?? (() {
                   final listId = p['id'] ?? p['specialid'];
                   final userId = p['list_create_userid'] ?? p['userid']
