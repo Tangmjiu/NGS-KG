@@ -61,7 +61,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
     final img = _album?.coverUrl ?? '';
     final artist = _album?.artistName ?? '';
     final desc = _album?.description ?? '';
-    final songCount = _album?.songCount ?? _songs.length;
+    final songCount = _songs.length;
 
     return Scaffold(
       body: CustomScrollView(
