@@ -150,4 +150,6 @@ lib/
 
 ## 协议
 
-[MIT](LICENSE)
+本项目基于 [MIT](LICENSE) 协议开源。
+
+Copyright © 2025-2026 mjiutang. All Rights Reserved.

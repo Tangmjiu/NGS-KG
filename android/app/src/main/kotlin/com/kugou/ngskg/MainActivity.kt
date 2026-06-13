@@ -1,3 +1,6 @@
+// Copyright (c) 2025-2026 mjiutang
+// SPDX-License-Identifier: MIT
+
 package com.kugou.ngskg
 
 import android.content.ComponentName
