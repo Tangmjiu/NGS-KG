@@ -508,11 +508,15 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   /// Loads a [LyricModel] into the controller (replaces current lyrics).
   void loadLyricModel(LyricModel model) {
     _lyricController.loadLyricModel(model);
+    notifyListeners();
+    _updateNotification();
   }
 
   /// Clears all lyric state (called when switching to a song without lyrics).
   void clearLyrics() {
     _lyricController.loadLyricModel(LyricModel(lines: []));
+    notifyListeners();
+    _updateNotification();
   }
 
   @override
