@@ -18,11 +18,26 @@ class AlbumRepository extends BaseRepository {
   }
 
   Future<List<Song>> getAlbumSongs(int albumId) async {
-    // 部分服务器不支持 page/pagesize（返回 20010），仅传 id
-    // 部分服务器需要 cookie 查询参数，否则返回空列表
-    final params = <String, dynamic>{'id': albumId};
-    final res = await get('/album/songs', params: params, withCookie: true);
-    final data = res['data'];
+    // 尝试 1: 带 pagesize=1000（某些服务器支持分页，但部分返回 502/20010）
+    // silent=true 使 502 不弹错误窗，静默降级到无 pagesize 重试
+    try {
+      final params1 = <String, dynamic>{'id': albumId, 'pagesize': 1000};
+      final res1 = await get('/album/songs',
+          params: params1, withCookie: true, silent: true);
+      final songs1 = _parseSongList(res1['data']);
+      if (songs1 != null) return songs1;
+    } catch (_) {
+      // 502/20010 → 静默降级
+    }
+
+    // 尝试 2: 不带 pagesize（兼容旧服务器）
+    final res2 = await get('/album/songs',
+        params: {'id': albumId}, withCookie: true);
+    return _parseSongList(res2['data']) ?? [];
+  }
+
+  /// 从接口响应的 data 中提取歌曲列表，失败返回 null
+  List<Song>? _parseSongList(dynamic data) {
     List<dynamic>? list;
     if (data is Map) {
       list = data['lists'] as List<dynamic>?
@@ -36,7 +51,7 @@ class AlbumRepository extends BaseRepository {
     } else if (data is List) {
       list = data;
     }
-    if (list == null) return [];
+    if (list == null) return null;
     return list
         .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
         .whereType<Song>()

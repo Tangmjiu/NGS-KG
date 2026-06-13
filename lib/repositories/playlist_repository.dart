@@ -33,11 +33,90 @@ class PlaylistRepository extends BaseRepository {
 
   Future<List<Song>> getPlaylistTracks(String gcId,
       {int page = 1, int pageSize = 30}) async {
-    final params = <String, dynamic>{
-      'id': gcId, 'page': page, 'pagesize': pageSize
+    // 尝试 1: 带 pagesize=1000（某些服务器支持，部分返回 502/20010）
+    try {
+      final params1 = <String, dynamic>{
+        'id': gcId, 'page': page, 'pagesize': 1000,
+      };
+      final res1 = await get('/playlist/track/all',
+          params: params1, withCookie: true, silent: true);
+      final songs1 = _parseTrackList(res1['data']);
+      if (songs1 != null) return songs1;
+    } catch (_) {
+      // 502/20010 → 静默降级
+    }
+
+    // 尝试 2: 用原始 pageSize（兼容旧服务器）
+    final params2 = <String, dynamic>{
+      'id': gcId, 'page': page, 'pagesize': pageSize,
     };
-    final res = await get('/playlist/track/all', params: params, withCookie: true);
-    final data = res['data'];
+    final res2 = await get('/playlist/track/all',
+        params: params2, withCookie: true);
+    final data2 = res2['data'];
+    if (data2 is List) {
+      return data2
+          .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
+          .whereType<Song>()
+          .toList();
+    }
+    if (data2 is Map) {
+      final songs2 = data2['lists'] as List<dynamic>?
+          ?? data2['songs'] as List<dynamic>?
+          ?? data2['info'] as List<dynamic>?
+          ?? data2['list'] as List<dynamic>?
+          ?? data2['audios'] as List<dynamic>?
+          ?? data2['songlist'] as List<dynamic>?;
+      if (songs2 != null) {
+        return songs2
+            .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
+            .whereType<Song>()
+            .toList();
+      }
+    }
+    return [];
+  }
+
+  Future<List<Song>> getPlaylistTracksById(int listid,
+      {int page = 1, int pageSize = 30}) async {
+    // 尝试 1: 带 pagesize=1000（静默）
+    try {
+      final params1 = <String, dynamic>{
+        'id': 'collection_3_${_userId}_${listid}_0',
+        'page': page,
+        'pagesize': 1000,
+      };
+      final res1 = await get('/playlist/track/all',
+          params: params1, withCookie: true, silent: true);
+      final songs1 = _parseTrackList(res1['data']);
+      if (songs1 != null) return songs1;
+    } catch (_) {
+      // 静默降级
+    }
+
+    // 尝试 2: 用原始 pageSize
+    final res2 = await get('/playlist/track/all', params: {
+      'id': 'collection_3_${_userId}_${listid}_0',
+      'page': page,
+      'pagesize': pageSize,
+    }, withCookie: true);
+    final data2 = res2['data'];
+    if (data2 is Map) {
+      final songs2 = data2['lists'] as List<dynamic>?
+          ?? data2['songs'] as List<dynamic>?
+          ?? data2['info'] as List<dynamic>?
+          ?? data2['list'] as List<dynamic>?;
+      if (songs2 != null) {
+        return songs2
+            .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
+            .whereType<Song>()
+            .toList();
+      }
+    }
+    return [];
+  }
+
+  /// 统一解析 /playlist/track/all 返回的歌曲列表
+  List<Song>? _parseTrackList(dynamic data) {
     List<dynamic>? songs;
     if (data is Map) {
       songs = data['lists'] as List<dynamic>?
@@ -49,77 +128,51 @@ class PlaylistRepository extends BaseRepository {
     } else if (data is List) {
       songs = data;
     }
-    if (songs != null) {
-      return songs
-          .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
-          .whereType<Song>()
-          .toList();
-    }
-    return [];
-  }
-
-  Future<List<Song>> getPlaylistTracksById(int listid,
-      {int page = 1, int pageSize = 30}) async {
-    final res = await get('/playlist/track/all', params: {
-      'id': 'collection_3_${_userId}_${listid}_0',
-      'page': page,
-      'pagesize': pageSize,
-    }, withCookie: true);
-    final data = res['data'];
-    if (data is Map) {
-      final songs = data['lists'] as List<dynamic>?
-          ?? data['songs'] as List<dynamic>?
-          ?? data['info'] as List<dynamic>?
-          ?? data['list'] as List<dynamic>?;
-      if (songs != null) {
-        return songs
-            .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
-            .whereType<Song>()
-            .toList();
-      }
-    }
-    return [];
+    if (songs == null) return null;
+    return songs
+        .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
+        .whereType<Song>()
+        .toList();
   }
 
   Future<List<Playlist>> getUserPlaylist(
-      {int? userId, int page = 1, int pageSize = 200}) async {
-    final params = <String, dynamic>{
-      'page': page,
-      'pagesize': pageSize,
-    };
-    if (userId != null) params['userid'] = userId;
-    final res = await get('/user/playlist', params: params);
-    final data = res['data'];
+      {int? userId, int page = 1, int pageSize = 1000}) async {
+    // 尝试 1: 带 pagesize（静默）
+    try {
+      final params1 = <String, dynamic>{'page': page, 'pagesize': pageSize};
+      if (userId != null) params1['userid'] = userId;
+      final res1 = await get('/user/playlist',
+          params: params1, silent: true);
+      final list1 = _parsePlaylistList(res1['data']);
+      if (list1 != null) return list1;
+    } catch (_) {
+      // 静默降级
+    }
+
+    // 尝试 2: 不带 pagesize
+    final params2 = <String, dynamic>{'page': page};
+    if (userId != null) params2['userid'] = userId;
+    final res2 = await get('/user/playlist', params: params2);
+    return _parsePlaylistList(res2['data']) ?? [];
+  }
+
+  /// 统一解析 /user/playlist 返回的歌单列表
+  List<Playlist>? _parsePlaylistList(dynamic data) {
+    List<Playlist> parseList(List<dynamic> items) => items
+        .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
+        .where((p) => p.id != 0 && p.name.isNotEmpty)
+        .toList();
+
     if (data is Map) {
       final info = data['info'] as List<dynamic>?;
-      if (info != null) {
-        return info
-            .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
-            .where((p) => p.id != 0 && p.name.isNotEmpty)
-            .toList();
-      }
+      if (info != null) return parseList(info);
       final list = data['list'] as List<dynamic>?;
-      if (list != null) {
-        return list
-            .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
-            .where((p) => p.id != 0 && p.name.isNotEmpty)
-            .toList();
-      }
+      if (list != null) return parseList(list);
       final specialList = data['special_list'] as List<dynamic>?;
-      if (specialList != null) {
-        return specialList
-            .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
-            .where((p) => p.id != 0 && p.name.isNotEmpty)
-            .toList();
-      }
+      if (specialList != null) return parseList(specialList);
     }
-    if (data is List) {
-      return data
-          .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
-          .where((p) => p.id != 0 && p.name.isNotEmpty)
-          .toList();
-    }
-    return [];
+    if (data is List) return parseList(data);
+    return null;
   }
 
   Future<List<Playlist>> getTopPlaylists(
