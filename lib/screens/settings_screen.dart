@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/audio_settings_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/music_service.dart';
 import '../services/api_client.dart';
 import '../services/api_config.dart';
@@ -84,6 +85,15 @@ class SettingsScreen extends StatelessWidget {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ThemeSettingsScreen()),
+            ),
+          ),
+          Consumer<ThemeProvider>(
+            builder: (_, tp, __) => SwitchListTile(
+              secondary: const Icon(Icons.blur_on),
+              title: const Text('动态流光'),
+              subtitle: const Text('播放器背景根据专辑封面产生流动光效'),
+              value: tp.flowLightEnabled,
+              onChanged: (v) => tp.setFlowLightEnabled(v),
             ),
           ),
           const Divider(),

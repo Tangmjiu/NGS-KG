@@ -86,22 +86,22 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
 
   // ─── Palette & lyric getters ───
   ExtractedPalette? get palette => _palette;
+
+  /// The lyric controller driving the [LyricView] in PlayerScreen.
   LyricController get lyricController => _lyricController;
 
-  /// Computed: the index of the lyric line currently being sung.
-  int get currentLyricLine => _lyricController.activeIndexNotifiter.value;
-
-  /// Progress of the current line (0.0 – 1.0).  Used by the notification
-  /// layer only.
-  double get lyricLineProgress {
-    final model = _lyricController.lyricNotifier.value;
-    final idx = _lyricController.activeIndexNotifiter.value;
-    if (model == null || idx >= model.lines.length) return 0.0;
-    final line = model.lines[idx];
-    final total = (line.end ?? (line.start + const Duration(seconds: 5))).inMilliseconds - line.start.inMilliseconds;
-    if (total <= 0) return 0.0;
-    final current = _position.inMilliseconds - line.start.inMilliseconds;
-    return (current / total).clamp(0.0, 1.0);
+  /// Returns all available palette colors for the flowing light effect.
+  /// Filters out null entries — always at least [dominant].
+  List<Color> get paletteColors {
+    final p = _palette;
+    if (p == null) return const [];
+    return [
+      p.dominant,
+      if (p.vibrant != null) p.vibrant!,
+      if (p.muted != null) p.muted!,
+      if (p.darkMuted != null) p.darkMuted!,
+      if (p.lightVibrant != null) p.lightVibrant!,
+    ];
   }
 
   Color? get backgroundColor => _backgroundColor;
@@ -177,7 +177,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     }
     // 当前歌词行（如果有）
     String? lyricLine;
-    final cl = currentLyricLine;
+    final cl = _lyricController.activeIndexNotifiter.value;
     final model = _lyricController.lyricNotifier.value;
     if (model != null && cl < model.lines.length) {
       final line = model.lines[cl].text;
