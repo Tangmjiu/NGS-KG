@@ -95,7 +95,7 @@ class DeviceService {
     await prefs.remove(_prefsKey);
   }
 
-  static const _deviceChannel = MethodChannel('com.kugou.ngskg/device');
+  static const _deviceChannel = MethodChannel('com.mjiutang.ngskg/device');
 
   /// 获取当前设备的主 ABI（如 arm64-v8a / armeabi-v7a / x86_64）。
   /// Android 上通过原生 Build.SUPPORTED_ABIS 获取，其他平台返回 null。

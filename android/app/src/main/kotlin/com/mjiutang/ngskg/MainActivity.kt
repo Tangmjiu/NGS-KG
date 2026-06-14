@@ -1,7 +1,7 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
 
-package com.kugou.ngskg
+package com.mjiutang.ngskg
 
 import android.content.ComponentName
 import android.content.Context
@@ -25,9 +25,9 @@ class MainActivity : FlutterActivity() {
         var lastService: PlaybackService? = null
     }
 
-    private val CHANNEL_METADATA = "com.kugou.ngskg/metadata"
-    private val CHANNEL_MEDIA = "com.kugou.ngskg/media_session"
-    private val CHANNEL_DEVICE = "com.kugou.ngskg/device"
+    private val CHANNEL_METADATA = "com.mjiutang.ngskg/metadata"
+    private val CHANNEL_MEDIA = "com.mjiutang.ngskg/media_session"
+    private val CHANNEL_DEVICE = "com.mjiutang.ngskg/device"
 
     private var playbackService: PlaybackService? = null
     private var callbackChannel: BasicMessageChannel<String>? = null
@@ -142,7 +142,7 @@ class MainActivity : FlutterActivity() {
         // 设置回调通道（Native → Flutter）
         callbackChannel = BasicMessageChannel<String>(
             flutterEngine.dartExecutor.binaryMessenger,
-            "com.kugou.ngskg/media_callbacks",
+            "com.mjiutang.ngskg/media_callbacks",
             StringCodec.INSTANCE
         ).also { channel ->
             // 回调由 PlaybackService 的 binder lambdas 触发

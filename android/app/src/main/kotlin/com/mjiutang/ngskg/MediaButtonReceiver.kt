@@ -1,4 +1,4 @@
-package com.kugou.ngskg
+package com.mjiutang.ngskg
 
 import android.content.BroadcastReceiver
 import android.content.Context

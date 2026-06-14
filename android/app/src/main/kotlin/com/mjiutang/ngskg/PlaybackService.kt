@@ -1,7 +1,7 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
 
-package com.kugou.ngskg
+package com.mjiutang.ngskg
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -40,10 +40,10 @@ class PlaybackService : android.app.Service() {
         const val NOTIF_ID = 1
 
         // Notification actions (for BroadcastReceiver)
-        const val ACTION_PREV = "com.kugou.ngskg.PREV"
-        const val ACTION_PLAY_PAUSE = "com.kugou.ngskg.PLAY_PAUSE"
-        const val ACTION_NEXT = "com.kugou.ngskg.NEXT"
-        const val ACTION_STOP = "com.kugou.ngskg.STOP"
+        const val ACTION_PREV = "com.mjiutang.ngskg.PREV"
+        const val ACTION_PLAY_PAUSE = "com.mjiutang.ngskg.PLAY_PAUSE"
+        const val ACTION_NEXT = "com.mjiutang.ngskg.NEXT"
+        const val ACTION_STOP = "com.mjiutang.ngskg.STOP"
 
         // Custom session commands (for system media controls)
         const val CMD_LIKE = "LIKE"

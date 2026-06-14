@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 /// On Android, delegates to [MediaMetadataRetriever] via MethodChannel.
 /// Falls back to filename-based extraction if the channel is unavailable.
 class MetadataReader {
-  static const _channel = MethodChannel('com.kugou.ngskg/metadata');
+  static const _channel = MethodChannel('com.mjiutang.ngskg/metadata');
 
   /// Reads metadata from [file].
   /// Returns null if reading fails.
