@@ -94,19 +94,44 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   /// Returns all available palette colors for the flowing light effect.
   /// Prefers the quantized [topColors] for richer variety, falls back to
   /// the hand-picked targets.
+  ///
+  /// Option B: if the lightness range is too narrow (< 0.3), artificially
+  /// stretch by alternately brightening and darkening each colour so the
+  /// flowing blobs always have visible depth.
   List<Color> get paletteColors {
     final p = _palette;
     if (p == null) return const [];
+
+    List<Color> colors;
     if (p.topColors.isNotEmpty) {
-      return [p.dominant, ...p.topColors];
+      colors = [p.dominant, ...p.topColors];
+    } else {
+      colors = [
+        p.dominant,
+        if (p.vibrant != null) p.vibrant!,
+        if (p.muted != null) p.muted!,
+        if (p.darkMuted != null) p.darkMuted!,
+        if (p.lightVibrant != null) p.lightVibrant!,
+      ];
     }
-    return [
-      p.dominant,
-      if (p.vibrant != null) p.vibrant!,
-      if (p.muted != null) p.muted!,
-      if (p.darkMuted != null) p.darkMuted!,
-      if (p.lightVibrant != null) p.lightVibrant!,
-    ];
+
+    // Stretch lightness if too narrow
+    final lightnesses = colors
+        .map((c) => HSLColor.fromColor(c).lightness)
+        .toList();
+    final minL = lightnesses.reduce((a, b) => a < b ? a : b);
+    final maxL = lightnesses.reduce((a, b) => a > b ? a : b);
+    if (maxL - minL < 0.3) {
+      colors = colors.asMap().entries.map((e) {
+        final hsl = HSLColor.fromColor(e.value);
+        final adj = e.key.isEven ? 0.15 : -0.15;
+        return hsl
+            .withLightness((hsl.lightness + adj).clamp(0.08, 0.92))
+            .toColor();
+      }).toList();
+    }
+
+    return colors;
   }
 
   Color? get backgroundColor => _backgroundColor;
