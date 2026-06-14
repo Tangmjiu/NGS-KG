@@ -234,7 +234,7 @@ class PlaybackService : android.app.Service() {
     private fun currentLyricDisplay(): String? {
         val line = currentLyricLine ?: return null
         if (line.isBlank()) return null
-        return "♪ $line"
+        return line
     }
 
     @Suppress("DEPRECATION")
