@@ -1,16 +1,19 @@
+// Copyright (c) 2025-2026 mjiutang
+// SPDX-License-Identifier: MIT
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/audio_settings_provider.dart';
-import '../models/song.dart';
 import '../services/music_service.dart';
 import '../services/api_client.dart';
 import '../services/api_config.dart';
-import '../services/device_service.dart';
 import '../services/cache_service.dart';
+import '../services/device_service.dart';
 import '../utils/logger.dart';
 import 'log_viewer_screen.dart';
 import 'audio_effects_screen.dart';
+import 'audio_quality_screen.dart';
 import 'api_settings_screen.dart';
 import 'theme_settings_screen.dart';
 import 'about_screen.dart';
@@ -25,20 +28,6 @@ class SettingsScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
         children: [
-          // ── 主题 ──
-          const _SectionHeader('主题'),
-          ListTile(
-            leading: const Icon(Icons.palette_outlined),
-            title: const Text('主题设置'),
-            subtitle: const Text('主题模式、强调色、动态取色'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ThemeSettingsScreen()),
-            ),
-          ),
-          const Divider(),
-
           // ── 账户 ──
           const _SectionHeader('账户'),
           Consumer<AuthProvider>(
@@ -60,6 +49,15 @@ class SettingsScreen extends StatelessWidget {
               },
             ),
           ),
+          Consumer<AudioSettingsProvider>(
+            builder: (_, settings, __) => SwitchListTile(
+              secondary: const Icon(Icons.history),
+              title: const Text('提交听歌历史'),
+              subtitle: const Text('关闭后不会向服务器上报播放记录'),
+              value: settings.uploadHistory,
+              onChanged: (v) => settings.setUploadHistory(v),
+            ),
+          ),
           const Divider(),
 
           // ── API 服务 ──
@@ -76,10 +74,44 @@ class SettingsScreen extends StatelessWidget {
           ),
           const Divider(),
 
-          // ── 缓存 ──
-          const _SectionHeader('缓存'),
-          const _ServerTimeTile(),
+          // ── 主题 ──
+          const _SectionHeader('主题'),
           ListTile(
+            leading: const Icon(Icons.palette_outlined),
+            title: const Text('主题设置'),
+            subtitle: const Text('主题模式、强调色、动态取色'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ThemeSettingsScreen()),
+            ),
+          ),
+          const Divider(),
+
+          // ── 播放与音质 ──
+          const _SectionHeader('播放与音质'),
+          ListTile(
+            leading: const Icon(Icons.tune),
+            title: const Text('音效'),
+            subtitle: const Text('音量、播放速度、均衡器'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AudioEffectsScreen()),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.speed),
+            title: const Text('音质设置'),
+            subtitle: const Text('WiFi/蜂窝/下载音质、智能模式'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AudioQualityScreen()),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.cleaning_services_outlined),
             title: const Text('清除缓存'),
             subtitle: const Text('清除临时数据和请求缓存'),
             onTap: () async {
@@ -92,72 +124,6 @@ class SettingsScreen extends StatelessWidget {
                 );
               }
             },
-          ),
-          const Divider(),
-
-          // ── 播放 ──
-          const _SectionHeader('播放'),
-          ListTile(
-            title: const Text('音效'),
-            subtitle: const Text('音量、播放速度、均衡器'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AudioEffectsScreen()),
-            ),
-          ),
-          const Divider(),
-
-          // ── 音质 ──
-          const _SectionHeader('音质'),
-          Consumer<AudioSettingsProvider>(
-            builder: (_, settings, __) => Column(
-              children: [
-                _QualityTile(
-                  icon: Icons.wifi,
-                  label: 'WiFi 网络',
-                  value: settings.wifiQuality,
-                  onSelected: (key) => settings.setWifiQuality(key),
-                ),
-                _QualityTile(
-                  icon: Icons.signal_cellular_alt,
-                  label: '蜂窝网络',
-                  value: settings.cellularQuality,
-                  onSelected: (key) => settings.setCellularQuality(key),
-                ),
-                _QualityTile(
-                  icon: Icons.download,
-                  label: '下载音质',
-                  value: settings.downloadQuality,
-                  onSelected: (key) => settings.setDownloadQuality(key),
-                ),
-                SwitchListTile(
-                  secondary: const Icon(Icons.auto_awesome),
-                  title: const Text('智能模式'),
-                  subtitle: const Text('WiFi 自动最高音质，蜂窝按设定'),
-                  value: settings.smartMode,
-                  onChanged: (v) => settings.setSmartMode(v),
-                ),
-                SwitchListTile(
-                  secondary: const Icon(Icons.history),
-                  title: const Text('提交听歌历史'),
-                  subtitle: const Text('关闭后不会向服务器上报播放记录'),
-                  value: settings.uploadHistory,
-                  onChanged: (v) => settings.setUploadHistory(v),
-                ),
-              ],
-            ),
-          ),
-          const Divider(),
-
-          // ── 支持作者 ──
-          const _SectionHeader('支持'),
-          ListTile(
-            leading: const Icon(Icons.favorite_outline),
-            title: const Text('支持作者'),
-            subtitle: const Text('去 GitHub 点个 star 或者赞助'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => showSupportMeDialog(context),
           ),
           const Divider(),
 
@@ -174,6 +140,14 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           ListTile(
+            leading: const Icon(Icons.favorite_outline),
+            title: const Text('支持作者'),
+            subtitle: const Text('去 GitHub 点个 star 或者赞助'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => showSupportMeDialog(context),
+          ),
+          ListTile(
+            leading: const Icon(Icons.terminal),
             title: const Text('开发者'),
             subtitle: const Text('调试功能'),
             trailing: const Icon(Icons.chevron_right),
@@ -210,8 +184,6 @@ class SettingsScreen extends StatelessWidget {
   }
 }
 
-// ─── 主题色圆点组件 ───
-
 // ─── 通用组件 ───
 
 class _SectionHeader extends StatelessWidget {
@@ -231,118 +203,7 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _ServerTimeTile extends StatefulWidget {
-  const _ServerTimeTile();
-  @override
-  State<_ServerTimeTile> createState() => _ServerTimeTileState();
-}
-
-class _ServerTimeTileState extends State<_ServerTimeTile> {
-  final MusicService _musicService = MusicService();
-  String? _serverTime;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final dt = await _musicService.getServerTime();
-      if (dt != null && mounted) {
-        setState(() => _serverTime = dt.toString());
-      }
-    } catch (e, s) {
-      Log.e('Settings', 'server time error', e, s);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      title: const Text('服务器时间'),
-      subtitle: Text(_serverTime ?? '获取中...'),
-      trailing: const Icon(Icons.refresh),
-      onTap: _load,
-    );
-  }
-}
-
-/// 单行音质选择：标签 + 当前值 + 点击弹出选择
-class _QualityTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final ValueChanged<String> onSelected;
-
-  const _QualityTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final display = Song.qualityLabelMap[value] ?? value;
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(label),
-      subtitle: Text(display,
-          style: TextStyle(color: Theme.of(context).colorScheme.primary)),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () => showModalBottomSheet(
-        context: context,
-        builder: (ctx) => SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text('选择 $label 音质',
-                      style: Theme.of(ctx).textTheme.titleSmall),
-                ),
-                ...Song.qualityKeys.map((key) {
-                  final label = Song.qualityLabelMap[key] ?? key;
-                  return RadioListTile<String>(
-                    title: Text(label),
-                    subtitle: Text(_qualityDesc(key)),
-                    value: key,
-                    groupValue: value,
-                    onChanged: (v) {
-                      if (v != null) onSelected(v);
-                      Navigator.pop(ctx);
-                    },
-                  );
-                }),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  static String _qualityDesc(String key) {
-    switch (key) {
-      case '128':
-        return '约 1 MB/min，最省流量';
-      case '320':
-        return '约 2.4 MB/min，音质与流量均衡';
-      case 'high':
-        return '无损格式，适合 WiFi 环境';
-      case 'viper_clear':
-        return '蝰蛇超清音质增强';
-      case 'super':
-        return 'DSD 超高解析，文件较大';
-      default:
-        return '';
-    }
-  }
-}
+// ─── 音质子页面（独立为 audio_quality_screen.dart）
 
 // ─── 开发者调试 ───
 
