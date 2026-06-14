@@ -1,4 +1,4 @@
-import 'dart:math' show sin, cos, pi;
+import 'dart:math' show sin, cos;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -32,21 +32,24 @@ class PlayerBackground extends StatefulWidget {
 
 class _PlayerBackgroundState extends State<PlayerBackground>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _flowController;
+  /// Continuously running ticker — elapsed seconds grow forever,
+  /// so the flowing blobs never reset to their starting positions.
+  late final Ticker _ticker;
+  double _elapsed = 0.0;
 
   @override
   void initState() {
     super.initState();
-    // 动态流光循环（5 秒一个完整周期）
-    _flowController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 5),
-    )..repeat();
+    _ticker = createTicker((elapsed) {
+      if (!mounted) return;
+      _elapsed = elapsed.inMicroseconds / 1000000.0;
+    })..start();
   }
 
   @override
   void dispose() {
-    _flowController.dispose();
+    _ticker.stop();
+    _ticker.dispose();
     super.dispose();
   }
 
@@ -97,13 +100,13 @@ class _PlayerBackgroundState extends State<PlayerBackground>
             child: IgnorePointer(
               child: RepaintBoundary(
                 child: AnimatedBuilder(
-                  animation: _flowController,
+                  animation: _ticker,
                   builder: (_, __) => Opacity(
                     opacity: 1.0 - widget.scrollOffset * 0.5,
                     child: CustomPaint(
                       painter: FlowLightPainter(
                         colors: widget.paletteColors,
-                        progress: _flowController.value,
+                        elapsed: _elapsed,
                       ),
                       size: Size.infinite,
                     ),
@@ -138,11 +141,11 @@ class _PlayerBackgroundState extends State<PlayerBackground>
 
 class FlowLightPainter extends CustomPainter {
   final List<Color> colors;
-  final double progress; // 0.0 → 1.0
+  final double elapsed; // seconds since widget creation, never resets
 
   const FlowLightPainter({
     required this.colors,
-    required this.progress,
+    required this.elapsed,
   });
 
   @override
@@ -162,17 +165,17 @@ class FlowLightPainter extends CustomPainter {
     const alphas = [0.30, 0.18, 0.22, 0.28, 0.20, 0.25, 0.28, 0.18];
 
     for (int i = 0; i < count; i++) {
-      final t = progress * 2 * pi;
+      // t = elapsed seconds × frequency — grows forever, never wraps to 0
+      final t = elapsed * freqsX[i] + phases[i];
 
       // Each blob sits at its anchor and swims around it
-      final x = (sin(t * freqsX[i] + phases[i]) * wander[i] + anchorX[i]) *
-          size.width;
-      final y = (cos(t * freqsY[i] + phases[i]) * wander[i] + anchorY[i]) *
+      final x = (sin(t) * wander[i] + anchorX[i]) * size.width;
+      final y = (cos(t * freqsY[i] / freqsX[i]) * wander[i] + anchorY[i]) *
           size.height;
 
       // Radius — larger static core + gentle pulse
       final r = size.width *
-          (0.18 + 0.12 * (sin(t * freqsR[i] + phases[i]) * 0.5 + 0.5));
+          (0.18 + 0.12 * (sin(elapsed * freqsR[i] + phases[i]) * 0.5 + 0.5));
 
       // Soft but not mushy — blur is moderate so each blob keeps a core
       final paint = Paint()
@@ -185,5 +188,5 @@ class FlowLightPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(FlowLightPainter old) => old.progress != progress;
+  bool shouldRepaint(FlowLightPainter old) => old.elapsed != elapsed;
 }
