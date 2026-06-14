@@ -56,10 +56,10 @@
             android:name=".MediaButtonReceiver"
             android:exported="true">
             <intent-filter android:priority="1000">
-                <action android:name="com.kugou.ngskg.PREV" />
-                <action android:name="com.kugou.ngskg.PLAY_PAUSE" />
-                <action android:name="com.kugou.ngskg.NEXT" />
-                <action android:name="com.kugou.ngskg.STOP" />
+                <action android:name="com.mjiutang.ngskg.PREV" />
+                <action android:name="com.mjiutang.ngskg.PLAY_PAUSE" />
+                <action android:name="com.mjiutang.ngskg.NEXT" />
+                <action android:name="com.mjiutang.ngskg.STOP" />
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>
         </receiver>

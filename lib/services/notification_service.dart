@@ -20,9 +20,9 @@ class NotificationService {
 
   // ─── 原生通信 ───
 
-  static const _mediaChannel = MethodChannel('com.kugou.ngskg/media_session');
+  static const _mediaChannel = MethodChannel('com.mjiutang.ngskg/media_session');
   static const _callbackChannel = BasicMessageChannel<String>(
-    'com.kugou.ngskg/media_callbacks',
+    'com.mjiutang.ngskg/media_callbacks',
     StringCodec(),
   );
 

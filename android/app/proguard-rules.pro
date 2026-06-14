@@ -14,4 +14,4 @@
 -keep class com.google.android.play.core.** { *; }
 
 # Keep models
--keep class com.kugou.ngskg.model.** { *; }
+-keep class com.mjiutang.ngskg.model.** { *; }
