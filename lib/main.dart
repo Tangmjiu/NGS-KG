@@ -235,7 +235,11 @@ class _PlayerBarBottom extends StatelessWidget {
     return Consumer<PlayerProvider>(
       builder: (_, player, __) {
         final song = player.currentSong;
-        if (song == null || player.isPlayerScreenVisible)
+        // 隐藏 Mini Bar 的场景：无歌曲、全屏播放器、设置页、登录页
+        final route = ModalRoute.of(context);
+        final hideRoute = route?.settings.name == AppRoutes.settings ||
+            route?.settings.name == AppRoutes.login;
+        if (song == null || player.isPlayerScreenVisible || hideRoute)
           return const SizedBox.shrink();
         final tt = Theme.of(context).textTheme;
 
@@ -245,7 +249,7 @@ class _PlayerBarBottom extends StatelessWidget {
             .withValues(alpha: 0.72);
 
         return Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: BackdropFilter(

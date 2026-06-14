@@ -66,7 +66,8 @@ class _PlayerBackgroundState extends State<PlayerBackground>
         ),
 
         // Layer 2: Blurred album art, dims as lyrics appear
-        if (widget.albumCoverUrl != null)
+        // Hidden when flowing light is active so the colour blobs are visible.
+        if (!flowEnabled && widget.albumCoverUrl != null)
           Opacity(
             opacity: 1.0 - widget.scrollOffset * 0.6,
             child: CachedNetworkImage(
@@ -149,10 +150,10 @@ class FlowLightPainter extends CustomPainter {
     final count = colors.length;
     // Each blob uses a distinct set of frequencies to avoid repetition.
     // Pre-computed constants so every frame is deterministic.
-    const freqsX = [2.1, 1.3, 0.9, 1.8, 0.6, 2.7];
-    const freqsY = [1.7, 2.3, 1.1, 0.8, 1.9, 0.5];
-    const freqsR = [0.9, 0.7, 1.3, 1.1, 0.6, 1.5];
-    const phases = [0.0, 2.1, 4.3, 1.6, 3.8, 5.0];
+    const freqsX = [2.1, 1.3, 0.9, 1.8, 0.6, 2.7, 0.3, 3.5];
+    const freqsY = [1.7, 2.3, 1.1, 0.8, 1.9, 0.5, 2.8, 0.2];
+    const freqsR = [0.9, 0.7, 1.3, 1.1, 0.6, 1.5, 1.2, 0.4];
+    const phases = [0.0, 2.1, 4.3, 1.6, 3.8, 5.0, 1.2, 3.3];
 
     for (int i = 0; i < count; i++) {
       final t = progress * 2 * pi;
@@ -169,8 +170,8 @@ class FlowLightPainter extends CustomPainter {
 
       // Heavily blurred translucent blob
       final paint = Paint()
-        ..color = colors[i % colors.length].withValues(alpha: 0.22)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 120);
+        ..color = colors[i % colors.length].withValues(alpha: 0.35)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 150);
 
       canvas.drawCircle(Offset(x, y), r.clamp(40, size.width * 0.5), paint);
     }
