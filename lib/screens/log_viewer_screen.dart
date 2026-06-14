@@ -191,7 +191,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                   controller: _scroll,
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   itemCount: entries.length,
-                  itemExtent: _showDetail ? 64 : 24,
+                  itemExtent: _showDetail ? 72 : 24,
                   itemBuilder: (_, i) {
                     final e = entries[i];
                     return _buildLogRow(e, bg);
