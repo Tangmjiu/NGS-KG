@@ -1,6 +1,7 @@
 import 'dart:math' show sin, cos;
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
@@ -34,15 +35,16 @@ class _PlayerBackgroundState extends State<PlayerBackground>
     with SingleTickerProviderStateMixin {
   /// Continuously running ticker — elapsed seconds grow forever,
   /// so the flowing blobs never reset to their starting positions.
+  /// Bridged through a ValueNotifier so AnimatedBuilder can listen.
   late final Ticker _ticker;
-  double _elapsed = 0.0;
+  final ValueNotifier<double> _elapsed = ValueNotifier<double>(0.0);
 
   @override
   void initState() {
     super.initState();
     _ticker = createTicker((elapsed) {
       if (!mounted) return;
-      _elapsed = elapsed.inMicroseconds / 1000000.0;
+      _elapsed.value = elapsed.inMicroseconds / 1000000.0;
     })..start();
   }
 
@@ -50,6 +52,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
   void dispose() {
     _ticker.stop();
     _ticker.dispose();
+    _elapsed.dispose();
     super.dispose();
   }
 
@@ -100,13 +103,13 @@ class _PlayerBackgroundState extends State<PlayerBackground>
             child: IgnorePointer(
               child: RepaintBoundary(
                 child: AnimatedBuilder(
-                  animation: _ticker,
+                  animation: _elapsed,
                   builder: (_, __) => Opacity(
                     opacity: 1.0 - widget.scrollOffset * 0.5,
                     child: CustomPaint(
                       painter: FlowLightPainter(
                         colors: widget.paletteColors,
-                        elapsed: _elapsed,
+                        elapsed: _elapsed.value,
                       ),
                       size: Size.infinite,
                     ),
