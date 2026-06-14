@@ -1,5 +1,7 @@
+import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'device_service.dart';
 
 /// GitHub Release 信息
 class ReleaseInfo {
@@ -40,20 +42,14 @@ class UpdateChecker {
       final body = data['body'] as String? ?? '';
       final version = tagName.replaceFirst(RegExp(r'^v', caseSensitive: false), '');
 
-      // 获取下载链接（找 Android APK asset）
+      // 平台和 ABI 检测，匹配对应下载链接
       String? downloadUrl;
-      final assets = data['assets'] as List<dynamic>?;
-      if (assets != null) {
-        for (final asset in assets) {
-          if (asset is Map) {
-            final name = (asset['name'] as String? ?? '').toLowerCase();
-            final url = asset['browser_download_url'] as String?;
-            if (url != null && (name.contains('apk') || name.contains('release'))) {
-              downloadUrl = url;
-              break;
-            }
-          }
-        }
+
+      if (Platform.isAndroid) {
+        final abi = await DeviceService.instance.getAbi() ?? 'arm64-v8a';
+        downloadUrl = _matchAsset(data['assets'], _androidMatcher(abi));
+      } else if (Platform.isWindows) {
+        downloadUrl = _matchAsset(data['assets'], _windowsMatcher);
       }
 
       final release = ReleaseInfo(
@@ -69,6 +65,37 @@ class UpdateChecker {
     } catch (_) {
       return null; // 网络失败或解析失败，静默处理
     }
+  }
+
+  /// 遍历 assets，找到第一个匹配 [predicate] 的下载 URL。
+  static String? _matchAsset(dynamic assets, bool Function(String name) predicate) {
+    if (assets is! List) return null;
+    for (final asset in assets) {
+      if (asset is Map) {
+        final name = (asset['name'] as String? ?? '').toLowerCase();
+        final url = asset['browser_download_url'] as String?;
+        if (url != null && predicate(name)) return url;
+      }
+    }
+    return null;
+  }
+
+  /// Android 匹配器：找 release APK + 匹配当前 ABI。
+  static bool Function(String) _androidMatcher(String abi) {
+    return (String name) {
+      // 优先 release APK（带 -release-），无则 fallback debug
+      if (!name.endsWith('.apk')) return false;
+      if (!name.contains(abi)) return false;
+      return name.contains('-release-');
+    };
+  }
+
+  /// Windows 匹配器：找 exe 或 msix 安装包（release 优先）。
+  static bool _windowsMatcher(String name) {
+    if (name.endsWith('.exe') || name.endsWith('.msix')) {
+      return name.contains('release') || name.contains('setup');
+    }
+    return false;
   }
 
   /// 清理版本号：去掉 v 前缀、仅保留 x.y.z
