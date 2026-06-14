@@ -99,6 +99,11 @@ class PlaybackService : android.app.Service() {
         startForeground(NOTIF_ID, buildNotification(isPlaying = false))
     }
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // START_STICKY: 被系统杀死后尝试重启服务（intent 可能为 null）
+        return START_STICKY
+    }
+
     override fun onDestroy() {
         mediaSession.isActive = false
         mediaSession.release()
