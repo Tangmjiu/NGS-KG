@@ -100,11 +100,24 @@ class PaletteExtractor {
         NetworkImage(imageUrl),
       );
 
-      // Collect up to 8 most-populated quantized colors for richer variety.
-      final topColors = generator.colors
+      // Option A: pick colours evenly across the lightness spectrum
+      // instead of just the most-populated (which cluster around similar tones).
+      final crop = generator.colors
           .where((c) => c != generator.dominantColor?.color)
-          .take(7)
           .toList();
+      crop.sort((a, b) => HSLColor.fromColor(a).lightness
+          .compareTo(HSLColor.fromColor(b).lightness));
+      final topColors = <Color>[];
+      if (crop.isNotEmpty) {
+        if (crop.length <= 7) {
+          topColors.addAll(crop);
+        } else {
+          final step = (crop.length - 1) / 6; // 7 picks → 6 intervals
+          for (int i = 0; i < 7; i++) {
+            topColors.add(crop[(i * step).round()]);
+          }
+        }
+      }
 
       final palette = ExtractedPalette(
         dominant: generator.dominantColor?.color ?? _defaultDominant,
