@@ -47,6 +47,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
 
   // ─── 通知节流 ───
   int _lastNotifUpdateMs = 0;
+  int _lastNotifLyricIdx = -1;
 
   late final VoidCallback _onPositionChanged;
   late final VoidCallback _onDurationChanged;
@@ -91,10 +92,14 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   LyricController get lyricController => _lyricController;
 
   /// Returns all available palette colors for the flowing light effect.
-  /// Filters out null entries — always at least [dominant].
+  /// Prefers the quantized [topColors] for richer variety, falls back to
+  /// the hand-picked targets.
   List<Color> get paletteColors {
     final p = _palette;
     if (p == null) return const [];
+    if (p.topColors.isNotEmpty) {
+      return [p.dominant, ...p.topColors];
+    }
     return [
       p.dominant,
       if (p.vibrant != null) p.vibrant!,
@@ -126,9 +131,17 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
         cancelSleepTimer();
         notifyListeners();
       }
-      // 节流：每 10 秒更新通知位置（用于蓝牙 A2DP 进度同步）
+      // 通知更新策略：
+      // - 歌词行切换时 → 即时更新（锁屏歌词不卡顿）
+      // - 仅位置变化 → 每 10 秒节流（用于蓝牙 A2DP 进度同步）
       final now = DateTime.now().millisecondsSinceEpoch;
-      if (now - _lastNotifUpdateMs > 10000) {
+      final lyricIdx = _lyricController.activeIndexNotifiter.value;
+      final lyricChanged = lyricIdx != _lastNotifLyricIdx;
+      if (lyricChanged) {
+        _lastNotifLyricIdx = lyricIdx;
+        _lastNotifUpdateMs = now;
+        _updateNotification();
+      } else if (now - _lastNotifUpdateMs > 10000) {
         _lastNotifUpdateMs = now;
         _updateNotification();
       }

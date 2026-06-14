@@ -6,6 +6,9 @@ import 'package:palette_generator/palette_generator.dart';
 /// The [dominant] color is always available (either extracted or fallback).
 /// All other palette colors are nullable and may be absent depending on
 /// the source image content.
+///
+/// [topColors] contains the top N quantized colours sorted by population,
+/// giving a richer set of distinct colours than the hand-picked targets alone.
 class ExtractedPalette {
   /// The overall dominant color of the image.
   /// Guaranteed non-null; falls back to [PaletteExtractor._defaultDominant].
@@ -23,18 +26,24 @@ class ExtractedPalette {
   /// A light vibrant color, suitable for accents on dark backgrounds.
   final Color? lightVibrant;
 
+  /// Top N quantized colours sorted by pixel population.
+  /// Guaranteed non-empty when [dominant] is meaningful.
+  final List<Color> topColors;
+
   const ExtractedPalette({
     required this.dominant,
     this.vibrant,
     this.muted,
     this.darkMuted,
     this.lightVibrant,
+    this.topColors = const [],
   });
 
   @override
   String toString() =>
       'ExtractedPalette(dominant: $dominant, vibrant: $vibrant, muted: $muted, '
-      'darkMuted: $darkMuted, lightVibrant: $lightVibrant)';
+      'darkMuted: $darkMuted, lightVibrant: $lightVibrant, '
+      'topColors: ${topColors.length})';
 }
 
 /// A singleton utility that extracts color palettes from album art images
@@ -91,12 +100,19 @@ class PaletteExtractor {
         NetworkImage(imageUrl),
       );
 
+      // Collect up to 8 most-populated quantized colors for richer variety.
+      final topColors = generator.colors
+          .where((c) => c != generator.dominantColor?.color)
+          .take(7)
+          .toList();
+
       final palette = ExtractedPalette(
         dominant: generator.dominantColor?.color ?? _defaultDominant,
         vibrant: generator.vibrantColor?.color,
         muted: generator.mutedColor?.color,
         darkMuted: generator.darkMutedColor?.color,
         lightVibrant: generator.lightVibrantColor?.color,
+        topColors: topColors,
       );
 
       _cache[imageUrl] = palette;
