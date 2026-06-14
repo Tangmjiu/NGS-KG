@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// MD3 形状 token — 统一 RadiusSource，禁止 magic number
+/// MD3 形状 token — 统一 BorderRadius，禁止 magic number
 abstract final class AppShape {
   AppShape._();
 
@@ -21,6 +21,43 @@ abstract final class AppShape {
 
   /// full: pill shape — Buttons, chips, badges
   static const BorderRadius full = BorderRadius.all(Radius.circular(9999));
+}
+
+/// MD3 动效 token — 统一 Duration + Curve，禁止 magic number
+abstract final class AppMotion {
+  AppMotion._();
+
+  // ─── 时长 ───
+
+  /// 极快：80ms — 微交互反馈
+  static const Duration ds80 = Duration(milliseconds: 80);
+  /// 快速：200ms — 退出动画
+  static const Duration ds200 = Duration(milliseconds: 200);
+  /// 标准：250ms — 进入动画
+  static const Duration ds250 = Duration(milliseconds: 250);
+  /// 中速：300ms — 标准过渡
+  static const Duration ds300 = Duration(milliseconds: 300);
+  /// 慢速：400ms — 强调进入
+  static const Duration ds400 = Duration(milliseconds: 400);
+  /// 强调：500ms — 强调过渡
+  static const Duration ds500 = Duration(milliseconds: 500);
+  /// 页面留白：800ms — 共享轴过渡
+  static const Duration ds800 = Duration(milliseconds: 800);
+
+  // ─── 曲线 (MD3 → Flutter 映射) ───
+
+  /// 强调加速退出 `cubic-bezier(0.3, 0, 0.8, 0.15)`
+  static const Curve accelerate = Curves.easeIn;
+  /// 强调减速进入 `cubic-bezier(0.05, 0.7, 0.1, 1)`
+  static const Curve decelerate = Curves.easeOut;
+  /// 强调 `cubic-bezier(0.2, 0, 0, 1)` — 标准页内过渡
+  static const Curve emphasized = Curves.fastOutSlowIn;
+  /// 标准加速 `cubic-bezier(0.3, 0, 1, 1)`
+  static const Curve standardAccelerate = Curves.easeIn;
+  /// 标准减速 `cubic-bezier(0, 0, 0, 1)`
+  static const Curve standardDecelerate = Curves.easeOut;
+  /// 线性
+  static const Curve linear = Curves.linear;
 }
 
 class AppTheme {
