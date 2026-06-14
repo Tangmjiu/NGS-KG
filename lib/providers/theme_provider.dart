@@ -97,6 +97,7 @@ class ThemeProvider extends ChangeNotifier {
   static const _keyLaunchCount = 'theme_launch_count';
   static const _keyFirstLaunchDate = 'theme_first_launch_date';
   static const _keySupportDismissed = 'theme_support_dismissed';
+  static const _keyFlowLight = 'theme_flow_light';
 
   /// 安装后自动弹出支持弹窗的天数
   static const int supportPopupDays = 14;
@@ -112,6 +113,7 @@ class ThemeProvider extends ChangeNotifier {
   int _launchCount = 0;
   int _firstLaunchDate = 0;
   bool _supportDismissed = false;
+  bool _flowLightEnabled = false;
 
   /// 本次启动是否应该弹出支持弹窗
   bool get shouldShowSupportPopup {
@@ -132,6 +134,7 @@ class ThemeProvider extends ChangeNotifier {
   String get accentKey => _accentKey;
   Color get customColor => _customColor;
   bool get useMonet => _useMonet;
+  bool get flowLightEnabled => _flowLightEnabled;
 
   /// 当前有效强调色（预设色或自定义色）
   Color get effectiveColor {
@@ -185,6 +188,7 @@ class ThemeProvider extends ChangeNotifier {
       }
 
       _supportDismissed = prefs.getBool(_keySupportDismissed) ?? false;
+      _flowLightEnabled = prefs.getBool(_keyFlowLight) ?? false;
 
       notifyListeners();
     } catch (e, s) {
@@ -295,6 +299,17 @@ class ThemeProvider extends ChangeNotifier {
       await prefs.setString(_keyAccent, _accentKey);
     } catch (e, s) {
       Log.e('ThemeProvider', 'persist monet error', e, s);
+    }
+  }
+
+  Future<void> setFlowLightEnabled(bool v) async {
+    _flowLightEnabled = v;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyFlowLight, v);
+    } catch (e, s) {
+      Log.e('ThemeProvider', 'persist flowLight error', e, s);
     }
   }
 

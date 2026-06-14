@@ -381,6 +381,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               PlayerBackground(
                 albumCoverUrl: song.albumCoverUrl,
                 paletteColor: player.backgroundColor,
+                paletteColors: player.paletteColors,
                 scrollOffset: _pageOffset,
               ),
 
