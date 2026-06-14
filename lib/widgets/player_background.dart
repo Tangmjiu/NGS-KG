@@ -165,7 +165,8 @@ class FlowLightPainter extends CustomPainter {
     const freqsR = [0.9, 0.7, 1.3, 1.1, 0.6, 1.5, 1.2, 0.4];
     const phases = [0.0, 2.1, 4.3, 1.6, 3.8, 5.0, 1.2, 3.3];
 
-    const alphas = [0.30, 0.18, 0.22, 0.28, 0.20, 0.25, 0.28, 0.18];
+    // Higher opacity and tighter blur so each colour stands out clearly.
+    const alphas = [0.45, 0.30, 0.35, 0.40, 0.32, 0.38, 0.42, 0.30];
 
     for (int i = 0; i < count; i++) {
       // t = elapsed seconds × frequency — grows forever, never wraps to 0
@@ -184,7 +185,7 @@ class FlowLightPainter extends CustomPainter {
       final paint = Paint()
         ..color =
             colors[i % colors.length].withValues(alpha: alphas[i % alphas.length])
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 70);
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 50);
 
       canvas.drawCircle(Offset(x, y), r.clamp(40, size.width * 0.45), paint);
     }
