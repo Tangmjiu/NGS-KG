@@ -4,6 +4,7 @@
 import 'dart:async';
 import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart' show HSLColor;
 import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:flutter_lyric/core/lyric_model.dart';
 import '../utils/logger.dart';
@@ -122,13 +123,15 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     final minL = lightnesses.reduce((a, b) => a < b ? a : b);
     final maxL = lightnesses.reduce((a, b) => a > b ? a : b);
     if (maxL - minL < 0.3) {
-      colors = colors.asMap().entries.map((e) {
-        final hsl = HSLColor.fromColor(e.value);
-        final adj = e.key.isEven ? 0.15 : -0.15;
-        return hsl
-            .withLightness((hsl.lightness + adj).clamp(0.08, 0.92))
-            .toColor();
-      }).toList();
+      final stretched = <Color>[];
+      for (int i = 0; i < colors.length; i++) {
+        final hsl = HSLColor.fromColor(colors[i]);
+        final adj = (i.isEven ? 0.15 : -0.15);
+        stretched.add(
+          hsl.withLightness((hsl.lightness + adj).clamp(0.08, 0.92)).toColor(),
+        );
+      }
+      colors = stretched;
     }
 
     return colors;
