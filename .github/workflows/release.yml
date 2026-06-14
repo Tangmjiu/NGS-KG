@@ -103,35 +103,28 @@ jobs:
 
             ## 新增
 
-            - **歌词引擎迁移至 flutter_lyric**：KRC 解析后直接构造 LyricModel，逐字卡拉 OK 时序 100% 保留，零字符串格式转换
-            - **Android 通知栏歌词**：Media3 系统媒体控件现在正确显示当前歌词行（标题 = ♪ 歌词，正文 = 歌名 - 歌手）
-            - **歌词行切换动画**：进入/退出行缩放 + 颜色过渡
-            - **歌词顶部/底部渐隐**：视口边缘半透明渐变
-            - **API 请求静默降级**：专辑/歌单列表先试 `pagesize=1000`，502 不弹窗自动降级重试
+            - **Apple Music 风格动态流光播放器背景**：HSL 色彩空间 8 色斑流动光效，5s 循环 + 大半径高斯模糊柔光混色
+            - **MD3 设计令牌系统**：AppShape（xs/sm/md/lg/xl/full 圆角体系）、AppMotion（标准/强调/减速/舒缓时长与缓动曲线）、AppBreakpoint（compact/medium/expanded 响应式断点）
+            - **跨平台更新检测器**：通过 GitHub Releases API 检查最新版本，识别 Android ABI（arm64-v8a / armeabi-v7a / x86_64）并下载对应 APK
+            - **音质设置独立子页面**：原 WiFi/蜂窝/下载三套独立音质设置移入独立子页面，设置组按「播放」「音频」「更新」「关于」重新组织
+
+            ## 变更
+
+            - **Android 包名迁移**：`com.kugou.ngskg` → `com.mjiutang.ngskg`
+            - **版本管理统一**：`build.gradle` 从 `pubspec.yaml` 读取版本号，单一源消除漂移
+            - **通知歌词纯文本**：移除通知标题中的「♪」前缀
+            - **后台服务保活**：切换为 `START_STICKY` + 状态持久化，防止进程回收后静音
+            - **MIT 许可证**：项目根目录添加 LICENSE，主要源文件添加 SPDX 头
+            - **CI 提速**：debug 构建仅 arm64-v8a 单架构（~25min → ~12min）
 
             ## 修复
 
-            - 播放器通知不显示歌词（Kotlin 侧 `lyricLine` 参数未存储/使用）
-            - 逐字卡拉 OK 效果不可见（`activeStyle.color` 与 `activeHighlightColor` 同为白色）
-            - 拖拽进度条后进入歌词页焦点丢失
-            - 发现页私人 FM 列表为空（`Song.fromJson` 不兼容酷狗数据格式）
-            - 发现页「播放全部」触发全页刷新
-            - 专辑/歌单列表因缺少 `pagesize` 参数返回空结果
-            - 歌单列表 `gid` 字段缺失拼错 `gcId`
-            - 专辑详情页 `songCount` 显示为 0
-
-            ## 移除
-
-            - 乐库电台（`/yueku/fm`）UI 及代码
-            - 自建歌词模型/渲染/视图（`LyricLine`/`LyricSpan`/`LyricLinePainter`/`AMLyricsView`）
-
-            ## 已有 UI 但未实现的功能
-
-            | 功能 | 状态 |
-            |------|------|
-            | **MV/视频播放** | 搜索中有 MV 类型选项、歌手页有 MV 选项卡、路由中有 `MvPlayerScreen`，但所有后端代码已注释暂停适配 |
-            | **私人 FM（猜你喜欢）** | 发现页有 UI 入口和「播放全部」按钮，但 `/personal/fm` API 端点可能因服务器节点不支持而失效 |
-            | **网络类型检测** | `_isWifi` 硬编码返回 `true`，未接入 `connectivity_plus`，WiFi/蜂窝独立音质设置无法按实际网络生效 |
+            - 流光背景颜色区域重叠 → per-blob 独立锚点 + 明度钳制 [0.12, 0.85]
+            - 锁屏歌词切换延迟 → 流光周期从 10s 优化为 5s
+            - 排行榜底部溢出 49px（SafeArea 适配）
+            - 日志详情行溢出 8.5px（itemExtent 64→72）
+            - 发现页集合字面量语法错误（内联变量表达式）
+            - 播放历史 API pagesize 不足导致数据缺失
           files: |
             build/app/outputs/flutter-apk/*-debug.apk
             build/app/outputs/flutter-apk/*-release.apk
