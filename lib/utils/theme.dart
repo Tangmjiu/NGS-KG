@@ -23,6 +23,29 @@ abstract final class AppShape {
   static const BorderRadius full = BorderRadius.all(Radius.circular(9999));
 }
 
+/// MD3 响应式断点 — window size class (Material Design 3 canonical widths)
+abstract final class AppBreakpoint {
+  AppBreakpoint._();
+
+  /// Compact: < 600dp — 手机竖屏（单面板）
+  static const double compact = 600;
+  /// Medium: 600–840dp — 平板竖屏/手机横屏（双面板）
+  static const double medium = 840;
+  /// Expanded: > 840dp — 平板横屏/桌面（多面板）
+  static const double expanded = 1200;
+
+  /// 检测当前窗口是否为 compact 宽度
+  static bool isCompact(double width) => width < compact;
+  /// 检测当前窗口是否为 medium 宽度
+  static bool isMedium(double width) => width >= compact && width < medium;
+  /// 检测当前窗口是否为 expanded/wide 宽度
+  static bool isExpanded(double width) => width >= medium;
+
+  /// 用 [width] 返回对应面板模式：0=单面板, 1=双面板, 2=多面板
+  static int columnCount(double width) =>
+      width >= expanded ? 3 : (width >= compact ? 2 : 1);
+}
+
 /// MD3 动效 token — 统一 Duration + Curve，禁止 magic number
 abstract final class AppMotion {
   AppMotion._();
