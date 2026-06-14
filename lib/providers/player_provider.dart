@@ -92,13 +92,13 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   /// The lyric controller driving the [LyricView] in PlayerScreen.
   LyricController get lyricController => _lyricController;
 
-  /// Returns all available palette colors for the flowing light effect.
+  /// Returns all available palette colours for the flowing light effect.
   /// Prefers the quantized [topColors] for richer variety, falls back to
   /// the hand-picked targets.
   ///
-  /// Option B: if the lightness range is too narrow (< 0.3), artificially
-  /// stretch by alternately brightening and darkening each colour so the
-  /// flowing blobs always have visible depth.
+  /// Always stretches the lightness range to [0.12, 0.85] so the blobs
+  /// have visibly deep darks and bright lights while keeping the original
+  /// hue/saturation and the proportional spacing (natural gradation).
   List<Color> get paletteColors {
     final p = _palette;
     if (p == null) return const [];
@@ -116,22 +116,23 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
       ];
     }
 
-    // Stretch lightness if too narrow
+    // Linearly remap each colour's lightness so the set spans [0.12, 0.85].
     final lightnesses = colors
         .map((c) => HSLColor.fromColor(c).lightness)
         .toList();
     final minL = lightnesses.reduce((a, b) => a < b ? a : b);
     final maxL = lightnesses.reduce((a, b) => a > b ? a : b);
-    if (maxL - minL < 0.3) {
-      final stretched = <Color>[];
-      for (int i = 0; i < colors.length; i++) {
-        final hsl = HSLColor.fromColor(colors[i]);
-        final adj = (i.isEven ? 0.15 : -0.15);
-        stretched.add(
-          hsl.withLightness((hsl.lightness + adj).clamp(0.08, 0.92)).toColor(),
-        );
-      }
-      colors = stretched;
+    const targetMin = 0.12;
+    const targetMax = 0.85;
+    final span = maxL - minL;
+    if (span > 0.001) {
+      colors = colors.map((c) {
+        final hsl = HSLColor.fromColor(c);
+        final normalized = (hsl.lightness - minL) / span;
+        return hsl
+            .withLightness(targetMin + normalized * (targetMax - targetMin))
+            .toColor();
+      }).toList();
     }
 
     return colors;
