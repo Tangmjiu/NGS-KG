@@ -206,24 +206,25 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   void _showRankList(List rankList) {
     showModalBottomSheet(
       context: context,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('热门榜单',
-                  style: Theme.of(context).textTheme.titleMedium),
-            ),
-            const Divider(height: 1),
-            // SafeArea 底部内边距不计入可用高度，否则内容溢出
-            final availableHeight = MediaQuery.of(context).size.height * 0.55
-                - MediaQuery.of(context).padding.bottom;
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: availableHeight,
+      builder: (_) {
+        // SafeArea 底部内边距不计入可用高度，否则内容溢出
+        final availableHeight = MediaQuery.of(context).size.height * 0.55
+            - MediaQuery.of(context).padding.bottom;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('热门榜单',
+                    style: Theme.of(context).textTheme.titleMedium),
               ),
-              child: ListView.builder(
+              const Divider(height: 1),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: availableHeight,
+                ),
+                child: ListView.builder(
                 itemCount: rankList.length,
                 itemBuilder: (_, i) {
                   final r = rankList[i];
@@ -253,7 +254,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             ),
           ],
         ),
-      ),
+      );
+    },
     );
   }
 
