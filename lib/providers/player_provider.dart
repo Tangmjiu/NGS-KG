@@ -5,8 +5,10 @@ import 'dart:async';
 import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart' show HSLColor;
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:flutter_lyric/core/lyric_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/logger.dart';
 import '../models/song.dart';
 import '../utils/palette_extractor.dart';
@@ -49,6 +51,17 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   // ─── 通知节流 ───
   int _lastNotifUpdateMs = 0;
   int _lastNotifLyricIdx = -1;
+
+  // ─── 播放状态持久化（杀进程恢复） ───
+  static const _keySavedSongId = 'playback_saved_song_id';
+  static const _keySavedSongName = 'playback_saved_song_name';
+  static const _keySavedSongHash = 'playback_saved_song_hash';
+  static const _keySavedSongArtist = 'playback_saved_song_artist';
+  static const _keySavedSongCover = 'playback_saved_song_cover';
+  static const _keySavedSongAlbumId = 'playback_saved_song_album_id';
+  static const _keySavedPosition = 'playback_saved_position_ms';
+  static const _keySavedPlayMode = 'playback_saved_play_mode';
+  static const _keySavedQuality = 'playback_saved_quality_level';
 
   late final VoidCallback _onPositionChanged;
   late final VoidCallback _onDurationChanged;
@@ -173,6 +186,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
       } else if (now - _lastNotifUpdateMs > 10000) {
         _lastNotifUpdateMs = now;
         _updateNotification();
+        _savePlaybackState(); // 同步持久化位置
       }
     };
     _engine.position.addListener(_onPositionChanged);
@@ -203,8 +217,14 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     _engine.isPlaying.addListener(_onPlayingChanged);
 
     _engine.onComplete = _onComplete;
-    _onQueueChanged = notifyListeners;
+    _onQueueChanged = () {
+      notifyListeners();
+      _savePlaybackState();
+    };
     _queue.addListener(_onQueueChanged);
+
+    // 启动后恢复上次的播放状态
+    WidgetsBinding.instance.addPostFrameCallback((_) => restorePlaybackState());
   }
 
   void clearError() {
@@ -252,6 +272,60 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
       liked: liked,
       playMode: modeLabel,
     );
+  }
+
+  /// 将当前播放状态持久化到 SharedPreferences（杀进程后恢复用）。
+  /// 不保存完整队列，只保存当前歌曲 + 进度 + 模式。
+  Future<void> _savePlaybackState() async {
+    final song = _queue.currentSong;
+    if (song == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_keySavedSongId, song.id);
+      await prefs.setString(_keySavedSongName, song.name);
+      await prefs.setString(_keySavedSongHash, song.hash ?? '');
+      await prefs.setString(_keySavedSongArtist, song.artistDisplay);
+      await prefs.setString(_keySavedSongCover, song.albumCoverUrl ?? '');
+      await prefs.setInt(_keySavedSongAlbumId, song.albumId);
+      await prefs.setInt(_keySavedPosition, _position.inMilliseconds);
+      await prefs.setString(_keySavedPlayMode, _queue.playMode.name);
+      await prefs.setInt(_keySavedQuality, _qualityLevel);
+    } catch (_) {}
+  }
+
+  /// 从 SharedPreferences 恢复播放状态。
+  /// 仅供初始化时调用，不自动播放 —— 只让 Mini Bar 显示上次的歌曲。
+  Future<void> restorePlaybackState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final songId = prefs.getInt(_keySavedSongId);
+      if (songId == null) return;
+      final songName = prefs.getString(_keySavedSongName) ?? '';
+      final songHash = prefs.getString(_keySavedSongHash) ?? '';
+      final songArtist = prefs.getString(_keySavedSongArtist) ?? '';
+      final songCover = prefs.getString(_keySavedSongCover) ?? '';
+      final songAlbumId = prefs.getInt(_keySavedSongAlbumId) ?? 0;
+      final positionMs = prefs.getInt(_keySavedPosition) ?? 0;
+      final modeName = prefs.getString(_keySavedPlayMode) ?? 'sequential';
+      final quality = prefs.getInt(_keySavedQuality) ?? 0;
+
+      final song = Song(
+        id: songId,
+        name: songName,
+        artists: songArtist.split(' / '),
+        albumCoverUrl: songCover.isNotEmpty ? songCover : null,
+        albumId: songAlbumId,
+        hash: songHash.isNotEmpty ? songHash : null,
+      );
+      _queue.setPlaylist([song], startIndex: 0);
+      _qualityLevel = quality;
+      _engine.qualityLevel = quality;
+      _position = Duration(milliseconds: positionMs);
+      // 恢复播放模式
+      final mode = PlayMode.values.where((m) => m.name == modeName).firstOrNull;
+      if (mode != null) _queue.setPlayMode(mode);
+      notifyListeners();
+    } catch (_) {}
   }
 
   /// 应用音质设置后直接调用引擎播放（用于自动切歌等非用户触发的播放）
@@ -471,6 +545,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
 
   void setPlayMode(PlayMode mode) {
     _queue.setPlayMode(mode);
+    _savePlaybackState();
   }
 
   void setPlayerScreenVisible(bool v) {
@@ -486,6 +561,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   Future<void> setQualityIndex(int index) async {
     _qualityLevel = index % Quality.levels.length;
     _engine.qualityLevel = _qualityLevel;
+    _savePlaybackState();
     if (_isPlaying) {
       await playIndex(_queue.currentIndex);
     } else {
