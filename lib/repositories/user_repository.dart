@@ -26,8 +26,8 @@ class UserRepository extends BaseRepository {
     return VipInfo.fromJson(data);
   }
 
-  Future<List<Map<String, dynamic>>> getUserHistory({String? bp}) async {
-    final params = <String, dynamic>{};
+  Future<List<Map<String, dynamic>>> getUserHistory({String? bp, int pageSize = 300}) async {
+    final params = <String, dynamic>{'pagesize': pageSize};
     if (bp != null) params['bp'] = bp;
     final res = await get('/user/history', params: params);
     final raw = res['data'];
@@ -106,7 +106,7 @@ class UserRepository extends BaseRepository {
   }
 
   Future<List<Map<String, dynamic>>> getUserHistoryRank() async {
-    final res = await get('/user/listen', params: {'type': 0});
+    final res = await get('/user/listen', params: {'type': 0, 'pagesize': 300});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
