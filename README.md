@@ -81,6 +81,13 @@ flutter build apk --release
 每次推送 `android` 分支自动编译：\
 https://github.com/Tangmjiu/NGS-KG/actions
 
+## 交流群组
+
+| 区域 | 群组 |
+|------|------|
+| 中国区交流群 | QQ：933027332 |
+| International group | Telegram：[t.me/mjiutangducks](https://t.me/mjiutangducks) |
+
 ## 技术栈
 
 | 层 | 技术 |
