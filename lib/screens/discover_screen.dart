@@ -216,9 +216,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   style: Theme.of(context).textTheme.titleMedium),
             ),
             const Divider(height: 1),
+            // SafeArea 底部内边距不计入可用高度，否则内容溢出
+            final availableHeight = MediaQuery.of(context).size.height * 0.55
+                - MediaQuery.of(context).padding.bottom;
             ConstrainedBox(
               constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.55,
+                maxHeight: availableHeight,
               ),
               child: ListView.builder(
                 itemCount: rankList.length,
