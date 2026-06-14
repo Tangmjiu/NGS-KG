@@ -66,13 +66,13 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      # ── Build debug APK (split-per-abi → arm64-v8a + armeabi-v7a + x86_64) ──
+      # ── Build debug APK (仅 arm64-v8a，加快 CI 速度) ──
       - name: Build debug APK
-        run: flutter build apk --debug --split-per-abi
+        run: flutter build apk --debug --target-platform android-arm64
 
-      # ── Upload debug APKs ──
-      - name: Upload debug APKs
+      # ── Upload debug APK ──
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: NGS-KG-debug
-          path: build/app/outputs/flutter-apk/*-debug.apk
+          name: NGS-KG-debug-arm64-v8a
+          path: build/app/outputs/flutter-apk/app-debug.apk
