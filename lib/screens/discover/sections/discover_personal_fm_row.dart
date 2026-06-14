@@ -5,6 +5,7 @@ import '../../../models/song.dart';
 import '../../../models/song_mapper.dart';
 import '../../../providers/player_provider.dart';
 import '../../../services/music_service.dart';
+import '../../../utils/theme.dart';
 
 /// FM — 横向滚动歌曲卡片
 ///
