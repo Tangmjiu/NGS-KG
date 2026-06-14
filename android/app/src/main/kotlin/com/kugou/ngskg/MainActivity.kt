@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.media.MediaMetadataRetriever
+import android.os.Build
 import android.os.IBinder
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -26,6 +27,7 @@ class MainActivity : FlutterActivity() {
 
     private val CHANNEL_METADATA = "com.kugou.ngskg/metadata"
     private val CHANNEL_MEDIA = "com.kugou.ngskg/media_session"
+    private val CHANNEL_DEVICE = "com.kugou.ngskg/device"
 
     private var playbackService: PlaybackService? = null
     private var callbackChannel: BasicMessageChannel<String>? = null
@@ -118,6 +120,20 @@ class MainActivity : FlutterActivity() {
                 "release" -> {
                     svc.exitService()
                     result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        // 设备信息通道（ABI 等）
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            CHANNEL_DEVICE
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getAbi" -> {
+                    val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
+                    result.success(abi)
                 }
                 else -> result.notImplemented()
             }
