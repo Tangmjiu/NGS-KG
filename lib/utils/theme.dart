@@ -1,5 +1,28 @@
 import 'package:flutter/material.dart';
 
+/// MD3 形状 token — 统一 RadiusSource，禁止 magic number
+abstract final class AppShape {
+  AppShape._();
+
+  /// extra-small: 4dp — Chips, snackbars
+  static const BorderRadius xs = BorderRadius.all(Radius.circular(4));
+
+  /// small: 8dp — Text fields, menus, buttons
+  static const BorderRadius sm = BorderRadius.all(Radius.circular(8));
+
+  /// medium: 12dp — Cards, dialogs
+  static const BorderRadius md = BorderRadius.all(Radius.circular(12));
+
+  /// large: 16dp — FABs, navigation drawer
+  static const BorderRadius lg = BorderRadius.all(Radius.circular(16));
+
+  /// extra-large: 28dp — Bottom sheets, dialogs
+  static const BorderRadius xl = BorderRadius.all(Radius.circular(28));
+
+  /// full: pill shape — Buttons, chips, badges
+  static const BorderRadius full = BorderRadius.all(Radius.circular(9999));
+}
+
 class AppTheme {
   // ───── Light palette ─────
   static const Color _primary = Color(0xFF1DB954);
