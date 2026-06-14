@@ -37,10 +37,10 @@ class _PlayerBackgroundState extends State<PlayerBackground>
   @override
   void initState() {
     super.initState();
-    // Slow 10-second loop for the flowing light effect
+    // 动态流光循环（5 秒一个完整周期）
     _flowController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 10),
+      duration: const Duration(seconds: 5),
     )..repeat();
   }
 
