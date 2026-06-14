@@ -81,6 +81,13 @@ https://github.com/Tangmjiu/NGS-KG/actions
 
 
 
+## 交流群组
+
+| 区域 | 群组 |
+|------|------|
+| 中国区交流群 | QQ：933027332 |
+| International group | Telegram：[t.me/mjiutangducks](https://t.me/mjiutangducks) |
+
 ## API
 
 基于 [MakcRe/KuGouMusicApi](https://github.com/MakcRe/KuGouMusicApi) 的 RESTful API。
