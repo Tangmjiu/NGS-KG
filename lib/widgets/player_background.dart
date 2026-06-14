@@ -148,32 +148,39 @@ class FlowLightPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final count = colors.length;
-    // Each blob uses a distinct set of frequencies to avoid repetition.
-    // Pre-computed constants so every frame is deterministic.
+    // Each blob has an anchor position so they naturally sit in different
+    // screen regions.  They wander around their anchor via sin/cos.
+    const anchorX = [0.20, 0.80, 0.50, 0.30, 0.70, 0.50, 0.25, 0.75];
+    const anchorY = [0.30, 0.25, 0.70, 0.50, 0.50, 0.30, 0.75, 0.70];
+    const wander  = [0.15, 0.15, 0.25, 0.20, 0.20, 0.25, 0.15, 0.15];
+
     const freqsX = [2.1, 1.3, 0.9, 1.8, 0.6, 2.7, 0.3, 3.5];
     const freqsY = [1.7, 2.3, 1.1, 0.8, 1.9, 0.5, 2.8, 0.2];
     const freqsR = [0.9, 0.7, 1.3, 1.1, 0.6, 1.5, 1.2, 0.4];
     const phases = [0.0, 2.1, 4.3, 1.6, 3.8, 5.0, 1.2, 3.3];
 
+    const alphas = [0.30, 0.18, 0.22, 0.28, 0.20, 0.25, 0.28, 0.18];
+
     for (int i = 0; i < count; i++) {
       final t = progress * 2 * pi;
 
-      // Position — each blob wanders within a 70% × 70% central area
-      final x = sin(t * freqsX[i] + phases[i]) * size.width * 0.35 +
-          size.width * 0.5;
-      final y = cos(t * freqsY[i] + phases[i]) * size.height * 0.35 +
-          size.height * 0.5;
+      // Each blob sits at its anchor and swims around it
+      final x = (sin(t * freqsX[i] + phases[i]) * wander[i] + anchorX[i]) *
+          size.width;
+      final y = (cos(t * freqsY[i] + phases[i]) * wander[i] + anchorY[i]) *
+          size.height;
 
-      // Radius — gentle pulsing between 20%–35% of screen width
+      // Radius — larger static core + gentle pulse
       final r = size.width *
-          (0.20 + 0.15 * (sin(t * freqsR[i] + phases[i]) * 0.5 + 0.5));
+          (0.18 + 0.12 * (sin(t * freqsR[i] + phases[i]) * 0.5 + 0.5));
 
-      // Heavily blurred translucent blob
+      // Soft but not mushy — blur is moderate so each blob keeps a core
       final paint = Paint()
-        ..color = colors[i % colors.length].withValues(alpha: 0.35)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 150);
+        ..color =
+            colors[i % colors.length].withValues(alpha: alphas[i % alphas.length])
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 70);
 
-      canvas.drawCircle(Offset(x, y), r.clamp(40, size.width * 0.5), paint);
+      canvas.drawCircle(Offset(x, y), r.clamp(40, size.width * 0.45), paint);
     }
   }
 
