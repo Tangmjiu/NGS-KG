@@ -68,11 +68,11 @@ class ThemePack {
 /// NGS 凪砂 — 默认主题
 const ThemePack ngsNagisa = ThemePack(
   id: 'ngs_nagisa',
-  name: 'NGS 凪砂',
+  name: 'Ran Nagisa',
   author: 'mjiutang',
   version: 1,
   isBuiltIn: true,
-  description: '以凪砂角色色系为灵感的默认主题',
+  description: 'Welcome to Garden of Eden',
   lightScheme: ColorScheme.light(
     primary: Color(0xFFFF6633),
     onPrimary: Color(0xFFFFFFFF),
