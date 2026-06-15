@@ -15,6 +15,13 @@ class LikedSongsProvider extends ChangeNotifier {
   Set<int> get likedIds => _likedIds;
   bool get isLoaded => _loaded;
 
+  void clear() {
+    _likedIds.clear();
+    _fileidMap.clear();
+    _loaded = false;
+    notifyListeners();
+  }
+
   LikedSongsProvider(this._musicService) {
     if (_hasLogin) load();
   }
