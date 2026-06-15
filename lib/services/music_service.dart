@@ -120,9 +120,11 @@ class MusicService {
       playlist.getPlaylistComments(playlistId, page: page, pageSize: pageSize);
 
   Future<Map<String, dynamic>> createPlaylist(String name,
-          {int type = 0, int isPri = 0, int? listCreateListid}) {
+          {int type = 0, int isPri = 0, int? listCreateListid,
+           int? listCreateUserid}) {
     final f = playlist.createPlaylist(name,
-        type: type, isPri: isPri, listCreateListid: listCreateListid);
+        type: type, isPri: isPri, listCreateListid: listCreateListid,
+        listCreateUserid: listCreateUserid);
     return f.then((_) => <String, dynamic>{});
   }
 
