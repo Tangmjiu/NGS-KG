@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/playlist.dart';
 import '../services/music_service.dart';
+import '../theme/theme_assets.dart';
 
 class PlaylistCard extends StatelessWidget {
   final Playlist playlist;
@@ -83,14 +84,14 @@ class PlaylistCard extends StatelessWidget {
                               height: 64),
                         ),
                         errorWidget: (_, __, ___) =>
-                            const ExcludeSemantics(child: Icon(Icons.playlist_play, size: 40)),
+                            ExcludeSemantics(child: playlistPlaceholderWidget(size: 40)),
                       )
                     : ExcludeSemantics(
                         child: Container(
                         color: cs.surfaceContainerHighest,
                         width: 64,
                         height: 64,
-                        child: const Icon(Icons.playlist_play, size: 40),
+                        child: playlistPlaceholderWidget(size: 40),
                       ),
                     ),
               ),

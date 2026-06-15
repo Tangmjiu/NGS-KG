@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/song.dart';
+import '../theme/theme_assets.dart';
 
 class SongTile extends StatelessWidget {
   final Song song;
@@ -28,14 +29,14 @@ class SongTile extends StatelessWidget {
                       child: Container(color: cs.surfaceContainerHighest, width: 48, height: 48),
                     ),
                     errorWidget: (_, __, ___) =>
-                        const ExcludeSemantics(child: Icon(Icons.music_note, size: 32)),
+                        ExcludeSemantics(child: albumPlaceholderWidget(size: 32)),
                   )
                 : ExcludeSemantics(
                     child: Container(
                       color: cs.surfaceContainerHighest,
                       width: 48,
                       height: 48,
-                      child: const Icon(Icons.music_note, size: 32),
+                      child: albumPlaceholderWidget(size: 32),
                     ),
                   ),
           ),
