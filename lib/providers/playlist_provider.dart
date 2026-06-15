@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../utils/logger.dart';
 import '../models/playlist.dart';
 import '../services/music_service.dart';
+import '../services/api_client.dart';
 
 class PlaylistProvider extends ChangeNotifier {
   final MusicService _musicService;
@@ -18,12 +19,22 @@ class PlaylistProvider extends ChangeNotifier {
   List<Playlist> get userPlaylists => _userPlaylists;
   bool get isLoading => _isLoading;
 
+  int? get _currentUserId {
+    final uid = ApiClient.userId;
+    if (uid != null && uid.isNotEmpty && uid != '0') {
+      return int.tryParse(uid);
+    }
+    return null;
+  }
+
   Future<void> fetchTopPlaylists({int limit = 30}) async {
     _isLoading = true;
     notifyListeners();
     try {
       _topPlaylists = await _musicService.getTopPlaylists(limit: limit);
-    } catch (e, s) { Log.e('playlist_provider', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('playlist_provider', 'error', e, s);
+    }
     _isLoading = false;
     notifyListeners();
   }
@@ -51,7 +62,46 @@ class PlaylistProvider extends ChangeNotifier {
             Playlist(id: 0, name: '', globalCollectionId: id),
         songs: songs,
       );
-    } catch (e, s) { Log.e('playlist_provider', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('playlist_provider', 'error', e, s);
+    }
+  }
+
+  Future<bool> createPlaylist(String name, {int isPri = 0}) async {
+    try {
+      await _musicService.createPlaylist(name, isPri: isPri);
+      await fetchUserPlaylist(_currentUserId);
+      return true;
+    } catch (e, s) {
+      Log.e('playlist_provider', 'createPlaylist error', e, s);
+      return false;
+    }
+  }
+
+  Future<bool> deletePlaylist(int listid) async {
+    try {
+      await _musicService.deletePlaylist(listid);
+      await fetchUserPlaylist(_currentUserId);
+      return true;
+    } catch (e, s) {
+      Log.e('playlist_provider', 'deletePlaylist error', e, s);
+      return false;
+    }
+  }
+
+  Future<bool> collectPlaylist(String name,
+      {required int listCreateUserid, required int listCreateListid}) async {
+    try {
+      await _musicService.createPlaylist(name,
+          type: 1,
+          listCreateUserid: listCreateUserid,
+          listCreateListid: listCreateListid);
+      await fetchUserPlaylist(_currentUserId);
+      return true;
+    } catch (e, s) {
+      Log.e('playlist_provider', 'collectPlaylist error', e, s);
+      return false;
+    }
   }
 
   Future<void> fetchUserPlaylist(int? userId) async {
@@ -60,7 +110,9 @@ class PlaylistProvider extends ChangeNotifier {
     notifyListeners();
     try {
       _userPlaylists = await _musicService.getUserPlaylist(userId: userId);
-    } catch (e, s) { Log.e('playlist_provider', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('playlist_provider', 'error', e, s);
+    }
     _isLoading = false;
     notifyListeners();
   }

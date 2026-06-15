@@ -230,10 +230,11 @@ class PlaylistRepository extends BaseRepository {
   }
 
   Future<void> createPlaylist(String name,
-      {int type = 0, int isPri = 0, int? listCreateListid}) async {
+      {int type = 0, int isPri = 0, int? listCreateListid,
+       int? listCreateUserid}) async {
     final params = <String, dynamic>{
       'name': name,
-      'list_create_userid': _userId,
+      'list_create_userid': listCreateUserid ?? _userId,
       'type': type,
       'is_pri': isPri,
     };
