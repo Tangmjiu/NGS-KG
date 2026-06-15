@@ -23,7 +23,8 @@ import 'liked_songs_provider.dart';
 
 export 'playlist_queue.dart' show PlayMode;
 
-class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMixin {
+class PlayerProvider extends ChangeNotifier
+    with SleepTimerMixin, KeepScreenOnMixin {
   final MusicService _musicService;
   final AudioSettingsProvider? _audioSettings;
   final LikedSongsProvider? _likedSongs;
@@ -44,7 +45,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   Color? _backgroundColor;
 
   // ─── 歌曲高潮标记 ───
-  int? _climaxMs;  // 毫秒，当前歌曲的高潮开始时间
+  int? _climaxMs; // 毫秒，当前歌曲的高潮开始时间
 
   int? get climaxMs => _climaxMs;
 
@@ -89,6 +90,7 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     if (q != null) return Song.qualityLabelMap[q] ?? q;
     return currentQualityLabel;
   }
+
   bool get isPlaying => _isPlaying;
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _queue.isLoadingMore;
@@ -96,8 +98,9 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   Duration get position => _position;
   Duration get duration => _duration;
   String? get error => _error;
-  double get progress =>
-      _duration.inMilliseconds > 0 ? _position.inMilliseconds / _duration.inMilliseconds : 0.0;
+  double get progress => _duration.inMilliseconds > 0
+      ? _position.inMilliseconds / _duration.inMilliseconds
+      : 0.0;
 
   // ─── Palette & lyric getters ───
   ExtractedPalette? get palette => _palette;
@@ -130,9 +133,8 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
     }
 
     // Linearly remap each colour's lightness so the set spans [0.12, 0.85].
-    final lightnesses = colors
-        .map((c) => HSLColor.fromColor(c).lightness)
-        .toList();
+    final lightnesses =
+        colors.map((c) => HSLColor.fromColor(c).lightness).toList();
     final minL = lightnesses.reduce((a, b) => a < b ? a : b);
     final maxL = lightnesses.reduce((a, b) => a > b ? a : b);
     const targetMin = 0.12;
@@ -153,13 +155,16 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
 
   Color? get backgroundColor => _backgroundColor;
 
-  Future<List<Song>> Function()? get playlistEndProvider => _queue.playlistEndProvider;
+  Future<List<Song>> Function()? get playlistEndProvider =>
+      _queue.playlistEndProvider;
   set playlistEndProvider(Future<List<Song>> Function()? v) {
     _queue.playlistEndProvider = v;
   }
 
-  PlayerProvider(this._musicService, {AudioSettingsProvider? audioSettings, LikedSongsProvider? likedSongs})
-      : _audioSettings = audioSettings, _likedSongs = likedSongs {
+  PlayerProvider(this._musicService,
+      {AudioSettingsProvider? audioSettings, LikedSongsProvider? likedSongs})
+      : _audioSettings = audioSettings,
+        _likedSongs = likedSongs {
     _engine = AudioEngine(_musicService);
     _queue = PlaylistQueue();
 
@@ -395,7 +400,9 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
           return;
         }
       }
-    } catch (e, s) { Log.e('player_provider', 'loadMore error', e, s); }
+    } catch (e, s) {
+      Log.e('player_provider', 'loadMore error', e, s);
+    }
     _queue.setLoadingMore(false);
     _isLoading = false;
     _isPlaying = false;
@@ -546,6 +553,22 @@ class PlayerProvider extends ChangeNotifier with SleepTimerMixin, KeepScreenOnMi
   void setPlayMode(PlayMode mode) {
     _queue.setPlayMode(mode);
     _savePlaybackState();
+  }
+
+  void removeFromQueue(int index) {
+    final wasCurrent = index == _queue.currentIndex;
+    _queue.removeAt(index);
+    if (wasCurrent && _queue.playlist.isNotEmpty) {
+      playIndex(_queue.currentIndex);
+    }
+  }
+
+  void moveInQueue(int from, int to) {
+    _queue.move(from, to);
+  }
+
+  void playNextSong(Song song) {
+    _queue.insertAt(_queue.currentIndex + 1, song);
   }
 
   void setPlayerScreenVisible(bool v) {
