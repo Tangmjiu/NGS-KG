@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/playlist_provider.dart';
 import '../providers/player_provider.dart';
+import '../services/music_service.dart';
 import '../widgets/song_tile.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
@@ -62,6 +63,33 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               SliverAppBar(
                 expandedHeight: MediaQuery.of(context).size.height * 0.32,
                 pinned: true,
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.comment_outlined),
+                    tooltip: '评论',
+                    onPressed: () => Navigator.pushNamed(context, '/comments',
+                        arguments: {'type': 'playlist', 'id': pl.id}),
+                  ),
+                  if (pl.id > 0 && pl.createUserId != null)
+                    IconButton(
+                      icon: const Icon(Icons.playlist_add_check_outlined),
+                      tooltip: '收藏歌单',
+                      onPressed: () async {
+                        final ok = await context
+                            .read<PlaylistProvider>()
+                            .collectPlaylist(
+                              pl.name,
+                              listCreateUserid: pl.createUserId!,
+                              listCreateListid: pl.id,
+                            );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(ok ? '已收藏' : '收藏失败')),
+                          );
+                        }
+                      },
+                    ),
+                ],
                 flexibleSpace: FlexibleSpaceBar(
                   background: Stack(
                     fit: StackFit.expand,
@@ -130,10 +158,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           const Spacer(),
                           FilledButton.tonalIcon(
                             onPressed: () {
-                              context
-                                  .read<PlayerProvider>()
-                                  .playSong(detail.songs.first,
-                                      playlist: detail.songs);
+                              context.read<PlayerProvider>().playSong(
+                                  detail.songs.first,
+                                  playlist: detail.songs);
                             },
                             icon: const Icon(Icons.play_arrow, size: 18),
                             label: const Text('播放全部'),
@@ -153,12 +180,75 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               // 歌曲列表
               SliverList(
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) => SongTile(
-                    song: detail.songs[index],
-                    onTap: (s) => context
-                        .read<PlayerProvider>()
-                        .playSong(s, playlist: detail.songs),
-                  ),
+                  (context, index) {
+                    final song = detail.songs[index];
+                    final tile = SongTile(
+                      song: song,
+                      onTap: (s) => context
+                          .read<PlayerProvider>()
+                          .playSong(s, playlist: detail.songs),
+                    );
+                    return Dismissible(
+                      key: ValueKey('pl_song_${song.id}'),
+                      direction: DismissDirection.endToStart,
+                      confirmDismiss: (_) async {
+                        return await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('移除'),
+                            content: Text('从歌单移除「${song.name}」？'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('取消'),
+                              ),
+                              FilledButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('移除'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      onDismissed: (_) async {
+                        final fileid = song.fileId;
+                        if (fileid != null) {
+                          try {
+                            await MusicService().removeTracksFromPlaylist(
+                                detail.playlist.id, fileid.toString());
+                            if (context.mounted) {
+                              context
+                                  .read<PlaylistProvider>()
+                                  .fetchPlaylistDetail(widget.gcId ?? '');
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('移除失败: $e')),
+                              );
+                              context
+                                  .read<PlaylistProvider>()
+                                  .fetchPlaylistDetail(widget.gcId ?? '');
+                            }
+                          }
+                        } else {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('无法移除：缺少歌曲标识')),
+                            );
+                          }
+                        }
+                      },
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
+                        color: Theme.of(context).colorScheme.error,
+                        child: Icon(Icons.delete,
+                            color: Theme.of(context).colorScheme.onError),
+                      ),
+                      child: tile,
+                    );
+                  },
                   childCount: detail.songs.length,
                 ),
               ),
