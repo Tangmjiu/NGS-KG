@@ -7,73 +7,18 @@ import 'package:archive/archive.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/logger.dart';
-
-/// 已加载的主题包数据
-class LoadedTheme {
-  final String name;
-  final String author;
-  final int version;
-  final Color lightPrimary;
-  final Color darkPrimary;
-  final Map<String, String> assetFiles; // key: asset id → file path in app dir
-  final String id; // 唯一标识（文件名 hash）
-
-  const LoadedTheme({
-    required this.name,
-    required this.author,
-    required this.version,
-    required this.lightPrimary,
-    required this.darkPrimary,
-    required this.assetFiles,
-    required this.id,
-  });
-}
-
-/// manifest.json 定义
-class _Manifest {
-  final String name;
-  final String author;
-  final int version;
-  final Map<String, String>? colors;
-  final Map<String, String>? assets;
-
-  const _Manifest({
-    required this.name,
-    required this.author,
-    required this.version,
-    this.colors,
-    this.assets,
-  });
-
-  factory _Manifest.fromJson(Map<String, dynamic> json) {
-    return _Manifest(
-      name: json['name'] as String? ?? '未命名主题',
-      author: json['author'] as String? ?? '未知作者',
-      version: json['version'] as int? ?? 1,
-      colors: json['colors'] != null
-          ? Map<String, String>.from(json['colors'] as Map)
-          : null,
-      assets: json['assets'] != null
-          ? Map<String, String>.from(json['assets'] as Map)
-          : null,
-    );
-  }
-}
+import '../models/theme_pack.dart';
 
 /// ZIP 主题导入引擎
 ///
-/// 处理：
-/// 1. 用户选择 ZIP 文件
-/// 2. 解压、验证 manifest.json
-/// 3. 提取资源文件到应用私有目录
-/// 4. 返回 LoadedTheme 供 ThemeProvider 使用
+/// 解析 manifest v2，返回 ThemePack。
 class ThemeLoader {
-  static const _themesPrefsKey = 'imported_themes';
+  static const _themesPrefsKey = 'imported_themes_v2';
 
   // ─── 公开方法 ───
 
   /// 从文件选择器导入 ZIP 主题包
-  static Future<LoadedTheme?> importFromPicker() async {
+  static Future<ThemePack?> importFromPicker() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -94,8 +39,7 @@ class ThemeLoader {
   }
 
   /// 从字节数据解析 ZIP 主题包
-  static Future<LoadedTheme?> _parseZip(List<int> bytes, String fileName) async {
-    // 解压
+  static Future<ThemePack?> _parseZip(List<int> bytes, String fileName) async {
     final archive = ZipDecoder().decodeBytes(bytes);
     if (archive.isEmpty) {
       Log.w('ThemeLoader', 'empty zip: $fileName');
@@ -104,7 +48,7 @@ class ThemeLoader {
 
     // 查找 manifest.json
     final manifestFile = archive.files.firstWhere(
-      (f) => f.name == 'manifest.json' && !f.isFile,
+      (f) => f.name == 'manifest.json' && f.isFile,
       orElse: () => _emptyFile(),
     );
     if (!manifestFile.isFile) {
@@ -112,71 +56,122 @@ class ThemeLoader {
       return null;
     }
 
-    // 解析 manifest
-    final manifestJson = jsonDecode(
-      utf8.decode(manifestFile.content),
-    ) as Map<String, dynamic>;
-    final manifest = _Manifest.fromJson(manifestJson);
+    final manifestJson = jsonDecode(utf8.decode(manifestFile.content)) as Map<String, dynamic>;
 
-    // 解析颜色
-    final lightPrimary = _parseColor(
-      manifest.colors?['light_primary'],
-      const Color(0xFF2CA1F4),
-    );
-    final darkPrimary = _parseColor(
-      manifest.colors?['dark_primary'],
-      const Color(0xFF5BB8F8),
-    );
+    final name = manifestJson['name'] as String? ?? '未命名主题';
+    final author = manifestJson['author'] as String? ?? '未知作者';
+    final version = manifestJson['version'] as int? ?? 1;
+    final description = manifestJson['description'] as String?;
 
-    // 提取资源文件到应用目录
+    // ── 解析颜色 ──
+    ColorScheme? lightScheme;
+    ColorScheme? darkScheme;
+    final colors = manifestJson['colors'] as Map<String, dynamic>?;
+    if (colors != null) {
+      lightScheme = _parseColorScheme(colors['light'] as Map<String, dynamic>?, Brightness.light);
+      darkScheme = _parseColorScheme(colors['dark'] as Map<String, dynamic>?, Brightness.dark);
+    }
+
+    // ── 解析字体 ──
+    String? fontFamily;
+    final typography = manifestJson['typography'] as Map<String, dynamic>?;
+    if (typography != null) {
+      fontFamily = typography['family'] as String?;
+    }
+
+    // ── 解析形状 ──
+    Map<String, double>? shapes;
+    final rawShapes = manifestJson['shapes'] as Map<String, dynamic>?;
+    if (rawShapes != null) {
+      shapes = rawShapes.map((k, v) => MapEntry(k, (v as num).toDouble()));
+    }
+
+    // ── 提取资源文件 ──
     final appDir = await _getThemeDir(_themeId(fileName));
     final assetFiles = <String, String>{};
 
-    // 定义需要提取的资源
-    const assetKeys = [
-      'sthiswrong', 'codecrash', 'loading', 'ban', 'supportme', 'icon',
-    ];
+    final rawAssets = manifestJson['assets'] as Map<String, dynamic>?;
+    if (rawAssets != null) {
+      const assetKeys = [
+        'sthiswrong', 'codecrash', 'loading', 'ban', 'supportme', 'icon',
+        'album_placeholder', 'playlist_placeholder', 'artist_placeholder',
+      ];
 
-    for (final key in assetKeys) {
-      final zipPath = manifest.assets?[key];
-      if (zipPath == null || zipPath.isEmpty) continue;
+      for (final key in assetKeys) {
+        final zipPath = rawAssets[key] as String?;
+        if (zipPath == null || zipPath.isEmpty) continue;
 
-      final zipEntry = archive.files.firstWhere(
-        (f) => f.name == zipPath && !f.isFile,
-        orElse: () => _emptyFile(),
-      );
-      if (!zipEntry.isFile) continue;
+        final zipEntry = archive.files.firstWhere(
+          (f) => f.name == zipPath && f.isFile,
+          orElse: () => _emptyFile(),
+        );
+        if (!zipEntry.isFile) continue;
 
-      final ext = zipPath.contains('.') ? '.${zipPath.split('.').last}' : '.png';
-      final destName = '$key$ext';
-      final destPath = '${appDir.path}/$destName';
-      await File(destPath).writeAsBytes(zipEntry.content);
-      assetFiles[key] = destPath;
+        final ext = zipPath.contains('.') ? '.${zipPath.split('.').last}' : '.png';
+        final destName = '$key$ext';
+        final destPath = '${appDir.path}/$destName';
+        await File(destPath).writeAsBytes(zipEntry.content);
+        assetFiles[key] = destPath;
+      }
+    }
+
+    // ── 壁纸 ──
+    String? playerBgPath;
+    final wallpaper = manifestJson['wallpaper'] as Map<String, dynamic>?;
+    if (wallpaper != null) {
+      final bgPath = wallpaper['player'] as String?;
+      if (bgPath != null && bgPath.isNotEmpty) {
+        final zipEntry = archive.files.firstWhere(
+          (f) => f.name == bgPath && f.isFile,
+          orElse: () => _emptyFile(),
+        );
+        if (zipEntry.isFile) {
+          final ext = bgPath.contains('.') ? '.${bgPath.split('.').last}' : '.png';
+          final destPath = '${appDir.path}/player_bg$ext';
+          await File(destPath).writeAsBytes(zipEntry.content);
+          playerBgPath = destPath;
+        }
+      }
+    }
+
+    // ── 预览图 ──
+    String? previewPath;
+    final previewEntry = archive.files.firstWhere(
+      (f) => f.name == 'preview.png' && f.isFile,
+      orElse: () => _emptyFile(),
+    );
+    if (previewEntry.isFile) {
+      previewPath = '${appDir.path}/preview.png';
+      await File(previewPath).writeAsBytes(previewEntry.content);
     }
 
     // 记录已导入
     await _recordImported(_themeId(fileName));
 
-    return LoadedTheme(
-      name: manifest.name,
-      author: manifest.author,
-      version: manifest.version,
-      lightPrimary: lightPrimary,
-      darkPrimary: darkPrimary,
-      assetFiles: assetFiles,
+    return ThemePack(
       id: _themeId(fileName),
+      name: name,
+      author: author,
+      version: version,
+      description: description,
+      isBuiltIn: false,
+      previewPath: previewPath,
+      lightScheme: lightScheme,
+      darkScheme: darkScheme,
+      fontFamily: fontFamily,
+      shapes: shapes,
+      assetFiles: assetFiles.isNotEmpty ? assetFiles : null,
+      playerBgPath: playerBgPath,
     );
   }
 
   // ─── 已导入主题管理 ───
 
-  /// 获取所有已导入的主题 ID 列表（持久化）
   static Future<List<String>> getImportedThemeIds() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getStringList(_themesPrefsKey) ?? [];
   }
 
-  /// 记录已导入的主题 ID
   static Future<void> _recordImported(String id) async {
     final prefs = await SharedPreferences.getInstance();
     final list = prefs.getStringList(_themesPrefsKey) ?? [];
@@ -186,7 +181,6 @@ class ThemeLoader {
     }
   }
 
-  /// 删除已导入的主题
   static Future<void> deleteTheme(String id) async {
     try {
       final dir = await _getThemeDir(id);
@@ -205,7 +199,6 @@ class ThemeLoader {
   // ─── 内部工具 ───
 
   static String _themeId(String fileName) {
-    // 用文件名（不含 .zip）作为 ID
     return fileName.replaceAll(RegExp(r'\.zip$', caseSensitive: false), '');
   }
 
@@ -218,12 +211,86 @@ class ThemeLoader {
     return dir;
   }
 
-  static Color _parseColor(String? hex, Color defaultColor) {
-    if (hex == null || hex.isEmpty) return defaultColor;
-    final h = hex.replaceFirst('#', '');
-    final val = int.tryParse(h, radix: 16);
-    if (val == null) return defaultColor;
-    return Color(0xFF000000 | val); // 忽略 alpha，固定 FF
+  /// 解析 manifest 中的 colorScheme map
+  static ColorScheme? _parseColorScheme(Map<String, dynamic>? data, Brightness brightness) {
+    if (data == null || data.isEmpty) return null;
+
+    Color c(String key, Color fallback) {
+      final v = data[key] as String?;
+      if (v == null || v.isEmpty) return fallback;
+      final h = v.replaceFirst('#', '');
+      final val = int.tryParse(h, radix: 16);
+      if (val == null) return fallback;
+      return Color(0xFF000000 | val);
+    }
+
+    if (brightness == Brightness.light) {
+      return ColorScheme.light(
+        primary: c('primary', const Color(0xFF2CA1F4)),
+        onPrimary: c('onPrimary', const Color(0xFFFFFFFF)),
+        primaryContainer: c('primaryContainer', const Color(0xFFD2E5FF)),
+        onPrimaryContainer: c('onPrimaryContainer', const Color(0xFF001D35)),
+        secondary: c('secondary', const Color(0xFF565F71)),
+        onSecondary: c('onSecondary', const Color(0xFFFFFFFF)),
+        secondaryContainer: c('secondaryContainer', const Color(0xFFDAE2F9)),
+        onSecondaryContainer: c('onSecondaryContainer', const Color(0xFF131C2B)),
+        tertiary: c('tertiary', const Color(0xFF6E5676)),
+        onTertiary: c('onTertiary', const Color(0xFFFFFFFF)),
+        tertiaryContainer: c('tertiaryContainer', const Color(0xFFF8D8FE)),
+        onTertiaryContainer: c('onTertiaryContainer', const Color(0xFF271430)),
+        error: c('error', const Color(0xFFBA1A1A)),
+        onError: c('onError', const Color(0xFFFFFFFF)),
+        errorContainer: c('errorContainer', const Color(0xFFFFDAD6)),
+        onErrorContainer: c('onErrorContainer', const Color(0xFF410002)),
+        surface: c('surface', const Color(0xFFFDF8FF)),
+        surfaceDim: c('surfaceDim', const Color(0xFFDED8E1)),
+        surfaceBright: c('surfaceBright', const Color(0xFFFDF8FF)),
+        surfaceContainerLowest: c('surfaceContainerLowest', const Color(0xFFFFFFFF)),
+        surfaceContainerLow: c('surfaceContainerLow', const Color(0xFFF7F2FB)),
+        surfaceContainer: c('surfaceContainer', const Color(0xFFF2ECF5)),
+        surfaceContainerHigh: c('surfaceContainerHigh', const Color(0xFFEBE6EF)),
+        surfaceContainerHighest: c('surfaceContainerHighest', const Color(0xFFE0DAE3)),
+        onSurface: c('onSurface', const Color(0xFF1C1B1F)),
+        onSurfaceVariant: c('onSurfaceVariant', const Color(0xFF49454F)),
+        outline: c('outline', const Color(0xFF7A7580)),
+        outlineVariant: c('outlineVariant', const Color(0xFFCAC4CD)),
+        inverseSurface: c('inverseSurface', const Color(0xFF313033)),
+        inversePrimary: c('inversePrimary', const Color(0xFFA9D0FF)),
+      );
+    } else {
+      return ColorScheme.dark(
+        primary: c('primary', const Color(0xFFAAC7FF)),
+        onPrimary: c('onPrimary', const Color(0xFF003258)),
+        primaryContainer: c('primaryContainer', const Color(0xFF00497D)),
+        onPrimaryContainer: c('onPrimaryContainer', const Color(0xFFD2E5FF)),
+        secondary: c('secondary', const Color(0xFFBEC6DC)),
+        onSecondary: c('onSecondary', const Color(0xFF283141)),
+        secondaryContainer: c('secondaryContainer', const Color(0xFF3E4759)),
+        onSecondaryContainer: c('onSecondaryContainer', const Color(0xFFDAE2F9)),
+        tertiary: c('tertiary', const Color(0xFFDBBDE2)),
+        onTertiary: c('onTertiary', const Color(0xFF3D2846)),
+        tertiaryContainer: c('tertiaryContainer', const Color(0xFF553F5D)),
+        onTertiaryContainer: c('onTertiaryContainer', const Color(0xFFF8D8FE)),
+        error: c('error', const Color(0xFFFFB4AB)),
+        onError: c('onError', const Color(0xFF690005)),
+        errorContainer: c('errorContainer', const Color(0xFF93000A)),
+        onErrorContainer: c('onErrorContainer', const Color(0xFFFFDAD6)),
+        surface: c('surface', const Color(0xFF141318)),
+        surfaceDim: c('surfaceDim', const Color(0xFF141318)),
+        surfaceBright: c('surfaceBright', const Color(0xFF3A383E)),
+        surfaceContainerLowest: c('surfaceContainerLowest', const Color(0xFF0E0E13)),
+        surfaceContainerLow: c('surfaceContainerLow', const Color(0xFF1C1B20)),
+        surfaceContainer: c('surfaceContainer', const Color(0xFF201F24)),
+        surfaceContainerHigh: c('surfaceContainerHigh', const Color(0xFF2B292F)),
+        surfaceContainerHighest: c('surfaceContainerHighest', const Color(0xFF36343A)),
+        onSurface: c('onSurface', const Color(0xFFE6E1E6)),
+        onSurfaceVariant: c('onSurfaceVariant', const Color(0xFFCAC4CD)),
+        outline: c('outline', const Color(0xFF948F99)),
+        outlineVariant: c('outlineVariant', const Color(0xFF49454F)),
+        inverseSurface: c('inverseSurface', const Color(0xFFE6E1E6)),
+        inversePrimary: c('inversePrimary', const Color(0xFF00619F)),
+      );
+    }
   }
 
   static ArchiveFile _emptyFile() =>
