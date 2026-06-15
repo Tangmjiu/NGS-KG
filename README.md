@@ -18,6 +18,14 @@
   <a href="https://github.com/Tangmjiu/NGS-KG/blob/android/THEME.md">主题制作</a>
 </p>
 
+> **项目名称释义**
+>
+> **NGS** = 凪砂（出自《偶像梦幻祭2》）
+> **KG** = 酷狗 (KuGou)
+>
+> 本项目是作者（本人 ngs 推🚩）基于酷狗音乐第三方 API 开发的 Flutter 音乐播放器。
+> 内置图片素材来源于《偶像梦幻祭2》国服官方表情包，支持通过 ZIP 主题包自定义全套图片与配色。
+
 ---
 
 ## 功能
