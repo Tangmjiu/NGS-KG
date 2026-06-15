@@ -200,9 +200,9 @@ class NGSKGApp extends StatelessWidget {
           },
           builder: (context, child) {
             // NavigationBar 的实际高度 = kBottomNavigationBarHeight + 底部安全区
-            // 不加 padding 的话 mini 播放栏会叠加到 NavigationBar 上
+            // 加 8px 让 mini 播放栏与导航栏之间留出间隙
             final bottomNavOffset =
-                kBottomNavigationBarHeight + MediaQuery.of(context).padding.bottom;
+                kBottomNavigationBarHeight + MediaQuery.of(context).padding.bottom + 8;
             return Stack(
               children: [
                 child ?? const SizedBox.shrink(),
