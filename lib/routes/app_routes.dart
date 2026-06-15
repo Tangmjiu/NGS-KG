@@ -20,6 +20,7 @@ import '../screens/artist_followed_news_screen.dart';
 import '../screens/album_detail_screen.dart';
 // MV: import '../screens/mv_player_screen.dart';
 import '../screens/recommended_playlists_screen.dart';
+import '../screens/playlist_category_screen.dart';
 
 class AppRoutes {
   static const String home = '/';
@@ -44,6 +45,7 @@ class AppRoutes {
   static const String albumDetail = '/album/detail';
   // MV: static const String mv = '/mv';
   static const String recommendedPlaylists = '/recommended/playlists';
+  static const String playlistCategory = '/playlist/category';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -112,7 +114,8 @@ class AppRoutes {
       // MV: case AppRoutes.likedVideos:
       // MV:   return MaterialPageRoute(builder: (_) => const VideosScreen(showLiked: true));
       case artistFollowedNews:
-        return MaterialPageRoute(builder: (_) => const ArtistFollowedNewsScreen());
+        return MaterialPageRoute(
+            builder: (_) => const ArtistFollowedNewsScreen());
       case albumDetail:
         final args = settings.arguments;
         if (args is! Map<String, dynamic>) return _fallback();
@@ -134,6 +137,18 @@ class AppRoutes {
       case AppRoutes.recommendedPlaylists:
         return MaterialPageRoute(
           builder: (_) => const RecommendedPlaylistsScreen(),
+        );
+      case AppRoutes.playlistCategory:
+        final args = settings.arguments;
+        if (args is! Map<String, dynamic>) return _fallback();
+        final categoryId = args['categoryId'] as int?;
+        final categoryName = args['name'] as String?;
+        if (categoryId == null || categoryName == null) return _fallback();
+        return MaterialPageRoute(
+          builder: (_) => PlaylistCategoryScreen(
+            categoryId: categoryId,
+            categoryName: categoryName,
+          ),
         );
       default:
         return _fallback();
