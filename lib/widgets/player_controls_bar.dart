@@ -32,7 +32,7 @@ class PlayerControlsBar extends StatelessWidget {
       case PlayMode.repeatOne:
         return Icons.repeat_one;
       case PlayMode.radio:
-        return Icons.repeat; // fallback for radio mode
+        return Icons.radio; // fallback for radio mode
     }
   }
 
