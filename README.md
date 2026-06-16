@@ -45,7 +45,11 @@
 - **本地音乐**：扫描设备音频文件并播放(未完善)
 - **云盘**：查看和播放酷狗云盘音乐(未完善)
 
-- **截图** 如下（v1.0.1）
+- ![**截图** 如下（v1.0.1）](https://github.com/Tangmjiu/NGS-KG/blob/android/1.png)
+  ![](https://github.com/Tangmjiu/NGS-KG/blob/android/2.png)
+  ![](https://github.com/Tangmjiu/NGS-KG/blob/android/3.png)
+  ![](https://github.com/Tangmjiu/NGS-KG/blob/android/4.png)
+- ![动态流光模式播放器](https://github.com/Tangmjiu/NGS-KG/blob/android/5.png)！[](https://github.com/Tangmjiu/NGS-KG/blob/android/6.png)
 - 
 - 
 ## 快速开始
