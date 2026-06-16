@@ -10,10 +10,12 @@
 
 <p align="center">
   <a href="#功能">功能</a> ·
-  <a href="#截图">截图</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#构建">构建</a> ·
+  <a href="#赞助支持">赞助支持</a> ·
+  <a href="#交流群组">交流群组</a> ·
   <a href="#API">API</a> ·
+  <a href="#免责声明">免责声明</a> ·
   <a href="FAQ.md">FAQ</a> ·
   <a href="https://github.com/Tangmjiu/NGS-KG/blob/android/THEME.md">主题制作</a>
 </p>
@@ -95,6 +97,14 @@ https://github.com/Tangmjiu/NGS-KG/actions
 |------|------|
 | 中国区交流群 | QQ：933027332 |
 | International group | Telegram：[t.me/mjiutangducks](https://t.me/mjiutangducks) |
+
+## 赞助支持
+
+服务器的运维以及软件开发需要大量的金钱和精力。如果你喜欢这个软件，欢迎在 [爱发电](https://www.ifdian.net/a/mjiutang) 上打赏支持，你的支持是我持续更新的动力 ❤️
+
+同时，mjiutang 本人倡议社区内自建服务器，以分担 mjiutang 本人的服务器压力。
+
+[![爱发电](https://img.shields.io/badge/爱发电-赞助支持-orange?style=flat-square&logo=githubsponsors)](https://www.ifdian.net/a/mjiutang)
 
 ## 技术栈
 
