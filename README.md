@@ -1,4 +1,4 @@
-<p align="centerNG
+<p align="center">
   <img src="assets/images/icon.png" width="120" alt="NGS-KG+">
 </p>
 
