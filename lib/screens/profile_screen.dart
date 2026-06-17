@@ -324,7 +324,7 @@ class LikedSongsScreen extends StatefulWidget {
 }
 
 class _LikedSongsScreenState extends State<LikedSongsScreen> {
-  final MusicService _musicService = MusicService();
+  late final MusicService _musicService = context.read<MusicService>();
   List<Song> _songs = [];
   bool _loading = true;
 
