@@ -1,7 +1,8 @@
-import 'dart:math' show sin, cos;
+import 'dart:async' show Timer;
+import 'dart:math' show sin, cos, pi, min;
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart' show Ticker;
+import 'package:flutter/scheduler.dart' show Ticker, SchedulerBinding;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
@@ -39,6 +40,52 @@ class _PlayerBackgroundState extends State<PlayerBackground>
   late final Ticker _ticker;
   final ValueNotifier<double> _elapsed = ValueNotifier<double>(0.0);
 
+  // ── Frame timing monitoring & auto-throttling ──────────────────────
+  static const int _kFrameWindowSize = 30;
+  static const double _kSlowThresholdMs = 16.0;
+  static const double _kSlowRatio = 0.10;
+  static const int _kBlobLimitNormal = 8;
+  static const int _kBlobLimitThrottled = 4;
+
+  final List<FrameTiming> _frameTimings = [];
+  bool _isThrottled = false;
+  void Function(List<FrameTiming>)? _frameCallback;
+  Timer? _reEvalTimer;
+
+  /// Callback invoked by [SchedulerBinding] on each frame completion.
+  void _onFrameTiming(List<FrameTiming> timings) {
+    if (_frameCallback == null) return; // disposed
+    for (final timing in timings) {
+      _frameTimings.add(timing);
+      if (_frameTimings.length > _kFrameWindowSize) {
+        _frameTimings.removeAt(0);
+      }
+    }
+
+    if (_frameTimings.length < _kFrameWindowSize) {
+      // Not enough samples yet.
+      return;
+    }
+
+    // Count frames that exceed the 60 fps budget (≈ 16 ms).
+    int slowFrames = 0;
+    final int thresholdUs = (_kSlowThresholdMs * 1000).toInt();
+    for (final timing in _frameTimings) {
+      final totalUs =
+          timing.buildDuration.inMicroseconds +
+          timing.rasterDuration.inMicroseconds;
+      if (totalUs > thresholdUs) {
+        slowFrames++;
+      }
+    }
+
+    final bool shouldThrottle =
+        slowFrames / _kFrameWindowSize > _kSlowRatio;
+    if (shouldThrottle != _isThrottled) {
+      setState(() => _isThrottled = shouldThrottle);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -46,10 +93,23 @@ class _PlayerBackgroundState extends State<PlayerBackground>
       if (!mounted) return;
       _elapsed.value = elapsed.inMicroseconds / 1000000.0;
     })..start();
+
+    // Register frame timing callback for performance monitoring.
+    _frameCallback = _onFrameTiming;
+    SchedulerBinding.instance.addTimingsCallback(_frameCallback!);
+
+    // Every 30 seconds, reset the frame window so we re-evaluate
+    // performance (handles thermal recovery or plugging in power).
+    _reEvalTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _frameTimings.clear(),
+    );
   }
 
   @override
   void dispose() {
+    _reEvalTimer?.cancel();
+    _frameCallback = null; // allow the callback to be collected
     _ticker.stop();
     _ticker.dispose();
     _elapsed.dispose();
@@ -110,6 +170,9 @@ class _PlayerBackgroundState extends State<PlayerBackground>
                       painter: FlowLightPainter(
                         colors: widget.paletteColors,
                         elapsed: _elapsed.value,
+                        blobLimit: _isThrottled
+                            ? _kBlobLimitThrottled
+                            : _kBlobLimitNormal,
                       ),
                       size: Size.infinite,
                     ),
@@ -145,15 +208,17 @@ class _PlayerBackgroundState extends State<PlayerBackground>
 class FlowLightPainter extends CustomPainter {
   final List<Color> colors;
   final double elapsed; // seconds since widget creation, never resets
+  final int blobLimit; // max blobs to draw (auto-throttling)
 
   const FlowLightPainter({
     required this.colors,
     required this.elapsed,
+    this.blobLimit = 8,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final count = colors.length;
+    final count = min(colors.length, blobLimit);
     // Each blob has an anchor position so they naturally sit in different
     // screen regions.  They wander around their anchor via sin/cos.
     const anchorX = [0.20, 0.80, 0.50, 0.30, 0.70, 0.50, 0.25, 0.75];
@@ -168,9 +233,15 @@ class FlowLightPainter extends CustomPainter {
     // Higher opacity and tighter blur so each colour stands out clearly.
     const alphas = [0.45, 0.30, 0.35, 0.40, 0.32, 0.38, 0.42, 0.30];
 
+    // Normalize elapsed to reduce floating-point precision loss in sin/cos
+    // for long playback sessions.  Period is 2π, so values above 2π are
+    // redundant for trigonometric functions.
+    final double Function(double) _wrap =
+        (v) => v % (2 * pi);
+
     for (int i = 0; i < count; i++) {
-      // t = elapsed seconds × frequency — grows forever, never wraps to 0
-      final t = elapsed * freqsX[i] + phases[i];
+      // t = elapsed seconds × frequency — wrap to [0, 2π) for precision
+      final t = _wrap(elapsed * freqsX[i] + phases[i]);
 
       // Each blob sits at its anchor and swims around it
       final x = (sin(t) * wander[i] + anchorX[i]) * size.width;
@@ -179,7 +250,7 @@ class FlowLightPainter extends CustomPainter {
 
       // Radius — larger static core + gentle pulse
       final r = size.width *
-          (0.18 + 0.12 * (sin(elapsed * freqsR[i] + phases[i]) * 0.5 + 0.5));
+          (0.18 + 0.12 * (sin(_wrap(elapsed * freqsR[i] + phases[i])) * 0.5 + 0.5));
 
       // Soft but not mushy — blur is moderate so each blob keeps a core
       final paint = Paint()
