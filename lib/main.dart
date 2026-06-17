@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -263,6 +264,18 @@ class NGSKGApp extends StatelessWidget {
                 kBottomNavigationBarHeight + MediaQuery.of(context).padding.bottom + miniBarGap;
             return Stack(
               children: [
+                // ── 全局主题背景（首页/发现/搜索等页面共用） ──
+                if (ThemeAssets.playerBg.isNotEmpty)
+                  Positioned.fill(
+                    child: ImageFiltered(
+                      imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                      child: Image.file(
+                        File(ThemeAssets.playerBg),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
                 child ?? const SizedBox.shrink(),
                 Positioned(
                   left: 0,
