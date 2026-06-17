@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../utils/preview_config.dart';
 import '../providers/auth_provider.dart';
 import '../providers/audio_settings_provider.dart';
 import '../providers/theme_provider.dart';
@@ -176,7 +177,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('关于 NGS-KG+'),
-            subtitle: Text('版本 $_appVersion · 开源声明'),
+            subtitle: Text('版本 $_appVersion${PreviewConfig.enabled ? ' · preview' : ''} · 开源声明'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.push(
               context,
