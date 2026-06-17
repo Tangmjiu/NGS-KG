@@ -221,6 +221,31 @@ class PlaybackControls extends StatelessWidget {
                 },
               ),
               ListTile(
+                leading: const Icon(Icons.playlist_add),
+                title: const Text('将队列存为歌单'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _saveQueueAsPlaylist(context, player);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.my_location, color: cs.primary),
+                title: const Text('跳转到当前播放'),
+                subtitle: Text(player.currentSong?.name ?? '',
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                onTap: () {
+                  final idx = player.currentIndex;
+                  if (idx >= 0) {
+                    final offset = (idx * 72.0) - 100;
+                    scrollCtrl.animateTo(
+                      offset.clamp(0, scrollCtrl.position.maxScrollExtent),
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  }
+                },
+              ),
+              ListTile(
                 leading: Icon(Icons.delete_sweep, color: cs.error),
                 title: Text('清空列表', style: TextStyle(color: cs.error)),
                 onTap: () {
@@ -319,6 +344,62 @@ class PlaybackControls extends StatelessWidget {
               player.setPlaylist([]);
             },
             child: const Text('清空'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static void _saveQueueAsPlaylist(BuildContext context, PlayerProvider player) {
+    final songs = player.playlist;
+    if (songs.isEmpty) return;
+    final nameCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('将队列存为歌单'),
+        content: TextField(
+          controller: nameCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '歌单名称',
+            hintText: '我的播放列表',
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消')),
+          FilledButton(
+            onPressed: () async {
+              final name = nameCtrl.text.trim();
+              if (name.isEmpty) return;
+              Navigator.pop(ctx);
+              try {
+                await MusicService().createPlaylist(name);
+                final playlists = await MusicService().getUserPlaylist();
+                if (playlists.isNotEmpty && context.mounted) {
+                  final pl = playlists.first;
+                  for (final s in songs) {
+                    final data = (s.hash?.isNotEmpty ?? false)
+                        ? '${s.name}|${s.hash}|${s.albumId}|${s.id}'
+                        : s.name;
+                    await MusicService().addTracksToPlaylist(pl.id, data);
+                  }
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('已保存 ${songs.length} 首到歌单「${pl.name}」')),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text('保存失败: $e')));
+                }
+              }
+            },
+            child: const Text('保存'),
           ),
         ],
       ),
