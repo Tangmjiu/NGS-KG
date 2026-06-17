@@ -30,6 +30,7 @@ import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/cache_service.dart';
 import 'providers/audio_settings_provider.dart';
+import 'utils/preview_config.dart';
 
 final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
 
@@ -138,6 +139,7 @@ Future<void> main() async {
     Log.e('ZONE', 'Background init error', error, stack);
   });
 
+  await PreviewConfig.load();
   CacheService.instance.init();
   final musicService = MusicService();
   final authService = AuthService();
