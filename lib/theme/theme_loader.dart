@@ -31,15 +31,15 @@ class ThemeLoader {
       final bytes = file.bytes;
       if (bytes == null || bytes.isEmpty) return null;
 
-      return _parseZip(bytes, file.name);
+      return parseZipBytes(bytes!, file.name);
     } catch (e, s) {
       Log.e('ThemeLoader', 'import error', e, s);
       return null;
     }
   }
 
-  /// 从字节数据解析 ZIP 主题包
-  static Future<ThemePack?> _parseZip(List<int> bytes, String fileName) async {
+  /// 从字节数据解析 ZIP 主题包（公开给 MarketService 调用）
+  static Future<ThemePack?> parseZipBytes(List<int> bytes, String fileName) async {
     final archive = ZipDecoder().decodeBytes(bytes);
     if (archive.isEmpty) {
       Log.w('ThemeLoader', 'empty zip: $fileName');
@@ -74,9 +74,19 @@ class ThemeLoader {
 
     // ── 解析字体 ──
     String? fontFamily;
+    FontWeightFiles? fontWeightFiles;
     final typography = manifestJson['typography'] as Map<String, dynamic>?;
     if (typography != null) {
       fontFamily = typography['family'] as String?;
+      final rawWeight = typography['weight'] as Map<String, dynamic>?;
+      if (rawWeight != null) {
+        final regular = rawWeight['regular'] as String?;
+        if (regular != null && regular.isNotEmpty) {
+          final medium = rawWeight['medium'] as String?;
+          final bold = rawWeight['bold'] as String?;
+          fontWeightFiles = FontWeightFiles(regular: regular, medium: medium, bold: bold);
+        }
+      }
     }
 
     // ── 解析形状 ──
@@ -95,6 +105,7 @@ class ThemeLoader {
       const assetKeys = [
         'sthiswrong', 'codecrash', 'loading', 'ban', 'supportme', 'icon',
         'album_placeholder', 'playlist_placeholder', 'artist_placeholder',
+        'empty_playlist', 'empty_content', 'load_failed',
       ];
 
       for (final key in assetKeys) {
@@ -115,6 +126,25 @@ class ThemeLoader {
       }
     }
 
+    // ── 提取字体文件 ──
+    if (fontWeightFiles != null && fontFamily != null) {
+      final fontDir = Directory('${appDir.path}/fonts');
+      if (!await fontDir.exists()) {
+        await fontDir.create(recursive: true);
+      }
+      _extractFontFiles(archive, fontDir, fontWeightFiles!);
+      // Update fontWeightFiles with absolute paths for FontLoader
+      fontWeightFiles = FontWeightFiles(
+        regular: '${fontDir.path}/${fontWeightFiles!.regular.split('/').last}',
+        medium: fontWeightFiles!.medium != null
+            ? '${fontDir.path}/${fontWeightFiles!.medium!.split('/').last}'
+            : null,
+        bold: fontWeightFiles!.bold != null
+            ? '${fontDir.path}/${fontWeightFiles!.bold!.split('/').last}'
+            : null,
+      );
+    }
+
     // ── 壁纸 ──
     String? playerBgPath;
     final wallpaper = manifestJson['wallpaper'] as Map<String, dynamic>?;
@@ -132,6 +162,32 @@ class ThemeLoader {
           playerBgPath = destPath;
         }
       }
+    }
+
+    // ── 解析动效 ──
+    var motionConfig = ThemeMotion.defaults;
+    final rawMotion = manifestJson['motion'] as Map<String, dynamic>?;
+    if (rawMotion != null) {
+      final ds = rawMotion['durationScale'] as num?;
+      final curve = rawMotion['curve'] as String?;
+      motionConfig = ThemeMotion(
+        durationScale: ds?.toDouble() ?? 1.0,
+        curve: curve ?? 'emphasized',
+      );
+    }
+
+    // ── 解析组件偏好 ──
+    var componentsConfig = ThemeComponents.defaults;
+    final rawComponents = manifestJson['components'] as Map<String, dynamic>?;
+    if (rawComponents != null) {
+      final navBar = rawComponents['navigationBar'] as Map<String, dynamic>?;
+      final card = rawComponents['card'] as Map<String, dynamic>?;
+      final dialog = rawComponents['dialog'] as Map<String, dynamic>?;
+      componentsConfig = ThemeComponents(
+        navigationBarElevation: (navBar?['elevation'] as num?)?.toDouble() ?? 0,
+        cardElevation: (card?['elevation'] as num?)?.toDouble() ?? 0,
+        dialogElevation: (dialog?['elevation'] as num?)?.toDouble() ?? 0,
+      );
     }
 
     // ── 预览图 ──
@@ -159,7 +215,10 @@ class ThemeLoader {
       lightScheme: lightScheme,
       darkScheme: darkScheme,
       fontFamily: fontFamily,
+      fontWeightFiles: fontWeightFiles,
       shapes: shapes,
+      motion: motionConfig,
+      components: componentsConfig,
       assetFiles: assetFiles.isNotEmpty ? assetFiles : null,
       playerBgPath: playerBgPath,
     );
@@ -209,6 +268,28 @@ class ThemeLoader {
       await dir.create(recursive: true);
     }
     return dir;
+  }
+
+  /// 提取字体文件到主题字体目录
+  static void _extractFontFiles(
+    Archive archive,
+    Directory fontDir,
+    FontWeightFiles weightFiles,
+  ) {
+    void _extractOne(String path) {
+      if (path.isEmpty) return;
+      final entry = archive.files.firstWhere(
+        (f) => f.name == path && f.isFile,
+        orElse: () => _emptyFile(),
+      );
+      if (!entry.isFile) return;
+      final name = path.split('/').last;
+      File('${fontDir.path}/$name').writeAsBytesSync(entry.content);
+    }
+
+    _extractOne(weightFiles.regular);
+    if (weightFiles.medium != null) _extractOne(weightFiles.medium!);
+    if (weightFiles.bold != null) _extractOne(weightFiles.bold!);
   }
 
   /// 解析 manifest 中的 colorScheme map
