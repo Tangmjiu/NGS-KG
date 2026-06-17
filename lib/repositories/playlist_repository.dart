@@ -248,6 +248,21 @@ class PlaylistRepository extends BaseRepository {
     return [];
   }
 
+  /// 新版歌单歌曲接口，仅支持用户创建及收藏的歌单（按 listid）。
+  /// 某些 API 服务器下比旧版 /playlist/track/all 更稳定。
+  Future<List<Song>> getPlaylistTracksNew(int listid,
+      {int page = 1, int pageSize = 30}) async {
+    try {
+      final res = await get('/playlist/track/all/new',
+          params: {'listid': listid, 'page': page, 'pagesize': pageSize},
+          withCookie: true,
+          silent: true);
+      final songs = _parseTrackList(res['data']);
+      if (songs != null) return songs;
+    } catch (_) {}
+    return [];
+  }
+
   Future<void> createPlaylist(String name,
       {int type = 0, int isPri = 0, int? listCreateListid,
        int? listCreateUserid}) async {

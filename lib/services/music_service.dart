@@ -122,6 +122,10 @@ class MusicService {
   Future<List<Playlist>> getSimilarPlaylists(String ids) =>
       playlist.getSimilarPlaylists(ids);
 
+  Future<List<Song>> getPlaylistTracksNew(int listid,
+          {int page = 1, int pageSize = 30}) =>
+      playlist.getPlaylistTracksNew(listid, page: page, pageSize: pageSize);
+
   Future<Map<String, dynamic>> createPlaylist(String name,
           {int type = 0, int isPri = 0, int? listCreateListid,
            int? listCreateUserid}) {
