@@ -162,19 +162,27 @@ class _PlayerBackgroundState extends State<PlayerBackground>
           Positioned.fill(
             child: IgnorePointer(
               child: RepaintBoundary(
-                child: AnimatedBuilder(
-                  animation: _elapsed,
-                  builder: (_, __) => Opacity(
-                    opacity: 1.0 - widget.scrollOffset * 0.5,
-                    child: CustomPaint(
-                      painter: FlowLightPainter(
-                        colors: widget.paletteColors,
-                        elapsed: _elapsed.value,
-                        blobLimit: _isThrottled
-                            ? _kBlobLimitThrottled
-                            : _kBlobLimitNormal,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 600),
+                  switchInCurve: Curves.easeIn,
+                  switchOutCurve: Curves.easeOut,
+                  transitionBuilder: (child, animation) =>
+                      FadeTransition(opacity: animation, child: child),
+                  child: AnimatedBuilder(
+                    key: ValueKey('flow_${widget.paletteColors.hashCode}'),
+                    animation: _elapsed,
+                    builder: (_, __) => Opacity(
+                      opacity: 1.0 - widget.scrollOffset * 0.5,
+                      child: CustomPaint(
+                        painter: FlowLightPainter(
+                          colors: widget.paletteColors,
+                          elapsed: _elapsed.value,
+                          blobLimit: _isThrottled
+                              ? _kBlobLimitThrottled
+                              : _kBlobLimitNormal,
+                        ),
+                        size: Size.infinite,
                       ),
-                      size: Size.infinite,
                     ),
                   ),
                 ),
