@@ -9,7 +9,7 @@ def pubspecFile = file('../../pubspec.yaml')
 def flutterVersionName = '1.0.0'
 def flutterVersionCode = '1'
 if (pubspecFile.exists()) {
-    def matcher = (pubspecFile.text =~ /^version:\s*(\S+)/)
+    def matcher = (pubspecFile.text =~ /(?m)^version:\s*(\S+)/)
     if (matcher.find()) {
         def v = matcher.group(1)
         def parts = v.split('\\+')
