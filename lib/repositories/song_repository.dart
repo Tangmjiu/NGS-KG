@@ -184,7 +184,8 @@ class SongRepository extends BaseRepository {
       }
       final timelength = (json['time_length'] as num?)?.toInt() ?? 0;
       return Song(
-        id: (json['hash'] as String?)?.hashCode ?? 0,
+        id: (json['mixsongid'] as int?) ?? (json['audio_id'] as int?) ?? (json['id'] as int?) ?? 0,
+        mixSongId: (json['mixsongid'] as int?),
         name: json['ori_audio_name'] as String? ?? '',
         artists: [(json['author_name'] as String? ?? '')],
         albumCoverUrl: cover,

@@ -238,10 +238,9 @@ class AudioEngine {
             resolvedQualityNotifier.value = c.quality;
             Log.i('audio_engine', 'resolved quality: ${c.quality} (${c.label})');
 
-            // 上报播放历史（静默失败）
+            // 上报播放历史（带重试）
             if (uploadHistory) {
-              _musicService.uploadPlayHistory(song.id, duration: song.duration)
-                  .catchError((_) {});
+              _uploadHistoryWithRetry(song.id, duration: song.duration);
             }
             break;
           }
@@ -422,6 +421,24 @@ class AudioEngine {
 
   void setSpeed(double speed) {
     _player.setSpeed(speed);
+  }
+
+  /// 上报播放历史，重试最多 3 次，指数退避
+  Future<void> _uploadHistoryWithRetry(int songId, {int? duration, int retries = 3}) async {
+    for (int attempt = 0; attempt < retries; attempt++) {
+      try {
+        await _musicService.uploadPlayHistory(songId, duration: duration);
+        return; // 成功
+      } catch (e, s) {
+        Log.w('audio_engine', 'uploadPlayHistory failed (attempt ${attempt + 1}/$retries): $e');
+        if (attempt < retries - 1) {
+          // 指数退避：1s, 2s, 4s
+          await Future.delayed(Duration(seconds: 1 << attempt));
+        } else {
+          Log.e('audio_engine', 'uploadPlayHistory exhausted retries', e, s);
+        }
+      }
+    }
   }
 
   /// 未登录时播放失败 → 弹出登录提醒

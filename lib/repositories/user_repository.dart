@@ -13,6 +13,11 @@ class UserRepository extends BaseRepository {
 
   String get _userId => ApiClient.userId ?? '0';
 
+  // 服务端时间偏移缓存（秒），避免每次上传前都请求 /server/now
+  int? _serverTimeOffsetSec;
+  DateTime? _serverTimeFetchedAt;
+  static const _serverTimeCacheTtl = Duration(minutes: 5);
+
   Future<User?> getUserDetail() async {
     final res = await get('/user/detail');
     final data = res['data'] as Map<String, dynamic>?;
@@ -163,10 +168,33 @@ class UserRepository extends BaseRepository {
     // API 文档: mxid=专辑音乐id(MixSongID), ot=秒级时间戳, pc=播放次数
     final params = <String, dynamic>{'mxid': songId};
     if (duration != null && duration > 0) {
-      params['ot'] = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      params['ot'] = await _getServerTimestampSec();
       params['pc'] = 1;
     }
     await get('/playhistory/upload', params: params);
+  }
+
+  /// 获取服务端秒级时间戳，优先使用缓存（5 分钟 TTL），避免频繁请求
+  Future<int> _getServerTimestampSec() async {
+    final now = DateTime.now();
+    // 缓存有效时直接用偏移量计算
+    if (_serverTimeFetchedAt != null &&
+        _serverTimeOffsetSec != null &&
+        now.difference(_serverTimeFetchedAt!) < _serverTimeCacheTtl) {
+      return now.millisecondsSinceEpoch ~/ 1000 + _serverTimeOffsetSec!;
+    }
+    try {
+      final server = await getServerTime();
+      if (server != null) {
+        _serverTimeOffsetSec = server.millisecondsSinceEpoch ~/ 1000 -
+            now.millisecondsSinceEpoch ~/ 1000;
+        _serverTimeFetchedAt = now;
+        return server.millisecondsSinceEpoch ~/ 1000;
+      }
+    } catch (_) {
+      // 服务端时间获取失败，降级到本地时间
+    }
+    return now.millisecondsSinceEpoch ~/ 1000;
   }
 
   Future<DateTime?> getServerTime() async {
