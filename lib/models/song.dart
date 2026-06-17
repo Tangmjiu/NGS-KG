@@ -16,6 +16,7 @@ class Song {
   final int? fileId;
   final String? lyrics; // embedded LRC text (local files with companion .lrc)
   final int? climaxMs; // 歌曲高潮开始时间（毫秒），来自 /song/climax
+  final int? mixSongId; // 酷狗 MixSongID，用于播放历史上传等场景
 
   const Song({
     required this.id,
@@ -32,6 +33,7 @@ class Song {
     this.fileId,
     this.lyrics,
     this.climaxMs,
+    this.mixSongId,
   });
 
   bool get isLocal => filePath != null;
@@ -123,7 +125,7 @@ class SongUrl {
         ? (urls.isNotEmpty ? urls[0].toString() : '')
         : (urls as String? ?? '');
     return SongUrl(
-      id: json['hash']?.hashCode ?? 0,
+      id: (json['mixsongid'] as int?) ?? (json['audio_id'] as int?) ?? (json['id'] as int?) ?? json['hash']?.hashCode ?? 0,
       url: firstUrl,
       type: json['extName'] as String? ?? 'mp3',
       timeLength: json['timeLength'] as int?,
