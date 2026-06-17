@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart' show HSLColor;
@@ -41,6 +42,7 @@ class PlayerProvider extends ChangeNotifier
 
   // ─── Dynamic palette & lyric state ───
   ExtractedPalette? _palette;
+  List<Color>? _cachedPaletteColors;
   final LyricController _lyricController = LyricController();
   Color? _backgroundColor;
 
@@ -63,6 +65,8 @@ class PlayerProvider extends ChangeNotifier
   static const _keySavedPosition = 'playback_saved_position_ms';
   static const _keySavedPlayMode = 'playback_saved_play_mode';
   static const _keySavedQuality = 'playback_saved_quality_level';
+  static const _keySavedQueueJson = 'playback_saved_queue_json';
+  static const _keySavedQueueIndex = 'playback_saved_queue_index';
 
   late final VoidCallback _onPositionChanged;
   late final VoidCallback _onDurationChanged;
@@ -117,7 +121,12 @@ class PlayerProvider extends ChangeNotifier
   /// hue/saturation and the proportional spacing (natural gradation).
   List<Color> get paletteColors {
     final p = _palette;
-    if (p == null) return const [];
+    if (p == null) {
+      _cachedPaletteColors = null;
+      return const [];
+    }
+
+    if (_cachedPaletteColors != null) return _cachedPaletteColors!;
 
     List<Color> colors;
     if (p.topColors.isNotEmpty) {
@@ -150,6 +159,7 @@ class PlayerProvider extends ChangeNotifier
       }).toList();
     }
 
+    _cachedPaletteColors = colors;
     return colors;
   }
 
@@ -280,7 +290,7 @@ class PlayerProvider extends ChangeNotifier
   }
 
   /// 将当前播放状态持久化到 SharedPreferences（杀进程后恢复用）。
-  /// 不保存完整队列，只保存当前歌曲 + 进度 + 模式。
+  /// 保存完整队列（上限 200 首）、当前歌曲、进度、模式。
   Future<void> _savePlaybackState() async {
     final song = _queue.currentSong;
     if (song == null) return;
@@ -295,6 +305,21 @@ class PlayerProvider extends ChangeNotifier
       await prefs.setInt(_keySavedPosition, _position.inMilliseconds);
       await prefs.setString(_keySavedPlayMode, _queue.playMode.name);
       await prefs.setInt(_keySavedQuality, _qualityLevel);
+
+      // 序列化完整队列（上限 200 首）
+      final queueLimit = _queue.playlist.take(200);
+      final queueJson = queueLimit.map((s) => {
+        'id': s.id,
+        'name': s.name,
+        'hash': s.hash ?? '',
+        'artist': s.artistDisplay,
+        'cover': s.albumCoverUrl ?? '',
+        'albumId': s.albumId,
+      }).toList();
+      await prefs.setString(
+          _keySavedQueueJson, jsonEncode(queueJson));
+      await prefs.setInt(
+          _keySavedQueueIndex, _queue.currentIndex);
     } catch (_) {}
   }
 
@@ -314,21 +339,51 @@ class PlayerProvider extends ChangeNotifier
       final modeName = prefs.getString(_keySavedPlayMode) ?? 'sequential';
       final quality = prefs.getInt(_keySavedQuality) ?? 0;
 
-      final song = Song(
-        id: songId,
-        name: songName,
-        artists: songArtist.split(' / '),
-        albumCoverUrl: songCover.isNotEmpty ? songCover : null,
-        albumId: songAlbumId,
-        hash: songHash.isNotEmpty ? songHash : null,
-      );
-      _queue.setPlaylist([song], startIndex: 0);
+      // 尝试恢复完整队列
+      final queueJsonStr = prefs.getString(_keySavedQueueJson);
+      final savedIndex = prefs.getInt(_keySavedQueueIndex) ?? 0;
+      List<Song> restoreSongs;
+      if (queueJsonStr != null && queueJsonStr.isNotEmpty) {
+        final list = jsonDecode(queueJsonStr) as List<dynamic>;
+        restoreSongs = list.map((e) {
+          final m = e as Map<String, dynamic>;
+          return Song(
+            id: m['id'] as int,
+            name: m['name'] as String? ?? '',
+            artists: (m['artist'] as String? ?? '').split(' / '),
+            albumCoverUrl: (m['cover'] is String && (m['cover'] as String).isNotEmpty)
+                ? m['cover'] as String
+                : null,
+            albumId: (m['albumId'] as num?)?.toInt() ?? 0,
+            hash: (m['hash'] is String && (m['hash'] as String).isNotEmpty)
+                ? m['hash'] as String
+                : null,
+          );
+        }).toList();
+      } else {
+        // 无完整队列数据，降级为仅当前歌曲（旧版本兼容）
+        restoreSongs = [
+          Song(
+            id: songId,
+            name: songName,
+            artists: songArtist.split(' / '),
+            albumCoverUrl: songCover.isNotEmpty ? songCover : null,
+            albumId: songAlbumId,
+            hash: songHash.isNotEmpty ? songHash : null,
+          ),
+        ];
+      }
+
+      final validIndex = savedIndex.clamp(0, restoreSongs.length - 1);
+      _queue.setPlaylist(restoreSongs, startIndex: validIndex);
       _qualityLevel = quality;
       _engine.qualityLevel = quality;
       _position = Duration(milliseconds: positionMs);
       // 恢复播放模式
       final mode = PlayMode.values.where((m) => m.name == modeName).firstOrNull;
       if (mode != null) _queue.setPlayMode(mode);
+      // 应用音质设置 & uploadHistory 开关（覆盖引擎默认值）
+      _applyQualityFromSettings();
       notifyListeners();
     } catch (_) {}
   }
@@ -494,6 +549,14 @@ class PlayerProvider extends ChangeNotifier
     notifyListeners();
   }
 
+  /// 将整张歌单/专辑追加到当前队列末尾。
+  /// 不改变当前播放，新歌曲按顺序加到最后。
+  void enqueuePlaylist(List<Song> songs) {
+    if (songs.isEmpty) return;
+    _queue.append(songs);
+    notifyListeners();
+  }
+
   Future<void> togglePlayPause() async {
     final song = _queue.currentSong;
     if (song == null) return;
@@ -637,6 +700,7 @@ class PlayerProvider extends ChangeNotifier
   /// purely cosmetic).
   Future<void> _extractPalette(String imageUrl) async {
     try {
+      _cachedPaletteColors = null;
       _palette = await PaletteExtractor.instance.extract(imageUrl);
       _backgroundColor = _palette?.dominant;
       notifyListeners();
