@@ -39,7 +39,9 @@ class MarketService {
         headers: {'User-Agent': 'NGS-KG+'},
       ));
       final res = await dio.get<String>(_registryUrl);
-      final data = jsonDecode(res.data) as Map<String, dynamic>;
+      final raw = res.data;
+      if (raw == null) return [];
+      final data = jsonDecode(raw) as Map<String, dynamic>;
       await CacheService.instance.putJson(_cacheKey, data, ttl: _cacheTtl);
       return _parseRegistry(data);
     } catch (e, s) {
