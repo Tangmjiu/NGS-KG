@@ -63,9 +63,26 @@ abstract final class AppMotion {
 /// 基于 ColorScheme + ThemePack 构建纯原生 MD3 ThemeData
 ///
 /// 所有组件主题统一使用 AppShape/AppMotion 令牌，禁止 magic number。
-ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack) {
+ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack, {bool hasGlobalBg = false}) {
   final isDark = colorScheme.brightness == Brightness.dark;
-  final surface = isDark ? colorScheme.surfaceDim : colorScheme.surfaceBright;
+  final rawSurface = isDark ? colorScheme.surfaceDim : colorScheme.surfaceBright;
+  // 有全局背景时，让 surface 半透明以便背景图透出
+  final surface = hasGlobalBg ? rawSurface.withValues(alpha: 0.85) : rawSurface;
+
+  // ── 从主题包解析形状覆盖 ──
+  final s = pack.shapes;
+  final double radiusXs = s?['xs'] ?? 4;
+  final double radiusSm = s?['sm'] ?? 8;
+  final double radiusMd = s?['md'] ?? 12;
+  final double radiusLg = s?['lg'] ?? 16;
+  final double radiusXl = s?['xl'] ?? 28;
+
+  // ── 动效覆盖 ──
+  final motion = pack.motion;
+  final curve = motion.resolvedCurve;
+
+  // ── 组件覆盖 ──
+  final comp = pack.components;
 
   return ThemeData(
     useMaterial3: true,
@@ -84,9 +101,9 @@ ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack) {
 
     // ── Card ──
     cardTheme: CardThemeData(
-      elevation: 0,
+      elevation: comp.cardElevation,
       color: colorScheme.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: AppShape.md),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(radiusMd))),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
     ),
 
@@ -94,12 +111,14 @@ ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack) {
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: surface,
       surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(radiusXl))),
     ),
 
     // ── Dialog ──
     dialogTheme: DialogThemeData(
       backgroundColor: surface,
-      shape: RoundedRectangleBorder(borderRadius: AppShape.lg),
+      elevation: comp.dialogElevation,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(radiusLg))),
     ),
 
     // ── Divider ──
@@ -114,7 +133,7 @@ ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack) {
       filled: true,
       fillColor: colorScheme.surfaceContainerHighest,
       border: OutlineInputBorder(
-        borderRadius: AppShape.sm,
+        borderRadius: BorderRadius.all(Radius.circular(radiusSm)),
         borderSide: BorderSide.none,
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -130,6 +149,7 @@ ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack) {
       backgroundColor: colorScheme.surfaceContainer,
       indicatorColor: colorScheme.primary.withValues(alpha: 0.2),
       surfaceTintColor: Colors.transparent,
+      elevation: comp.navigationBarElevation,
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
           return TextStyle(
@@ -169,7 +189,7 @@ ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack) {
             ? const Color(0xFF000000)
             : const Color(0xFFFFFFFF),
       ),
-      shape: RoundedRectangleBorder(borderRadius: AppShape.sm),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(radiusSm))),
       behavior: SnackBarBehavior.floating,
     ),
 
