@@ -17,7 +17,8 @@
   <a href="#API">API</a> ·
   <a href="#免责声明">免责声明</a> ·
   <a href="FAQ.md">FAQ</a> ·
-  <a href="https://github.com/Tangmjiu/NGS-KG/blob/android/THEME.md">主题制作</a>
+  <a href="https://github.com/Tangmjiu/NGS-KG/blob/android/THEME.md">主题制作</a> ·
+  <a href="https://github.com/Tangmjiu/ngs-kg-themes">主题市场</a>
 </p>
 
 > **项目名称释义**
@@ -44,6 +45,7 @@
 - **通知**：通知栏控制、专辑封面、当前歌词显示
 - **本地音乐**：扫描设备音频文件并播放(未完善)
 - **云盘**：查看和播放酷狗云盘音乐(未完善)
+- **主题市场**：浏览、下载、应用社区主题（v2.0.0+）
 
 - ![**截图** 如下（v1.0.1）](https://github.com/Tangmjiu/NGS-KG/blob/android/1.png)
   ![](https://github.com/Tangmjiu/NGS-KG/blob/android/2.png)
