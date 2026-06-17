@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/logger.dart';
@@ -138,6 +142,9 @@ class ThemeProvider extends ChangeNotifier {
         _selectedPackId = 'ngs_nagisa';
       }
 
+      // ─── 加载自定义字体 ───
+      unawaited(_loadFontsForPack(currentPack));
+
       // ─── 启动计数 & 支持弹窗 ───
       _launchCount = prefs.getInt(_keyLaunchCount) ?? 0;
       _launchCount++;
@@ -165,6 +172,7 @@ class ThemeProvider extends ChangeNotifier {
     if (!_packs.any((p) => p.id == packId)) return;
     _selectedPackId = packId;
     _applyPackAssets();
+    await _loadFontsForPack(currentPack);
     notifyListeners();
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -183,6 +191,12 @@ class ThemeProvider extends ChangeNotifier {
     _applyPackAssets();
     notifyListeners();
     return true;
+  }
+
+  /// 添加已下载的主题包（市场安装用，不自动选中）
+  void addMarketPack(ThemePack pack) {
+    _packs.add(pack);
+    notifyListeners();
   }
 
   /// 删除导入的主题包
@@ -208,6 +222,32 @@ class ThemeProvider extends ChangeNotifier {
       ThemeAssets.loadFromThemePack(pack);
     } else {
       ThemeAssets.resetToDefault();
+    }
+  }
+
+  /// 加载主题包的自定义字体
+  Future<void> _loadFontsForPack(ThemePack pack) async {
+    final weightFiles = pack.fontWeightFiles;
+    final family = pack.fontFamily;
+    if (weightFiles == null || family == null) return;
+
+    Future<void> _loadWeight(String path) async {
+      if (path.isEmpty) return;
+      final file = File(path);
+      if (!file.existsSync()) return;
+      final bytes = await file.readAsBytes();
+      await ui.loadFontFromList(Uint8List.fromList(bytes), fontFamily: family);
+    }
+
+    try {
+      await Future.wait([
+        _loadWeight(weightFiles.regular),
+        if (weightFiles.medium != null) _loadWeight(weightFiles.medium!),
+        if (weightFiles.bold != null) _loadWeight(weightFiles.bold!),
+      ]);
+      Log.i('ThemeProvider', 'Font "$family" loaded');
+    } catch (e, s) {
+      Log.e('ThemeProvider', 'Failed to load font "$family"', e, s);
     }
   }
 
@@ -341,11 +381,11 @@ class ThemeProvider extends ChangeNotifier {
 
   ThemeData buildLightTheme(BuildContext context, {ColorScheme? dynamicScheme}) {
     final scheme = _resolveScheme(Brightness.light, dynamicScheme: dynamicScheme);
-    return buildThemeData(scheme, currentPack);
+    return buildThemeData(scheme, currentPack, hasGlobalBg: currentPack.playerBgPath != null);
   }
 
   ThemeData buildDarkTheme(BuildContext context, {ColorScheme? dynamicScheme}) {
     final scheme = _resolveScheme(Brightness.dark, dynamicScheme: dynamicScheme);
-    return buildThemeData(scheme, currentPack);
+    return buildThemeData(scheme, currentPack, hasGlobalBg: currentPack.playerBgPath != null);
   }
 }

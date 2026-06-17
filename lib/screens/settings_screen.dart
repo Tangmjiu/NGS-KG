@@ -18,6 +18,7 @@ import 'audio_effects_screen.dart';
 import 'audio_quality_screen.dart';
 import 'api_settings_screen.dart';
 import 'theme_settings_screen.dart';
+import 'theme_market_screen.dart';
 import 'about_screen.dart';
 import '../widgets/support_me_dialog.dart';
 
@@ -108,6 +109,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ThemeSettingsScreen()),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.storefront_outlined),
+            title: const Text('主题市场'),
+            subtitle: const Text('发现、下载、应用社区主题'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ThemeMarketScreen()),
             ),
           ),
           Consumer<ThemeProvider>(
