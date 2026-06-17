@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "description": "NGS-KG+ 主题市场注册表",
+  "homepage": "https://github.com/Tangmjiu/NGS-KG",
+  "themes": [
+    {
+      "id": "nightcord",
+      "name": "Nightcord",
+      "author": "mjiutang",
+      "version": 1,
+      "description": "紫黑渐变 · 毛玻璃风格 · NGS-KG+ v2.0.0 官方主题",
+      "preview_url": "https://github.com/Tangmjiu/ngs-kg-themes/releases/download/nightcord-v1/preview.png",
+      "download_url": "https://github.com/Tangmjiu/ngs-kg-themes/releases/download/nightcord-v1/nightcord.zip",
+      "tags": ["dark", "glassmorphism", "purple", "official"],
+      "file_size_bytes": 512000,
+      "min_app_version": "2.0.0"
+    }
+  ]
+}
