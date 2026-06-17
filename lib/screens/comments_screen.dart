@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/artist.dart';
 import '../utils/logger.dart';
+import '../theme/theme_assets.dart';
 import '../services/music_service.dart';
 
 class CommentsScreen extends StatefulWidget {
@@ -46,7 +47,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _comments.isEmpty
-              ? const Center(child: Text('暂无评论'))
+              ? emptyStateWidget(ThemeAssets.emptyContent, Icons.comment, '暂无评论')
               : ListView.builder(
                   itemCount: _comments.length,
                   itemBuilder: (_, i) {

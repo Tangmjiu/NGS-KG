@@ -12,6 +12,7 @@ import '../providers/liked_songs_provider.dart';
 import '../services/music_service.dart';
 import '../widgets/playlist_card.dart';
 import '../widgets/create_playlist_dialog.dart';
+import '../theme/theme_assets.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
 
@@ -258,10 +259,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       return const Center(child: CircularProgressIndicator());
 
     if (playlistProv.userPlaylists.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(24),
-        child: Center(child: Text('暂无歌单')),
-      );
+      return emptyStateWidget(ThemeAssets.emptyPlaylist, Icons.playlist_play, '暂无歌单');
     }
 
     final userId = auth.user?.userId;
@@ -352,7 +350,7 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _songs.isEmpty
-              ? const Center(child: Text('暂无收藏'))
+              ? emptyStateWidget(ThemeAssets.emptyPlaylist, Icons.favorite, '暂无收藏')
               : ListView.builder(
                   itemCount: _songs.length,
                   itemBuilder: (_, i) {

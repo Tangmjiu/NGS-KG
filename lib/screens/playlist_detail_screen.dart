@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/playlist_provider.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
+import '../theme/theme_assets.dart';
 import '../widgets/song_tile.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
@@ -75,10 +76,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           }
           final detail = provider.currentPlaylist;
           if (detail == null) {
-            return const Center(child: Text('加载失败'));
+            return emptyStateWidget(ThemeAssets.loadFailed, Icons.error_outline, '加载失败');
           }
           if (detail.songs.isEmpty) {
-            return const Center(child: Text('暂无歌曲'));
+            return emptyStateWidget(ThemeAssets.emptyContent, Icons.music_note, '暂无歌曲');
           }
 
           final pl = detail.playlist;
