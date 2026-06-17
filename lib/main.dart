@@ -31,6 +31,53 @@ import 'services/cache_service.dart';
 import 'providers/audio_settings_provider.dart';
 
 final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
+
+/// 通知 _PlayerBarBottom 是否应隐藏（进入设置页/登录页及其子页面时）
+final ValueNotifier<bool> hidePlayerBarNotifier = ValueNotifier<bool>(false);
+
+class _RouteObserver extends NavigatorObserver {
+  int _settingsCount = 0;
+  int _loginCount = 0;
+
+  void _sync() {
+    hidePlayerBarNotifier.value = _settingsCount > 0 || _loginCount > 0;
+  }
+
+  @override
+  void didPush(Route route, Route? previousRoute) {
+    final name = route.settings.name;
+    if (name == AppRoutes.settings) _settingsCount++;
+    if (name == AppRoutes.login) _loginCount++;
+    _sync();
+  }
+
+  @override
+  void didPop(Route route, Route? previousRoute) {
+    final name = route.settings.name;
+    if (name == AppRoutes.settings) _settingsCount--;
+    if (name == AppRoutes.login) _loginCount--;
+    _sync();
+  }
+
+  @override
+  void didReplace({Route? newRoute, Route? oldRoute}) {
+    if (oldRoute?.settings.name == AppRoutes.settings) _settingsCount--;
+    if (oldRoute?.settings.name == AppRoutes.login) _loginCount--;
+    if (newRoute?.settings.name == AppRoutes.settings) _settingsCount++;
+    if (newRoute?.settings.name == AppRoutes.login) _loginCount++;
+    _sync();
+  }
+
+  @override
+  void didRemove(Route route, Route? previousRoute) {
+    if (route.settings.name == AppRoutes.settings) _settingsCount--;
+    if (route.settings.name == AppRoutes.login) _loginCount--;
+    _sync();
+  }
+}
+
+final routeObserver = _RouteObserver();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Log.init();
@@ -184,6 +231,7 @@ class NGSKGApp extends StatelessWidget {
           builder: (context, themeProvider, _) {
             return MaterialApp(
           navigatorKey: navKey,
+          navigatorObservers: [routeObserver],
           title: 'NGS-KG+',
           debugShowCheckedModeBanner: false,
           theme: themeProvider.buildLightTheme(context, dynamicScheme: lightDynamic),
@@ -232,15 +280,15 @@ class _PlayerBarBottom extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<PlayerProvider>(
-      builder: (_, player, __) {
-        final song = player.currentSong;
-        // 隐藏 Mini Bar 的场景：无歌曲、全屏播放器、设置页、登录页
-        final route = ModalRoute.of(context);
-        final hideRoute = route?.settings.name == AppRoutes.settings ||
-            route?.settings.name == AppRoutes.login;
-        if (song == null || player.isPlayerScreenVisible || hideRoute)
-          return const SizedBox.shrink();
+    return ValueListenableBuilder<bool>(
+      valueListenable: hidePlayerBarNotifier,
+      builder: (_, hideForRoute, __) {
+        if (hideForRoute) return const SizedBox.shrink();
+        return Consumer<PlayerProvider>(
+          builder: (_, player, __) {
+            final song = player.currentSong;
+            if (song == null || player.isPlayerScreenVisible)
+              return const SizedBox.shrink();
         final tt = Theme.of(context).textTheme;
 
         final dynamicBg = player.backgroundColor;
@@ -418,7 +466,9 @@ class _PlayerBarBottom extends StatelessWidget {
         );
       },
     );
-  }
+    },
+  );
+}
 }
 
 Widget _fallbackCover(ColorScheme cs) => Container(
