@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../providers/playlist_provider.dart';
+import '../theme/theme_assets.dart';
 import '../services/music_service.dart';
 
 class PlaybackControls extends StatelessWidget {
@@ -119,7 +120,7 @@ class PlaybackControls extends StatelessWidget {
               ),
               Divider(height: 1, color: cs.outlineVariant),
               if (player.playlist.isEmpty)
-                const Expanded(child: Center(child: Text('列表为空')))
+                Expanded(child: Center(child: emptyStateWidget(ThemeAssets.emptyContent, Icons.queue_music, '列表为空')))
               else
                 Expanded(
                   child: ReorderableListView.builder(
@@ -270,8 +271,7 @@ class PlaybackControls extends StatelessWidget {
           builder: (_, pp, __) {
             final playlists = pp.userPlaylists;
             if (playlists.isEmpty) {
-              return const Padding(
-                  padding: EdgeInsets.all(24), child: Text('暂无歌单'));
+              return emptyStateWidget(ThemeAssets.emptyPlaylist, Icons.playlist_add, '暂无歌单');
             }
             return Column(
               mainAxisSize: MainAxisSize.min,
