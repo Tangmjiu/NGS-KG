@@ -2,6 +2,15 @@
 
 NGS-KG+ 支持通过 ZIP 文件导入自定义主题包，可替换全套配色、字体、形状和图片资源。
 
+## 主题市场
+
+v2.0.0 起内置主题市场。App 内 **设置 → 主题市场** 可浏览、下载、应用社区主题。
+
+市场注册表托管在 [Tangmjiu/ngs-kg-themes](https://github.com/Tangmjiu/ngs-kg-themes)：
+- 主题包 ZIP 文件直接存放在 `themes/<id>/` 目录中
+- 注册表 `registry.json` 索引所有可用主题
+- 提交主题 → Fork 该仓库 → 添加主题目录和注册表条目 → Pull Request
+
 ## 内置主题包
 
 软件内置两个主题包，不可删除：
@@ -33,7 +42,10 @@ my_theme.zip
     ├── album_placeholder.png   # 专辑封面加载失败占位图
     ├── playlist_placeholder.png# 歌单封面加载失败占位图
     ├── artist_placeholder.png  # 歌手头像加载失败占位图
-    └── player_bg.png           # 播放器无封面时的背景壁纸
+    ├── player_bg.png           # 播放器无封面时的背景壁纸
+    ├── empty_playlist.png      # 歌单/收藏为空插画（可选）
+    ├── empty_content.png       # 通用空数据插画（可选）
+    └── load_failed.png         # 加载失败插画（可选）
 ```
 
 > `images/` 内所有文件均为可选，缺失的项使用默认资源。
@@ -209,7 +221,10 @@ my_theme.zip
     "icon":          "images/icon.png",
     "album_placeholder":    "images/album_placeholder.png",
     "playlist_placeholder": "images/playlist_placeholder.png",
-    "artist_placeholder":   "images/artist_placeholder.png"
+    "artist_placeholder":   "images/artist_placeholder.png",
+    "empty_playlist":       "images/empty_playlist.png",
+    "empty_content":        "images/empty_content.png",
+    "load_failed":          "images/load_failed.png"
   }
 }
 ```
@@ -225,6 +240,9 @@ my_theme.zip
 | `album_placeholder` | 无（回退到系统图标） | 专辑封面加载失败 |
 | `playlist_placeholder` | 无（回退到系统图标） | 歌单封面加载失败 |
 | `artist_placeholder` | 无（回退到系统图标） | 歌手头像加载失败 |
+| `empty_playlist` | 无（回退到图标+文字） | 歌单、收藏列表为空 |
+| `empty_content` | 无（回退到图标+文字） | 通用空数据（暂无歌曲/评论/动态/日志等） |
+| `load_failed` | 无（回退到图标+文字） | 加载失败提示 |
 
 ---
 
@@ -356,10 +374,19 @@ full_theme.zip
 
 ## 如何导入
 
+### 从主题市场安装（推荐）
+
+App 内进入 **设置 → 主题市场** → 浏览主题 → 点击 **安装** → 安装完成后可选择立即应用。
+
+### 从 ZIP 文件导入
+
 1. 准备 `.zip` 文件
-2. App 内进入 **设置 → 主题**
+2. App 内进入 **设置 → 主题设置**
 3. 在主题包列表最右侧点击 **「导入」卡片**
 4. 选择 ZIP 文件即可
 5. 导入成功后，在列表中点击即可应用
 
-删除已导入的主题包：长按卡片 → 删除。内置主题包不可删除。
+### 管理
+
+- 删除已导入的主题包：长按卡片 → 删除。内置主题包不可删除。
+- 从市场安装的主题可在 **主题市场** 中再次安装更新。
