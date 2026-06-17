@@ -16,7 +16,7 @@ import '../utils/logger.dart';
 /// 3. 通过 ThemeLoader 解析并安装
 class MarketService {
   static const _registryUrl =
-      'https://raw.githubusercontent.com/Tangmjiu/NGS-KG/android/marketplace/registry.json';
+      'https://raw.githubusercontent.com/Tangmjiu/ngs-kg-themes/main/registry.json';
   static const _cacheKey = 'market_registry';
   static const _cacheTtl = Duration(hours: 1);
   static const _installedPrefsKey = 'market_installed_themes';
