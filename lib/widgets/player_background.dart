@@ -1,4 +1,5 @@
 import 'dart:async' show Timer;
+import 'dart:io';
 import 'dart:math' show sin, cos, pi, min;
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/scheduler.dart' show Ticker, SchedulerBinding;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import '../theme/theme_assets.dart';
 
 /// Apple Music-style dynamic player background.
 ///
@@ -154,6 +156,21 @@ class _PlayerBackgroundState extends State<PlayerBackground>
               },
               placeholder: (_, __) => const SizedBox.shrink(),
               errorWidget: (_, __, ___) => const SizedBox.shrink(),
+            ),
+          ),
+
+        // Layer 2b: Fallback to theme pack player background when no album art
+        if (!flowEnabled && widget.albumCoverUrl == null && ThemeAssets.playerBg.isNotEmpty)
+          Positioned.fill(
+            child: ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
+              child: Image.file(
+                File(ThemeAssets.playerBg),
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
             ),
           ),
 
