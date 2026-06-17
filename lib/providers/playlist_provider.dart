@@ -89,21 +89,6 @@ class PlaylistProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> collectPlaylist(String name,
-      {required int listCreateUserid, required int listCreateListid}) async {
-    try {
-      await _musicService.createPlaylist(name,
-          type: 1,
-          listCreateUserid: listCreateUserid,
-          listCreateListid: listCreateListid);
-      await fetchUserPlaylist(_currentUserId);
-      return true;
-    } catch (e, s) {
-      Log.e('playlist_provider', 'collectPlaylist error', e, s);
-      return false;
-    }
-  }
-
   Future<void> fetchUserPlaylist(int? userId) async {
     if (userId == null) return;
     _isLoading = true;
