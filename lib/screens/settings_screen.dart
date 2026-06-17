@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../providers/auth_provider.dart';
 import '../providers/audio_settings_provider.dart';
 import '../providers/theme_provider.dart';
@@ -20,8 +21,30 @@ import 'theme_settings_screen.dart';
 import 'about_screen.dart';
 import '../widgets/support_me_dialog.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  String _appVersion = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) setState(() => _appVersion = info.version);
+    } catch (_) {
+      // 静默失败
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -142,7 +165,7 @@ class SettingsScreen extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('关于 NGS-KG+'),
-            subtitle: const Text('版本 1.0.0+1 · 开源声明'),
+            subtitle: Text('版本 $_appVersion · 开源声明'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.push(
               context,
