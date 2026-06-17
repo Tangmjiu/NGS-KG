@@ -10,6 +10,7 @@ import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:flutter_lyric/core/lyric_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../utils/logger.dart';
 import '../models/song.dart';
 import '../utils/palette_extractor.dart';
@@ -465,10 +466,18 @@ class PlayerProvider extends ChangeNotifier
     notifyListeners();
   }
 
-  /// 获取当前网络应是 WiFi 还是蜂窝（简单判定，无 connectivity_plus 时默认 WiFi）
-  /// TODO: 接入 connectivity_plus 后改用真实网络类型
+  /// 获取当前网络应是 WiFi 还是蜂窝，用于选择对应的音质设置。
   bool get _isWifi {
-    return true; // 默认 WiFi，用户可在设置中分别配置
+    final result = Connectivity().checkConnectivity();
+    // checkConnectivity 返回 List<ConnectivityResult>，为空则默认 WiFi
+    final results = result is List<ConnectivityResult>
+        ? result as List<ConnectivityResult>
+        : [result as ConnectivityResult];
+    if (results.isEmpty) return true;
+    return results.any((r) =>
+        r == ConnectivityResult.wifi ||
+        r == ConnectivityResult.ethernet ||
+        r == ConnectivityResult.vpn);
   }
 
   /// 播放前根据 AudioSettingsProvider 设置目标音质
