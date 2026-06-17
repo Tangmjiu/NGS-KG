@@ -119,6 +119,9 @@ class MusicService {
           {int page = 1, int pageSize = 200}) =>
       playlist.getPlaylistComments(playlistId, page: page, pageSize: pageSize);
 
+  Future<List<Playlist>> getSimilarPlaylists(String ids) =>
+      playlist.getSimilarPlaylists(ids);
+
   Future<Map<String, dynamic>> createPlaylist(String name,
           {int type = 0, int isPri = 0, int? listCreateListid,
            int? listCreateUserid}) {

@@ -229,6 +229,25 @@ class PlaylistRepository extends BaseRepository {
     return [];
   }
 
+  Future<List<Playlist>> getSimilarPlaylists(String ids) async {
+    final res = await get('/playlist/similar', params: {'ids': ids});
+    final data = res['data'];
+    if (data is List) {
+      return data
+          .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    if (data is Map) {
+      final list = data['playlists'] ?? data['list'];
+      if (list is List) {
+        return list
+            .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    }
+    return [];
+  }
+
   Future<void> createPlaylist(String name,
       {int type = 0, int isPri = 0, int? listCreateListid,
        int? listCreateUserid}) async {
