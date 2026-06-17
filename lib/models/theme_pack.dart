@@ -1,5 +1,57 @@
 import 'package:flutter/material.dart';
 
+/// 动效配置
+@immutable
+class ThemeMotion {
+  final double durationScale;
+  final String curve;
+
+  const ThemeMotion({this.durationScale = 1.0, this.curve = 'emphasized'});
+
+  static const ThemeMotion defaults = ThemeMotion();
+
+  Curve get resolvedCurve {
+    return switch (curve) {
+      'standard' => Curves.easeInOut,
+      'linear' => Curves.linear,
+      _ => Curves.fastOutSlowIn, // 'emphasized' or fallback
+    };
+  }
+
+  Duration scale(Duration d) =>
+      Duration(milliseconds: (d.inMilliseconds * durationScale).round());
+}
+
+/// 组件偏好
+@immutable
+class ThemeComponents {
+  final double navigationBarElevation;
+  final double cardElevation;
+  final double dialogElevation;
+
+  const ThemeComponents({
+    this.navigationBarElevation = 0,
+    this.cardElevation = 0,
+    this.dialogElevation = 0,
+  });
+
+  static const ThemeComponents defaults = ThemeComponents();
+}
+
+/// 字体权重文件映射
+@immutable
+class FontWeightFiles {
+  final String regular;
+  final String? medium;
+  final String? bold;
+
+  const FontWeightFiles({
+    required this.regular,
+    this.medium,
+    this.bold,
+  });
+}
+
 /// 统一主题包模型
 ///
 /// 所有主题（内置 + 导入 ZIP）统一用此模型表示。
@@ -19,9 +71,16 @@ class ThemePack {
 
   // ── 字体 ──
   final String? fontFamily;
+  final FontWeightFiles? fontWeightFiles;
 
   // ── 形状覆盖 ──
   final Map<String, double>? shapes;
+
+  // ── 动效 ──
+  final ThemeMotion motion;
+
+  // ── 组件偏好 ──
+  final ThemeComponents components;
 
   // ── 资源图 {key → 文件绝对路径} ──
   final Map<String, String>? assetFiles;
@@ -40,7 +99,10 @@ class ThemePack {
     this.lightScheme,
     this.darkScheme,
     this.fontFamily,
+    this.fontWeightFiles,
     this.shapes,
+    this.motion = ThemeMotion.defaults,
+    this.components = ThemeComponents.defaults,
     this.assetFiles,
     this.playerBgPath,
   });
@@ -57,6 +119,7 @@ class ThemePack {
     if (fontFamily != null) tags.add('自定义字体');
     if (shapes != null) tags.add('自定义形状');
     if (playerBgPath != null) tags.add('播放器壁纸');
+    if (motion.durationScale != 1.0) tags.add('自定义动效');
     return tags;
   }
 }
@@ -144,6 +207,9 @@ const ThemePack ngsNagisa = ThemePack(
     'ban': 'assets/images/ban.png',
     'supportme': 'assets/images/supportme.png',
     'icon': 'assets/images/icon.png',
+    'empty_playlist': 'assets/images/empty_playlist.png',
+    'empty_content': 'assets/images/empty_content.png',
+    'load_failed': 'assets/images/load_failed.png',
   },
 );
 
