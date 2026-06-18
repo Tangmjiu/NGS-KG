@@ -75,10 +75,19 @@ class _MobileMiniPlayer extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           child: GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const PlayerScreen()),
-            ),
+            onTap: () {
+              player.setPlayerScreenVisible(true);
+              app.navKey.currentState
+                  ?.push(PageRouteBuilder(
+                    pageBuilder: (_, __, ___) => const PlayerScreen(),
+                    transitionsBuilder: (_, animation, __, child) {
+                      return FadeTransition(
+                          opacity: animation, child: child);
+                    },
+                    transitionDuration: const Duration(milliseconds: 300),
+                  ))
+                  .then((_) => player.setPlayerScreenVisible(false));
+            },
             child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: Container(
