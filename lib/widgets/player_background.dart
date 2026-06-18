@@ -5,8 +5,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart' show Ticker, SchedulerBinding;
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:provider/provider.dart';
-import '../providers/theme_provider.dart';
 import '../theme/theme_assets.dart';
 
 /// Apple Music-style dynamic player background.
@@ -21,6 +19,7 @@ class PlayerBackground extends StatefulWidget {
   final Color? paletteColor;
   final List<Color> paletteColors;
   final double scrollOffset;
+  final bool flowLightEnabled;
 
   const PlayerBackground({
     super.key,
@@ -28,6 +27,7 @@ class PlayerBackground extends StatefulWidget {
     required this.paletteColor,
     this.paletteColors = const [],
     required this.scrollOffset,
+    this.flowLightEnabled = false,
   });
 
   @override
@@ -120,7 +120,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
 
   @override
   Widget build(BuildContext context) {
-    final flowEnabled = context.watch<ThemeProvider>().flowLightEnabled;
+    final flowEnabled = widget.flowLightEnabled;
     final hasColors = widget.paletteColors.length >= 3;
 
     return Stack(
