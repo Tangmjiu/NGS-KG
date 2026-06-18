@@ -1,7 +1,15 @@
-package com.kugou.ngskg
+// Copyright (c) 2025-2026 mjiutang
+// SPDX-License-Identifier: MIT
 
-import android.content.IntentFilter
+package com.mjiutang.ngskg
+
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
 import android.media.MediaMetadataRetriever
+import android.os.Build
+import android.os.IBinder
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.BasicMessageChannel
@@ -14,29 +22,43 @@ import kotlinx.coroutines.launch
 class MainActivity : FlutterActivity() {
     companion object {
         // 供 MediaButtonReceiver 访问
-        var lastMediaSessionManager: MediaSessionManager? = null
+        var lastService: PlaybackService? = null
     }
 
-    private val CHANNEL_METADATA = "com.kugou.ngskg/metadata"
-    private val CHANNEL_MEDIA = "com.kugou.ngskg/media_session"
+    private val CHANNEL_METADATA = "com.mjiutang.ngskg/metadata"
+    private val CHANNEL_MEDIA = "com.mjiutang.ngskg/media_session"
+    private val CHANNEL_DEVICE = "com.mjiutang.ngskg/device"
 
-    private lateinit var mediaSessionManager: MediaSessionManager
-    private val mediaButtonReceiver = MediaButtonReceiver()
+    private var playbackService: PlaybackService? = null
+    private var callbackChannel: BasicMessageChannel<String>? = null
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            playbackService = (service as PlaybackService.LocalBinder).getService()
+            lastService = playbackService
+            // 重新连接后恢复回调
+            playbackService?.onPrev = { callbackChannel?.send("onPrev") }
+            playbackService?.onPlayPause = { callbackChannel?.send("onPlayPause") }
+            playbackService?.onNext = { callbackChannel?.send("onNext") }
+            playbackService?.onSeekTo = { posMs ->
+                callbackChannel?.send("onSeekTo|$posMs")
+            }
+            playbackService?.onLike = { callbackChannel?.send("onLike") }
+            playbackService?.onSwitchMode = { callbackChannel?.send("onSwitchMode") }
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            playbackService = null
+            lastService = null
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        // 初始化 MediaSessionManager
-        mediaSessionManager = MediaSessionManager(this)
-        lastMediaSessionManager = mediaSessionManager
-
-        // 注册广播接收器（通知栏按钮）
-        registerReceiver(mediaButtonReceiver, IntentFilter().apply {
-            addAction(MediaSessionManager.ACTION_PREV)
-            addAction(MediaSessionManager.ACTION_PLAY_PAUSE)
-            addAction(MediaSessionManager.ACTION_NEXT)
-            addAction(MediaSessionManager.ACTION_STOP)
-        }, RECEIVER_EXPORTED)
+        // 启动前台媒体服务
+        val serviceIntent = Intent(this, PlaybackService::class.java)
+        startForegroundService(serviceIntent)
+        bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
 
         // 读取本地音乐元数据
         MethodChannel(
@@ -67,54 +89,72 @@ class MainActivity : FlutterActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             CHANNEL_MEDIA
         ).setMethodCallHandler { call, result ->
+            val svc = playbackService
+            if (svc == null) {
+                result.error("SERVICE_NOT_READY", "PlaybackService not bound", null)
+                return@setMethodCallHandler
+            }
             when (call.method) {
                 "updateMetadata" -> {
                     val title = call.argument<String>("title") ?: "未知歌曲"
                     val artist = call.argument<String>("artist") ?: "未知歌手"
                     val albumArtUrl = call.argument<String>("albumArtUrl")
-                    val duration = (call.argument<Long>("duration") ?: 0L) * 1000L // 秒→毫秒
+                    val durationSec = (call.argument<Number>("duration")?.toLong() ?: 0L)
                     val lyricLine = call.argument<String>("lyricLine")
-                    mediaSessionManager.updateMetadata(title, artist, albumArtUrl, duration, lyricLine)
+                    svc.updateMetadata(title, artist, albumArtUrl, durationSec, lyricLine)
                     result.success(null)
                 }
                 "updatePlaybackState" -> {
                     val isPlaying = call.argument<Boolean>("isPlaying") ?: false
-                    val position = (call.argument<Long>("position") ?: 0L) * 1000L // 秒→毫秒
-                    mediaSessionManager.updatePlaybackState(isPlaying, position)
+                    val positionSec = (call.argument<Number>("position")?.toLong() ?: 0L)
+                    val isBuffering = call.argument<Boolean>("isBuffering") ?: false
+                    svc.updatePlaybackState(isPlaying, positionSec, isBuffering)
                     result.success(null)
                 }
-                "setCallbacks" -> {
-                    val dispatcher = flutterEngine.dartExecutor.binaryMessenger
-                    val callbackChannel = BasicMessageChannel<String>(
-                        dispatcher, "com.kugou.ngskg/media_callbacks", StringCodec.INSTANCE
-                    )
-                    mediaSessionManager.onPrev = {
-                        callbackChannel.send("onPrev")
-                    }
-                    mediaSessionManager.onPlayPause = {
-                        callbackChannel.send("onPlayPause")
-                    }
-                    mediaSessionManager.onNext = {
-                        callbackChannel.send("onNext")
-                    }
+                "updateCustomButtons" -> {
+                    val liked = call.argument<Boolean>("liked") ?: false
+                    val mode = call.argument<String>("playMode") ?: "sequential"
+                    svc.updateCustomButtons(liked, mode)
                     result.success(null)
                 }
                 "release" -> {
-                    mediaSessionManager.release()
+                    svc.exitService()
                     result.success(null)
                 }
                 else -> result.notImplemented()
             }
         }
+
+        // 设备信息通道（ABI 等）
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            CHANNEL_DEVICE
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getAbi" -> {
+                    val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
+                    result.success(abi)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        // 设置回调通道（Native → Flutter）
+        callbackChannel = BasicMessageChannel<String>(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.mjiutang.ngskg/media_callbacks",
+            StringCodec.INSTANCE
+        ).also { channel ->
+            // 回调由 PlaybackService 的 binder lambdas 触发
+        }
     }
 
     override fun onDestroy() {
-        super.onDestroy()
         try {
-            unregisterReceiver(mediaButtonReceiver)
+            unbindService(serviceConnection)
         } catch (_: Exception) {}
-        mediaSessionManager.release()
-        lastMediaSessionManager = null
+        lastService = null
+        super.onDestroy()
     }
 
     private fun readMetadata(path: String): Map<String, Any?> {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/playlist.dart';
 import '../services/music_service.dart';
@@ -18,7 +19,7 @@ class PlaylistCategoryScreen extends StatefulWidget {
 }
 
 class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
-  final _musicService = MusicService();
+  late final MusicService _musicService = context.read<MusicService>();
   final List<Playlist> _playlists = [];
   bool _loading = true;
   bool _hasMore = true;
@@ -61,77 +62,79 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
           ? const Center(child: CircularProgressIndicator())
           : LayoutBuilder(
               builder: (context, constraints) {
-                final crossAxisCount = (constraints.maxWidth / 160).floor().clamp(2, 6);
+                final crossAxisCount =
+                    (constraints.maxWidth / 160).floor().clamp(2, 6);
                 return GridView.builder(
-              padding: const EdgeInsets.all(12),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
-                childAspectRatio: 0.85,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: _playlists.length + (_hasMore ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index >= _playlists.length) {
-                  _loadPlaylists();
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final p = _playlists[index];
-                return GestureDetector(
-                  onTap: () {
-                    if (p.globalCollectionId != null) {
-                      Navigator.pushNamed(
-                        context,
-                        '/playlist/detail',
-                        arguments: {'gcId': p.globalCollectionId, 'name': p.name},
-                      );
-                    } else {
-                      Navigator.pushNamed(
-                        context,
-                        '/playlist/detail',
-                        arguments: {'id': p.id, 'name': p.name},
-                      );
-                    }
-                  },
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: (p.coverUrl != null && p.coverUrl!.isNotEmpty)
-                            ? CachedNetworkImage(
-                                imageUrl: p.coverUrl!,
-                                width: double.infinity,
-                                height: 100,
-                                fit: BoxFit.cover,
-                                errorWidget: (_, __, ___) => Container(
-                                  width: double.infinity,
-                                  height: 100,
-                                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                  child: const Icon(Icons.playlist_play),
-                                ),
-                              )
-                            : Container(
-                                width: double.infinity,
-                                height: 100,
-                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                child: const Icon(Icons.playlist_play),
-                              ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        p.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
+                  padding: const EdgeInsets.all(12),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    childAspectRatio: 0.85,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
                   ),
+                  itemCount: _playlists.length + (_hasMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index >= _playlists.length) {
+                      _loadPlaylists();
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final p = _playlists[index];
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          '/playlist/detail',
+                          arguments: {
+                            'gcId': p.globalCollectionId ??
+                                'collection_3_${p.createUserId}_${p.id}_0',
+                            'name': p.name,
+                          },
+                        );
+                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: (p.coverUrl != null &&
+                                    p.coverUrl!.isNotEmpty)
+                                ? CachedNetworkImage(
+                                    imageUrl: p.coverUrl!,
+                                    width: double.infinity,
+                                    height: 100,
+                                    fit: BoxFit.cover,
+                                    errorWidget: (_, __, ___) => Container(
+                                      width: double.infinity,
+                                      height: 100,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .surfaceContainerHighest,
+                                      child: const Icon(Icons.playlist_play),
+                                    ),
+                                  )
+                                : Container(
+                                    width: double.infinity,
+                                    height: 100,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .surfaceContainerHighest,
+                                    child: const Icon(Icons.playlist_play),
+                                  ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            p.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 );
               },
-            );
-          },
-        ),
+            ),
     );
   }
 }

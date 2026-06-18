@@ -13,7 +13,7 @@ class DiscoverAlbumRow extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return SizedBox(
-      height: 200,
+      height: 212,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),

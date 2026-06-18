@@ -74,6 +74,7 @@ class SongRepository extends BaseRepository {
     if (hash != null) {
       params['hash'] = hash;
     } else {
+      // hash 不可用时传入 id 作为保底（部分服务器接受此参数）
       params['id'] = songId;
     }
     if (quality != null) {
@@ -85,10 +86,6 @@ class SongRepository extends BaseRepository {
     if (cookie != null) params['cookie'] = cookie;
     final res = await get('/song/url', params: params);
     return SongUrl.fromJson(res);
-  }
-
-  Future<Map<String, dynamic>> getLyric(int songId) async {
-    return get('/lyric', params: {'id': songId});
   }
 
   /// 获取歌曲的音质特权信息（/privilege/lite）
@@ -174,7 +171,7 @@ class SongRepository extends BaseRepository {
   ///
   /// 返回 data.song_list，每项含 hash/ori_audio_name/sizable_cover/author_name/time_length
   Future<List<Song>> getDailyRecommend() async {
-    final res = await get('/everyday/recommend');
+    final res = await get('/everyday/recommend', params: {'platform': 'android'});
     final data = res['data'] as Map<String, dynamic>?;
     if (data == null) return [];
     final list = data['song_list'] as List<dynamic>? ?? [];
@@ -187,7 +184,8 @@ class SongRepository extends BaseRepository {
       }
       final timelength = (json['time_length'] as num?)?.toInt() ?? 0;
       return Song(
-        id: (json['hash'] as String?)?.hashCode ?? 0,
+        id: (json['mixsongid'] as int?) ?? (json['audio_id'] as int?) ?? (json['id'] as int?) ?? 0,
+        mixSongId: (json['mixsongid'] as int?),
         name: json['ori_audio_name'] as String? ?? '',
         artists: [(json['author_name'] as String? ?? '')],
         albumCoverUrl: cover,
@@ -217,6 +215,29 @@ class SongRepository extends BaseRepository {
   Future<String?> _getCookieString() async {
     try {
       return await client.getCookieString();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 获取歌曲高潮开始时间（/song/climax）
+  ///
+  /// 返回毫秒级时间戳，若接口返回空或异常则返回 null。
+  Future<int?> getSongClimax(String hash) async {
+    try {
+      final res = await get('/song/climax', params: {'hash': hash});
+      final data = res['data'];
+      if (data is Map) {
+        final list = data['list'] as List<dynamic>?;
+        if (list != null && list.isNotEmpty) {
+          final first = list.first as Map?;
+          if (first != null) {
+            final begin = first['begin'] as num?;
+            if (begin != null) return (begin * 1000).toInt();
+          }
+        }
+      }
+      return null;
     } catch (_) {
       return null;
     }

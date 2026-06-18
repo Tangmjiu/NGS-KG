@@ -57,12 +57,29 @@ class _MessagesScreenState extends State<MessagesScreen> {
           );
     return Scaffold(
       appBar: AppBar(title: const Text('消息')),
-      body: isWide
-          ? Center(child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: body,
-            ))
-          : body,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              children: [
+                _sectionTile(Icons.person_add, '关注歌手消息',
+                    subtitle: '${_news.length} 条动态',
+                    onTap: () => Navigator.pushNamed(context, '/artist/followed/news')),
+                const Divider(),
+                _sectionTile(Icons.notifications_outlined, '系统通知',
+                    subtitle: '暂无新通知'),
+                const Divider(),
+                _sectionTile(Icons.favorite_outline, '点赞与收藏',
+                    subtitle: '暂无新消息',
+                    onTap: () => Navigator.pushNamed(context, '/messages')), // Placeholder
+                const Divider(),
+                // MV:
+                // MV: _sectionTile(Icons.video_library, '收藏的视频',
+                // MV:     onTap: () => Navigator.pushNamed(context, '/videos/favorite')),
+                // MV: const Divider(),
+                // MV: _sectionTile(Icons.thumb_up, '喜欢的视频',
+                // MV:     onTap: () => Navigator.pushNamed(context, '/videos/liked')),
+              ],
+            ),
     );
   }
 

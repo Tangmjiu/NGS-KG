@@ -1,23 +1,28 @@
+// Copyright (c) 2025-2026 mjiutang
+// SPDX-License-Identifier: MIT
+
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_lyric/flutter_lyric.dart';
+import 'package:flutter_lyric/core/lyric_model.dart';
 import 'package:provider/provider.dart';
 import 'package:ym_lyric/model/krc_language_model.dart';
 import 'package:ym_lyric/utils/krc_lyric_util.dart';
 
 import '../models/song.dart';
-import '../models/lyric_line.dart'; // LyricLine, LyricSpan, parseLyrics, tokenizeAndDistribute
 import '../providers/player_provider.dart';
 import '../providers/liked_songs_provider.dart';
+import '../providers/auth_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../constants/quality.dart';
 import '../widgets/player_background.dart';
 import '../widgets/player_cover_art.dart';
-import '../widgets/am_lyrics_view.dart';
 import '../widgets/player_controls_bar.dart';
 import '../widgets/player_progress_bar.dart';
 import '../widgets/playback_controls.dart' as legacy;
+import '../widgets/login_required_dialog.dart';
 import 'audio_effects_screen.dart';
 
 /// Apple Music-style full player screen with dynamic background,
@@ -30,6 +35,53 @@ class PlayerScreen extends StatefulWidget {
 }
 
 class _PlayerScreenState extends State<PlayerScreen> {
+  // ─── LyricView 样式（Apple Music 风格） ───
+  static final _lyricStyle = LyricStyle(
+    textStyle: const TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w400,
+      height: 1.4,
+      color: Colors.white54,
+    ),
+    activeStyle: const TextStyle(
+      fontSize: 24,
+      fontWeight: FontWeight.w600,
+      height: 1.4,
+      color: Colors.white38,
+    ),
+    translationStyle: const TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w300,
+      height: 1.2,
+      color: Colors.white38,
+    ),
+    translationActiveColor: Colors.white60,
+    lineGap: 20,
+    translationLineGap: 4,
+    lineTextAlign: TextAlign.left,
+    contentAlignment: CrossAxisAlignment.start,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+    selectionAnchorPosition: 0.5,
+    selectionAlignment: MainAxisAlignment.center,
+    activeAnchorPosition: 0.5,
+    activeAlignment: MainAxisAlignment.center,
+    activeHighlightColor: Colors.white,
+    activeHighlightExtraFadeWidth: 14,
+    selectedColor: Colors.white38,
+    selectedTranslationColor: Colors.white38,
+    scrollDuration: const Duration(milliseconds: 400),
+    scrollCurve: Curves.easeInOutCubic,
+    scrollDurations: {},
+    enableSwitchAnimation: true,
+    switchEnterDuration: const Duration(milliseconds: 200),
+    switchExitDuration: const Duration(milliseconds: 200),
+    switchEnterCurve: Curves.easeIn,
+    switchExitCurve: Curves.easeOut,
+    selectionAutoResumeMode: SelectionAutoResumeMode.selecting,
+    selectionAutoResumeDuration: const Duration(milliseconds: 500),
+    activeAutoResumeDuration: const Duration(milliseconds: 3000),
+  );
+
   // ─── PageView ───
   final PageController _pageController = PageController();
   double _pageOffset = 0.0; // 0 = cover, 1 = lyrics
@@ -50,6 +102,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _pageController.addListener(_onPageScroll);
     WidgetsBinding.instance
         .addPostFrameCallback((_) => _attachPlayerListener());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final player = context.read<PlayerProvider>();
+        player.lyricController.setOnTapLineCallback((duration) {
+          player.seek(duration);
+        });
+      }
+    });
   }
 
   void _attachPlayerListener() {
@@ -63,10 +123,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final song = player.currentSong;
     if (song == null) return;
 
+    // 拖拽进度条时同步歌词滚动（仅在歌词页可见时才更新 controller）
+    // 否则 controller 会被拖拽位置污染，进歌词页时第一帧显示错误
+    if (_isDraggingProgress && _pageOffset >= 0.5) {
+      final dragPos = Duration(
+        milliseconds: (_dragProgressValue * player.duration.inMilliseconds)
+            .round(),
+      );
+      player.lyricController.setProgress(dragPos);
+    }
+
     // Load lyrics when song changes or lyrics were cleared (e.g. quality switch)
     final songChanged = (song.hash != null && song.hash != _lastLoadedHash) ||
         (song.hash == null && song.id != _lastLoadedSongId);
-    final lyricsCleared = player.lyrics.isEmpty &&
+    final currentLines = player.lyricController.lyricNotifier.value?.lines ?? [];
+    final lyricsCleared = currentLines.isEmpty &&
         _lastLoadedHash != null &&
         song.hash == _lastLoadedHash;
     if (songChanged || lyricsCleared) {
@@ -80,9 +151,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   void _onPageScroll() {
     if (!_pageController.hasClients) return;
+    final newOffset = _pageController.page?.clamp(0.0, 1.0) ?? 0.0;
+    final wasBelowHalf = _pageOffset < 0.5;
     setState(() {
-      _pageOffset = _pageController.page?.clamp(0.0, 1.0) ?? 0.0;
+      _pageOffset = newOffset;
     });
+    // 进入歌词页面时同步 controller 到实际播放位置
+    if (wasBelowHalf && newOffset >= 0.5 && mounted) {
+      final player = context.read<PlayerProvider>();
+      if (!_isDraggingProgress) {
+        player.lyricController.setProgress(player.position);
+      }
+    }
   }
 
   @override
@@ -105,9 +185,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
     // Embedded lyrics from local files (companion .lrc or metadata)
     if (song.lyrics != null && song.lyrics!.isNotEmpty) {
       setState(() => _lyricLoading = false);
-      final parsed = parseLyrics(song.lyrics!);
       if (mounted) {
-        context.read<PlayerProvider>().setLyrics(parsed);
+        context.read<PlayerProvider>().lyricController.loadLyric(song.lyrics!);
       }
       return;
     }
@@ -160,50 +239,56 @@ class _PlayerScreenState extends State<PlayerScreen> {
               } catch (_) {}
             }
 
-            final lyrics = <LyricLine>[];
+            // 构建翻译时间戳映射 (ms → translation text)
+            final transMap = <int, String>{};
+            if (translations != null) {
+              for (int i = 0; i < krcModel.krcLyricList.length && i < translations.length; i++) {
+                transMap[krcModel.krcLyricList[i].startTime] = translations[i];
+              }
+            }
+
+            // 直接构造 flutter_lyric 的 LyricWord / LyricLine / LyricModel
+            final lines = <LyricLine>[];
             for (int i = 0; i < krcModel.krcLyricList.length; i++) {
               final line = krcModel.krcLyricList[i];
-              final text = line.getWordLine();
+              String text;
+              try {
+                text = line.getWordLine();
+              } catch (_) {
+                continue; // 跳过解析失败的行（ym_lyric 空值问题）
+              }
               if (text.trim().isEmpty) continue;
 
-              // Map KRC word-level data → LyricSpan list
-              final spans = <LyricSpan>[];
+              // 构造逐字时间信息 LyricWord
+              final words = <LyricWord>[];
               if (line.line != null) {
                 final lineStart = line.startTime;
                 for (final w in line.line!) {
                   if (w.word == null || w.word!.isEmpty) continue;
                   final ws = (w.startTime ?? 0) + lineStart;
                   final we = ws + (w.duration ?? 0);
-                  spans.add(LyricSpan(
+                  words.add(LyricWord(
                     text: w.word!,
                     start: Duration(milliseconds: ws),
                     end: Duration(milliseconds: we),
                   ));
                 }
               }
-              // If KRC has no per-word data, fall back to uniform distribution
-              if (spans.isEmpty) {
-                final start = Duration(milliseconds: line.startTime);
-                final end = Duration(
-                    milliseconds: line.startTime + line.duration);
-                spans.addAll(tokenizeAndDistribute(text, start, end));
-              }
 
-              lyrics.add(LyricLine(
-                startTime: Duration(milliseconds: line.startTime),
-                endTime: Duration(
-                    milliseconds: line.startTime + line.duration),
+              lines.add(LyricLine(
+                start: Duration(milliseconds: line.startTime),
+                end: Duration(milliseconds: line.startTime + line.duration),
                 text: text,
-                translatedText: translations != null && i < translations.length
-                    ? translations[i]
-                    : null,
-                spans: spans,
+                words: words.isNotEmpty ? words : null,
+                translation: transMap[line.startTime],
               ));
             }
 
             if (mounted) {
               if (hash != _lastLoadedHash) return;
-              context.read<PlayerProvider>().setLyrics(lyrics);
+              context.read<PlayerProvider>().loadLyricModel(
+                LyricModel(lines: lines),
+              );
             }
             if (mounted) setState(() => _lyricLoading = false);
             return;
@@ -223,10 +308,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
               Log.e('player_screen', 'base64 error', e, s);
               decoded = rawContent;
             }
-            final lyrics = parseLyrics(decoded);
             if (mounted) {
               if (hash != _lastLoadedHash) return;
-              context.read<PlayerProvider>().setLyrics(lyrics);
+              context.read<PlayerProvider>().lyricController.loadLyric(decoded);
             }
           } catch (e, s) {
             Log.e('player_screen', 'parse error', e, s);
@@ -239,6 +323,36 @@ class _PlayerScreenState extends State<PlayerScreen> {
       Log.e('player_screen', 'lyric load error', e, s);
     }
     if (mounted) setState(() => _lyricLoading = false);
+  }
+
+  Widget _buildLyricsPage(PlayerProvider player) {
+    if (_lyricLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white70),
+      );
+    }
+
+    final model = player.lyricController.lyricNotifier.value;
+    final hasLyrics = model != null && model.lines.isNotEmpty;
+
+    if (!hasLyrics) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.lyrics_outlined, size: 48, color: Colors.white54),
+            const SizedBox(height: 16),
+            const Text('暂无歌词',
+                style: TextStyle(color: Colors.white54, fontSize: 16)),
+          ],
+        ),
+      );
+    }
+
+    return LyricView(
+      controller: player.lyricController,
+      style: _lyricStyle,
+    );
   }
 
   // ────────────────────────────────────────────────────────────
@@ -267,6 +381,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               PlayerBackground(
                 albumCoverUrl: song.albumCoverUrl,
                 paletteColor: player.backgroundColor,
+                paletteColors: player.paletteColors,
                 scrollOffset: _pageOffset,
               ),
 
@@ -285,18 +400,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             scrollOffset: _pageOffset,
                           ),
                           // Page 1: Lyrics
-                          AMLyricsView(
-                            lyrics: player.lyrics,
-                            position: _isDraggingProgress
-                                ? Duration(
-                                    milliseconds: (_dragProgressValue *
-                                            player.duration.inMilliseconds)
-                                        .round(),
-                                  )
-                                : player.position,
-                            isLoading: _lyricLoading,
-                            onSeek: (duration) => player.seek(duration),
-                          ),
+                          _buildLyricsPage(player),
                         ],
                       ),
                     ),
@@ -311,8 +415,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       progress: _isDraggingProgress
                           ? _dragProgressValue
                           : (player.progress.isFinite ? player.progress : 0.0),
-                      onDragStart: () =>
-                          setState(() => _isDraggingProgress = true),
+                      climaxPosition: player.climaxMs,
+                      onDragStart: () {
+                        setState(() => _isDraggingProgress = true);
+                        // 拖拽开始时同步歌词进度
+                        final pos = Duration(
+                          milliseconds:
+                              (_dragProgressValue * player.duration.inMilliseconds)
+                                  .round(),
+                        );
+                        player.lyricController.setProgress(pos);
+                      },
                       onDragEnd: () async {
                         await player.seek(Duration(
                           milliseconds: (_dragProgressValue *
@@ -325,6 +438,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       },
                       onSeek: (v) {
                         _dragProgressValue = v;
+                        if (_isDraggingProgress) {
+                          final pos = Duration(
+                            milliseconds:
+                                (v * player.duration.inMilliseconds).round(),
+                          );
+                          player.lyricController.setProgress(pos);
+                        }
                       },
                     ),
                     const SizedBox(height: 12),
@@ -476,13 +596,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 icon: liked ? Icons.favorite : Icons.favorite_border,
                 label: liked ? '已收藏' : '收藏',
                 iconColor: liked ? Colors.redAccent : null,
-                onTap: () => lp.toggle(SongInfo(
-                  id: song.id,
-                  name: song.name,
-                  hash: song.hash ?? '',
-                  albumId: song.albumId,
-                  audioId: song.id,
-                )),
+                onTap: () async {
+                  final auth = context.read<AuthProvider>();
+                  if (!auth.isLoggedIn) {
+                    final goLogin = await showLoginRequiredDialog(context);
+                    if (goLogin && mounted) {
+                      Navigator.pushNamed(context, '/login');
+                    }
+                    return;
+                  }
+                  lp.toggle(SongInfo(
+                    id: song.id,
+                    name: song.name,
+                    hash: song.hash ?? '',
+                    albumId: song.albumId,
+                    audioId: song.id,
+                  ));
+                },
               );
             },
           ),

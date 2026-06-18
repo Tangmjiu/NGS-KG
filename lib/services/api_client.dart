@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
@@ -120,18 +122,35 @@ const Map<Object, String> _kugouErrorLabels = {
 /// 如果请求的 extra 中标记了 `silent: true`，则跳过弹窗（仅日志），
 /// 用于已知会失败但无需打扰用户的请求（如已失效的 banner 接口）。
 class _ErrorDialogInterceptor extends Interceptor {
+  /// 构造不带 host 的请求 URL（/path?key=val），隐藏 IP
+  static String _requestUrl(RequestOptions opts) {
+    final buf = StringBuffer(opts.path);
+    final params = opts.queryParameters;
+    if (params.isNotEmpty) {
+      buf.write('?');
+      bool first = true;
+      params.forEach((k, v) {
+        if (!first) buf.write('&');
+        first = false;
+        buf.write('$k=$v');
+      });
+    }
+    return buf.toString();
+  }
+
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     // 静默标记的请求跳过弹窗
     if (err.requestOptions.extra['silent'] == true) {
-      Log.w('ApiClient', '静默错误: ${err.requestOptions.path} | ${err.message}');
+      Log.w('ApiClient',
+          '静默错误: ${_requestUrl(err.requestOptions)} | ${err.message}');
       handler.next(err);
       return;
     }
     // 网络错误已被 RetryInterceptor 重试过，到达这里说明已耗尽重试
     final statusCode = err.response?.statusCode;
     final data = err.response?.data;
-    final requestPath = err.requestOptions.path;
+    final requestPath = _requestUrl(err.requestOptions);
     String message;
     String? codeStr;
     String? detail;
@@ -140,7 +159,9 @@ class _ErrorDialogInterceptor extends Interceptor {
     if (data is Map) {
       final apiCode = data['status'] ?? data['code'];
       final rawErrorCode = data['error_code'];
-      final rawMsg = data['error'] as String? ?? data['message'] as String? ?? data['msg'] as String?;
+      final rawMsg = data['error'] as String? ??
+          data['message'] as String? ??
+          data['msg'] as String?;
 
       // 构建错误码显示字符串
       final parts = <String>[];
@@ -152,12 +173,17 @@ class _ErrorDialogInterceptor extends Interceptor {
       codeStr = parts.isNotEmpty ? parts.join(' / ') : null;
 
       // 根据错误码选择中文提示
-      final knownMsg = _kugouErrorMessages[apiCode] ?? _kugouErrorMessages[rawErrorCode];
-      final label = _kugouErrorLabels[apiCode] ?? _kugouErrorLabels[rawErrorCode];
+      final knownMsg =
+          _kugouErrorMessages[apiCode] ?? _kugouErrorMessages[rawErrorCode];
+      final label =
+          _kugouErrorLabels[apiCode] ?? _kugouErrorLabels[rawErrorCode];
 
       if (knownMsg != null) {
         message = knownMsg;
-        if (apiCode == 20010 || apiCode == '20010' || rawErrorCode == 20010 || rawErrorCode == '20010') {
+        if (apiCode == 20010 ||
+            apiCode == '20010' ||
+            rawErrorCode == 20010 ||
+            rawErrorCode == '20010') {
           showLogin = true;
           // 清除过期 token，后续请求不再携带
           ApiClient.clearAuth();
@@ -169,12 +195,17 @@ class _ErrorDialogInterceptor extends Interceptor {
       // 详细信息包含请求路径 + 原始响应
       final detailBuf = StringBuffer('请求路径: $requestPath');
       if (rawErrorCode != null) detailBuf.writeln('\n原始错误码: $rawErrorCode');
-      if (rawMsg != null && rawMsg != message) detailBuf.writeln('\n原始消息: $rawMsg');
+      if (rawMsg != null && rawMsg != message)
+        detailBuf.writeln('\n原始消息: $rawMsg');
       detail = detailBuf.toString();
 
-      // 日志
-      final logLabel = label ?? (statusCode != null && statusCode >= 500 ? '服务器错误' : 'API错误');
-      Log.e('ApiClient', '$logLabel $codeStr — $message | $requestPath', err);
+      // 日志 — 输出原始响应体便于调试
+      final logLabel = label ??
+          (statusCode != null && statusCode >= 500 ? '服务器错误' : 'API错误');
+      Log.e(
+          'ApiClient',
+          '$logLabel $codeStr — $message | $requestPath | raw: ${jsonEncode(data)}',
+          err);
 
       // 弹窗
       showErrorDialog(
@@ -227,8 +258,7 @@ class _DynamicBaseUrlInterceptor extends Interceptor {
   void onRequest(
       RequestOptions options, RequestInterceptorHandler handler) async {
     // 如果请求已经明确指定了 baseUrl，不覆盖
-    if (options.baseUrl.isNotEmpty &&
-        options.extra['_baseUrlSet'] != true) {
+    if (options.baseUrl.isNotEmpty && options.extra['_baseUrlSet'] != true) {
       try {
         options.baseUrl = await ApiConfig.instance.getBaseUrl();
         options.extra['_baseUrlSet'] = true;
@@ -275,7 +305,7 @@ class ApiClient {
 
     _dio = Dio(BaseOptions(
       // 初始 baseUrl — 会被 _DynamicBaseUrlInterceptor 在运行期覆盖
-      baseUrl: ApiConfig.defaultBaseUrl,
+      baseUrl: ApiConfig.chinaUrl,
       connectTimeout: AppConstants.connectTimeout,
       receiveTimeout: AppConstants.receiveTimeout,
       headers: {
@@ -323,15 +353,19 @@ class ApiClient {
 
   // ─── HTTP 方法封装 ───
 
-  Future<Response> get(String path, {Map<String, dynamic>? params, Options? options}) async {
+  Future<Response> get(String path,
+      {Map<String, dynamic>? params, Options? options}) async {
     try {
-      final response = await _dio.get(path, queryParameters: params, options: options);
-      _checkNeedLogin(response.data);
+      final response =
+          await _dio.get(path, queryParameters: params, options: options);
+      _checkNeedLogin(response.data,
+          requestPath: _buildRequestUrl(path, params));
       return response;
     } on DioException catch (e) {
       if (e.response?.statusCode == 200) {
         final data = e.response?.data;
-        if (data is Map) _checkNeedLogin(data);
+        if (data is Map)
+          _checkNeedLogin(data, requestPath: _buildRequestUrl(path, params));
         return e.response!;
       }
       if (_isNetworkError(e)) throw NetworkErrorException.fromDio(e);
@@ -436,6 +470,19 @@ class ApiClient {
   }
 
   // ─── 私有 ───
+
+  /// 构造不含 host 的请求 URL（/path?key=val），隐藏 IP
+  static String _buildRequestUrl(String path, Map<String, dynamic>? params) {
+    if (params == null || params.isEmpty) return path;
+    final buf = StringBuffer('$path?');
+    bool first = true;
+    params.forEach((k, v) {
+      if (!first) buf.write('&');
+      first = false;
+      buf.write('$k=$v');
+    });
+    return buf.toString();
+  }
 
   void _checkNeedLogin(dynamic data, {String? requestPath}) {
     if (data is Map) {

@@ -355,6 +355,13 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _showContinueBanner = false);
   }
 
+  void _refreshProfile() {
+    final auth = context.read<AuthProvider>();
+    if (auth.isLoggedIn && auth.user?.userId != null) {
+      context.read<PlaylistProvider>().fetchUserPlaylist(auth.user!.userId);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 880;
@@ -367,26 +374,27 @@ class _HomeScreenState extends State<HomeScreen> {
           const ProfileScreen(),
         ],
       ),
-      bottomNavigationBar: isDesktop
-          ? null
-          : NavigationBar(
-              selectedIndex: _currentTab,
-              onDestinationSelected: (i) => setState(() => _currentTab = i),
-              destinations: const [
-                NavigationDestination(
-                    icon: Icon(Icons.home_outlined),
-                    selectedIcon: Icon(Icons.home),
-                    label: '首页'),
-                NavigationDestination(
-                    icon: Icon(Icons.explore_outlined),
-                    selectedIcon: Icon(Icons.explore),
-                    label: '发现'),
-                NavigationDestination(
-                    icon: Icon(Icons.person_outlined),
-                    selectedIcon: Icon(Icons.person),
-                    label: '我的'),
-              ],
-            ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentTab,
+        onDestinationSelected: (i) {
+          setState(() => _currentTab = i);
+          if (i == 2) _refreshProfile();
+        },
+        destinations: const [
+          NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home),
+              label: '首页'),
+          NavigationDestination(
+              icon: Icon(Icons.explore_outlined),
+              selectedIcon: Icon(Icons.explore),
+              label: '发现'),
+          NavigationDestination(
+              icon: Icon(Icons.person_outlined),
+              selectedIcon: Icon(Icons.person),
+              label: '我的'),
+        ],
+      ),
     );
   }
 
@@ -489,7 +497,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             context, '/playlist/detail',
                                             arguments: {
                                               'gcId': pl.globalCollectionId ??
-                                                  pl.id.toString(),
+                                                  'collection_3_${pl.createUserId}_${pl.id}_0',
                                               'name': pl.name,
                                             });
                                       },

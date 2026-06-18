@@ -205,61 +205,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   void _showRankList(List rankList) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
-    if (isWide) {
-      showDialog(
-        context: context,
-        builder: (ctx) => Dialog(
-          child: SizedBox(
-            width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text('热门榜单',
-                      style: Theme.of(context).textTheme.titleMedium),
-                ),
-                const Divider(height: 1),
-                SizedBox(
-                  height: 400,
-                  child: ListView.builder(
-                    itemCount: rankList.length,
-                    itemBuilder: (_, i) {
-                      final r = rankList[i];
-                      return ListTile(
-                        leading: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: r.coverUrl != null
-                              ? Image.network(r.coverUrl!,
-                                  width: 48,
-                                  height: 48,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      _rankPlaceholder())
-                              : _rankPlaceholder(),
-                        ),
-                        title: Text(r.name,
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          Navigator.pushNamed(context, '/rank/detail',
-                              arguments: {'id': r.id, 'name': r.name});
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    } else {
-      showModalBottomSheet(
-        context: context,
-        builder: (_) => SafeArea(
+    showModalBottomSheet(
+      context: context,
+      builder: (_) {
+        // SafeArea 底部内边距不计入可用高度，否则内容溢出
+        final availableHeight = MediaQuery.of(context).size.height * 0.55
+            - MediaQuery.of(context).padding.bottom;
+        return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -269,41 +221,43 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     style: Theme.of(context).textTheme.titleMedium),
               ),
               const Divider(height: 1),
-              SizedBox(
-                height: 400,
-                child: ListView.builder(
-                  itemCount: rankList.length,
-                  itemBuilder: (_, i) {
-                    final r = rankList[i];
-                    return ListTile(
-                      leading: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: r.coverUrl != null
-                            ? Image.network(r.coverUrl!,
-                                width: 48,
-                                height: 48,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
-                                    _rankPlaceholder())
-                            : _rankPlaceholder(),
-                      ),
-                      title: Text(r.name,
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/rank/detail',
-                            arguments: {'id': r.id, 'name': r.name});
-                      },
-                    );
-                  },
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: availableHeight,
                 ),
-              ),
-            ],
+                child: ListView.builder(
+                itemCount: rankList.length,
+                itemBuilder: (_, i) {
+                  final r = rankList[i];
+                  return ListTile(
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: r.coverUrl != null
+                          ? Image.network(r.coverUrl!,
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  _rankPlaceholder())
+                          : _rankPlaceholder(),
+                    ),
+                    title: Text(r.name,
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/rank/detail',
+                          arguments: {'id': r.id, 'name': r.name});
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
-    }
+    },
+    );
   }
 
   Widget _rankPlaceholder() {

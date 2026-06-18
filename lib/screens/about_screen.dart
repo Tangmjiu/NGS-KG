@@ -1,12 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/theme_assets.dart';
+import '../utils/about_config.dart';
 
 /// 关于页面
-class AboutScreen extends StatelessWidget {
+///
+/// 版本号由 pubspec.yaml 统一管理，运行时通过 package_info_plus 读取。
+/// 其他文本由 [AboutConfig] 提供，编译时可通过 --dart-define 覆盖。
+class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
 
-  static const _year = 2026;
+  @override
+  State<AboutScreen> createState() => _AboutScreenState();
+}
+
+class _AboutScreenState extends State<AboutScreen> {
+  String _version = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    // CI 构建时可通过 --dart-define=ABOUT_VERSION 覆盖版本显示
+    final override = AboutConfig.versionOverride;
+    if (override.isNotEmpty) {
+      setState(() => _version = override);
+      return;
+    }
+    try {
+      final info = await PackageInfo.fromPlatform();
+      setState(() => _version = '${info.version}+${info.buildNumber}');
+    } catch (_) {
+      setState(() => _version = '未知');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,43 +64,27 @@ class AboutScreen extends StatelessWidget {
                   errorBuilder: (_, __, ___) => Container(
                     width: 80,
                     height: 80,
-                    decoration: BoxDecoration(
-                      color: cs.primaryContainer,
-                      borderRadius: BorderRadius.circular(20),
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: cs.primaryContainer,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child:
+                          Icon(Icons.music_note, size: 40, color: cs.primary),
                     ),
                     child: Icon(Icons.music_note, size: 40, color: cs.primary),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text('NGS-KG+', style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 4),
-              Text('版本 1.0.0+1', style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 24),
-
-        // ── 简介 ──
-        Text(
-          '基于酷狗音乐第三方 API 的 Flutter 音乐播放器，'
-          '支持登录、歌单管理、音乐搜索、在线播放、歌词显示、'
-          '排行榜、本地音乐播放等功能。',
-          textAlign: TextAlign.center,
-          style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-        ),
-
-        const SizedBox(height: 32),
-
-        // ── 相关链接 ──
-        _LinkSection(
-          title: '相关链接',
-          items: [
-            _LinkItem(
-              icon: Icons.code,
-              label: 'GitHub 仓库',
-              url: 'https://github.com/Tangmjiu/NGS-KG/',
+                const SizedBox(height: 16),
+                Text(AboutConfig.appName,
+                    style: tt.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                Text('版本 $_version',
+                    style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+              ],
             ),
             _LinkItem(
               icon: Icons.api,
@@ -104,41 +119,112 @@ class AboutScreen extends StatelessWidget {
             color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                'Copyright  2004-$_year KuGou-Inc. All Rights Reserved',
-                textAlign: TextAlign.center,
-                style: tt.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontSize: 11,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '请遵循当地法律使用该软件，在线服务协议最终解释权由广州酷狗计算机科技有限公司所有。',
-                textAlign: TextAlign.center,
-                style: tt.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontSize: 11,
-                ),
-              ),
+
+          const SizedBox(height: 24),
+
+          // ── 简介 ──
+          Text(
+            AboutConfig.description,
+            textAlign: TextAlign.center,
+            style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+          ),
+
+          const SizedBox(height: 32),
+
+          // ── 相关链接 ──
+          _LinkSection(
+            title: '相关链接',
+            items: [
+              _LinkItem(
+                  icon: Icons.code,
+                  label: 'GitHub 仓库',
+                  url: AboutConfig.githubUrl),
+              _LinkItem(
+                  icon: Icons.api, label: '接口文档', url: AboutConfig.apiDocUrl),
+              _LinkItem(
+                  icon: Icons.history,
+                  label: '更新日志',
+                  url: AboutConfig.changelogUrl),
+              _LinkItem(
+                  icon: Icons.help_outline,
+                  label: '常见问题',
+                  url: AboutConfig.faqUrl),
+              _LinkItem(
+                  icon: Icons.palette_outlined,
+                  label: '主题制作',
+                  url: AboutConfig.themeUrl),
             ],
           ),
         ),
 
-        const SizedBox(height: 32),
-      ],
-    );
-    return Scaffold(
-      appBar: AppBar(title: const Text('关于')),
-      body: isWide
-          ? Center(child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: body,
-            ))
-          : body,
+          const SizedBox(height: 32),
+
+          // ── 版权信息（不可编辑） ──
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                RichText(
+                  textAlign: TextAlign.center,
+                  text: TextSpan(
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontSize: 11,
+                    ),
+                    children: [
+                      const TextSpan(text: 'Copyright © 2025-2026 '),
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.middle,
+                        child: GestureDetector(
+                          onTap: () => launchUrl(
+                            Uri.parse(AboutConfig.mjiutangUrl),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                          child: Text(
+                            'mjiutang',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: cs.primary,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const TextSpan(text: '. All Rights Reserved'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Copyright © 2004-2026 KuGou-Inc. All Rights Reserved',
+                  textAlign: TextAlign.center,
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  AboutConfig.copyrightNotice,
+                  textAlign: TextAlign.center,
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 32),
+        ],
+      ),
     );
   }
 }
@@ -174,11 +260,19 @@ class _LinkSection extends StatelessWidget {
               final item = entry.value;
               return Column(
                 children: [
-                  if (i > 0) Divider(height: 1, indent: 16, endIndent: 16, color: cs.outlineVariant),
+                  if (i > 0)
+                    Divider(
+                        height: 1,
+                        indent: 16,
+                        endIndent: 16,
+                        color: cs.outlineVariant),
                   ListTile(
-                    leading: Icon(item.icon, size: 20, color: cs.onSurfaceVariant),
-                    title: Text(item.label, style: Theme.of(context).textTheme.bodyMedium),
-                    trailing: Icon(Icons.chevron_right, size: 18, color: cs.onSurfaceVariant),
+                    leading:
+                        Icon(item.icon, size: 20, color: cs.onSurfaceVariant),
+                    title: Text(item.label,
+                        style: Theme.of(context).textTheme.bodyMedium),
+                    trailing: Icon(Icons.chevron_right,
+                        size: 18, color: cs.onSurfaceVariant),
                     onTap: () => _onTap(context, item),
                   ),
                 ],

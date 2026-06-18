@@ -31,21 +31,59 @@ class SongMapper {
   }
 
   /// Track detail results: audio_info hash_128/320/flac/high, relate_goods
+  ///
+  /// 同时兼容两种响应格式：
+  /// - 扁平格式（playlist/track/all）：{ name, hash, cover, audio_id, timelen, ... }
+  /// - 嵌套格式（album/songs）：{ base: { audio_name, author_name, audio_id },
+  ///     audio_info: { hash, duration_128 }, album_info: { cover }, trans_param: { union_cover } }
   static Song? fromTrackJson(Map<String, dynamic> json) {
     try {
-      final rawName = (json['name'] as String?) ?? '';
-      final parts = rawName.split(' - ');
+      // ── 扁平名称（兼容 playlist） ──
+      String? rawName = json['name'] as String?;
+
+      // ── 嵌套格式（album/songs）：从 base 中提取名称和歌手 ──
+      final base = json['base'] as Map<String, dynamic>?;
+      final nestedName = base?['audio_name'] as String?;
+      final nestedArtist = base?['author_name'] as String?;
+      if (rawName == null || rawName.isEmpty) {
+        if (nestedName != null && nestedName.isNotEmpty) {
+          rawName = nestedArtist != null && nestedArtist.isNotEmpty
+              ? '$nestedArtist - $nestedName'
+              : nestedName;
+        }
+      }
+      rawName ??= '';
+      final parts = rawName!.split(' - ');
+
+      // ── 封面：优先扁平字段，回退到 album_info / trans_param ──
       var cover = json['cover'] as String? ??
           json['album_cover'] as String? ??
           json['imgUrl'] as String? ??
           json['album_logo'] as String?;
+      if (cover == null || cover.isEmpty) {
+        final albumInfo = json['album_info'] as Map<String, dynamic>?;
+        cover = albumInfo?['cover'] as String?;
+      }
+      if (cover == null || cover.isEmpty) {
+        final transParam = json['trans_param'] as Map<String, dynamic>?;
+        cover = transParam?['union_cover'] as String?;
+      }
       if (cover != null) {
         cover = cover.replaceAll('{size}', '480');
         if (cover.startsWith('//')) cover = 'https:$cover';
       }
+
+      // ── hash ──
       final q = <String, String>{};
-      final hash = json['hash'] as String?;
+      String? hash = json['hash'] as String?;
+      // 扁平 hash 不存在时从 audio_info 取
+      if (hash == null || hash.isEmpty) {
+        final audioInfo = json['audio_info'] as Map<String, dynamic>?;
+        hash = audioInfo?['hash'] as String? ?? audioInfo?['hash_128'] as String?;
+      }
       if (hash != null && hash.isNotEmpty) q['128'] = hash;
+
+      // ── 音质哈希（audio_info） ──
       final audioInfo = json['audio_info'];
       if (audioInfo is Map) {
         final fields = {
@@ -78,6 +116,8 @@ class SongMapper {
           }
         }
       }
+
+      // ── 歌手 ──
       String artist;
       if (parts.length > 1) {
         artist = parts[0];
@@ -86,15 +126,31 @@ class SongMapper {
             ?? json['artist'] as String?
             ?? json['author'] as String?
             ?? json['singer'] as String?
+            ?? nestedArtist
             ?? '';
       }
+
+      // ── 时长：优先扁平 timelen，回退到 audio_info.duration_128 ──
+      int? timelen = json['timelen'] as int?;
+      if (timelen == null || timelen <= 0) {
+        final ai = json['audio_info'] as Map<String, dynamic>?;
+        timelen = ai?['duration_128'] as int?;
+      }
+      timelen ??= 0;
+
+      // ── album_id 回退到 base ──
+      int? albumId = _tryInt(json['album_id']);
+      if (albumId == 0 && base != null) {
+        albumId = _tryInt(base['album_id']);
+      }
+
       return Song(
-        id: _tryInt(json['audio_id'] ?? json['id']),
+        id: _tryInt(json['audio_id'] ?? base?['audio_id'] ?? json['id']),
         name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
         artists: [artist],
         albumCoverUrl: cover,
-        albumId: _tryInt(json['album_id']),
-        duration: (json['timelen'] as int? ?? 0) ~/ 1000,
+        albumId: albumId,
+        duration: timelen ~/ 1000,
         hash: hash,
         qualities: q.isNotEmpty ? q : null,
         fileId: _tryInt(json['fileid']),

@@ -22,17 +22,11 @@ class DiscoverPlaylistRow extends StatelessWidget {
           final pl = playlists[i];
           return GestureDetector(
             onTap: () {
-              if (pl.globalCollectionId != null) {
-                Navigator.pushNamed(context, '/playlist/detail', arguments: {
-                  'gcId': pl.globalCollectionId,
-                  'name': pl.name,
-                });
-              } else {
-                Navigator.pushNamed(context, '/playlist/detail', arguments: {
-                  'gcId': pl.id.toString(),
-                  'name': pl.name,
-                });
-              }
+              Navigator.pushNamed(context, '/playlist/detail', arguments: {
+                'gcId': pl.globalCollectionId ??
+                    'collection_3_${pl.createUserId}_${pl.id}_0',
+                'name': pl.name,
+              });
             },
             child: Container(
               width: 140,

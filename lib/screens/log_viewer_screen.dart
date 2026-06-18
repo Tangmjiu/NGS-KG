@@ -180,28 +180,37 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                       ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 4),
-              // Log list
-              Expanded(
-                child: ValueListenableBuilder<LogEntry?>(
-                  valueListenable: Log.onEntry,
-                  builder: (_, __, ___) {
-                    final entries = _filtered;
-                    if (entries.isEmpty) {
-                      return const Center(child: Text('暂无日志'));
-                    }
-                    return ListView.builder(
-                      controller: _scroll,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 2),
-                      itemCount: entries.length,
-                      itemExtent: _showDetail ? 64 : 24,
-                      itemBuilder: (_, i) {
-                        final e = entries[i];
-                        return _buildLogRow(e, bg);
-                      },
-                    );
+                if (_filterTag.text.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    onPressed: () {
+                      _filterTag.clear();
+                      setState(() => _tagFilter = '');
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          // Log list
+          Expanded(
+            child: ValueListenableBuilder<LogEntry?>(
+              valueListenable: Log.onEntry,
+              builder: (_, __, ___) {
+                final entries = _filtered;
+                if (entries.isEmpty) {
+                  return const Center(child: Text('暂无日志'));
+                }
+                return ListView.builder(
+                  controller: _scroll,
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  itemCount: entries.length,
+                  itemExtent: _showDetail ? 72 : 24,
+                  itemBuilder: (_, i) {
+                    final e = entries[i];
+                    return _buildLogRow(e, bg);
                   },
                 ),
               ),
@@ -267,16 +276,16 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                         fontSize: 10,
                         color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  decoration: BoxDecoration(
-                    color: bg,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  child: Text(e.tag,
-                      style: const TextStyle(
-                          fontSize: 10, fontWeight: FontWeight.w500)),
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(2),
                 ),
+                child: Text(e.tag, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
+              ),
+            ),
               ],
             ),
             const SizedBox(height: 2),
@@ -298,27 +307,16 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         children: [
-          Text(e.level,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: _levelColor(e.level),
-              )),
-          const SizedBox(width: 4),
-          Text('${_fmtTime(e.time)}',
-              style: TextStyle(
-                  fontSize: 10,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant)),
-          const SizedBox(width: 4),
-          Text('[${e.tag}]',
-              style:
-                  const TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
-          const SizedBox(width: 4),
-          Expanded(
-              child: Text(e.message,
-                  style: const TextStyle(fontSize: 10),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis)),
+            Text(e.level, style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.bold,
+              color: _levelColor(e.level),
+            )),
+            const SizedBox(width: 4),
+            Text('${_fmtTime(e.time)}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            const SizedBox(width: 4),
+            Flexible(child: Text('[${e.tag}]', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+            const SizedBox(width: 4),
+            Expanded(child: Text(e.message, style: const TextStyle(fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis)),
         ],
       ),
     );

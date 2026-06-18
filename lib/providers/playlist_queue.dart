@@ -92,15 +92,90 @@ class PlaylistQueue extends ValueNotifier<int> {
   int? previousIndex() {
     if (_playlist.isEmpty) return null;
     if (_playMode == PlayMode.shuffle) {
-      _shufflePos = (_shufflePos - 1 + _shuffleOrder.length) % _shuffleOrder.length;
+      if (_shuffleOrder.isEmpty) {
+        _initShuffle();
+      }
+      if (_shuffleOrder.isEmpty) return null;
+      _shufflePos =
+          (_shufflePos - 1 + _shuffleOrder.length) % _shuffleOrder.length;
       return _shuffleOrder[_shufflePos];
     }
     return (_currentIndex - 1 + _playlist.length) % _playlist.length;
   }
 
+  void insertAt(int index, Song song) {
+    if (index < 0 || index > _playlist.length) return;
+    _playlist.insert(index, song);
+    if (index <= _currentIndex) {
+      _currentIndex++;
+    }
+    if (_playMode == PlayMode.shuffle && _shuffleOrder.isNotEmpty) {
+      for (int i = 0; i < _shuffleOrder.length; i++) {
+        if (_shuffleOrder[i] >= index) _shuffleOrder[i]++;
+      }
+    }
+    notifyListeners();
+  }
+
+  void removeAt(int index) {
+    if (index < 0 || index >= _playlist.length) return;
+    _playlist.removeAt(index);
+    if (_currentIndex >= _playlist.length) {
+      _currentIndex = _playlist.length - 1;
+    } else if (index < _currentIndex) {
+      _currentIndex--;
+    }
+    if (_playMode == PlayMode.shuffle && _shuffleOrder.isNotEmpty) {
+      _shuffleOrder.removeWhere((i) => i == index);
+      for (int i = 0; i < _shuffleOrder.length; i++) {
+        if (_shuffleOrder[i] > index) _shuffleOrder[i]--;
+      }
+    }
+    notifyListeners();
+  }
+
+  void move(int from, int to) {
+    if (from < 0 || from >= _playlist.length) return;
+    if (to < 0 || to >= _playlist.length) return;
+    if (from == to) return;
+    final song = _playlist.removeAt(from);
+    _playlist.insert(to, song);
+    if (_currentIndex == from) {
+      _currentIndex = to;
+    } else {
+      if (from < _currentIndex && to >= _currentIndex) {
+        _currentIndex--;
+      } else if (from > _currentIndex && to <= _currentIndex) {
+        _currentIndex++;
+      }
+    }
+    if (_playMode == PlayMode.shuffle && _shuffleOrder.isNotEmpty) {
+      for (int i = 0; i < _shuffleOrder.length; i++) {
+        if (_shuffleOrder[i] == from) {
+          _shuffleOrder[i] = to;
+        } else if (from < to) {
+          if (_shuffleOrder[i] > from && _shuffleOrder[i] <= to) {
+            _shuffleOrder[i]--;
+          }
+        } else {
+          if (_shuffleOrder[i] >= to && _shuffleOrder[i] < from) {
+            _shuffleOrder[i]++;
+          }
+        }
+      }
+    }
+    notifyListeners();
+  }
+
   void append(List<Song> songs) {
     if (songs.isEmpty) return;
+    final oldLen = _playlist.length;
     _playlist.addAll(songs);
+    if (_playMode == PlayMode.shuffle && _shuffleOrder.isNotEmpty) {
+      for (int i = oldLen; i < _playlist.length; i++) {
+        _shuffleOrder.add(i);
+      }
+    }
     notifyListeners();
   }
 
@@ -110,6 +185,11 @@ class PlaylistQueue extends ValueNotifier<int> {
   }
 
   void _initShuffle() {
+    if (_playlist.isEmpty) {
+      _shuffleOrder = [];
+      _shufflePos = -1;
+      return;
+    }
     _shuffleOrder = List.generate(_playlist.length, (i) => i);
     _shuffleOrder.shuffle(_random);
     final currentPos = _shuffleOrder.indexOf(_currentIndex);
@@ -122,8 +202,9 @@ class PlaylistQueue extends ValueNotifier<int> {
     }
   }
 
-  int _nextShuffleIndex() {
+  int? _nextShuffleIndex() {
     if (_shuffleOrder.isEmpty) _initShuffle();
+    if (_shuffleOrder.isEmpty) return null;
     _shufflePos = (_shufflePos + 1) % _shuffleOrder.length;
     if (_shufflePos == 0 && _shuffleOrder.length > 1) {
       final last = _shuffleOrder.last;

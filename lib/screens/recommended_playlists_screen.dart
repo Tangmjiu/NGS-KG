@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/playlist.dart';
 import '../services/music_service.dart';
@@ -14,7 +15,7 @@ class RecommendedPlaylistsScreen extends StatefulWidget {
 
 class _RecommendedPlaylistsScreenState
     extends State<RecommendedPlaylistsScreen> {
-  final _musicService = MusicService();
+  late final MusicService _musicService = context.read<MusicService>();
   final List<Playlist> _playlists = [];
   bool _loading = true;
   bool _hasMore = true;
