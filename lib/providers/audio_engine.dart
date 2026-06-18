@@ -398,6 +398,10 @@ class AudioEngine {
     isLoading.value = true;
     isCompleting.value = false;
     resolvedQualityNotifier.value = null;
+    // 先标记无活跃播放，防止 idle 回调误报错误
+    _hasActivePlayback = false;
+    // 立即停掉当前播放，避免新旧音频串混
+    _player.stop();
   }
 
   Future<void> seek(Duration pos) async {
