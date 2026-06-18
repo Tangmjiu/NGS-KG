@@ -224,17 +224,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
         ],
-    );
-    return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
-      body: isWide
-          ? Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: body,
-              ),
-            )
-          : body,
+      ),
     );
   }
 }

@@ -104,54 +104,17 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final screenWidth = MediaQuery.sizeOf(context).width;
-
-    final content = NestedScrollView(
-      headerSliverBuilder: (_, __) => [
-        SliverAppBar(
-          expandedHeight: 240,
-          pinned: true,
-          flexibleSpace: FlexibleSpaceBar(
-            background: _buildHeaderBackground(cs, tt),
-          ),
-          actions: [
-            IconButton(
-              icon: Icon(
-                _isFollowing ? Icons.favorite : Icons.favorite_border,
-                color: _isFollowing ? cs.error : null,
-              ),
-              tooltip: _isFollowing ? '取消关注' : '关注',
-              onPressed: _toggleFollow,
-            ),
-          ],
-          bottom: TabBar(
-            controller: _tabCtrl,
-            tabs: [
-              const Tab(text: '单曲'),
-              const Tab(text: '专辑'),
-              Tab(text: 'MV (${_videos.length})'),
-            ],
-          ),
-        ),
-      ],
-      body: TabBarView(
-        controller: _tabCtrl,
-        children: [
-          _buildSongsTab(cs, tt),
-          _buildAlbumsTab(cs, tt),
-          _buildVideosTab(cs, tt),
-        ],
-      ),
-    );
 
     return Scaffold(
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : screenWidth >= 880
-              ? Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 600),
-                    child: content,
+          : NestedScrollView(
+              headerSliverBuilder: (_, __) => [
+                SliverAppBar(
+                  expandedHeight: 240,
+                  pinned: true,
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: _buildHeaderBackground(cs, tt),
                   ),
                   actions: [
                     IconButton(
@@ -207,7 +170,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
               end: Alignment.bottomCenter,
               colors: [
                 Colors.transparent,
-                cs.scrim.withValues(alpha: 0.7),
+                Colors.black.withValues(alpha: 0.7),
               ],
             ),
           ),
@@ -245,11 +208,11 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(_artistName,
-                      style: tt.titleLarge?.copyWith(color: cs.onSurface)),
+                      style: tt.titleLarge?.copyWith(color: Colors.white)),
                   const SizedBox(height: 4),
                   Text(
                     '${_songs.length} 首单曲 · ${_albums.length} 张专辑',
-                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    style: tt.bodySmall?.copyWith(color: Colors.white70),
                   ),
                 ],
               ),

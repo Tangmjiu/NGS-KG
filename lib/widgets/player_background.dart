@@ -146,7 +146,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
               height: double.infinity,
               imageBuilder: (context, imageProvider) {
                 return ImageFiltered(
-                  imageFilter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  imageFilter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
                   child: Image(
                     image: imageProvider,
                     fit: BoxFit.cover,
@@ -216,7 +216,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
               end: Alignment.bottomCenter,
               colors: [
                 Colors.transparent,
-                cs.scrim.withValues(alpha: 0.7),
+                Colors.black.withValues(alpha: 0.7),
               ],
             ),
           ),

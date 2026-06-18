@@ -100,7 +100,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: (MediaQuery.of(context).size.height * 0.35).clamp(200, 320),
+            expandedHeight: MediaQuery.of(context).size.height * 0.35,
             pinned: true,
             title: _isSelecting
                 ? Text('已选 ${_selectedIndices.length} 首')
@@ -132,7 +132,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          cs.scrim.withValues(alpha: 0.7),
+                          Colors.black.withValues(alpha: 0.7),
                         ],
                       ),
                     ),
@@ -164,14 +164,14 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                           children: [
                             Text(name,
                                 style: tt.titleLarge
-                                    ?.copyWith(color: cs.onSurface),
+                                    ?.copyWith(color: Colors.white),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis),
                             if (artist.isNotEmpty) ...[
                               const SizedBox(height: 4),
                               Text(artist,
                                   style: tt.bodySmall
-                                      ?.copyWith(color: cs.onSurfaceVariant)),
+                                      ?.copyWith(color: Colors.white70)),
                             ],
                           ],
                         ),
@@ -301,17 +301,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
             ),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
-      );
-
-    return Scaffold(
-      body: screenWidth >= 880
-          ? Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: scrollView,
-              ),
-            )
-          : scrollView,
+      ),
     );
   }
 

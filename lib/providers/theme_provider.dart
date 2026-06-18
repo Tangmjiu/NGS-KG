@@ -354,25 +354,6 @@ class ThemeProvider extends ChangeNotifier {
         seedColor: const Color(0xFF2CA1F4),
         brightness: brightness,
       );
-    } else {
-      final preset = currentPreset;
-      if (preset != null) {
-        base = FlexThemeData.light(
-          colors: preset.schemeColor,
-          surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
-          blendLevel: 20,
-          appBarElevation: 0,
-          subThemesData: _subThemesData,
-        );
-      } else {
-        base = FlexThemeData.light(
-          colors: FlexSchemeColor.from(primary: _customColor, brightness: Brightness.light),
-          surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
-          blendLevel: 20,
-          appBarElevation: 0,
-          subThemesData: _subThemesData,
-        );
-      }
     }
 
     // 2. 强调色覆盖
@@ -393,7 +374,7 @@ class ThemeProvider extends ChangeNotifier {
 
     // 4. 默认回退
     return ColorScheme.fromSeed(
-      seedColor: effectiveColor,
+      seedColor: const Color(0xFF2CA1F4),
       brightness: brightness,
     );
   }

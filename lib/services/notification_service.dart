@@ -18,12 +18,6 @@ class NotificationService {
   static NotificationService get instance => _instance;
   NotificationService._();
 
-  // ─── 回调 ───
-  VoidCallback? onNotificationTap;
-  VoidCallback? onPrev;
-  VoidCallback? onPlayPause;
-  VoidCallback? onNext;
-
   // ─── 原生通信 ───
 
   static const _mediaChannel = MethodChannel('com.mjiutang.ngskg/media_session');
@@ -56,15 +50,8 @@ class NotificationService {
 
     // Android 13+ 通知权限请求
     if (Platform.isAndroid) {
-      const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-      await _pluginInstance.initialize(
-        const InitializationSettings(android: androidSettings),
-        onDidReceiveNotificationResponse: _onLegacyTap,
-      );
-
-      // Android 13+ 通知权限请求
       try {
-        final p = _pluginInstance.resolvePlatformSpecificImplementation<
+        final p = _plugin.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
         await p?.requestNotificationsPermission();
       } catch (_) {}
@@ -166,7 +153,7 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
     );
-    await _pluginInstance.show(
+    await _plugin.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
       title,
       body,

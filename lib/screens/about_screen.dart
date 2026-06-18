@@ -44,24 +44,22 @@ class _AboutScreenState extends State<AboutScreen> {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
 
-    final isWide = MediaQuery.of(context).size.width >= 880;
-    final body = ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      children: [
-        const SizedBox(height: 32),
+    return Scaffold(
+      appBar: AppBar(title: const Text('关于')),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        children: [
+          const SizedBox(height: 32),
 
-        // ── 图标 + 名称 + 版本 ──
-        Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Image.asset(
-                  ThemeAssets.icon,
-                  width: 80,
-                  height: 80,
-                  errorBuilder: (_, __, ___) => Container(
+          // ── 图标 + 名称 + 版本 ──
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image.asset(
+                    ThemeAssets.icon,
                     width: 80,
                     height: 80,
                     errorBuilder: (_, __, ___) => Container(
@@ -74,7 +72,6 @@ class _AboutScreenState extends State<AboutScreen> {
                       child:
                           Icon(Icons.music_note, size: 40, color: cs.primary),
                     ),
-                    child: Icon(Icons.music_note, size: 40, color: cs.primary),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -86,38 +83,6 @@ class _AboutScreenState extends State<AboutScreen> {
                     style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
               ],
             ),
-            _LinkItem(
-              icon: Icons.api,
-              label: '接口文档',
-              url: 'https://github.com/MakcRe/KuGouMusicApi',
-            ),
-            _LinkItem(
-              icon: Icons.history,
-              label: '更新日志',
-              url: 'https://github.com/Tangmjiu/NGS-KG/releases',
-            ),
-            _LinkItem(
-              icon: Icons.help_outline,
-              label: '常见问题',
-              url: 'https://github.com/Tangmjiu/NGS-KG/blob/main/FAQ.md',
-            ),
-            _LinkItem(
-              icon: Icons.palette_outlined,
-              label: '主题制作',
-              url: 'https://github.com/Tangmjiu/NGS-KG/blob/main/THEME.md',
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 32),
-
-        // ── 版权信息 ──
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(12),
           ),
 
           const SizedBox(height: 24),
@@ -155,7 +120,6 @@ class _AboutScreenState extends State<AboutScreen> {
                   url: AboutConfig.themeUrl),
             ],
           ),
-        ),
 
           const SizedBox(height: 32),
 
