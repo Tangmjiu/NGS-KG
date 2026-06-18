@@ -260,6 +260,12 @@ class PlayerProvider extends ChangeNotifier
     WidgetsBinding.instance.addPostFrameCallback((_) => restorePlaybackState());
   }
 
+  /// Clears the entire playlist.
+  void clearPlaylist() {
+    _queue.setPlaylist([]);
+    notifyListeners();
+  }
+
   void clearError() {
     _engine.clearError();
   }
