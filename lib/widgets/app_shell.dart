@@ -9,6 +9,7 @@ import '../providers/theme_provider.dart';
 import '../models/song.dart';
 import '../services/api_client.dart';
 import '../services/update_checker.dart';
+import '../screens/player_screen.dart';
 import '../widgets/support_me_dialog.dart';
 import '../widgets/update_dialog.dart';
 
@@ -73,7 +74,12 @@ class _MobileMiniPlayer extends StatelessWidget {
 
         return Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          child: ClipRRect(
+          child: GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PlayerScreen()),
+            ),
+            child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: Container(
               decoration: BoxDecoration(
@@ -166,6 +172,7 @@ class _MobileMiniPlayer extends StatelessWidget {
                 ],
               ),
             ),
+          ),
           ),
         );
       },
