@@ -28,13 +28,12 @@ import 'providers/audio_settings_provider.dart';
 import 'utils/preview_config.dart';
 import 'theme/theme_assets.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-
-final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
+import 'utils/navigation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 初始化跨平台 SQLite（Windows 需 FFI�?
+  // 初始化跨平台 SQLite（Windows 需 FFI�?
   sqfliteFfiInit();
 
   await Log.init();
@@ -98,7 +97,7 @@ Future<void> main() async {
     );
   };
 
-  // 只对后台初始化任务使�?zone 捕获异常
+  // 只对后台初始化任务使�?zone 捕获异常
   runZonedGuarded(() {
     _initDevice();
     _initNotifications();
@@ -113,15 +112,15 @@ Future<void> main() async {
   final audioSettings = AudioSettingsProvider()..init();
   final themeProvider = ThemeProvider()..init();
   final likedSongs = LikedSongsProvider(musicService);
-  // 先初始化认证（从本地文件加载），避免 auth 准备就绪�?PlayerProvider 发起网络请求
+  // 先初始化认证（从本地文件加载），避免 auth 准备就绪�?PlayerProvider 发起网络请求
   final authProvider = AuthProvider(authService, likedSongs: likedSongs);
-  // 小延迟确保文件读取完成；ready �?_loadSavedUser() 完成后触�?
+  // 小延迟确保文件读取完成；ready �?_loadSavedUser() 完成后触�?
   unawaited(authProvider.ready.then((_) {
     Log.i('main', 'AuthProvider ready, user=${authProvider.isLoggedIn}');
   }));
-  // 注意：此处不能阻�?runApp —�?authProvider 在构造时已启�?_loadSavedUser()
-  // apiClient.setAuth �?_loadSavedUser 内调用，PlayerProvider �?restorePlaybackState
-  // �?addPostFrameCallback 调度，通常�?auth 就绪之后才执行�?
+  // 注意：此处不能阻�?runApp —�?authProvider 在构造时已启�?_loadSavedUser()
+  // apiClient.setAuth �?_loadSavedUser 内调用，PlayerProvider �?restorePlaybackState
+  // �?addPostFrameCallback 调度，通常�?auth 就绪之后才执行�?
   runApp(
     MultiProvider(
       providers: [
@@ -142,7 +141,7 @@ Future<void> main() async {
     ),
   );
 
-  // 桌面端初始化（SMTC / 托盘 / 窗口管理�?
+  // 桌面端初始化（SMTC / 托盘 / 窗口管理�?
   WidgetsBinding.instance.addPostFrameCallback((_) {
     _initDesktopServices();
   });
@@ -155,7 +154,7 @@ Future<void> _initDesktopServices() async {
     final player = ctx.read<PlayerProvider>();
     await DesktopService.instance.init(player);
 
-    // 监听播放器状�?�?同步桌面服务
+    // 监听播放器状�?�?同步桌面服务
     player.addListener(() {
       String? lyricText;
       final idx = player.lyricController.activeIndexNotifiter.value;
@@ -242,7 +241,7 @@ class NGSKGApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // DynamicColorBuilder �?Android 12+ 可用，其他平台传 null
+    // DynamicColorBuilder �?Android 12+ 可用，其他平台传 null
     if (Platform.isAndroid) {
       return DynamicColorBuilder(
         builder: (lightDynamic, darkDynamic) {
@@ -275,7 +274,7 @@ class NGSKGApp extends StatelessWidget {
           builder: (context, child) {
             return Stack(
               children: [
-                // ── 全局主题背景（首�?发现/搜索等页面共用） ──
+                // ── 全局主题背景（首�?发现/搜索等页面共用） ──
                 if (ThemeAssets.playerBg.isNotEmpty)
                   Positioned.fill(
                     child: ImageFiltered(
@@ -295,4 +294,6 @@ class NGSKGApp extends StatelessWidget {
         );
       },
     );
+  }
+}
 
