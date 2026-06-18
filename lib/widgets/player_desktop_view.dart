@@ -1,16 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_lyric/flutter_lyric.dart';
 import '../providers/player_provider.dart';
 import '../providers/liked_songs_provider.dart';
 import '../models/song.dart';
 import '../constants/quality.dart';
 import '../widgets/player_background.dart';
-import '../widgets/am_lyrics_view.dart';
 import '../widgets/player_progress_bar.dart';
 import '../widgets/player_controls_bar.dart';
 import '../screens/audio_effects_screen.dart';
 import '../widgets/playlist_side_sheet.dart';
+
+/// LyricView 样式（Apple Music 风格）
+final _desktopLyricStyle = LyricStyle(
+  textStyle: const TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    height: 1.4,
+  ),
+  activeTextStyle: const TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+  ),
+  lineSpacing: 24.0,
+  textAlign: TextAlign.center,
+  activeTextColor: Colors.white,
+  inactiveTextColor: Colors.white60,
+  showTranslation: true,
+);
 
 /// 桌面全宽沉浸播放器（双栏：左封面 + 右歌词）。
 ///
@@ -129,17 +147,9 @@ class _PlayerDesktopViewState extends State<PlayerDesktopView> {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: AMLyricsView(
-                lyrics: player.lyrics,
-                position: _isDragging
-                    ? Duration(
-                        milliseconds:
-                            (_dragValue * player.duration.inMilliseconds)
-                                .round(),
-                      )
-                    : player.position,
-                isLoading: false,
-                onSeek: (d) => player.seek(d),
+              child: LyricView(
+                controller: player.lyricController,
+                style: _desktopLyricStyle,
               ),
             ),
           ),
@@ -171,18 +181,10 @@ class _PlayerDesktopViewState extends State<PlayerDesktopView> {
             child: Padding(
               padding: const EdgeInsets.symmetric(
                   horizontal: 24, vertical: 32),
-              child: AMLyricsView(
+              child: LyricView(
                 key: ValueKey('desktop_lyrics_${song.hash ?? song.id}'),
-                lyrics: player.lyrics,
-                position: _isDragging
-                    ? Duration(
-                        milliseconds:
-                            (_dragValue * player.duration.inMilliseconds)
-                                .round(),
-                      )
-                    : player.position,
-                isLoading: player.lyrics.isEmpty,
-                onSeek: (d) => player.seek(d),
+                controller: player.lyricController,
+                style: _desktopLyricStyle,
               ),
             ),
           ),
