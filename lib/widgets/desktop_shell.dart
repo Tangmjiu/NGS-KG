@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
+import 'app_overlays.dart';
 import '../services/music_service.dart';
 import '../models/playlist.dart';
 import '../models/song.dart';
@@ -456,44 +457,54 @@ class _DesktopShellState extends State<DesktopShell> {
 
     final cs = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      body: Column(
-        children: [
-          // ── Main content: sidebar + content area ──
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                DesktopSidebar(
-                  activeNavId: _currentNavId,
-                  activePlaylistId: _playlistLoaded && _playlistId != null
-                      ? int.tryParse(_playlistId!)
-                      : null,
-                  onNavSelected: _onNavSelected,
-                  onPlaylistSelected: _onPlaylistSelected,
-                  onSearchChanged: _onSearchChanged,
-                  searchQuery: _searchQuery,
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: cs.surface,
+          body: Column(
+            children: [
+              // ── Main content: sidebar + content area ──
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DesktopSidebar(
+                      activeNavId: _currentNavId,
+                      activePlaylistId: _playlistLoaded && _playlistId != null
+                          ? int.tryParse(_playlistId!)
+                          : null,
+                      onNavSelected: _onNavSelected,
+                      onPlaylistSelected: _onPlaylistSelected,
+                      onSearchChanged: _onSearchChanged,
+                      searchQuery: _searchQuery,
+                    ),
+                    // ── Content area ──
+                    Expanded(
+                      child: _buildContent(),
+                    ),
+                  ],
                 ),
-                // ── Content area ──
-                Expanded(
-                  child: _buildContent(),
-                ),
-              ],
-            ),
-          ),
+              ),
 
-          // ── Bottom player bar ──
-          _DesktopPlayerBar(
-            volume: _playerVolume,
-            onVolumeChanged: (v) {
-              setState(() => _playerVolume = v);
-              context.read<PlayerProvider>().setVolume(v);
-            },
-            onOpenPlayer: _openPlayer,
+              // ── Bottom player bar ──
+              _DesktopPlayerBar(
+                volume: _playerVolume,
+                onVolumeChanged: (v) {
+                  setState(() => _playerVolume = v);
+                  context.read<PlayerProvider>().setVolume(v);
+                },
+                onOpenPlayer: _openPlayer,
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+
+        // ── 全局覆盖层弹窗 ──
+        const ContinuePlayOverlay(),
+        const SupportPopupHandler(),
+        const UpdateCheckHandler(),
+        const LoginPromptOverlay(),
+      ],
     );
   }
 }

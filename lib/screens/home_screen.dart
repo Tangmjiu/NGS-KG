@@ -9,9 +9,8 @@ import '../models/latest_listen_info.dart';
 import '../services/music_service.dart';
 import '../models/song_mapper.dart';
 import '../utils/logger.dart';
-import 'discover_screen.dart';
-import 'profile_screen.dart';
 import 'search_screen.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,7 +20,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentTab = 0;
   final MusicService _musicService = MusicService();
   List<Song> _recommended = [];
   List<Song> _dailySongs = [];
@@ -363,40 +361,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width >= 880;
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentTab,
-        children: [
-          _buildHome(),
-          const DiscoverScreen(),
-          const ProfileScreen(),
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentTab,
-        onDestinationSelected: (i) {
-          setState(() => _currentTab = i);
-          if (i == 2) _refreshProfile();
-        },
-        destinations: const [
-          NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: '首页'),
-          NavigationDestination(
-              icon: Icon(Icons.explore_outlined),
-              selectedIcon: Icon(Icons.explore),
-              label: '发现'),
-          NavigationDestination(
-              icon: Icon(Icons.person_outlined),
-              selectedIcon: Icon(Icons.person),
-              label: '我的'),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => _buildHome();
 
   Widget _buildHome() {
     final cs = Theme.of(context).colorScheme;
