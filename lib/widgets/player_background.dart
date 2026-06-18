@@ -135,7 +135,8 @@ class _PlayerBackgroundState extends State<PlayerBackground>
 
         // Layer 2: Blurred album art, dims as lyrics appear
         // Hidden when flowing light is active so the colour blobs are visible.
-        if (!flowEnabled && widget.albumCoverUrl != null)
+        // Fallback to album art when flow is enabled but palette isn't ready.
+        if ((!flowEnabled || !hasColors) && widget.albumCoverUrl != null)
           Opacity(
             opacity: 1.0 - widget.scrollOffset * 0.6,
             child: CachedNetworkImage(
@@ -160,7 +161,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
           ),
 
         // Layer 2b: Fallback to theme pack player background when no album art
-        if (!flowEnabled && widget.albumCoverUrl == null && ThemeAssets.playerBg.isNotEmpty)
+        if ((!flowEnabled || !hasColors) && widget.albumCoverUrl == null && ThemeAssets.playerBg.isNotEmpty)
           Positioned.fill(
             child: ImageFiltered(
               imageFilter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
