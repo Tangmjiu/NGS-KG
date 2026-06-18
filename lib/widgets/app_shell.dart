@@ -40,6 +40,7 @@ class _AppShellState extends State<AppShell> {
               const _ContinuePlayOverlay(),
               const _SupportPopupHandler(),
               const _UpdateCheckHandler(),
+              const _LoginPromptOverlay(),
             ],
           );
         }
@@ -67,6 +68,7 @@ class _AppShellState extends State<AppShell> {
         const _ContinuePlayOverlay(),
         const _SupportPopupHandler(),
         const _UpdateCheckHandler(),
+        const _LoginPromptOverlay(),
       ],
     );
   }
@@ -392,6 +394,58 @@ class _UpdateCheckHandlerState extends State<_UpdateCheckHandler> {
     if (release != null && mounted) {
       showUpdateDialog(context, release);
     }
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
+/// 启动时未登录 → 风控提示弹窗（延迟显示，等其他弹窗先弹出）
+class _LoginPromptOverlay extends StatefulWidget {
+  const _LoginPromptOverlay();
+  @override
+  State<_LoginPromptOverlay> createState() => _LoginPromptOverlayState();
+}
+
+class _LoginPromptOverlayState extends State<_LoginPromptOverlay> {
+  bool _shown = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_shown) {
+      _shown = true;
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) _maybeShow();
+      });
+    }
+  }
+
+  Future<void> _maybeShow() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.isLoggedIn) return;
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('风控提示'),
+        content: const Text('由于酷狗风控机制，建议您登录后再使用'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('知道了'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pushNamed(context, '/login');
+            },
+            child: const Text('登录'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
