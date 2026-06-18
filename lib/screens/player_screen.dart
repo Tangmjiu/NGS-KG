@@ -405,78 +405,88 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       ),
                     ),
 
-                    // ── Song info ──
-                    _buildSongInfo(song),
+                    // ── 底部控制区（自适应高度，防止溢出） ──
+                    Flexible(
+                      flex: 0,
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // ── Song info ──
+                            _buildSongInfo(song),
 
-                    // ── Progress bar ──
-                    PlayerProgressBar(
-                      position: player.position,
-                      duration: player.duration,
-                      progress: _isDraggingProgress
-                          ? _dragProgressValue
-                          : (player.progress.isFinite ? player.progress : 0.0),
-                      climaxPosition: player.climaxMs,
-                      onDragStart: () {
-                        setState(() => _isDraggingProgress = true);
-                        // 拖拽开始时同步歌词进度
-                        final pos = Duration(
-                          milliseconds:
-                              (_dragProgressValue * player.duration.inMilliseconds)
-                                  .round(),
-                        );
-                        player.lyricController.setProgress(pos);
-                      },
-                      onDragEnd: () async {
-                        await player.seek(Duration(
-                          milliseconds: (_dragProgressValue *
-                                  player.duration.inMilliseconds)
-                              .round(),
-                        ));
-                        if (mounted) {
-                          setState(() => _isDraggingProgress = false);
-                        }
-                      },
-                      onSeek: (v) {
-                        _dragProgressValue = v;
-                        if (_isDraggingProgress) {
-                          final pos = Duration(
-                            milliseconds:
-                                (v * player.duration.inMilliseconds).round(),
-                          );
-                          player.lyricController.setProgress(pos);
-                        }
-                      },
+                            // ── Progress bar ──
+                            PlayerProgressBar(
+                              position: player.position,
+                              duration: player.duration,
+                              progress: _isDraggingProgress
+                                  ? _dragProgressValue
+                                  : (player.progress.isFinite ? player.progress : 0.0),
+                              climaxPosition: player.climaxMs,
+                              onDragStart: () {
+                                setState(() => _isDraggingProgress = true);
+                                final pos = Duration(
+                                  milliseconds:
+                                      (_dragProgressValue * player.duration.inMilliseconds)
+                                          .round(),
+                                );
+                                player.lyricController.setProgress(pos);
+                              },
+                              onDragEnd: () async {
+                                await player.seek(Duration(
+                                  milliseconds: (_dragProgressValue *
+                                          player.duration.inMilliseconds)
+                                      .round(),
+                                ));
+                                if (mounted) {
+                                  setState(() => _isDraggingProgress = false);
+                                }
+                              },
+                              onSeek: (v) {
+                                _dragProgressValue = v;
+                                if (_isDraggingProgress) {
+                                  final pos = Duration(
+                                    milliseconds:
+                                        (v * player.duration.inMilliseconds).round(),
+                                  );
+                                  player.lyricController.setProgress(pos);
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            // ── Playback controls ──
+                            PlayerControlsBar(
+                              isPlaying: player.isPlaying,
+                              isLoading: player.isLoading,
+                              onPlayPause: player.togglePlayPause,
+                              onPrevious: player.playPrevious,
+                              onNext: player.playNext,
+                              playMode: player.playMode,
+                              onModeToggle: () {
+                                const modes = [
+                                  PlayMode.sequential,
+                                  PlayMode.shuffle,
+                                  PlayMode.repeatOne,
+                                ];
+                                final next = modes[
+                                    (modes.indexOf(player.playMode) + 1) %
+                                        modes.length];
+                                player.setPlayMode(next);
+                              },
+                              onShowPlaylist: () =>
+                                  legacy.PlaybackControls.showPlaylistStatic(
+                                      context, player),
+                            ),
+                            const SizedBox(height: 8),
+
+                            // ── Bottom actions ──
+                            _buildBottomActions(),
+                            SizedBox(height: MediaQuery.of(context).padding.bottom + 4),
+                          ],
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 12),
-
-                    // ── Playback controls ──
-                    PlayerControlsBar(
-                      isPlaying: player.isPlaying,
-                      isLoading: player.isLoading,
-                      onPlayPause: player.togglePlayPause,
-                      onPrevious: player.playPrevious,
-                      onNext: player.playNext,
-                      playMode: player.playMode,
-                      onModeToggle: () {
-                        const modes = [
-                          PlayMode.sequential,
-                          PlayMode.shuffle,
-                          PlayMode.repeatOne,
-                        ];
-                        final next = modes[
-                            (modes.indexOf(player.playMode) + 1) %
-                                modes.length];
-                        player.setPlayMode(next);
-                      },
-                      onShowPlaylist: () =>
-                          legacy.PlaybackControls.showPlaylistStatic(
-                              context, player),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // ── Bottom actions ──
-                    _buildBottomActions(),
-                    SizedBox(height: MediaQuery.of(context).padding.bottom + 4),
                   ],
                 ),
               ),
