@@ -390,3 +390,53 @@ App 内进入 **设置 → 主题市场** → 浏览主题 → 点击 **安装**
 
 - 删除已导入的主题包：长按卡片 → 删除。内置主题包不可删除。
 - 从市场安装的主题可在 **主题市场** 中再次安装更新。
+
+---
+
+## 提交主题到市场
+
+主题市场注册表托管在独立的 GitHub 仓库 [Tangmjiu/ngs-kg-themes](https://github.com/Tangmjiu/ngs-kg-themes)。
+
+### 提交流程
+
+1. Fork [ngs-kg-themes](https://github.com/Tangmjiu/ngs-kg-themes)
+2. 在 `themes/` 下创建你的主题目录 `themes/<your-theme-id>/`
+3. 放入 `manifest.json`（按本文档字段填写）和 `preview.png`（270×270px 预览图）
+4. 将主题文件打包为 ZIP：`themes/<your-theme-id>/<your-theme-id>.zip`
+5. 编辑 `registry.json`，在 `themes` 数组中添加你的条目
+6. 创建 Pull Request，等待审核合并
+
+### 示例参考
+
+[Jekyll](https://github.com/Tangmjiu/ngs-kg-themes/tree/main/themes/jekyll) 是一个完整的示例主题包：
+
+```
+themes/jekyll/
+├── manifest.json       # 完整 30 色 Light/Dark 色板，无自定义图片
+├── preview.png         # 270×270 预览图（左 Light 右 Dark）
+└── jekyll.zip          # 打包后的主题文件
+```
+
+对应的 `registry.json` 条目：
+
+```json
+{
+  "id": "jekyll",
+  "name": "Jekyll",
+  "author": "mjiutang",
+  "version": 2,
+  "description": "Light 暖琥珀 · Dark 冷靛蓝 — 展示 30 色系统能力",
+  "preview_url": "https://raw.githubusercontent.com/Tangmjiu/ngs-kg-themes/main/themes/jekyll/preview.png",
+  "download_url": "https://raw.githubusercontent.com/Tangmjiu/ngs-kg-themes/main/themes/jekyll/jekyll.zip",
+  "tags": ["demo", "light", "dark"],
+  "file_size_bytes": 7287,
+  "min_app_version": "2.0.0"
+}
+```
+
+### 提交 PR 时的注意事项
+
+- 预览图建议 270×270px，能清晰展示主题风格
+- ZIP 内只包含 `manifest.json` + 图片资源，不要嵌套多余的目录层
+- `file_size_bytes` 填写 ZIP 文件的实际字节数
+- 如果主题只改色板（无图片/字体），可以放一个极小（甚至空 assets）的 ZIP
