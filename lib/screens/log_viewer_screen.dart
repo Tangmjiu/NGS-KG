@@ -58,16 +58,15 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   Color _levelColor(String level) {
-    final cs = Theme.of(context).colorScheme;
     switch (level) {
       case 'E':
-        return cs.error;
+        return Colors.redAccent;
       case 'W':
-        return cs.error.withValues(alpha: 0.7);
+        return Colors.orangeAccent;
       case 'I':
-        return cs.primary;
+        return Colors.lightGreenAccent;
       default:
-        return cs.onSurfaceVariant;
+        return Colors.grey;
     }
   }
 
@@ -82,8 +81,11 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       if (!await dir.exists()) {
         await dir.create(recursive: true);
       }
-      final ts =
-          DateTime.now().toString().replaceAll(':', '-').split('.').first;
+      final ts = DateTime.now()
+          .toString()
+          .replaceAll(':', '-')
+          .split('.')
+          .first;
       final file = File('${dir.path}/ngskg_log_$ts.txt');
       final content = Log.entries.map((e) => e.formatted).join('\n');
       await file.writeAsString(content);
@@ -103,17 +105,13 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final bg = cs.surfaceContainerLowest;
-    final isWide = MediaQuery.of(context).size.width >= 880;
+    final bg = Theme.of(context).colorScheme.surfaceContainerLowest;
     return Scaffold(
       appBar: AppBar(
         title: const Text('输出日志'),
         actions: [
           IconButton(
-            icon: Icon(_autoScroll
-                ? Icons.vertical_align_bottom
-                : Icons.vertical_align_center),
+            icon: Icon(_autoScroll ? Icons.vertical_align_bottom : Icons.vertical_align_center),
             tooltip: '自动滚动',
             onPressed: () => setState(() => _autoScroll = !_autoScroll),
           ),
@@ -129,56 +127,42 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           ),
         ],
       ),
-      body: Builder(
-        builder: (_) {
-          final inner = Column(
-            children: [
-              // Filter bar
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-                child: Row(
-                  children: [
-                    _buildLevelChip('', 'ALL'),
-                    const SizedBox(width: 4),
-                    _buildLevelChip('E', 'ERR'),
-                    const SizedBox(width: 4),
-                    _buildLevelChip('W', 'WRN'),
-                    const SizedBox(width: 4),
-                    _buildLevelChip('I', 'INF'),
-                    const SizedBox(width: 4),
-                    _buildLevelChip('D', 'DBG'),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: SizedBox(
-                        height: 32,
-                        child: TextField(
-                          controller: _filterTag,
-                          style: const TextStyle(fontSize: 12),
-                          decoration: InputDecoration(
-                            hintText: '搜索 tag...',
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 0),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(4),
-                              borderSide: BorderSide.none,
-                            ),
-                            filled: true,
-                          ),
-                          onChanged: (v) => setState(() => _tagFilter = v),
+      body: Column(
+        children: [
+          // Filter bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+            child: Row(
+              children: [
+                _buildLevelChip('', 'ALL'),
+                const SizedBox(width: 4),
+                _buildLevelChip('E', 'ERR'),
+                const SizedBox(width: 4),
+                _buildLevelChip('W', 'WRN'),
+                const SizedBox(width: 4),
+                _buildLevelChip('I', 'INF'),
+                const SizedBox(width: 4),
+                _buildLevelChip('D', 'DBG'),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SizedBox(
+                    height: 32,
+                    child: TextField(
+                      controller: _filterTag,
+                      style: const TextStyle(fontSize: 12),
+                      decoration: InputDecoration(
+                        hintText: '搜索 tag...',
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: BorderSide.none,
                         ),
+                        filled: true,
                       ),
+                      onChanged: (v) => setState(() => _tagFilter = v),
                     ),
-                    if (_filterTag.text.isNotEmpty)
-                      IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _filterTag.clear();
-                          setState(() => _tagFilter = '');
-                        },
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 32),
-                      ),
-                  ],
+                  ),
                 ),
                 if (_filterTag.text.isNotEmpty)
                   IconButton(
@@ -212,14 +196,11 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                     final e = entries[i];
                     return _buildLogRow(e, bg);
                   },
-                ),
-              ),
-            ],
-          );
-          if (isWide)
-            return Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: inner));
-          return inner;
-        },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -234,9 +215,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           color: selected ? _levelColor(level) : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: selected
-                ? Colors.transparent
-                : Theme.of(context).colorScheme.outline,
+            color: selected ? Colors.transparent : Colors.grey,
             width: 0.5,
           ),
         ),
@@ -245,7 +224,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           style: TextStyle(
             fontSize: 11,
             fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-            color: selected ? Theme.of(context).colorScheme.onSurface : null,
+            color: selected ? Colors.black : null,
           ),
         ),
       ),
@@ -264,17 +243,12 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           children: [
             Row(
               children: [
-                Text(e.level,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: _levelColor(e.level),
-                    )),
+                Text(e.level, style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.bold,
+                  color: _levelColor(e.level),
+                )),
                 const SizedBox(width: 4),
-                Text(_fmtTime(e.time),
-                    style: TextStyle(
-                        fontSize: 10,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                Text(_fmtTime(e.time), style: const TextStyle(fontSize: 10, color: Colors.grey)),
                 const SizedBox(width: 4),
             Flexible(
               child: Container(
@@ -289,16 +263,9 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
               ],
             ),
             const SizedBox(height: 2),
-            Text(e.message,
-                style: const TextStyle(fontSize: 11),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis),
+            Text(e.message, style: const TextStyle(fontSize: 11), maxLines: 2, overflow: TextOverflow.ellipsis),
             if (e.error != null)
-              Text('${e.error}',
-                  style: TextStyle(
-                      fontSize: 10, color: Theme.of(context).colorScheme.error),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
+              Text('${e.error}', style: TextStyle(fontSize: 10, color: Colors.red.shade300), maxLines: 1, overflow: TextOverflow.ellipsis),
           ],
         ),
       );

@@ -88,7 +88,6 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
     return Consumer2<AuthProvider, PlaylistProvider>(
       builder: (_, auth, playlistProv, __) {
         return RefreshIndicator(
@@ -106,15 +105,6 @@ class _ProfileScreenState extends State<ProfileScreen>
           ],
           ),
         );
-        if (isWide) {
-          return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: body,
-            ),
-          );
-        }
-        return body;
       },
     );
   }

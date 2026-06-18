@@ -67,26 +67,28 @@ class _CommentsScreenState extends State<CommentsScreen> {
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Flexible(child: Text('${c.likedCount}',
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 12))),
-                          const Icon(Icons.thumb_up, size: 14),
+                          Text(c.content, style: const TextStyle(fontSize: 14)),
+                          if (c.time != null)
+                            Text(c.time!,
+                                style: TextStyle(
+                                    fontSize: 11, color: Theme.of(context).colorScheme.outline)),
                         ],
                       ),
-                    ),
-                  );
-                },
-              );
-    return Scaffold(
-      appBar: AppBar(title: const Text('评论')),
-      body: isWide
-          ? Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: bodyContent,
-              ),
-            )
-          : bodyContent,
+                      trailing: SizedBox(
+                        width: 48,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(child: Text('${c.likedCount}',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12))),
+                            const Icon(Icons.thumb_up, size: 14),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
     );
   }
 }

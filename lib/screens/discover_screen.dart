@@ -39,7 +39,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    final isWide = MediaQuery.of(context).size.width >= 880;
     return RefreshIndicator(
       onRefresh: () => provider.loadAll(),
       child: CustomScrollView(
@@ -48,9 +47,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                isWide ? 32 : 20,
-                (isWide ? 12 : MediaQuery.of(context).padding.top + 20),
-                isWide ? 32 : 20,
+                20,
+                MediaQuery.of(context).padding.top + 20,
+                20,
                 4,
               ),
               child: Text(
@@ -249,11 +248,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       Navigator.pushNamed(context, '/rank/detail',
                           arguments: {'id': r.id, 'name': r.name});
                     },
-                  ),
-                ),
-              ],
+                  );
+                },
+              ),
             ),
-          ),
+          ],
         ),
       );
     },

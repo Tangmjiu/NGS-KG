@@ -49,10 +49,10 @@ class PlayerProgressBar extends StatelessWidget {
                 width: 36,
                 child: Text(
                   _formatDuration(position),
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 11,
                     fontFamily: 'monospace',
-                    color: cs.onSurfaceVariant,
+                    color: Colors.white60,
                   ),
                 ),
               ),
@@ -88,10 +88,10 @@ class PlayerProgressBar extends StatelessWidget {
                 child: Text(
                   _formatDuration(duration),
                   textAlign: TextAlign.end,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 11,
                     fontFamily: 'monospace',
-                    color: cs.onSurfaceVariant,
+                    color: Colors.white60,
                   ),
                 ),
               ),
