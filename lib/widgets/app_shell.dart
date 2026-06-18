@@ -240,7 +240,10 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _check());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 延迟到 Overlay 就绪后再执行
+      Future.delayed(const Duration(milliseconds: 500), _check);
+    });
   }
 
   Future<void> _check() async {
@@ -415,8 +418,10 @@ class _LoginPromptOverlayState extends State<_LoginPromptOverlay> {
     super.didChangeDependencies();
     if (!_shown) {
       _shown = true;
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) _maybeShow();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) _maybeShow();
+        });
       });
     }
   }
