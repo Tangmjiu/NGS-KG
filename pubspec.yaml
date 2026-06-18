@@ -51,7 +51,7 @@ dependencies:
   flutter_lyric: ^3.0.6
   # Desktop (Windows)
   just_audio_windows: ^0.2.3
-  sqflite_common_ffi: ^2.4.1
+  sqflite_common_ffi: ^2.4.0+3
   smtc_windows: ^1.1.0
   tray_manager: ^0.5.2
   window_manager: ^0.5.1
@@ -85,3 +85,4 @@ flutter_launcher_icons:
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/images/icon.png"
   min_sdk_android: 21
+
