@@ -16,25 +16,20 @@ import 'screens/settings_screen.dart';
 import 'utils/logger.dart';
 import 'services/api_client.dart';
 import 'providers/theme_provider.dart';
-import 'widgets/desktop_shell.dart';
+import 'widgets/app_shell.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'services/device_service.dart';
 import 'services/music_service.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/cache_service.dart';
-import 'services/desktop_service.dart';
 import 'providers/audio_settings_provider.dart';
 import 'utils/preview_config.dart';
 import 'theme/theme_assets.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'utils/navigation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // 初始化跨平台 SQLite（Windows 需 FFI�?
-  sqfliteFfiInit();
 
   await Log.init();
 
@@ -141,43 +136,6 @@ Future<void> main() async {
     ),
   );
 
-  // 桌面端初始化（SMTC / 托盘 / 窗口管理�?
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    _initDesktopServices();
-  });
-}
-
-Future<void> _initDesktopServices() async {
-  try {
-    final ctx = navKey.currentContext;
-    if (ctx == null) return;
-    final player = ctx.read<PlayerProvider>();
-    await DesktopService.instance.init(player);
-
-    // 监听播放器状�?�?同步桌面服务
-    player.addListener(() {
-      String? lyricText;
-      final idx = player.lyricController.activeIndexNotifiter.value;
-      final model = player.lyricController.lyricNotifier.value;
-      final lines = model?.lines ?? [];
-      if (idx >= 0 && idx < lines.length) {
-        final line = lines[idx];
-        lyricText = line.text;
-        if (line.translation != null && line.translation!.isNotEmpty) {
-          lyricText = '$lyricText / ${line.translation}';
-        }
-      }
-      DesktopService.instance.sync(
-        song: player.currentSong,
-        isPlaying: player.isPlaying,
-        positionMs: player.position.inMilliseconds,
-        durationMs: player.duration.inMilliseconds,
-        lyricText: lyricText,
-      );
-    });
-  } catch (e) {
-    debugPrint('DesktopService init: $e');
-  }
 }
 
 Future<void> _initDevice() async {
@@ -274,7 +232,7 @@ class NGSKGApp extends StatelessWidget {
           builder: (context, child) {
             return Stack(
               children: [
-                // ── 全局主题背景 ──
+                // ── 全局主题背景（首�?发现/搜索等页面共用） ──
                 if (ThemeAssets.playerBg.isNotEmpty)
                   Positioned.fill(
                     child: ImageFiltered(
@@ -286,8 +244,8 @@ class NGSKGApp extends StatelessWidget {
                       ),
                     ),
                   ),
-                // 桌面端直接用 DesktopShell 作为外壳
-                const DesktopShell(),
+                // AppShell 自适应外壳：桌面全宽壳 / 移动 MiniPlayer + overlays
+                AppShell(child: child),
               ],
             );
           },
