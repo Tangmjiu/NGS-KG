@@ -697,54 +697,62 @@ class _DesktopPlayerBar extends StatelessWidget {
                       // ── Right: Volume + time ──
                       Expanded(
                         flex: 2,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            // Time display
-                            if (hasSong)
-                              Padding(
-                                padding: const EdgeInsets.only(right: 16),
-                                child: Text(
-                                  '${_formatDuration(player.position)} / ${_formatDuration(player.duration)}',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelSmall
-                                      ?.copyWith(
-                                        color: cs.onSurfaceVariant,
-                                        fontFeatures: const [FontFeature.tabularFigures()],
+                        child: LayoutBuilder(
+                          builder: (_, constraints) {
+                            final narrow = constraints.maxWidth < 200;
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                // Time display (hide on very narrow)
+                                if (hasSong && !narrow)
+                                  Flexible(
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: Text(
+                                        '${_formatDuration(player.position)} / ${_formatDuration(player.duration)}',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelSmall
+                                            ?.copyWith(
+                                              color: cs.onSurfaceVariant,
+                                              fontFeatures: const [FontFeature.tabularFigures()],
+                                            ),
                                       ),
-                                ),
-                              ),
+                                    ),
+                                  ),
 
-                            // Volume
-                            Icon(
-                              volume > 0.5
-                                  ? Icons.volume_up
-                                  : (volume > 0.0 ? Icons.volume_down : Icons.volume_mute),
-                              size: 20,
-                              color: cs.onSurfaceVariant,
-                            ),
-                            SizedBox(
-                              width: 80,
-                              child: SliderTheme(
-                                data: SliderThemeData(
-                                  trackHeight: 3,
-                                  thumbShape: const RoundSliderThumbShape(
-                                      enabledThumbRadius: 6),
-                                  overlayShape: const RoundSliderOverlayShape(
-                                      overlayRadius: 12),
-                                  activeTrackColor: cs.primary,
-                                  inactiveTrackColor: cs.surfaceContainerHighest,
-                                  thumbColor: cs.primary,
-                                  overlayColor: cs.primary.withValues(alpha: 0.12),
+                                // Volume
+                                Icon(
+                                  volume > 0.5
+                                      ? Icons.volume_up
+                                      : (volume > 0.0 ? Icons.volume_down : Icons.volume_mute),
+                                  size: 20,
+                                  color: cs.onSurfaceVariant,
                                 ),
-                                child: Slider(
-                                  value: volume,
-                                  onChanged: onVolumeChanged,
+                                SizedBox(
+                                  width: narrow ? 60 : 80,
+                                  child: SliderTheme(
+                                    data: SliderThemeData(
+                                      trackHeight: 3,
+                                      thumbShape: const RoundSliderThumbShape(
+                                          enabledThumbRadius: 6),
+                                      overlayShape: const RoundSliderOverlayShape(
+                                          overlayRadius: 12),
+                                      activeTrackColor: cs.primary,
+                                      inactiveTrackColor: cs.surfaceContainerHighest,
+                                      thumbColor: cs.primary,
+                                      overlayColor: cs.primary.withValues(alpha: 0.12),
+                                    ),
+                                    child: Slider(
+                                      value: volume,
+                                      onChanged: onVolumeChanged,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ],
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ],
