@@ -47,10 +47,7 @@
 - **云盘**：查看和播放酷狗云盘音乐(未完善)
 - **主题市场**：浏览、下载、应用社区主题（v2.0.0+）
 
-- ![**截图** 如下（v1.0.1）](https://github.com/Tangmjiu/NGS-KG/blob/android/1.png)
-  ![](https://github.com/Tangmjiu/NGS-KG/blob/android/2.png)
-  ![](https://github.com/Tangmjiu/NGS-KG/blob/android/3.png)
-  ![](https://github.com/Tangmjiu/NGS-KG/blob/android/4.png)
+- ![**截图** 如下（v1.0.1）](https://github.com/Tangmjiu/NGS-KG/blob/android/1.png)![](https://github.com/Tangmjiu/NGS-KG/blob/android/2.png)![](https://github.com/Tangmjiu/NGS-KG/blob/android/3.png) ![](https://github.com/Tangmjiu/NGS-KG/blob/android/4.png)
 - ![动态流光模式播放器](https://github.com/Tangmjiu/NGS-KG/blob/android/5.png)！[](https://github.com/Tangmjiu/NGS-KG/blob/android/6.png)
 - 
 - 
