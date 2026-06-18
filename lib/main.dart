@@ -16,7 +16,7 @@ import 'screens/settings_screen.dart';
 import 'utils/logger.dart';
 import 'services/api_client.dart';
 import 'providers/theme_provider.dart';
-import 'widgets/app_shell.dart';
+import 'widgets/desktop_shell.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'services/device_service.dart';
 import 'services/music_service.dart';
@@ -274,7 +274,7 @@ class NGSKGApp extends StatelessWidget {
           builder: (context, child) {
             return Stack(
               children: [
-                // ── 全局主题背景（首�?发现/搜索等页面共用） ──
+                // ── 全局主题背景 ──
                 if (ThemeAssets.playerBg.isNotEmpty)
                   Positioned.fill(
                     child: ImageFiltered(
@@ -286,8 +286,8 @@ class NGSKGApp extends StatelessWidget {
                       ),
                     ),
                   ),
-                // AppShell 自适应外壳：桌面全宽壳 / 移动 MiniPlayer + overlays
-                AppShell(child: child),
+                // 桌面端直接用 DesktopShell 作为外壳
+                const DesktopShell(),
               ],
             );
           },
