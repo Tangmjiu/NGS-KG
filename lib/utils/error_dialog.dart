@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../main.dart' as app;
+import '../utils/navigation.dart' as app;
 import '../theme/theme_assets.dart';
 
 /// 显示错误弹窗

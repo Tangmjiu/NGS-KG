@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../main.dart' as app;
+import '../utils/navigation.dart' as app;
 import '../providers/player_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
@@ -13,12 +13,12 @@ import '../widgets/desktop_shell.dart';
 import '../widgets/support_me_dialog.dart';
 import '../widgets/update_dialog.dart';
 
-/// 自适应外壳，嵌套在 MaterialApp.builder 中。
+/// 自适应外壳，嵌套在 MaterialApp.builder 中�?
 ///
-/// 桌面（≥880px）:
-///   DesktopShell（侧边栏 + 内容区 + 底部播放条）
+/// 桌面（≥880px�?
+///   DesktopShell（侧边栏 + 内容�?+ 底部播放条）
 ///
-/// 移动（<880px）:
+/// 移动�?880px�?
 ///   Stack(child + MiniPlayer + overlays)
 class AppShell extends StatefulWidget {
   final Widget? child;
@@ -49,15 +49,15 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  // ═══════════════════════════════════════════════
-  //  移动端
-  // ═══════════════════════════════════════════════
+  // ══════════════════════════════════════════════�?
+  //  移动�?
+  // ══════════════════════════════════════════════�?
 
   Widget _mobileShell() {
     return Stack(
       children: [
         widget.child ?? const SizedBox.shrink(),
-        // MiniPlayer — 覆盖在底部导航栏上方
+        // MiniPlayer �?覆盖在底部导航栏上方
         Positioned(
           left: 0,
           right: 0,
@@ -74,9 +74,9 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-// ═══════════════════════════════════════════════
-//  移动版 MiniPlayer — 精简版（移除 BackdropFilter 避免 Windows 渲染崩溃）
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════�?
+//  移动�?MiniPlayer �?精简版（移除 BackdropFilter 避免 Windows 渲染崩溃�?
+// ══════════════════════════════════════════════�?
 
 class _MobileMiniPlayer extends StatelessWidget {
   const _MobileMiniPlayer();
@@ -226,9 +226,9 @@ class _MobileMiniPlayer extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════
-//  跨设备继续播放检测
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════�?
+//  跨设备继续播放检�?
+// ══════════════════════════════════════════════�?
 
 class _ContinuePlayOverlay extends StatefulWidget {
   const _ContinuePlayOverlay();
@@ -244,14 +244,14 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
   }
 
   Future<void> _check() async {
-    // 仅在登录后检查，且失败时不弹窗（静默处理）
+    // 仅在登录后检查，且失败时不弹窗（静默处理�?
     final authCtx = app.navKey.currentContext;
     if (authCtx == null) return;
     final auth = authCtx.read<AuthProvider>();
     if (!auth.isLoggedIn) return;
 
     try {
-      // 使用直接 Dio 调用，绕过全局错误弹窗拦截器
+      // 使用直接 Dio 调用，绕过全局错误弹窗拦截�?
       final client = ApiClient.instance;
       final res = await client.get('/lastest/songs/listen',
           params: {'pagesize': 1});
@@ -260,7 +260,7 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
       final body = data['data'] as Map<String, dynamic>? ?? data;
       final devInfo = body['dev_info'] as Map<String, dynamic>?;
       final wording = devInfo?['wording'] as String? ?? '其他设备';
-      // 优先用 curr_song，回退到 songs[0]
+      // 优先�?curr_song，回退�?songs[0]
       Map<String, dynamic>? songInfo;
       final currSong = body['curr_song'] as Map?;
       if (currSong is Map) {
@@ -287,7 +287,7 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('检测到在 $wording'),
+                      Text('检测到�?$wording'),
                       const SizedBox(height: 8),
                       Text(songName,
                           style: Theme.of(context).textTheme.titleMedium),
@@ -321,7 +321,7 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
                 ));
       }
     } catch (_) {
-      // 静默：继续播放接口失败不重要，不弹窗不日志
+      // 静默：继续播放接口失败不重要，不弹窗不日�?
     }
   }
 
@@ -329,9 +329,9 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
-// ═══════════════════════════════════════════════
-//  支持作者弹窗
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════�?
+//  支持作者弹�?
+// ══════════════════════════════════════════════�?
 
 class _SupportPopupHandler extends StatefulWidget {
   const _SupportPopupHandler();
@@ -366,9 +366,9 @@ class _SupportPopupHandlerState extends State<_SupportPopupHandler> {
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
-// ═══════════════════════════════════════════════
-//  启动时检查 GitHub Release 更新
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════�?
+//  启动时检�?GitHub Release 更新
+// ══════════════════════════════════════════════�?
 
 class _UpdateCheckHandler extends StatefulWidget {
   const _UpdateCheckHandler();
@@ -400,7 +400,7 @@ class _UpdateCheckHandlerState extends State<_UpdateCheckHandler> {
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
-/// 启动时未登录 → 风控提示弹窗（延迟显示，等其他弹窗先弹出）
+/// 启动时未登录 �?风控提示弹窗（延迟显示，等其他弹窗先弹出�?
 class _LoginPromptOverlay extends StatefulWidget {
   const _LoginPromptOverlay();
   @override

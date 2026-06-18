@@ -9,7 +9,7 @@ import '../models/song.dart';
 import '../constants/quality.dart';
 import '../services/music_service.dart';
 import '../services/api_exception.dart';
-import '../main.dart' as app;
+import '../utils/navigation.dart' as app;
 import '../providers/auth_provider.dart';
 import '../widgets/login_required_dialog.dart';
 
