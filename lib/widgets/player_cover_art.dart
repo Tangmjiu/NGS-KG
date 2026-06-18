@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/song.dart';
+import '../theme/theme_assets.dart';
 
 /// Enhanced album cover art widget with glassmorphism shadow and
 /// scroll-driven crossfade for the Apple Music-style player.
@@ -89,7 +90,7 @@ class PlayerCoverArt extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Center(
-        child: Icon(Icons.music_note, size: size * 0.25, color: Colors.white24),
+        child: albumPlaceholderWidget(size: size * 0.25, color: Colors.white24),
       ),
     );
   }

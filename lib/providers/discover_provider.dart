@@ -4,6 +4,7 @@ import '../models/playlist.dart';
 import '../models/rank_entry.dart';
 import '../models/album.dart';
 import '../models/song.dart';
+import '../models/song_mapper.dart';
 import '../models/scene_category.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
@@ -158,7 +159,7 @@ class DiscoverProvider extends ChangeNotifier {
     try {
       final raw = await _musicService.getPersonalFm();
       _personalFmSongs = raw
-          .map((e) => Song.fromJson(e))
+          .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
           .whereType<Song>()
           .take(DiscoverConstants.topSongsLimit)
           .toList();

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/music_service.dart';
-import '../providers/auth_provider.dart';
 import '../providers/playlist_provider.dart';
 
 class CreatePlaylistDialog extends StatefulWidget {
@@ -36,11 +34,15 @@ class _CreatePlaylistDialogState extends State<CreatePlaylistDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: const Text('取消')),
         FilledButton(
           onPressed: _saving ? null : _create,
           child: _saving
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2))
               : const Text('创建'),
         ),
       ],
@@ -51,18 +53,13 @@ class _CreatePlaylistDialogState extends State<CreatePlaylistDialog> {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
     setState(() => _saving = true);
-    try {
-      await MusicService().createPlaylist(name);
-      if (mounted) {
-        Navigator.pop(context);
-        context.read<PlaylistProvider>().fetchUserPlaylist(
-          context.read<AuthProvider>().user?.userId,
+    final ok = await context.read<PlaylistProvider>().createPlaylist(name);
+    if (mounted) {
+      Navigator.pop(context);
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('创建失败')),
         );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('创建失败: $e')));
-        setState(() => _saving = false);
       }
     }
   }

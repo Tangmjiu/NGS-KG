@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/artist.dart';
 import '../utils/logger.dart';
+import '../theme/theme_assets.dart';
 import '../services/music_service.dart';
 
 class CommentsScreen extends StatefulWidget {
@@ -41,41 +42,30 @@ class _CommentsScreenState extends State<CommentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
-    final bodyContent = _isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : _comments.isEmpty
-            ? const Center(child: Text('暂无评论'))
-            : ListView.builder(
-                itemCount: _comments.length,
-                itemBuilder: (_, i) {
-                  final c = _comments[i];
-                  return ListTile(
-                    leading: CircleAvatar(
-                      radius: 18,
-                      backgroundImage: c.userAvatar != null && c.userAvatar!.isNotEmpty
-                          ? NetworkImage(c.userAvatar!)
-                          : null,
-                      child: (c.userAvatar == null || c.userAvatar!.isEmpty)
-                          ? const Icon(Icons.person, size: 18)
-                          : null,
-                    ),
-                    title: Text(c.userName ?? '匿名',
-                        style: const TextStyle(fontSize: 13)),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(c.content, style: const TextStyle(fontSize: 14)),
-                        if (c.time != null)
-                          Text(c.time!,
-                              style: TextStyle(
-                                  fontSize: 11, color: Theme.of(context).colorScheme.outline)),
-                      ],
-                    ),
-                    trailing: SizedBox(
-                      width: 48,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+    return Scaffold(
+      appBar: AppBar(title: const Text('评论')),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _comments.isEmpty
+              ? emptyStateWidget(ThemeAssets.emptyContent, Icons.comment, '暂无评论')
+              : ListView.builder(
+                  itemCount: _comments.length,
+                  itemBuilder: (_, i) {
+                    final c = _comments[i];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        radius: 18,
+                        backgroundImage: c.userAvatar != null && c.userAvatar!.isNotEmpty
+                            ? NetworkImage(c.userAvatar!)
+                            : null,
+                        child: (c.userAvatar == null || c.userAvatar!.isEmpty)
+                            ? const Icon(Icons.person, size: 18)
+                            : null,
+                      ),
+                      title: Text(c.userName ?? '匿名',
+                          style: const TextStyle(fontSize: 13)),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Flexible(child: Text('${c.likedCount}',
                               overflow: TextOverflow.ellipsis,

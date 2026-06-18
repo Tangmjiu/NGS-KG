@@ -1,3 +1,5 @@
+// MV/Video 功能已暂停适配，代码保留供后续参考
+/*
 class Video {
   final String id;
   final String name;
@@ -45,3 +47,4 @@ class Video {
     );
   }
 }
+*/

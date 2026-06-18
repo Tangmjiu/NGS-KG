@@ -14,12 +14,13 @@ import '../screens/history_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/user_profile_screen.dart';
 import '../screens/messages_screen.dart';
-import '../screens/videos_screen.dart';
+// MV: import '../screens/videos_screen.dart';
 import '../screens/cloud_disk_screen.dart';
 import '../screens/artist_followed_news_screen.dart';
 import '../screens/album_detail_screen.dart';
-import '../screens/mv_player_screen.dart';
+// MV: import '../screens/mv_player_screen.dart';
 import '../screens/recommended_playlists_screen.dart';
+import '../screens/playlist_category_screen.dart';
 
 class AppRoutes {
   static const String home = '/';
@@ -38,12 +39,13 @@ class AppRoutes {
   static const String settings = '/settings';
   static const String userProfile = '/user/profile';
   static const String messages = '/messages';
-  static const String favoriteVideos = '/videos/favorite';
-  static const String likedVideos = '/videos/liked';
+  // MV: static const String favoriteVideos = '/videos/favorite';
+  // MV: static const String likedVideos = '/videos/liked';
   static const String artistFollowedNews = '/artist/followed/news';
   static const String albumDetail = '/album/detail';
-  static const String mv = '/mv';
+  // MV: static const String mv = '/mv';
   static const String recommendedPlaylists = '/recommended/playlists';
+  static const String playlistCategory = '/playlist/category';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -107,12 +109,13 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const UserProfileScreen());
       case AppRoutes.messages:
         return MaterialPageRoute(builder: (_) => const MessagesScreen());
-      case AppRoutes.favoriteVideos:
-        return MaterialPageRoute(builder: (_) => const VideosScreen());
-      case AppRoutes.likedVideos:
-        return MaterialPageRoute(builder: (_) => const VideosScreen(showLiked: true));
+      // MV: case AppRoutes.favoriteVideos:
+      // MV:   return MaterialPageRoute(builder: (_) => const VideosScreen());
+      // MV: case AppRoutes.likedVideos:
+      // MV:   return MaterialPageRoute(builder: (_) => const VideosScreen(showLiked: true));
       case artistFollowedNews:
-        return MaterialPageRoute(builder: (_) => const ArtistFollowedNewsScreen());
+        return MaterialPageRoute(
+            builder: (_) => const ArtistFollowedNewsScreen());
       case albumDetail:
         final args = settings.arguments;
         if (args is! Map<String, dynamic>) return _fallback();
@@ -122,18 +125,30 @@ class AppRoutes {
             albumName: args['name'] as String?,
           ),
         );
-      case mv:
-        final args = settings.arguments;
-        if (args is! Map<String, dynamic>) return _fallback();
-        return MaterialPageRoute(
-          builder: (_) => MvPlayerScreen(
-            hash: args['hash'] as String?,
-            name: args['name'] as String?,
-          ),
-        );
+      // MV: case mv:
+      // MV:   final args = settings.arguments;
+      // MV:   if (args is! Map<String, dynamic>) return _fallback();
+      // MV:   return MaterialPageRoute(
+      // MV:     builder: (_) => MvPlayerScreen(
+      // MV:       hash: args['hash'] as String?,
+      // MV:       name: args['name'] as String?,
+      // MV:     ),
+      // MV:   );
       case AppRoutes.recommendedPlaylists:
         return MaterialPageRoute(
           builder: (_) => const RecommendedPlaylistsScreen(),
+        );
+      case AppRoutes.playlistCategory:
+        final args = settings.arguments;
+        if (args is! Map<String, dynamic>) return _fallback();
+        final categoryId = args['categoryId'] as int?;
+        final categoryName = args['name'] as String?;
+        if (categoryId == null || categoryName == null) return _fallback();
+        return MaterialPageRoute(
+          builder: (_) => PlaylistCategoryScreen(
+            categoryId: categoryId,
+            categoryName: categoryName,
+          ),
         );
       default:
         return _fallback();

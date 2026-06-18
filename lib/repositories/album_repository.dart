@@ -17,15 +17,27 @@ class AlbumRepository extends BaseRepository {
     return null;
   }
 
-  Future<List<Song>> getAlbumSongs(int albumId,
-      {int page = 1, int pageSize = 200}) async {
-    final params = <String, dynamic>{
-      'id': albumId,
-      'page': page,
-      'pagesize': pageSize,
-    };
-    final res = await get('/album/songs', params: params);
-    final data = res['data'];
+  Future<List<Song>> getAlbumSongs(int albumId) async {
+    // 尝试 1: 带 pagesize=1000（某些服务器支持分页，但部分返回 502/20010）
+    // silent=true 使 502 不弹错误窗，静默降级到无 pagesize 重试
+    try {
+      final params1 = <String, dynamic>{'id': albumId, 'pagesize': 1000};
+      final res1 = await get('/album/songs',
+          params: params1, withCookie: true, silent: true);
+      final songs1 = _parseSongList(res1['data']);
+      if (songs1 != null) return songs1;
+    } catch (_) {
+      // 502/20010 → 静默降级
+    }
+
+    // 尝试 2: 不带 pagesize（兼容旧服务器）
+    final res2 = await get('/album/songs',
+        params: {'id': albumId}, withCookie: true);
+    return _parseSongList(res2['data']) ?? [];
+  }
+
+  /// 从接口响应的 data 中提取歌曲列表，失败返回 null
+  List<Song>? _parseSongList(dynamic data) {
     List<dynamic>? list;
     if (data is Map) {
       list = data['lists'] as List<dynamic>?
@@ -39,7 +51,7 @@ class AlbumRepository extends BaseRepository {
     } else if (data is List) {
       list = data;
     }
-    if (list == null) return [];
+    if (list == null) return null;
     return list
         .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
         .whereType<Song>()
@@ -66,7 +78,8 @@ class AlbumRepository extends BaseRepository {
   }
 
   Future<List<Album>> getTopAlbums({int? type, int page = 1, int pageSize = 30}) async {
-    final params = <String, dynamic>{'page': page, 'pagesize': pageSize};
+    // 该服务器不支持 page/pagesize 参数（返回 20010），仅传 type
+    final params = <String, dynamic>{};
     if (type != null) params['type'] = type;
     final res = await get('/top/album', params: params, withAuth: false);
     final body = res;

@@ -6,6 +6,9 @@ import 'package:palette_generator/palette_generator.dart';
 /// The [dominant] color is always available (either extracted or fallback).
 /// All other palette colors are nullable and may be absent depending on
 /// the source image content.
+///
+/// [topColors] contains the top N quantized colours sorted by population,
+/// giving a richer set of distinct colours than the hand-picked targets alone.
 class ExtractedPalette {
   /// The overall dominant color of the image.
   /// Guaranteed non-null; falls back to [PaletteExtractor._defaultDominant].
@@ -23,18 +26,24 @@ class ExtractedPalette {
   /// A light vibrant color, suitable for accents on dark backgrounds.
   final Color? lightVibrant;
 
+  /// Top N quantized colours sorted by pixel population.
+  /// Guaranteed non-empty when [dominant] is meaningful.
+  final List<Color> topColors;
+
   const ExtractedPalette({
     required this.dominant,
     this.vibrant,
     this.muted,
     this.darkMuted,
     this.lightVibrant,
+    this.topColors = const [],
   });
 
   @override
   String toString() =>
       'ExtractedPalette(dominant: $dominant, vibrant: $vibrant, muted: $muted, '
-      'darkMuted: $darkMuted, lightVibrant: $lightVibrant)';
+      'darkMuted: $darkMuted, lightVibrant: $lightVibrant, '
+      'topColors: ${topColors.length})';
 }
 
 /// A singleton utility that extracts color palettes from album art images
@@ -91,12 +100,32 @@ class PaletteExtractor {
         NetworkImage(imageUrl),
       );
 
+      // Option A: pick colours evenly across the lightness spectrum
+      // instead of just the most-populated (which cluster around similar tones).
+      final crop = generator.colors
+          .where((c) => c != generator.dominantColor?.color)
+          .toList();
+      crop.sort((a, b) => HSLColor.fromColor(a).lightness
+          .compareTo(HSLColor.fromColor(b).lightness));
+      final topColors = <Color>[];
+      if (crop.isNotEmpty) {
+        if (crop.length <= 7) {
+          topColors.addAll(crop);
+        } else {
+          final step = (crop.length - 1) / 6; // 7 picks → 6 intervals
+          for (int i = 0; i < 7; i++) {
+            topColors.add(crop[(i * step).round()]);
+          }
+        }
+      }
+
       final palette = ExtractedPalette(
         dominant: generator.dominantColor?.color ?? _defaultDominant,
         vibrant: generator.vibrantColor?.color,
         muted: generator.mutedColor?.color,
         darkMuted: generator.darkMutedColor?.color,
         lightVibrant: generator.lightVibrantColor?.color,
+        topColors: topColors,
       );
 
       _cache[imageUrl] = palette;

@@ -27,14 +27,14 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
   Map<String, dynamic>? _detail;
   List<Song> _songs = [];
   List<Album> _albums = [];
-  List<Map<String, dynamic>> _videos = [];
+  // MV: List<Map<String, dynamic>> _videos = [];
   bool _isLoading = true;
   bool _isFollowing = false;
 
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl = TabController(length: 2, vsync: this);
     _load();
   }
 
@@ -50,14 +50,14 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
         _musicService.getArtistDetail(widget.artistId),
         _musicService.getArtistAudios(widget.artistId, pageSize: 500),
         _musicService.getArtistAlbums(widget.artistId, pageSize: 50),
-        _musicService.getArtistVideos(widget.artistId),
+        // MV: _musicService.getArtistVideos(widget.artistId),
       ]);
       if (mounted) {
         setState(() {
           _detail = results[0] as Map<String, dynamic>?;
           _songs = results[1] as List<Song>;
           _albums = results[2] as List<Album>;
-          _videos = results[3] as List<Map<String, dynamic>>;
+          // MV: _videos = results[3] as List<Map<String, dynamic>>;
           _isLoading = false;
         });
       }
@@ -153,8 +153,35 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                     constraints: const BoxConstraints(maxWidth: 600),
                     child: content,
                   ),
-                )
-              : content,
+                  actions: [
+                    IconButton(
+                      icon: Icon(
+                        _isFollowing ? Icons.favorite : Icons.favorite_border,
+                        color: _isFollowing ? Colors.red : null,
+                      ),
+                      tooltip: _isFollowing ? '取消关注' : '关注',
+                      onPressed: _toggleFollow,
+                    ),
+                  ],
+                  bottom: TabBar(
+                    controller: _tabCtrl,
+                    tabs: [
+                      const Tab(text: '单曲'),
+                      const Tab(text: '专辑'),
+                      // MV: Tab(text: 'MV (${_videos.length})'),
+                    ],
+                  ),
+                ),
+              ],
+              body: TabBarView(
+                controller: _tabCtrl,
+                children: [
+                  _buildSongsTab(cs, tt),
+                  _buildAlbumsTab(cs, tt),
+                  // MV: _buildVideosTab(cs, tt),
+                ],
+              ),
+            ),
     );
   }
 
@@ -338,75 +365,75 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
 
   // ─── MV Tab ───
 
-  Widget _buildVideosTab(ColorScheme cs, TextTheme tt) {
-    if (_videos.isEmpty) {
-      return const Center(child: Text('暂无 MV'));
-    }
-    return GridView.builder(
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.75,
-      ),
-      itemCount: _videos.length,
-      itemBuilder: (_, i) {
-        final mv = _videos[i];
-        final name = mv['MvName'] as String? ??
-            mv['name'] as String? ??
-            mv['mvname'] as String? ?? '';
-        final img = mv['Pic'] as String? ??
-            mv['imgurl'] as String? ??
-            mv['img'] as String? ?? '';
-        final hash = mv['MvHash'] as String? ?? mv['hash'] as String?;
-        return GestureDetector(
-          onTap: () {
-            if (hash != null) {
-              Navigator.pushNamed(context, '/mv',
-                  arguments: {'hash': hash, 'name': name});
-            }
-          },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (img.isNotEmpty)
-                        CachedNetworkImage(
-                          imageUrl: img.replaceAll('{size}', '240'),
-                          fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) => Container(
-                            color: cs.surfaceContainerHighest,
-                            child: const Icon(Icons.video_library),
-                          ),
-                        )
-                      else
-                        Container(
-                          color: cs.surfaceContainerHighest,
-                          child: const Icon(Icons.video_library),
-                        ),
-                      Center(
-                        child: Icon(Icons.play_circle_fill,
-                            color: cs.onSurfaceVariant, size: 40),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: tt.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  // MV: Widget _buildVideosTab(ColorScheme cs, TextTheme tt) {
+  // MV:   if (_videos.isEmpty) {
+  // MV:     return const Center(child: Text('暂无 MV'));
+  // MV:   }
+  // MV:   return GridView.builder(
+  // MV:     padding: const EdgeInsets.all(12),
+  // MV:     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+  // MV:       crossAxisCount: 2,
+  // MV:       mainAxisSpacing: 12,
+  // MV:       crossAxisSpacing: 12,
+  // MV:       childAspectRatio: 0.75,
+  // MV:     ),
+  // MV:     itemCount: _videos.length,
+  // MV:     itemBuilder: (_, i) {
+  // MV:       final mv = _videos[i];
+  // MV:       final name = mv['MvName'] as String? ??
+  // MV:           mv['name'] as String? ??
+  // MV:           mv['mvname'] as String? ?? '';
+  // MV:       final img = mv['Pic'] as String? ??
+  // MV:           mv['imgurl'] as String? ??
+  // MV:           mv['img'] as String? ?? '';
+  // MV:       final hash = mv['MvHash'] as String? ?? mv['hash'] as String?;
+  // MV:       return GestureDetector(
+  // MV:         onTap: () {
+  // MV:           if (hash != null) {
+  // MV:             Navigator.pushNamed(context, '/mv',
+  // MV:                 arguments: {'hash': hash, 'name': name});
+  // MV:           }
+  // MV:         },
+  // MV:         child: Column(
+  // MV:           crossAxisAlignment: CrossAxisAlignment.start,
+  // MV:           children: [
+  // MV:             Expanded(
+  // MV:               child: ClipRRect(
+  // MV:                 borderRadius: BorderRadius.circular(8),
+  // MV:                 child: Stack(
+  // MV:                   fit: StackFit.expand,
+  // MV:                   children: [
+  // MV:                     if (img.isNotEmpty)
+  // MV:                       CachedNetworkImage(
+  // MV:                         imageUrl: img.replaceAll('{size}', '240'),
+  // MV:                         fit: BoxFit.cover,
+  // MV:                         errorWidget: (_, __, ___) => Container(
+  // MV:                           color: cs.surfaceContainerHighest,
+  // MV:                           child: const Icon(Icons.video_library),
+  // MV:                         ),
+  // MV:                       )
+  // MV:                     else
+  // MV:                       Container(
+  // MV:                         color: cs.surfaceContainerHighest,
+  // MV:                         child: const Icon(Icons.video_library),
+  // MV:                       ),
+  // MV:                     const Center(
+  // MV:                       child: Icon(Icons.play_circle_fill,
+  // MV:                           color: Colors.white70, size: 40),
+  // MV:                     ),
+  // MV:                   ],
+  // MV:                 ),
+  // MV:               ),
+  // MV:             ),
+  // MV:             const SizedBox(height: 6),
+  // MV:             Text(name,
+  // MV:                 maxLines: 2,
+  // MV:                 overflow: TextOverflow.ellipsis,
+  // MV:                 style: tt.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+  // MV:           ],
+  // MV:         ),
+  // MV:       );
+  // MV:     },
+  // MV:   );
+  // MV: }
 }

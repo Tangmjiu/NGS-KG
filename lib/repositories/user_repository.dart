@@ -1,3 +1,4 @@
+import '../services/api_client.dart';
 import 'base_repository.dart';
 import '../models/song.dart';
 import '../models/user.dart';
@@ -9,6 +10,13 @@ import '../models/vip_info.dart';
 
 class UserRepository extends BaseRepository {
   UserRepository(super.client);
+
+  String get _userId => ApiClient.userId ?? '0';
+
+  // 服务端时间偏移缓存（秒），避免每次上传前都请求 /server/now
+  int? _serverTimeOffsetSec;
+  DateTime? _serverTimeFetchedAt;
+  static const _serverTimeCacheTtl = Duration(minutes: 5);
 
   Future<User?> getUserDetail() async {
     final res = await get('/user/detail');
@@ -23,10 +31,10 @@ class UserRepository extends BaseRepository {
     return VipInfo.fromJson(data);
   }
 
-  Future<List<Map<String, dynamic>>> getUserHistory(
-      {int page = 1, int pageSize = 200}) async {
-    final res =
-        await get('/user/history', params: {'page': page, 'pagesize': pageSize});
+  Future<List<Map<String, dynamic>>> getUserHistory({String? bp, int pageSize = 300}) async {
+    final params = <String, dynamic>{'pagesize': pageSize};
+    if (bp != null) params['bp'] = bp;
+    final res = await get('/user/history', params: params);
     final raw = res['data'];
     if (raw is Map) {
       final songs = raw['songs'] as List?;
@@ -103,34 +111,35 @@ class UserRepository extends BaseRepository {
   }
 
   Future<List<Map<String, dynamic>>> getUserHistoryRank() async {
-    final res = await get('/user/listen', params: {'type': 0});
+    final res = await get('/user/listen', params: {'type': 0, 'pagesize': 300});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
   }
 
-  Future<List<Map<String, dynamic>>> getFavoriteVideos(
-      {int page = 1, int pageSize = 200}) async {
-    final res = await get('/user/video/collect',
-        params: {'page': page, 'pagesize': pageSize});
-    final raw = res['data'];
-    if (raw is List) return raw.cast<Map<String, dynamic>>();
-    return [];
-  }
-
-  Future<List<Map<String, dynamic>>> getLikedVideos(
-      {int page = 1, int pageSize = 200}) async {
-    final res =
-        await get('/user/video/love', params: {'page': page, 'pagesize': pageSize});
-    final raw = res['data'];
-    if (raw is List) return raw.cast<Map<String, dynamic>>();
-    return [];
-  }
+  // MV:
+  // MV: Future<List<Map<String, dynamic>>> getFavoriteVideos(
+  // MV:     {int page = 1, int pageSize = 200}) async {
+  // MV:   final res = await get('/user/video/collect',
+  // MV:       params: {'page': page, 'pagesize': pageSize});
+  // MV:   final raw = res['data'];
+  // MV:   if (raw is List) return raw.cast<Map<String, dynamic>>();
+  // MV:   return [];
+  // MV: }
+  // MV:
+  // MV: Future<List<Map<String, dynamic>>> getLikedVideos(
+  // MV:     {int page = 1, int pageSize = 200}) async {
+  // MV:   final res =
+  // MV:       await get('/user/video/love', params: {'page': page, 'pagesize': pageSize});
+  // MV:   final raw = res['data'];
+  // MV:   if (raw is List) return raw.cast<Map<String, dynamic>>();
+  // MV:   return [];
+  // MV: }
 
   Future<List<Map<String, dynamic>>> getFollowedArtistNews(
       {int page = 1, int pageSize = 200}) async {
     final res = await get('/user/follow/message',
-        params: {'page': page, 'pagesize': pageSize});
+        params: {'id': _userId, 'page': page, 'pagesize': pageSize});
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
@@ -156,9 +165,36 @@ class UserRepository extends BaseRepository {
   }
 
   Future<void> uploadPlayHistory(int songId, {int? duration}) async {
-    final params = <String, dynamic>{'id': songId};
-    if (duration != null) params['duration'] = duration;
+    // API 文档: mxid=专辑音乐id(MixSongID), ot=秒级时间戳, pc=播放次数
+    final params = <String, dynamic>{'mxid': songId};
+    if (duration != null && duration > 0) {
+      params['ot'] = await _getServerTimestampSec();
+      params['pc'] = 1;
+    }
     await get('/playhistory/upload', params: params);
+  }
+
+  /// 获取服务端秒级时间戳，优先使用缓存（5 分钟 TTL），避免频繁请求
+  Future<int> _getServerTimestampSec() async {
+    final now = DateTime.now();
+    // 缓存有效时直接用偏移量计算
+    if (_serverTimeFetchedAt != null &&
+        _serverTimeOffsetSec != null &&
+        now.difference(_serverTimeFetchedAt!) < _serverTimeCacheTtl) {
+      return now.millisecondsSinceEpoch ~/ 1000 + _serverTimeOffsetSec!;
+    }
+    try {
+      final server = await getServerTime();
+      if (server != null) {
+        _serverTimeOffsetSec = server.millisecondsSinceEpoch ~/ 1000 -
+            now.millisecondsSinceEpoch ~/ 1000;
+        _serverTimeFetchedAt = now;
+        return server.millisecondsSinceEpoch ~/ 1000;
+      }
+    } catch (_) {
+      // 服务端时间获取失败，降级到本地时间
+    }
+    return now.millisecondsSinceEpoch ~/ 1000;
   }
 
   Future<DateTime?> getServerTime() async {

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../providers/playlist_provider.dart';
+import '../theme/theme_assets.dart';
 import '../services/music_service.dart';
 
 class PlaybackControls extends StatelessWidget {
@@ -82,6 +83,8 @@ class PlaybackControls extends StatelessWidget {
         return Icons.shuffle;
       case PlayMode.repeatOne:
         return Icons.repeat_one;
+      case PlayMode.radio:
+        return Icons.radio;
       default:
         return Icons.repeat;
     }
@@ -110,76 +113,150 @@ class PlaybackControls extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                title: Text('播放列表',
-                    style: Theme.of(context).textTheme.titleSmall),
+                title:
+                    Text('播放列表', style: Theme.of(context).textTheme.titleSmall),
                 trailing: Text('${player.playlist.length} 首',
                     style: Theme.of(context).textTheme.bodySmall),
               ),
               Divider(height: 1, color: cs.outlineVariant),
               if (player.playlist.isEmpty)
-                const Expanded(
-                    child: Center(child: Text('列表为空')))
+                Expanded(child: Center(child: emptyStateWidget(ThemeAssets.emptyContent, Icons.queue_music, '列表为空')))
               else
                 Expanded(
-                  child: ListView.builder(
-                    controller: scrollCtrl,
+                  child: ReorderableListView.builder(
+                    buildDefaultDragHandles: false,
+                    scrollController: scrollCtrl,
                     itemCount: player.playlist.length,
+                    onReorder: (from, to) {
+                      player.moveInQueue(from, to);
+                    },
                     itemBuilder: (_, i) {
                       final s = player.playlist[i];
-                      return ListTile(
-                        leading: CircleAvatar(
-                          radius: 14,
-                          backgroundColor: i == player.currentIndex
-                              ? cs.primaryContainer
-                              : Colors.transparent,
-                          child: Text(
-                            '${i + 1}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: i == player.currentIndex
-                                  ? cs.onPrimaryContainer
-                                  : cs.onSurfaceVariant,
+                      return Dismissible(
+                        key: ValueKey('queue_$i'),
+                        direction: DismissDirection.endToStart,
+                        confirmDismiss: (_) async {
+                          return await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('移除'),
+                              content: Text('从播放列表移除「${s.name}」？'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('取消'),
+                                ),
+                                FilledButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('移除'),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        onDismissed: (_) {
+                          player.removeFromQueue(i);
+                        },
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          color: cs.error,
+                          child: Icon(Icons.delete, color: cs.onError),
+                        ),
+                        child: ListTile(
+                          key: ValueKey('tile_$i'),
+                          leading: ReorderableDragStartListener(
+                            index: i,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.drag_handle,
+                                    size: 18, color: cs.onSurfaceVariant),
+                                const SizedBox(width: 4),
+                                CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: i == player.currentIndex
+                                      ? cs.primaryContainer
+                                      : Colors.transparent,
+                                  child: Text(
+                                    '${i + 1}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: i == player.currentIndex
+                                          ? cs.onPrimaryContainer
+                                          : cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                          title: Text(s.name,
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                          subtitle: Text(
+                            s.artistDisplay,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 11, color: cs.onSurfaceVariant),
+                          ),
+                          selected: i == player.currentIndex,
+                          selectedTileColor:
+                              cs.primaryContainer.withValues(alpha: 40 / 255),
+                          onTap: () {
+                            Navigator.pop(context);
+                            player.playIndex(i);
+                          },
                         ),
-                        title: Text(s.name,
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text(
-                          s.artistDisplay,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
-                        ),
-                        selected: i == player.currentIndex,
-                        selectedTileColor: cs.primaryContainer.withValues(alpha: 40/255),
-                        onTap: () {
-                        Navigator.pop(context);
-                        player.playIndex(i);
-                      },
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
+              Divider(height: 1, color: cs.outlineVariant),
+              ListTile(
+                leading: const Icon(Icons.playlist_add),
+                title: const Text('收藏到歌单'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showAddToPlaylist(context, player);
+                },
               ),
-            Divider(height: 1, color: cs.outlineVariant),
-            ListTile(
-              leading: const Icon(Icons.playlist_add),
-              title: const Text('收藏到歌单'),
-              onTap: () {
-                Navigator.pop(context);
-                _showAddToPlaylist(context, player);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.delete_sweep, color: cs.error),
-              title: Text('清空列表', style: TextStyle(color: cs.error)),
-              onTap: () {
-                Navigator.pop(context);
-                _confirmClear(context, player);
-              },
-            ),
-          ],
+              ListTile(
+                leading: const Icon(Icons.playlist_add),
+                title: const Text('将队列存为歌单'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _saveQueueAsPlaylist(context, player);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.my_location, color: cs.primary),
+                title: const Text('跳转到当前播放'),
+                subtitle: Text(player.currentSong?.name ?? '',
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                onTap: () {
+                  final idx = player.currentIndex;
+                  if (idx >= 0) {
+                    final offset = (idx * 72.0) - 100;
+                    scrollCtrl.animateTo(
+                      offset.clamp(0, scrollCtrl.position.maxScrollExtent),
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  }
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.delete_sweep, color: cs.error),
+                title: Text('清空列表', style: TextStyle(color: cs.error)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmClear(context, player);
+                },
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -194,26 +271,25 @@ class PlaybackControls extends StatelessWidget {
           builder: (_, pp, __) {
             final playlists = pp.userPlaylists;
             if (playlists.isEmpty) {
-              return const Padding(
-                  padding: EdgeInsets.all(24), child: Text('暂无歌单'));
+              return emptyStateWidget(ThemeAssets.emptyPlaylist, Icons.playlist_add, '暂无歌单');
             }
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text('收藏到歌单',
-                        style: Theme.of(context).textTheme.titleSmall),
-                  ),
-                  Divider(
-                      height: 1,
-                      color: Theme.of(context).colorScheme.outlineVariant),
-                  SizedBox(
-                    height: (playlists.length * 56.0).clamp(80.0, 320.0),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: playlists.length,
-                      itemBuilder: (_, i) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text('收藏到歌单',
+                      style: Theme.of(context).textTheme.titleSmall),
+                ),
+                Divider(
+                    height: 1,
+                    color: Theme.of(context).colorScheme.outlineVariant),
+                SizedBox(
+                  height: (playlists.length * 56.0).clamp(80.0, 320.0),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: playlists.length,
+                    itemBuilder: (_, i) {
                       final pl = playlists[i];
                       return ListTile(
                         leading: const Icon(Icons.playlist_play),
@@ -238,7 +314,7 @@ class PlaybackControls extends StatelessWidget {
       BuildContext context, int playlistId, Song song) async {
     try {
       final data = (song.hash?.isNotEmpty ?? false)
-          ? '${song.name}|${song.hash}|0|${song.id}'
+          ? '${song.name}|${song.hash}|${song.albumId}|${song.id}'
           : song.name;
       await MusicService().addTracksToPlaylist(playlistId, data);
       if (context.mounted) {
@@ -261,14 +337,69 @@ class PlaybackControls extends StatelessWidget {
         content: const Text('确定要清空播放列表吗？'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消')),
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
               player.setPlaylist([]);
             },
             child: const Text('清空'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static void _saveQueueAsPlaylist(BuildContext context, PlayerProvider player) {
+    final songs = player.playlist;
+    if (songs.isEmpty) return;
+    final nameCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('将队列存为歌单'),
+        content: TextField(
+          controller: nameCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '歌单名称',
+            hintText: '我的播放列表',
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消')),
+          FilledButton(
+            onPressed: () async {
+              final name = nameCtrl.text.trim();
+              if (name.isEmpty) return;
+              Navigator.pop(ctx);
+              try {
+                await MusicService().createPlaylist(name);
+                final playlists = await MusicService().getUserPlaylist();
+                if (playlists.isNotEmpty && context.mounted) {
+                  final pl = playlists.first;
+                  for (final s in songs) {
+                    final data = (s.hash?.isNotEmpty ?? false)
+                        ? '${s.name}|${s.hash}|${s.albumId}|${s.id}'
+                        : s.name;
+                    await MusicService().addTracksToPlaylist(pl.id, data);
+                  }
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('已保存 ${songs.length} 首到歌单「${pl.name}」')),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text('保存失败: $e')));
+                }
+              }
+            },
+            child: const Text('保存'),
           ),
         ],
       ),

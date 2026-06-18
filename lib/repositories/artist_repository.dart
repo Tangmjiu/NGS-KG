@@ -110,19 +110,20 @@ class ArtistRepository extends BaseRepository {
     return [];
   }
 
-  /// 获取歌手 MV 列表
-  /// API: GET /artist/videos?id=xxx&page=1&pagesize=20
-  Future<List<Map<String, dynamic>>> getArtistVideos(int artistId,
-      {int page = 1, int pageSize = 20}) async {
-    final res = await get('/artist/videos', params: {
-      'id': artistId,
-      'page': page,
-      'pagesize': pageSize,
-    });
-    final raw = res['data'];
-    if (raw is List) return raw.cast<Map<String, dynamic>>();
-    return [];
-  }
+  // MV:
+  // MV: /// 获取歌手 MV 列表
+  // MV: /// API: GET /artist/videos?id=xxx&page=1&pagesize=20
+  // MV: Future<List<Map<String, dynamic>>> getArtistVideos(int artistId,
+  // MV:     {int page = 1, int pageSize = 20}) async {
+  // MV:   final res = await get('/artist/videos', params: {
+  // MV:     'id': artistId,
+  // MV:     'page': page,
+  // MV:     'pagesize': pageSize,
+  // MV:   });
+  // MV:   final raw = res['data'];
+  // MV:   if (raw is List) return raw.cast<Map<String, dynamic>>();
+  // MV:   return [];
+  // MV: }
 
   Future<void> followArtist(int artistId) async {
     await get('/artist/follow', params: {'id': artistId});
