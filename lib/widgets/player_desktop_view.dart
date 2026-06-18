@@ -12,22 +12,50 @@ import '../widgets/player_controls_bar.dart';
 import '../screens/audio_effects_screen.dart';
 import '../widgets/playlist_side_sheet.dart';
 
-/// LyricView 样式（Apple Music 风格）
+/// LyricView 样式（Apple Music 风格，居中适配桌面）
 final _desktopLyricStyle = LyricStyle(
   textStyle: const TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w400,
     height: 1.4,
+    color: Colors.white54,
   ),
-  activeTextStyle: const TextStyle(
-    fontSize: 18,
+  activeStyle: const TextStyle(
+    fontSize: 20,
     fontWeight: FontWeight.w600,
+    height: 1.4,
+    color: Colors.white,
   ),
-  lineSpacing: 24.0,
-  textAlign: TextAlign.center,
-  activeTextColor: Colors.white,
-  inactiveTextColor: Colors.white60,
-  showTranslation: true,
+  translationStyle: const TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w300,
+    height: 1.2,
+    color: Colors.white38,
+  ),
+  activeHighlightColor: Colors.white,
+  activeHighlightExtraFadeWidth: 14,
+  lineGap: 24,
+  translationLineGap: 4,
+  lineTextAlign: TextAlign.center,
+  contentAlignment: CrossAxisAlignment.center,
+  contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+  selectionAnchorPosition: 0.5,
+  selectionAlignment: MainAxisAlignment.center,
+  activeAnchorPosition: 0.5,
+  activeAlignment: MainAxisAlignment.center,
+  selectedColor: Colors.white,
+  selectedTranslationColor: Colors.white,
+  scrollDuration: const Duration(milliseconds: 400),
+  scrollCurve: Curves.easeInOutCubic,
+  scrollDurations: {},
+  enableSwitchAnimation: true,
+  switchEnterDuration: const Duration(milliseconds: 200),
+  switchExitDuration: const Duration(milliseconds: 200),
+  switchEnterCurve: Curves.easeIn,
+  switchExitCurve: Curves.easeOut,
+  selectionAutoResumeMode: SelectionAutoResumeMode.selecting,
+  selectionAutoResumeDuration: const Duration(milliseconds: 500),
+  activeAutoResumeDuration: const Duration(milliseconds: 3000),
 );
 
 /// 桌面全宽沉浸播放器（双栏：左封面 + 右歌词）。
