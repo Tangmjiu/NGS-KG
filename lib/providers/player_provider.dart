@@ -160,6 +160,23 @@ class PlayerProvider extends ChangeNotifier
       }).toList();
     }
 
+    // ── Ensure at least 3 colors for the flow light effect ──
+    // When an album cover has poor colour variety the extractor may return
+    // 1-2 colours.  We synthesize additional variants so the blob layer
+    // always has enough material for a visually interesting result.
+    const int minFlowColors = 3;
+    while (colors.length < minFlowColors) {
+      final src = colors.isEmpty ? const Color(0xFF121212) : colors.last;
+      final hsl = HSLColor.fromColor(src);
+      // Alternate lighter/darker so each new colour is perceptibly different.
+      final double delta = ((colors.length % 2) == 0 ? 0.18 : -0.18) * colors.length;
+      colors.add(
+        hsl
+            .withLightness((hsl.lightness + delta).clamp(0.05, 0.95))
+            .toColor(),
+      );
+    }
+
     _cachedPaletteColors = colors;
     return colors;
   }
