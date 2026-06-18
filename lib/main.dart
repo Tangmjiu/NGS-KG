@@ -202,12 +202,14 @@ Future<void> _initDesktopServices() async {
     // 监听播放器状态 → 同步桌面服务
     player.addListener(() {
       String? lyricText;
-      final idx = player.currentLyricLine;
-      if (idx >= 0 && idx < player.lyrics.length) {
-        final line = player.lyrics[idx];
+      final idx = player.lyricController.activeIndexNotifiter.value;
+      final model = player.lyricController.lyricNotifier.value;
+      final lines = model?.lines ?? [];
+      if (idx >= 0 && idx < lines.length) {
+        final line = lines[idx];
         lyricText = line.text;
-        if (line.translatedText != null && line.translatedText!.isNotEmpty) {
-          lyricText = '$lyricText / ${line.translatedText}';
+        if (line.translation != null && line.translation!.isNotEmpty) {
+          lyricText = '$lyricText / ${line.translation}';
         }
       }
       DesktopService.instance.sync(
