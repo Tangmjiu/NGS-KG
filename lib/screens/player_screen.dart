@@ -14,6 +14,7 @@ import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../providers/liked_songs_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../constants/quality.dart';
@@ -373,6 +374,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           );
         }
 
+        final flowEnabled = context.watch<ThemeProvider>().flowLightEnabled;
         return Scaffold(
           backgroundColor: Colors.black,
           body: Stack(
@@ -383,6 +385,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 paletteColor: player.backgroundColor,
                 paletteColors: player.paletteColors,
                 scrollOffset: _pageOffset,
+                flowLightEnabled: flowEnabled,
               ),
 
               // ── Content ──
