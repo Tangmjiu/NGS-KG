@@ -122,7 +122,7 @@ class ThemeLoader {
         final destName = '$key$ext';
         final destPath = '${appDir.path}/$destName';
         await File(destPath).writeAsBytes(zipEntry.content);
-        assetFiles[key] = destPath;
+        assetFiles[key] = destName; // 仅存储文件名，manifest 中保存相对路径
       }
     }
 
@@ -133,14 +133,14 @@ class ThemeLoader {
         await fontDir.create(recursive: true);
       }
       _extractFontFiles(archive, fontDir, fontWeightFiles!);
-      // Update fontWeightFiles with absolute paths for FontLoader
+      // Update fontWeightFiles with relative paths for manifest
       fontWeightFiles = FontWeightFiles(
-        regular: '${fontDir.path}/${fontWeightFiles!.regular.split('/').last}',
+        regular: 'fonts/${fontWeightFiles!.regular.split('/').last}',
         medium: fontWeightFiles!.medium != null
-            ? '${fontDir.path}/${fontWeightFiles!.medium!.split('/').last}'
+            ? 'fonts/${fontWeightFiles!.medium!.split('/').last}'
             : null,
         bold: fontWeightFiles!.bold != null
-            ? '${fontDir.path}/${fontWeightFiles!.bold!.split('/').last}'
+            ? 'fonts/${fontWeightFiles!.bold!.split('/').last}'
             : null,
       );
     }
@@ -159,7 +159,7 @@ class ThemeLoader {
           final ext = bgPath.contains('.') ? '.${bgPath.split('.').last}' : '.png';
           final destPath = '${appDir.path}/player_bg$ext';
           await File(destPath).writeAsBytes(zipEntry.content);
-          playerBgPath = destPath;
+          playerBgPath = 'player_bg$ext'; // 仅存储文件名，manifest 中保存相对路径
         }
       }
     }
@@ -197,14 +197,11 @@ class ThemeLoader {
       orElse: () => _emptyFile(),
     );
     if (previewEntry.isFile) {
-      previewPath = '${appDir.path}/preview.png';
-      await File(previewPath).writeAsBytes(previewEntry.content);
+      previewPath = 'preview.png'; // 仅存储文件名，manifest 中保存相对路径
+      await File('${appDir.path}/$previewPath').writeAsBytes(previewEntry.content);
     }
 
-    // 记录已导入
-    await _recordImported(_themeId(fileName));
-
-    return ThemePack(
+    final pack = ThemePack(
       id: _themeId(fileName),
       name: name,
       author: author,
@@ -222,6 +219,19 @@ class ThemeLoader {
       assetFiles: assetFiles.isNotEmpty ? assetFiles : null,
       playerBgPath: playerBgPath,
     );
+
+    // ── 保存 manifest.json 以供启动时重新加载 ──
+    try {
+      final savedJson = jsonEncode(pack.toJson());
+      await File('${appDir.path}/manifest.json').writeAsString(savedJson);
+    } catch (e, s) {
+      Log.w('ThemeLoader', 'Failed to save theme manifest', e, s);
+    }
+
+    // 记录已导入
+    await _recordImported(_themeId(fileName));
+
+    return pack;
   }
 
   // ─── 已导入主题管理 ───
@@ -261,13 +271,93 @@ class ThemeLoader {
     return fileName.replaceAll(RegExp(r'\.zip$', caseSensitive: false), '');
   }
 
-  static Future<Directory> _getThemeDir(String id) async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final dir = Directory('${appDir.path}/themes/$id');
+  /// 返回主题包文件的根目录。
+  /// 使用 [getApplicationSupportDirectory] 的子目录 themes/，
+  /// 确保路径稳定且持久，不受 exe 位置或重建影响。
+  /// 各平台路径示例：
+  ///   Windows: %APPDATA%/com.mjiutang.ngskg/themes/
+  ///   Linux:   ~/.local/share/com.mjiutang.ngskg/themes/
+  ///   macOS:   ~/Library/Application Support/com.mjiutang.ngskg/themes/
+  static Future<Directory> _getThemesRootDir() async {
+    final appDir = await getApplicationSupportDirectory();
+    final dir = Directory('${appDir.path}/themes');
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
     return dir;
+  }
+
+  static Future<Directory> _getThemeDir(String id) async {
+    final root = await _getThemesRootDir();
+    final dir = Directory('${root.path}/$id');
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    return dir;
+  }
+
+  /// 从磁盘加载之前安装的主题包。
+  ///
+  /// 读取 [id] 对应目录下的 manifest.json（由 [parseZipBytes] 保存），
+  /// 反序列化为 ThemePack，并将 manifest 中的相对路径解析为绝对路径。
+  /// 如果 manifest 不存在或解析失败返回 null。
+  static Future<ThemePack?> loadPackFromDisk(String id) async {
+    try {
+      final dir = await _getThemeDir(id);
+      final manifestFile = File('${dir.path}/manifest.json');
+      if (!await manifestFile.exists()) return null;
+      final data = jsonDecode(await manifestFile.readAsString())
+          as Map<String, dynamic>;
+      final pack = ThemePack.fromJson(data);
+
+      // 解析相对路径 → 绝对路径
+      String resolve(String? p) =>
+          (p != null && p.isNotEmpty && !p.startsWith('/') && !p.contains(':\\'))
+              ? '${dir.path}/$p'
+              : (p ?? '');
+
+      final resolvedAssets = pack.assetFiles?.map((k, v) =>
+          MapEntry(k, resolve(v)));
+
+      FontWeightFiles? resolvedFonts;
+      if (pack.fontWeightFiles != null) {
+        resolvedFonts = FontWeightFiles(
+          regular: resolve(pack.fontWeightFiles!.regular),
+          medium: pack.fontWeightFiles!.medium != null
+              ? resolve(pack.fontWeightFiles!.medium)
+              : null,
+          bold: pack.fontWeightFiles!.bold != null
+              ? resolve(pack.fontWeightFiles!.bold)
+              : null,
+        );
+      }
+
+      return ThemePack(
+        id: pack.id,
+        name: pack.name,
+        author: pack.author,
+        version: pack.version,
+        description: pack.description,
+        isBuiltIn: pack.isBuiltIn,
+        previewPath: resolve(pack.previewPath).isNotEmpty
+            ? resolve(pack.previewPath)
+            : null,
+        lightScheme: pack.lightScheme,
+        darkScheme: pack.darkScheme,
+        fontFamily: pack.fontFamily,
+        fontWeightFiles: resolvedFonts,
+        shapes: pack.shapes,
+        motion: pack.motion,
+        components: pack.components,
+        assetFiles: resolvedAssets,
+        playerBgPath: resolve(pack.playerBgPath).isNotEmpty
+            ? resolve(pack.playerBgPath)
+            : null,
+      );
+    } catch (e, s) {
+      Log.e('ThemeLoader', 'Failed to load theme $id from disk', e, s);
+      return null;
+    }
   }
 
   /// 提取字体文件到主题字体目录

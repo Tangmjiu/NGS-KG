@@ -45,6 +45,10 @@ class ThemeAssets {
 
   /// 从 ThemePack 加载资源
   static void loadFromThemePack(ThemePack pack) {
+    // playerBg 不依赖 assetFiles，必须在早期返回前应用。
+    // 无条件赋值：新主题包没有 playerBgPath 时清空旧值，防止跨包污染。
+    playerBg = pack.playerBgPath ?? '';
+
     final files = pack.assetFiles;
     if (files == null) return;
 
@@ -60,8 +64,6 @@ class ThemeAssets {
     if (files.containsKey('empty_playlist')) emptyPlaylist = files['empty_playlist']!;
     if (files.containsKey('empty_content')) emptyContent = files['empty_content']!;
     if (files.containsKey('load_failed')) loadFailed = files['load_failed']!;
-
-    if (pack.playerBgPath != null) playerBg = pack.playerBgPath!;
   }
 
   /// 重置为内置默认资源

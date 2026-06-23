@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/painting.dart';
 import 'package:palette_generator/palette_generator.dart';
 
 /// Holds the colors extracted from an album art image.
@@ -81,6 +82,35 @@ class PaletteExtractor {
 
   final Map<String, ExtractedPalette> _cache = <String, ExtractedPalette>{};
 
+  /// Converts a [PaletteGenerator] result into an [ExtractedPalette].
+  static ExtractedPalette _toExtractedPalette(PaletteGenerator generator) {
+    final crop = generator.colors
+        .where((c) => c != generator.dominantColor?.color)
+        .toList();
+    crop.sort((a, b) => HSLColor.fromColor(a).lightness
+        .compareTo(HSLColor.fromColor(b).lightness));
+    final topColors = <Color>[];
+    if (crop.isNotEmpty) {
+      if (crop.length <= 7) {
+        topColors.addAll(crop);
+      } else {
+        final step = (crop.length - 1) / 6; // 7 picks → 6 intervals
+        for (int i = 0; i < 7; i++) {
+          topColors.add(crop[(i * step).round()]);
+        }
+      }
+    }
+
+    return ExtractedPalette(
+      dominant: generator.dominantColor?.color ?? _defaultDominant,
+      vibrant: generator.vibrantColor?.color,
+      muted: generator.mutedColor?.color,
+      darkMuted: generator.darkMutedColor?.color,
+      lightVibrant: generator.lightVibrantColor?.color,
+      topColors: topColors,
+    );
+  }
+
   /// Extracts a color palette from the image at [imageUrl].
   ///
   /// Uses [NetworkImage] to load the image and [PaletteGenerator] to extract
@@ -100,39 +130,36 @@ class PaletteExtractor {
         NetworkImage(imageUrl),
       );
 
-      // Option A: pick colours evenly across the lightness spectrum
-      // instead of just the most-populated (which cluster around similar tones).
-      final crop = generator.colors
-          .where((c) => c != generator.dominantColor?.color)
-          .toList();
-      crop.sort((a, b) => HSLColor.fromColor(a).lightness
-          .compareTo(HSLColor.fromColor(b).lightness));
-      final topColors = <Color>[];
-      if (crop.isNotEmpty) {
-        if (crop.length <= 7) {
-          topColors.addAll(crop);
-        } else {
-          final step = (crop.length - 1) / 6; // 7 picks → 6 intervals
-          for (int i = 0; i < 7; i++) {
-            topColors.add(crop[(i * step).round()]);
-          }
-        }
-      }
-
-      final palette = ExtractedPalette(
-        dominant: generator.dominantColor?.color ?? _defaultDominant,
-        vibrant: generator.vibrantColor?.color,
-        muted: generator.mutedColor?.color,
-        darkMuted: generator.darkMutedColor?.color,
-        lightVibrant: generator.lightVibrantColor?.color,
-        topColors: topColors,
-      );
+      final palette = _toExtractedPalette(generator);
 
       _cache[imageUrl] = palette;
       return palette;
     } catch (_) {
       // Graceful fallback — return the default dark palette.
       _cache[imageUrl] = _fallbackPalette;
+      return _fallbackPalette;
+    }
+  }
+
+  /// Extracts a color palette using a custom [ImageProvider] (e.g. [FileImage]
+  /// for local files) and caches the result under [cacheKey] (typically the
+  /// album cover URL).
+  ///
+  /// Never throws — returns the [fallbackPalette] on any error.
+  Future<ExtractedPalette> extractFromProvider(
+      ImageProvider provider, String cacheKey) async {
+    final cached = _cache[cacheKey];
+    if (cached != null) {
+      return cached;
+    }
+
+    try {
+      final generator = await PaletteGenerator.fromImageProvider(provider);
+      final palette = _toExtractedPalette(generator);
+      _cache[cacheKey] = palette;
+      return palette;
+    } catch (_) {
+      _cache[cacheKey] = _fallbackPalette;
       return _fallbackPalette;
     }
   }
