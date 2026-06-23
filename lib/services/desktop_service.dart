@@ -180,6 +180,11 @@ class DesktopService {
 
   Future<void> _initWindow() async {
     try {
+      // windowManager.ensureInitialized() 已在 main() 中提前调用。
+      // 自定义标题栏由 bitsdojo_window 在 C++ 侧通过 WM_NCHITTEST 实现，
+      // Flutter 侧通过 WindowTitleBarBox + MoveWindow 配合。
+      // 此处不再需要 setTitleBarStyle。
+
       await windowManager.setMinimumSize(const Size(960, 600));
       // 关闭按钮 → 隐藏到托盘，不退出
       await windowManager.setPreventClose(true);
