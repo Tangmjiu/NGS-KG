@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
 import '../screens/player_screen.dart';
+import 'shell_navigation_scope.dart';
 
 class PlayerBar extends StatelessWidget {
   const PlayerBar({super.key});
@@ -15,10 +16,16 @@ class PlayerBar extends StatelessWidget {
         }
         final song = player.currentSong!;
         return GestureDetector(
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const PlayerScreen()),
-          ),
+          onTap: () {
+            // Use push (not navigate) so the player opens without DesktopRouteWrapper
+            // PlayerScreen/PlayerDesktopView has its own close button
+            final scope = ShellNavigationScope.of(context);
+            if (scope != null) {
+              scope.openInShell(const PlayerScreen());
+            } else {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const PlayerScreen()));
+            }
+          },
           child: Container(
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,

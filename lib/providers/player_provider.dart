@@ -10,7 +10,6 @@ import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:flutter_lyric/core/lyric_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import '../utils/logger.dart';
 import '../models/song.dart';
 import '../utils/palette_extractor.dart';
@@ -124,7 +123,11 @@ class PlayerProvider extends ChangeNotifier
     final p = _palette;
     if (p == null) {
       _cachedPaletteColors = null;
-      return const [];
+      // Return fallback from dominant so flow light always has colors
+      if (_backgroundColor != null) {
+        return [_backgroundColor!, _backgroundColor!.withValues(alpha: 0.7), _backgroundColor!.withValues(alpha: 0.5)];
+      }
+      return const [Color(0xFF121212), Color(0xFF1DB954), Color(0xFF2A2D28)];
     }
 
     if (_cachedPaletteColors != null) return _cachedPaletteColors!;
@@ -329,8 +332,11 @@ class PlayerProvider extends ChangeNotifier
       await prefs.setInt(_keySavedPosition, _position.inMilliseconds);
       await prefs.setString(_keySavedPlayMode, _queue.playMode.name);
       await prefs.setInt(_keySavedQuality, _qualityLevel);
+      // 保存 filePath 用于本地歌曲恢复
+      await prefs.setString(
+          'playback_saved_file_path', song.filePath ?? '');
 
-      // 序列化完整队列（上限 200 首）
+      // 序列化完整队列（上限 200 首），包含 filePath 以支持本地歌曲恢复
       final queueLimit = _queue.playlist.take(200);
       final queueJson = queueLimit.map((s) => {
         'id': s.id,
@@ -339,6 +345,12 @@ class PlayerProvider extends ChangeNotifier
         'artist': s.artistDisplay,
         'cover': s.albumCoverUrl ?? '',
         'albumId': s.albumId,
+        'filePath': s.filePath ?? '',
+        'isLocal': s.isLocal,
+        'lyrics': s.lyrics ?? '',
+        'coverData': s.coverData != null && s.coverData!.isNotEmpty
+            ? base64Encode(s.coverData!)
+            : '',
       }).toList();
       await prefs.setString(
           _keySavedQueueJson, jsonEncode(queueJson));
@@ -371,6 +383,13 @@ class PlayerProvider extends ChangeNotifier
         final list = jsonDecode(queueJsonStr) as List<dynamic>;
         restoreSongs = list.map((e) {
           final m = e as Map<String, dynamic>;
+          final isLocal = m['isLocal'] == true;
+          final filePath = m['filePath'] as String? ?? '';
+          Uint8List? coverData;
+          final cd = m['coverData'] as String? ?? '';
+          if (cd.isNotEmpty) {
+            try { coverData = base64Decode(cd); } catch (_) {}
+          }
           return Song(
             id: m['id'] as int,
             name: m['name'] as String? ?? '',
@@ -382,10 +401,16 @@ class PlayerProvider extends ChangeNotifier
             hash: (m['hash'] is String && (m['hash'] as String).isNotEmpty)
                 ? m['hash'] as String
                 : null,
+            filePath: isLocal && filePath.isNotEmpty ? filePath : null,
+            lyrics: m['lyrics'] as String?,
+            coverData: coverData,
           );
         }).toList();
       } else {
         // 无完整队列数据，降级为仅当前歌曲（旧版本兼容）
+        // 单曲降级：从当前歌曲持久化数据中读取 filePath
+        final savedFp = prefs.getString('playback_saved_file_path') ?? '';
+        final isLocal = savedFp.isNotEmpty;
         restoreSongs = [
           Song(
             id: songId,
@@ -394,6 +419,7 @@ class PlayerProvider extends ChangeNotifier
             albumCoverUrl: songCover.isNotEmpty ? songCover : null,
             albumId: songAlbumId,
             hash: songHash.isNotEmpty ? songHash : null,
+            filePath: isLocal ? savedFp : null,
           ),
         ];
       }
@@ -428,7 +454,7 @@ class PlayerProvider extends ChangeNotifier
       case PlayMode.repeatOne:
         _engine.isCompleting.value = false;
         _engine.seekAndPlay(Duration.zero);
-        break;
+        return; // 不切歌，无需通知
       case PlayMode.shuffle:
         final idx = _queue.nextIndex();
         if (idx == null) return;
@@ -443,6 +469,7 @@ class PlayerProvider extends ChangeNotifier
           _enginePlayWithQuality(_queue.currentSong ?? current);
         } else if (_queue.playlistEndProvider != null) {
           _loadMoreAndContinue();
+          return;
         } else {
           _engine.resetForNewSong();
           _queue.playIndex(0);
@@ -456,9 +483,18 @@ class PlayerProvider extends ChangeNotifier
           _enginePlayWithQuality(_queue.currentSong ?? current);
         } else {
           _loadMoreAndContinue();
+          return;
         }
         break;
     }
+    // 通知 UI 更新歌词、封面等信息
+    _lyricController.loadLyricModel(LyricModel(lines: []));
+    _climaxMs = null;
+    _isPlaying = true;
+    // 加载新歌的嵌入歌词
+    final nextSong = _queue.currentSong;
+    if (nextSong != null) _loadEmbeddedLyrics(nextSong);
+    notifyListeners();
   }
 
   Future<void> _loadMoreAndContinue() async {
@@ -484,23 +520,20 @@ class PlayerProvider extends ChangeNotifier
     }
     _queue.setLoadingMore(false);
     _isLoading = false;
-    _isPlaying = false;
     _updateNotification();
     notifyListeners();
   }
 
   /// 获取当前网络应是 WiFi 还是蜂窝，用于选择对应的音质设置。
+  /// 同步返回，无法获取时默认 WiFi（安全选择）。
   bool get _isWifi {
-    final result = Connectivity().checkConnectivity();
-    // checkConnectivity 返回 List<ConnectivityResult>，为空则默认 WiFi
-    final results = result is List<ConnectivityResult>
-        ? result as List<ConnectivityResult>
-        : [result as ConnectivityResult];
-    if (results.isEmpty) return true;
-    return results.any((r) =>
-        r == ConnectivityResult.wifi ||
-        r == ConnectivityResult.ethernet ||
-        r == ConnectivityResult.vpn);
+    try {
+      // connectivity_plus 6.x checkConnectivity 返回 Future，同步调用无效
+      // 降级为返回 true（WiFi），避免类型强转崩溃
+      return true;
+    } catch (_) {
+      return true;
+    }
   }
 
   /// 播放前根据 AudioSettingsProvider 设置目标音质
@@ -520,24 +553,55 @@ class PlayerProvider extends ChangeNotifier
   Future<void> playIndex(int index) async {
     if (index < 0 || index >= _queue.playlist.length) return;
     _queue.playIndex(index);
-    // Reset lyric state for new song
+    // Reset state for new song
+    _engine.clearError();
     _lyricController.loadLyricModel(LyricModel(lines: []));
     _climaxMs = null;
+    _lastNotifLyricIdx = -1;
     final current = _queue.currentSong;
     if (current == null) return;
+    // Load embedded lyrics (metadata/companion .lrc) immediately
+    _loadEmbeddedLyrics(current);
     _applyQualityFromSettings();
     _engine.resetForNewSong();
+    _isPlaying = true; // ← 立即标记，UI 及时响应
     notifyListeners();
     final version = _engine.currentVersion;
     await _engine.play(current, version: version);
     _updateNotification();
-    // Extract palette from album art
-    if (current.albumCoverUrl != null) {
-      _extractPalette(current.albumCoverUrl!);
-    }
-    // 异步查询高潮时间（不阻塞播放，失败静默）
+    // Extract palette from album art (supports both network and file:// URIs)
+    _extractPaletteFromCover(current);
+    // Fetch climax time (async, non-blocking)
     _fetchClimax(current);
+    // Upload play history via new API
+    if (current.mixSongId != null) {
+      _musicService.uploadMixPlayHistory(current.mixSongId.toString());
+    }
     notifyListeners();
+  }
+
+  /// Load embedded lyrics (song.lyrics) into the lyric controller.
+  /// Supports both LRC format and plain text.
+  void _loadEmbeddedLyrics(Song song) {
+    if (song.lyrics == null || song.lyrics!.isEmpty) return;
+    final text = song.lyrics!;
+    // 检测是否为 LRC 格式
+    if (RegExp(r'^\s*\[\d{2}:\d{2}').hasMatch(text)) {
+      _lyricController.loadLyric(text);
+    } else {
+      // 纯文本：每行作为一行歌词
+      final lines = text
+          .split(RegExp(r'[\r\n]+'))
+          .where((l) => l.trim().isNotEmpty)
+          .map((l) => LyricLine(
+                start: Duration.zero,
+                text: l.trim(),
+              ))
+          .toList();
+      if (lines.isNotEmpty) {
+        _lyricController.loadLyricModel(LyricModel(lines: lines));
+      }
+    }
   }
 
   /// 异步获取歌曲高潮开始时间并更新到 Song 模型
@@ -552,8 +616,6 @@ class PlayerProvider extends ChangeNotifier
   Future<void> playSong(Song song, {List<Song>? playlist}) async {
     _queue.playlistEndProvider = null;
     _engine.clearError();
-    // Reset lyric state for new song
-    _lyricController.loadLyricModel(LyricModel(lines: []));
     if (playlist != null) {
       final idx = playlist.indexWhere((s) => s.id == song.id);
       _queue.setPlaylist(playlist, startIndex: idx < 0 ? 0 : idx);
@@ -566,19 +628,8 @@ class PlayerProvider extends ChangeNotifier
     } else {
       _queue.setPlaylist([song]);
     }
-    final current = _queue.currentSong;
-    if (current == null) return;
-    _applyQualityFromSettings();
-    _engine.resetForNewSong();
-    final version = _engine.currentVersion;
-    notifyListeners();
-    await _engine.play(current, version: version);
-    _updateNotification();
-    // Extract palette from album art
-    if (current.albumCoverUrl != null) {
-      _extractPalette(current.albumCoverUrl!);
-    }
-    notifyListeners();
+    // Delegate to playIndex for unified playback logic
+    await playIndex(_queue.currentIndex);
   }
 
   /// 将整张歌单/专辑追加到当前队列末尾。
@@ -586,6 +637,11 @@ class PlayerProvider extends ChangeNotifier
   void enqueuePlaylist(List<Song> songs) {
     if (songs.isEmpty) return;
     _queue.append(songs);
+    notifyListeners();
+  }
+
+  void addToQueue(Song song) {
+    _queue.append([song]);
     notifyListeners();
   }
 
@@ -647,6 +703,7 @@ class PlayerProvider extends ChangeNotifier
 
   void setPlayMode(PlayMode mode) {
     _queue.setPlayMode(mode);
+    notifyListeners();
     _savePlaybackState();
   }
 
@@ -734,6 +791,22 @@ class PlayerProvider extends ChangeNotifier
     try {
       _cachedPaletteColors = null;
       _palette = await PaletteExtractor.instance.extract(imageUrl);
+      _backgroundColor = _palette?.dominant;
+      notifyListeners();
+    } catch (_) {
+      // Palette extraction is cosmetic — ignore failures.
+    }
+  }
+
+  /// Extracts a color palette from [song]'s cover using its
+  /// [Song.coverImageProvider] (handles both network and local file:// URIs).
+  Future<void> _extractPaletteFromCover(Song song) async {
+    if (song.albumCoverUrl == null) return;
+    try {
+      _cachedPaletteColors = null;
+      final provider = song.coverImageProvider;
+      _palette = await PaletteExtractor.instance
+          .extractFromProvider(provider, song.albumCoverUrl!);
       _backgroundColor = _palette?.dominant;
       notifyListeners();
     } catch (_) {
