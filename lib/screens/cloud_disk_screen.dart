@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/song.dart';
+import '../utils/responsive.dart';
+import '../widgets/desktop_route_wrapper.dart';
 import '../providers/auth_provider.dart';
 import '../providers/player_provider.dart';
 import '../utils/logger.dart';
@@ -73,7 +75,6 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final bodyContent = _isLoading
         ? const Center(child: CircularProgressIndicator())
         : _songs.isEmpty
@@ -113,23 +114,23 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                             : Icon(Icons.cloud_done, color: Theme.of(context).colorScheme.primary),
                       ),
                       title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: Text(author, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      subtitle: Text(author, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant), maxLines: 1, overflow: TextOverflow.ellipsis),
                       enabled: !isPlaying,
                       onTap: isPlaying ? null : () => _playSong(i, item),
                     );
                   },
                 ),
               );
-    return Scaffold(
-      appBar: AppBar(title: const Text('云盘')),
-      body: isWide
-          ? Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: bodyContent,
-              ),
-            )
-          : bodyContent,
+    return ResponsiveLayoutBuilder(
+      mobile: (_) => Scaffold(
+        appBar: AppBar(title: const Text('云盘')),
+        body: bodyContent,
+      ),
+      desktop: (_) => DesktopRouteWrapper(
+        title: '云盘',
+        maxWidth: 800,
+        child: bodyContent,
+      ),
     );
   }
 }

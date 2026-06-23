@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import '../utils/logger.dart';
+import '../utils/responsive.dart';
+import '../widgets/desktop_route_wrapper.dart';
 
 class LogViewerScreen extends StatefulWidget {
   const LogViewerScreen({super.key});
@@ -105,7 +107,39 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = Theme.of(context).colorScheme.surfaceContainerLowest;
+    return ResponsiveLayoutBuilder(
+      desktop: (_) => _buildDesktop(),
+      mobile: (_) => _buildMobile(),
+      tablet: (_) => _buildMobile(),
+    );
+  }
+
+  Widget _buildDesktop() {
+    return DesktopRouteWrapper(
+      title: '输出日志',
+      actions: [
+        IconButton(
+          icon: Icon(_autoScroll ? Icons.vertical_align_bottom : Icons.vertical_align_center),
+          tooltip: '自动滚动',
+          onPressed: () => setState(() => _autoScroll = !_autoScroll),
+        ),
+        IconButton(
+          icon: const Icon(Icons.info_outline),
+          tooltip: _showDetail ? '简洁模式' : '详细模式',
+          onPressed: () => setState(() => _showDetail = !_showDetail),
+        ),
+        IconButton(
+          icon: const Icon(Icons.file_download_outlined),
+          tooltip: '导出日志',
+          onPressed: _export,
+        ),
+        const SizedBox(width: 8),
+      ],
+      child: _buildBody(),
+    );
+  }
+
+  Widget _buildMobile() {
     return Scaffold(
       appBar: AppBar(
         title: const Text('输出日志'),
@@ -127,81 +161,86 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Filter bar
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-            child: Row(
-              children: [
-                _buildLevelChip('', 'ALL'),
-                const SizedBox(width: 4),
-                _buildLevelChip('E', 'ERR'),
-                const SizedBox(width: 4),
-                _buildLevelChip('W', 'WRN'),
-                const SizedBox(width: 4),
-                _buildLevelChip('I', 'INF'),
-                const SizedBox(width: 4),
-                _buildLevelChip('D', 'DBG'),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SizedBox(
-                    height: 32,
-                    child: TextField(
-                      controller: _filterTag,
-                      style: const TextStyle(fontSize: 12),
-                      decoration: InputDecoration(
-                        hintText: '搜索 tag...',
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: BorderSide.none,
-                        ),
-                        filled: true,
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    final bg = Theme.of(context).colorScheme.surfaceContainerLowest;
+    return Column(
+      children: [
+        // Filter bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+          child: Row(
+            children: [
+              _buildLevelChip('', 'ALL'),
+              const SizedBox(width: 4),
+              _buildLevelChip('E', 'ERR'),
+              const SizedBox(width: 4),
+              _buildLevelChip('W', 'WRN'),
+              const SizedBox(width: 4),
+              _buildLevelChip('I', 'INF'),
+              const SizedBox(width: 4),
+              _buildLevelChip('D', 'DBG'),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SizedBox(
+                  height: 32,
+                  child: TextField(
+                    controller: _filterTag,
+                    style: const TextStyle(fontSize: 12),
+                    decoration: InputDecoration(
+                      hintText: '搜索 tag...',
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: BorderSide.none,
                       ),
-                      onChanged: (v) => setState(() => _tagFilter = v),
+                      filled: true,
                     ),
+                    onChanged: (v) => setState(() => _tagFilter = v),
                   ),
                 ),
-                if (_filterTag.text.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
-                    onPressed: () {
-                      _filterTag.clear();
-                      setState(() => _tagFilter = '');
-                    },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          // Log list
-          Expanded(
-            child: ValueListenableBuilder<LogEntry?>(
-              valueListenable: Log.onEntry,
-              builder: (_, __, ___) {
-                final entries = _filtered;
-                if (entries.isEmpty) {
-                  return const Center(child: Text('暂无日志'));
-                }
-                return ListView.builder(
-                  controller: _scroll,
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  itemCount: entries.length,
-                  itemExtent: _showDetail ? 72 : 24,
-                  itemBuilder: (_, i) {
-                    final e = entries[i];
-                    return _buildLogRow(e, bg);
+              ),
+              if (_filterTag.text.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  onPressed: () {
+                    _filterTag.clear();
+                    setState(() => _tagFilter = '');
                   },
-                );
-              },
-            ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32),
+                ),
+            ],
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 4),
+        // Log list
+        Expanded(
+          child: ValueListenableBuilder<LogEntry?>(
+            valueListenable: Log.onEntry,
+            builder: (_, __, ___) {
+              final entries = _filtered;
+              if (entries.isEmpty) {
+                return const Center(child: Text('暂无日志'));
+              }
+              return ListView.builder(
+                controller: _scroll,
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                itemCount: entries.length,
+                itemExtent: _showDetail ? 72 : 24,
+                itemBuilder: (_, i) {
+                  final e = entries[i];
+                  return _buildLogRow(e, bg);
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

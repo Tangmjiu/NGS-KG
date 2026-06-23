@@ -6,7 +6,10 @@ import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
+import '../utils/responsive.dart';
 import '../widgets/song_tile.dart';
+import '../widgets/desktop_route_wrapper.dart';
+import '../widgets/desktop_song_table.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -65,29 +68,50 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isDesktop = constraints.maxWidth >= 880;
-
-        return Scaffold(
-          extendBodyBehindAppBar: !isDesktop,
-          backgroundColor: isDesktop ? cs.surface : null,
-          appBar: AppBar(
-            title: const Text('听歌历史'),
-            backgroundColor:
-                isDesktop ? cs.surface : Colors.transparent,
-            foregroundColor: cs.onSurface,
-            elevation: 0,
-          ),
-          body: _buildBody(cs, isDesktop),
-        );
-      },
+    return ResponsiveLayoutBuilder(
+      desktop: (_) => _buildDesktop(),
+      mobile: (_) => _buildMobile(),
+      tablet: (_) => _buildMobile(),
     );
   }
 
-  Widget _buildBody(ColorScheme cs, bool isDesktop) {
+  Widget _buildDesktop() {
+    return DesktopRouteWrapper(
+      title: '播放历史',
+      actions: [
+        if (_songs.isNotEmpty)
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_outlined),
+            tooltip: '清空历史',
+            onPressed: _clearHistory,
+          ),
+      ],
+      child: DesktopSongTable(
+        songs: _songs,
+        isLoading: _isLoading,
+        emptyMessage: '暂无听歌历史',
+        currentSongId: context.watch<PlayerProvider>().currentSong?.id,
+      ),
+    );
+  }
+
+  Widget _buildMobile() {
+    final cs = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      backgroundColor: null,
+      appBar: AppBar(
+        title: const Text('听歌历史'),
+        backgroundColor: Colors.transparent,
+        foregroundColor: cs.onSurface,
+        elevation: 0,
+      ),
+      body: _buildMobileBody(cs),
+    );
+  }
+
+  Widget _buildMobileBody(ColorScheme cs) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -102,23 +126,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
             Text('暂无听歌历史',
                 style: TextStyle(color: cs.onSurfaceVariant)),
           ],
-        ),
-      );
-    }
-
-    if (isDesktop) {
-      return RefreshIndicator(
-        onRefresh: _load,
-        color: cs.onSurface,
-        child: ListView.builder(
-          padding: const EdgeInsets.only(top: 16, bottom: 24),
-          itemCount: _songs.length,
-          itemBuilder: (_, i) => SongTile(
-            song: _songs[i],
-            onTap: (s) => context
-                .read<PlayerProvider>()
-                .playSong(s, playlist: _songs),
-          ),
         ),
       );
     }
@@ -147,6 +154,30 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ),
       ],
     );
+  }
+
+  Future<void> _clearHistory() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('清空历史'),
+        content: const Text('确定要清空所有听歌历史吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      setState(() => _songs = []);
+    }
   }
 
   Widget _buildBackground(ColorScheme cs) {

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/audio_settings_provider.dart';
+import '../utils/responsive.dart';
+import '../widgets/desktop_route_wrapper.dart';
 
 /// 音质设置子页面
 class AudioQualityScreen extends StatelessWidget {
@@ -12,48 +14,67 @@ class AudioQualityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ResponsiveLayoutBuilder(
+      mobile: (_) => _buildMobile(),
+      tablet: (_) => _buildMobile(),
+      desktop: (_) => _buildDesktop(),
+    );
+  }
+
+  Widget _buildMobile() {
     return Scaffold(
       appBar: AppBar(title: const Text('音质设置')),
-      body: Consumer<AudioSettingsProvider>(
-        builder: (_, settings, __) => ListView(
-          children: [
-            const _SectionHeader('网络音质'),
-            _QualityTile(
-              icon: Icons.wifi,
-              label: 'WiFi 网络',
-              value: settings.wifiQuality,
-              onSelected: (key) => settings.setWifiQuality(key),
-            ),
-            _QualityTile(
-              icon: Icons.signal_cellular_alt,
-              label: '蜂窝网络',
-              value: settings.cellularQuality,
-              onSelected: (key) => settings.setCellularQuality(key),
-            ),
-            _QualityTile(
-              icon: Icons.download,
-              label: '下载音质',
-              value: settings.downloadQuality,
-              onSelected: (key) => settings.setDownloadQuality(key),
-            ),
-            const Divider(),
-            const _SectionHeader('智能控制'),
-            SwitchListTile(
-              secondary: const Icon(Icons.auto_awesome),
-              title: const Text('智能模式'),
-              subtitle: const Text('WiFi 自动最高音质，蜂窝按设定'),
-              value: settings.smartMode,
-              onChanged: (v) => settings.setSmartMode(v),
-            ),
-            SwitchListTile(
-              secondary: const Icon(Icons.history),
-              title: const Text('提交听歌历史'),
-              subtitle: const Text('关闭后不会向服务器上报播放记录'),
-              value: settings.uploadHistory,
-              onChanged: (v) => settings.setUploadHistory(v),
-            ),
-          ],
-        ),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildDesktop() {
+    return DesktopRouteWrapper(
+      title: '音质设置',
+      child: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    return Consumer<AudioSettingsProvider>(
+      builder: (_, settings, __) => ListView(
+        children: [
+          const _SectionHeader('网络音质'),
+          _QualityTile(
+            icon: Icons.wifi,
+            label: 'WiFi 网络',
+            value: settings.wifiQuality,
+            onSelected: (key) => settings.setWifiQuality(key),
+          ),
+          _QualityTile(
+            icon: Icons.signal_cellular_alt,
+            label: '蜂窝网络',
+            value: settings.cellularQuality,
+            onSelected: (key) => settings.setCellularQuality(key),
+          ),
+          _QualityTile(
+            icon: Icons.download,
+            label: '下载音质',
+            value: settings.downloadQuality,
+            onSelected: (key) => settings.setDownloadQuality(key),
+          ),
+          const Divider(),
+          const _SectionHeader('智能控制'),
+          SwitchListTile(
+            secondary: const Icon(Icons.auto_awesome),
+            title: const Text('智能模式'),
+            subtitle: const Text('WiFi 自动最高音质，蜂窝按设定'),
+            value: settings.smartMode,
+            onChanged: (v) => settings.setSmartMode(v),
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.history),
+            title: const Text('提交听歌历史'),
+            subtitle: const Text('关闭后不会向服务器上报播放记录'),
+            value: settings.uploadHistory,
+            onChanged: (v) => settings.setUploadHistory(v),
+          ),
+        ],
       ),
     );
   }

@@ -6,7 +6,12 @@ import '../models/album.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
+import '../utils/responsive.dart';
+import '../widgets/shell_navigation_scope.dart';
 import '../widgets/song_tile.dart';
+import 'album_detail_screen.dart';
+import '../widgets/desktop_song_table.dart';
+import '../widgets/desktop_route_wrapper.dart';
 
 class ArtistDetailScreen extends StatefulWidget {
   final int artistId;
@@ -102,6 +107,206 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    return ResponsiveLayoutBuilder(
+      desktop: (_) => _buildDesktop(),
+      mobile: (_) => _buildMobile(),
+      tablet: (_) => _buildMobile(),
+    );
+  }
+
+  Widget _buildDesktop() {
+    return DesktopRouteWrapper(
+      title: _artistName,
+      actions: [
+        IconButton(
+          icon: Icon(
+            _isFollowing ? Icons.favorite : Icons.favorite_border,
+            color: _isFollowing ? Colors.red : null,
+          ),
+          tooltip: _isFollowing ? '取消关注' : '关注',
+          onPressed: _toggleFollow,
+        ),
+      ],
+      child: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _buildDesktopContent(),
+    );
+  }
+
+  Widget _buildDesktopContent() {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          // ── Artist info header ──
+          Container(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: _avatarUrl != null
+                      ? CachedNetworkImage(
+                          imageUrl: _avatarUrl!.replaceAll('{size}', '240'),
+                          width: 100, height: 100,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => _desktopPlaceholder(cs),
+                        )
+                      : _desktopPlaceholder(cs),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_artistName, style: tt.headlineSmall),
+                      const SizedBox(height: 4),
+                      Text('${_songs.length} 首单曲 · ${_albums.length} 张专辑',
+                          style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // ── Tab bar ──
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            child: TabBar(
+              controller: _tabCtrl,
+              tabs: const [
+                Tab(text: '单曲'),
+                Tab(text: '专辑'),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // ── Tab content ──
+          Expanded(
+            child: TabBarView(
+              controller: _tabCtrl,
+              children: [
+                _buildDesktopSongsTab(cs),
+                _buildDesktopAlbumsTab(cs, tt),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopSongsTab(ColorScheme cs) {
+    if (_songs.isEmpty) {
+      return const Center(child: Text('暂无歌曲'));
+    }
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 4),
+          child: Row(
+            children: [
+              Text('${_songs.length} 首单曲',
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: cs.onSurfaceVariant)),
+              const Spacer(),
+              FilledButton.tonalIcon(
+                onPressed: () => context
+                    .read<PlayerProvider>()
+                    .playSong(_songs.first, playlist: _songs),
+                icon: const Icon(Icons.play_arrow, size: 18),
+                label: const Text('播放全部'),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: DesktopSongTable(
+            songs: _songs,
+            emptyMessage: '暂无歌曲',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopAlbumsTab(ColorScheme cs, TextTheme tt) {
+    if (_albums.isEmpty) {
+      return const Center(child: Text('暂无专辑'));
+    }
+    return GridView.builder(
+      padding: const EdgeInsets.all(24),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        childAspectRatio: 0.85,
+      ),
+      itemCount: _albums.length,
+      itemBuilder: (_, i) {
+        final album = _albums[i];
+        return GestureDetector(
+          onTap: () {
+            if (album.id > 0) {
+              ShellNavigationScope.navigate(
+                context,
+                routeName: '/album/detail',
+                arguments: {'id': album.id, 'name': album.name},
+                shellPageBuilder: () => AlbumDetailScreen(
+                  albumId: album.id,
+                  albumName: album.name,
+                ),
+              );
+            }
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: album.coverUrl != null
+                      ? CachedNetworkImage(
+                          imageUrl: album.coverUrl!,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Container(
+                            color: cs.surfaceContainerHighest,
+                            child: const Icon(Icons.album),
+                          ),
+                        )
+                      : Container(
+                          color: cs.surfaceContainerHighest,
+                          child: const Icon(Icons.album)),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(album.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: tt.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+              if (album.songCount != null && album.songCount! > 0)
+                Text('${album.songCount} 首',
+                    style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _desktopPlaceholder(ColorScheme cs) {
+    return Container(
+      width: 100, height: 100,
+      color: cs.surfaceContainerHighest,
+      child: const Icon(Icons.person, size: 40),
+    );
+  }
+
+  Widget _buildMobile() {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
@@ -285,8 +490,15 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
         return GestureDetector(
           onTap: () {
             if (album.id > 0) {
-              Navigator.pushNamed(context, '/album/detail',
-                  arguments: {'id': album.id, 'name': album.name});
+              ShellNavigationScope.navigate(
+                context,
+                routeName: '/album/detail',
+                arguments: {'id': album.id, 'name': album.name},
+                shellPageBuilder: () => AlbumDetailScreen(
+                  albumId: album.id,
+                  albumName: album.name,
+                ),
+              );
             }
           },
           child: Column(
@@ -317,8 +529,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                   style: tt.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
               if (album.songCount != null && album.songCount! > 0)
                 Text('${album.songCount} 首',
-                    style: tt.labelSmall
-                        ?.copyWith(color: cs.onSurfaceVariant)),
+                    style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
             ],
           ),
         );

@@ -7,7 +7,10 @@ import '../providers/player_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
+import '../utils/responsive.dart';
 import '../widgets/song_tile.dart';
+import '../widgets/desktop_song_table.dart';
+import '../widgets/desktop_route_wrapper.dart';
 
 class AlbumDetailScreen extends StatefulWidget {
   final int albumId;
@@ -84,6 +87,116 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return ResponsiveLayoutBuilder(
+      desktop: (_) => _buildDesktop(),
+      mobile: (_) => _buildMobile(),
+      tablet: (_) => _buildMobile(),
+    );
+  }
+
+  Widget _buildDesktop() {
+    return DesktopRouteWrapper(
+      title: _album?.name ?? widget.albumName ?? '专辑详情',
+      actions: [
+        IconButton(
+          icon: Icon(_isSelecting ? Icons.close : Icons.checklist),
+          tooltip: _isSelecting ? '取消选择' : '多选',
+          onPressed: _toggleSelectMode,
+        ),
+      ],
+      child: _buildDesktopContent(),
+    );
+  }
+
+  Widget _buildDesktopContent() {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final name = _album?.name ?? widget.albumName ?? '专辑详情';
+    final img = _album?.coverUrl ?? '';
+    final artist = _album?.artistName ?? '';
+    final desc = _album?.description ?? '';
+
+    return Column(
+      children: [
+        // ── Album info header ──
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: img.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: img.replaceAll('{size}', '240'),
+                        width: 100, height: 100,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) => _desktopPlaceholder(cs),
+                      )
+                    : _desktopPlaceholder(cs),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, style: tt.titleLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    if (artist.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(artist, style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                    ],
+                    const SizedBox(height: 4),
+                    Text('${_songs.length} 首', style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                    if (desc.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(desc, maxLines: 2, overflow: TextOverflow.ellipsis,
+                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                    ],
+                    const SizedBox(height: 8),
+                    FilledButton.tonalIcon(
+                      onPressed: _songs.isEmpty ? null : () {
+                        context.read<PlayerProvider>().playSong(_songs.first, playlist: _songs);
+                      },
+                      icon: const Icon(Icons.play_arrow, size: 18),
+                      label: const Text('播放全部'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        // ── Song table ──
+        Expanded(
+          child: DesktopSongTable(
+            songs: _songs,
+            emptyMessage: '暂无歌曲',
+            isSelecting: _isSelecting,
+            selectedIndices: _selectedIndices,
+            onToggleSelection: _toggleSelection,
+            onSelectAll: () => _selectAll(_songs.length),
+          ),
+        ),
+        // ── Selection bar ──
+        if (_isSelecting)
+          _buildSelectionBar(context),
+      ],
+    );
+  }
+
+  Widget _desktopPlaceholder(ColorScheme cs) {
+    return Container(
+      width: 100, height: 100,
+      color: cs.surfaceContainerHighest,
+      child: const Icon(Icons.album, size: 40),
+    );
+  }
+
+  Widget _buildMobile() {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 

@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import '../models/artist.dart';
 import '../utils/logger.dart';
+import '../utils/responsive.dart';
 import '../services/music_service.dart';
+import '../widgets/shell_navigation_scope.dart';
+import '../widgets/desktop_route_wrapper.dart';
+import 'artist_detail_screen.dart';
 
 class ArtistListScreen extends StatefulWidget {
   const ArtistListScreen({super.key});
@@ -37,50 +41,67 @@ class _ArtistListScreenState extends State<ArtistListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('歌手')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _artists.isEmpty
-              ? const Center(child: Text('暂无数据'))
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final crossAxisCount = (constraints.maxWidth / 160).floor().clamp(2, 6);
-                    return GridView.builder(
-                  padding: const EdgeInsets.all(8),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
-                    childAspectRatio: 0.8,
-                  ),
-                  itemCount: _artists.length,
-                  itemBuilder: (_, i) {
-                    final artist = _artists[i];
-                    return GestureDetector(
-                      onTap: () => Navigator.pushNamed(context, '/artist/detail',
-                          arguments: {'id': artist.id, 'name': artist.name}),
-                      child: Column(
-                        children: [
-                          CircleAvatar(
-                            radius: 40,
-                            backgroundImage: artist.picUrl != null
-                                ? NetworkImage(artist.picUrl!)
-                                : null,
-                            child: artist.picUrl == null
-                                ? const Icon(Icons.person, size: 40)
-                                : null,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(artist.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+    return ResponsiveLayoutBuilder(
+      mobile: (_) => Scaffold(
+        appBar: AppBar(title: const Text('歌手')),
+        body: _buildBody(context),
+      ),
+      desktop: (_) => DesktopRouteWrapper(
+        title: '歌手列表',
+        child: _buildBody(context),
+      ),
     );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    return _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : _artists.isEmpty
+            ? const Center(child: Text('暂无数据'))
+            : LayoutBuilder(
+                builder: (context, constraints) {
+                  final crossAxisCount = (constraints.maxWidth / 160).floor().clamp(2, 6);
+                  return GridView.builder(
+                padding: const EdgeInsets.all(8),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  childAspectRatio: 0.8,
+                ),
+                itemCount: _artists.length,
+                itemBuilder: (_, i) {
+                  final artist = _artists[i];
+                  return GestureDetector(
+                    onTap: () => ShellNavigationScope.navigate(
+                      context,
+                      routeName: '/artist/detail',
+                      arguments: {'id': artist.id, 'name': artist.name},
+                      shellPageBuilder: () => ArtistDetailScreen(
+                        artistId: artist.id,
+                        artistName: artist.name,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 40,
+                          backgroundImage: artist.picUrl != null
+                              ? NetworkImage(artist.picUrl!)
+                              : null,
+                          child: artist.picUrl == null
+                              ? const Icon(Icons.person, size: 40)
+                              : null,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(artist.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          );
   }
 }

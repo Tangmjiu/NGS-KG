@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/song.dart';
+import '../utils/responsive.dart';
+import '../widgets/desktop_route_wrapper.dart';
 import '../models/radio.dart';
 import '../providers/player_provider.dart';
 import '../utils/logger.dart';
@@ -68,11 +70,15 @@ class _FmScreenState extends State<FmScreen> {
   }
 
   void _playSong(Song song) {
-    final player = context.read<PlayerProvider>();
-    final fmid = _selectedFmid;
-    if (fmid == null) return;
-    player.playlistEndProvider = () => _musicService.getFmSongs(fmid);
-    player.playSong(song, playlist: _fmSongs);
+    try {
+      final player = context.read<PlayerProvider>();
+      final fmid = _selectedFmid;
+      if (fmid == null) return;
+      player.playlistEndProvider = () => _musicService.getFmSongs(fmid);
+      player.playSong(song, playlist: _fmSongs);
+    } catch (e, s) {
+      Log.e('fm_screen', 'playSong error', e, s);
+    }
   }
 
 
@@ -82,41 +88,50 @@ class _FmScreenState extends State<FmScreen> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('电台')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _radios.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.radio, size: 80, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
-                      const SizedBox(height: 16),
-                      Text('暂无电台', style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant)),
-                    ],
-                  ),
-                )
-              : ListView(
+    final bodyContent = _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : _radios.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    if (_radios.isNotEmpty) ...[
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                        child: Row(
-                          children: [
-                            Text('推荐电台',
-                                style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-                            const SizedBox(width: 8),
-                            Text('${_radios.length} 个',
-                                style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
-                          ],
-                        ),
-                      ),
-                      ..._buildRadioList(),
-                      const SizedBox(height: 24),
-                    ],
+                    Icon(Icons.radio, size: 80, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+                    const SizedBox(height: 16),
+                    Text('暂无电台', style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant)),
                   ],
                 ),
+              )
+            : ListView(
+                children: [
+                  if (_radios.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                      child: Row(
+                        children: [
+                          Text('推荐电台',
+                              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                          const SizedBox(width: 8),
+                          Text('${_radios.length} 个',
+                              style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+                        ],
+                      ),
+                    ),
+                    ..._buildRadioList(),
+                    const SizedBox(height: 24),
+                  ],
+                ],
+              );
+
+    return ResponsiveLayoutBuilder(
+      mobile: (_) => Scaffold(
+        appBar: AppBar(title: const Text('电台')),
+        body: bodyContent,
+      ),
+      desktop: (_) => DesktopRouteWrapper(
+        title: 'FM电台',
+        maxWidth: 600,
+        child: bodyContent,
+      ),
     );
   }
 
