@@ -1,17 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../providers/liked_songs_provider.dart';
+import 'local_cover_art.dart';
 
 /// A table-style song list with column headers, hover effects,
-/// double-click playback, and one-click like toggling.
+/// double-click playback, one-click like toggling, and multi-select.
 class DesktopSongTable extends StatelessWidget {
   final List<Song> songs;
   final int? currentSongId;
   final bool isLoading;
   final String? emptyMessage;
+
+  // ── Multi-select support ──
+  final bool isSelecting;
+  final Set<int> selectedIndices;
+  final ValueChanged<int>? onToggleSelection;
+  final VoidCallback? onSelectAll;
+  final int totalCount;
 
   const DesktopSongTable({
     super.key,
@@ -19,6 +26,11 @@ class DesktopSongTable extends StatelessWidget {
     this.currentSongId,
     this.isLoading = false,
     this.emptyMessage,
+    this.isSelecting = false,
+    this.selectedIndices = const {},
+    this.onToggleSelection,
+    this.onSelectAll,
+    this.totalCount = 0,
   });
 
   String _formatDuration(int ms) {
@@ -43,16 +55,11 @@ class DesktopSongTable extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.music_note_outlined,
-              size: 48,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-            ),
+            Icon(Icons.music_note_outlined, size: 48,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
             const SizedBox(height: 8),
-            Text(
-              emptyMessage ?? '暂无歌曲',
-              style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-            ),
+            Text(emptyMessage ?? '暂无歌曲',
+                style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
           ],
         ),
       );
@@ -62,7 +69,12 @@ class DesktopSongTable extends StatelessWidget {
       children: [
         // ── Table header ──
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          padding: EdgeInsets.only(
+            left: isSelecting ? 8 : 20,
+            right: 20,
+            top: 8,
+            bottom: 8,
+          ),
           decoration: BoxDecoration(
             color: cs.surfaceContainerLow,
             border: Border(
@@ -71,47 +83,34 @@ class DesktopSongTable extends StatelessWidget {
           ),
           child: Row(
             children: [
-              SizedBox(
-                width: 32,
-                child: Text(
-                  '#',
-                  style: tt.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
+              if (isSelecting)
+                Checkbox(
+                  value: selectedIndices.length == songs.length && songs.isNotEmpty,
+                  tristate: selectedIndices.length > 0 && selectedIndices.length < songs.length,
+                  onChanged: (_) => onSelectAll?.call(),
                 ),
-              ),
+              if (!isSelecting)
+                SizedBox(
+                  width: 32,
+                  child: Text('#', style: tt.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
+                ),
               Expanded(
                 flex: 5,
-                child: Text(
-                  '标题',
-                  style: tt.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: Text('标题', style: tt.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
               ),
               Expanded(
                 flex: 3,
-                child: Text(
-                  '专辑',
-                  style: tt.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: Text('专辑', style: tt.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
               ),
               const SizedBox(width: 40),
               SizedBox(
                 width: 48,
-                child: Text(
-                  '时长',
-                  textAlign: TextAlign.right,
-                  style: tt.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: Text('时长', textAlign: TextAlign.right,
+                    style: tt.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
               ),
             ],
           ),
@@ -129,6 +128,9 @@ class DesktopSongTable extends StatelessWidget {
                 index: index,
                 isCurrent: isCurrent,
                 songs: songs,
+                isSelecting: isSelecting,
+                isSelected: selectedIndices.contains(index),
+                onToggleSelection: onToggleSelection,
               );
             },
           ),
@@ -144,6 +146,9 @@ class _SongTableRow extends StatefulWidget {
   final int index;
   final bool isCurrent;
   final List<Song> songs;
+  final bool isSelecting;
+  final bool isSelected;
+  final ValueChanged<int>? onToggleSelection;
 
   const _SongTableRow({
     super.key,
@@ -151,6 +156,9 @@ class _SongTableRow extends StatefulWidget {
     required this.index,
     required this.isCurrent,
     required this.songs,
+    this.isSelecting = false,
+    this.isSelected = false,
+    this.onToggleSelection,
   });
 
   @override
@@ -187,16 +195,21 @@ class _SongTableRowState extends State<_SongTableRow> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
-        onDoubleTap: () => _playSong(context),
+        onDoubleTap: widget.isSelecting ? null : () => _playSong(context),
         child: Container(
           height: 56,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: EdgeInsets.only(
+            left: widget.isSelecting ? 8 : 20,
+            right: 20,
+          ),
           decoration: BoxDecoration(
-            color: _isHovered
-                ? cs.surfaceContainerHigh
-                : (widget.isCurrent
-                    ? cs.primaryContainer.withValues(alpha: 0.15)
-                    : Colors.transparent),
+            color: widget.isSelected
+                ? cs.primaryContainer.withValues(alpha: 0.2)
+                : (_isHovered
+                    ? cs.surfaceContainerHigh
+                    : (widget.isCurrent
+                        ? cs.primaryContainer.withValues(alpha: 0.15)
+                        : Colors.transparent)),
             border: Border(
               bottom: BorderSide(
                 color: cs.outlineVariant.withValues(alpha: 0.3),
@@ -206,40 +219,35 @@ class _SongTableRowState extends State<_SongTableRow> {
           ),
           child: Row(
             children: [
-              // ── Index or play icon ──
-              SizedBox(
-                width: 32,
-                child: _isHovered
-                    ? Icon(Icons.play_arrow_rounded, size: 18, color: cs.primary)
-                    : Text(
-                        '${widget.index + 1}',
-                        style: tt.bodySmall?.copyWith(
-                          color: widget.isCurrent ? cs.primary : cs.onSurfaceVariant,
-                          fontWeight:
-                              widget.isCurrent ? FontWeight.w600 : FontWeight.normal,
+              // ── Checkbox (selecting) or Index (normal) ──
+              if (widget.isSelecting)
+                Checkbox(
+                  value: widget.isSelected,
+                  onChanged: (_) => widget.onToggleSelection?.call(widget.index),
+                ),
+              if (!widget.isSelecting)
+                SizedBox(
+                  width: 32,
+                  child: _isHovered
+                      ? Icon(Icons.play_arrow_rounded, size: 18, color: cs.primary)
+                      : Text(
+                          '${widget.index + 1}',
+                          style: tt.bodySmall?.copyWith(
+                            color: widget.isCurrent ? cs.primary : cs.onSurfaceVariant,
+                            fontWeight: widget.isCurrent ? FontWeight.w600 : FontWeight.normal,
+                          ),
                         ),
-                      ),
-              ),
+                ),
 
               // ── Cover + title & artist ──
               Expanded(
                 flex: 5,
                 child: Row(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: SizedBox(
-                        width: 40,
-                        height: 40,
-                        child: widget.song.albumCoverUrl != null &&
-                                widget.song.albumCoverUrl!.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: widget.song.albumCoverUrl!,
-                                fit: BoxFit.cover,
-                                errorWidget: (_, __, ___) => _coverPlaceholder(cs),
-                              )
-                            : _coverPlaceholder(cs),
-                      ),
+                    LocalCoverArt(
+                      url: widget.song.albumCoverUrl,
+                      size: 40,
+                      coverData: widget.song.coverData,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -247,23 +255,16 @@ class _SongTableRowState extends State<_SongTableRow> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            widget.song.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: tt.bodyMedium?.copyWith(
-                              fontWeight:
-                                  widget.isCurrent ? FontWeight.w600 : FontWeight.normal,
-                              color: widget.isCurrent ? cs.primary : cs.onSurface,
-                            ),
-                          ),
+                          Text(widget.song.name,
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: tt.bodyMedium?.copyWith(
+                                fontWeight: widget.isCurrent ? FontWeight.w600 : FontWeight.normal,
+                                color: widget.isCurrent ? cs.primary : cs.onSurface,
+                              )),
                           const SizedBox(height: 2),
-                          Text(
-                            widget.song.artistDisplay,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                          ),
+                          Text(widget.song.artistDisplay,
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                         ],
                       ),
                     ),
@@ -276,33 +277,50 @@ class _SongTableRowState extends State<_SongTableRow> {
                 flex: 3,
                 child: Text(
                   widget.song.albumName ?? '-',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
                   style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                 ),
               ),
 
-              // ── Like button ──
-              SizedBox(
-                width: 40,
-                child: IconButton(
-                  icon: Icon(
-                    liked ? Icons.favorite : Icons.favorite_border,
-                    size: 18,
-                    color: liked ? Colors.redAccent : cs.onSurfaceVariant,
-                  ),
-                  onPressed: () => likedProvider.toggle(SongInfo(
-                    id: widget.song.id,
-                    name: widget.song.name,
-                    hash: widget.song.hash ?? '',
-                    albumId: widget.song.albumId,
-                    audioId: widget.song.id,
-                  )),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  tooltip: liked ? '取消收藏' : '收藏',
+              // ── Like button & more ──
+              if (!widget.isSelecting)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 36,
+                      child: IconButton(
+                        icon: Icon(liked ? Icons.favorite : Icons.favorite_border,
+                            size: 18,
+                            color: liked ? Colors.redAccent : cs.onSurfaceVariant),
+                        onPressed: () => likedProvider.toggle(SongInfo(
+                          id: widget.song.id, name: widget.song.name,
+                          hash: widget.song.hash ?? '', albumId: widget.song.albumId,
+                          audioId: widget.song.id,
+                        )),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                        tooltip: liked ? '取消收藏' : '收藏',
+                      ),
+                    ),
+                    PopupMenuButton<String>(
+                      icon: Icon(Icons.more_horiz, size: 18, color: cs.onSurfaceVariant),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      onSelected: (value) {
+                        if (value == 'queue') {
+                          context.read<PlayerProvider>().addToQueue(widget.song);
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'queue',
+                          child: Text('添加到队列', style: TextStyle(fontSize: 13)),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ),
 
               // ── Duration ──
               SizedBox(
@@ -320,13 +338,6 @@ class _SongTableRowState extends State<_SongTableRow> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _coverPlaceholder(ColorScheme cs) {
-    return Container(
-      color: cs.surfaceContainerHighest,
-      child: Icon(Icons.music_note, size: 18, color: cs.onSurfaceVariant),
     );
   }
 }

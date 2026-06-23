@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'shell_navigation_scope.dart';
 import '../models/song.dart';
 import '../providers/liked_songs_provider.dart';
 import '../providers/player_provider.dart';
 import '../providers/playlist_provider.dart';
+import '../screens/album_detail_screen.dart';
 import '../services/music_service.dart';
 import '../theme/theme_assets.dart';
 
@@ -79,6 +81,22 @@ class SongTile extends StatelessWidget {
                   );
                 },
               ),
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_horiz, size: 20, color: cs.onSurfaceVariant),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                onSelected: (value) {
+                  if (value == 'queue') {
+                    context.read<PlayerProvider>().addToQueue(song);
+                  }
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'queue',
+                    child: Text('添加到队列', style: TextStyle(fontSize: 13)),
+                  ),
+                ],
+              ),
               IconButton(
                 icon: const Icon(Icons.play_circle_outline, size: 24),
                 tooltip: '播放',
@@ -125,10 +143,13 @@ class SongTile extends StatelessWidget {
                 label: '查看专辑',
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.pushNamed(context, '/album/detail', arguments: {
-                    'id': song.albumId,
-                    'name': song.albumName,
-                  });
+                  ShellNavigationScope.navigate(
+                    context,
+                    routeName: '/album/detail',
+                    arguments: {'id': song.albumId},
+                    shellPageBuilder: () => AlbumDetailScreen(
+                        albumId: song.albumId),
+                  );
                 },
               ),
           ],

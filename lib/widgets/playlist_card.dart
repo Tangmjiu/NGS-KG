@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'shell_navigation_scope.dart';
 import '../models/playlist.dart';
 import '../providers/playlist_provider.dart';
+import '../screens/playlist_detail_screen.dart';
 import '../theme/theme_assets.dart';
 
 class PlaylistCard extends StatelessWidget {
@@ -21,11 +23,20 @@ class PlaylistCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: () {
-            Navigator.pushNamed(context, '/playlist/detail', arguments: {
-              'gcId': playlist.globalCollectionId ??
-                  'collection_3_${playlist.createUserId}_${playlist.id}_0',
-              'name': playlist.name,
-            });
+            final gcId = playlist.globalCollectionId ??
+                'collection_3_${playlist.createUserId}_${playlist.id}_0';
+            ShellNavigationScope.navigate(
+              context,
+              routeName: '/playlist/detail',
+              arguments: {
+                'gcId': gcId,
+                'name': playlist.name,
+              },
+              shellPageBuilder: () => PlaylistDetailScreen(
+                gcId: gcId,
+                playlistName: playlist.name,
+              ),
+            );
           },
           onLongPress: () {
             showModalBottomSheet(
