@@ -21,7 +21,7 @@ class _NavItem {
 ///
 /// Includes a search field, library navigation items, and a scrollable
 /// list of user playlists with a "+" create button.
-class DesktopSidebar extends StatelessWidget {
+class DesktopSidebar extends StatefulWidget {
   final String? activeNavId;
   final int? activePlaylistId;
   final ValueChanged<String> onNavSelected;
@@ -45,9 +45,39 @@ class DesktopSidebar extends StatelessWidget {
     _NavItem(icon: Icons.home_outlined, label: '首页', id: 'home'),
     _NavItem(icon: Icons.explore_outlined, label: '发现', id: 'discover'),
     _NavItem(icon: Icons.person_outline, label: '我的', id: 'profile'),
+    _NavItem(icon: Icons.folder_outlined, label: '本地', id: 'local'),
     _NavItem(icon: Icons.trending_up, label: '听歌排行', id: 'ranking'),
     _NavItem(icon: Icons.history, label: '最近播放', id: 'recent'),
   ];
+
+  @override
+  State<DesktopSidebar> createState() => _DesktopSidebarState();
+}
+
+class _DesktopSidebarState extends State<DesktopSidebar> {
+  late final TextEditingController _searchCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl = TextEditingController(text: widget.searchQuery);
+  }
+
+  @override
+  void didUpdateWidget(DesktopSidebar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Sync external query changes (e.g. cleared by nav) without losing cursor
+    if (widget.searchQuery != _searchCtrl.text) {
+      _searchCtrl.text = widget.searchQuery;
+      _searchCtrl.selection = TextSelection.collapsed(offset: widget.searchQuery.length);
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +85,7 @@ class DesktopSidebar extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
 
     return Container(
-      width: sidebarWidth,
+      width: DesktopSidebar.sidebarWidth,
       decoration: BoxDecoration(
         color: cs.surfaceContainer,
         border: Border(
@@ -70,10 +100,8 @@ class DesktopSidebar extends StatelessWidget {
             child: SizedBox(
               height: 36,
               child: TextField(
-                onChanged: onSearchChanged,
-                controller: TextEditingController.fromValue(
-                  TextEditingValue(text: searchQuery),
-                ),
+                onChanged: widget.onSearchChanged,
+                controller: _searchCtrl,
                 style: tt.bodySmall?.copyWith(color: cs.onSurface),
                 decoration: InputDecoration(
                   hintText: '搜索',
@@ -93,11 +121,11 @@ class DesktopSidebar extends StatelessWidget {
           ),
 
           // ── Navigation items ──
-          ..._navItems.map((item) => _SidebarNavTile(
+          ...DesktopSidebar._navItems.map((item) => _SidebarNavTile(
                 icon: item.icon,
                 label: item.label,
-                isSelected: activeNavId == item.id,
-                onTap: () => onNavSelected(item.id),
+                isSelected: widget.activeNavId == item.id,
+                onTap: () => widget.onNavSelected(item.id),
               )),
 
           // ── Divider ──
@@ -154,11 +182,11 @@ class DesktopSidebar extends StatelessWidget {
                   itemCount: playlists.length,
                   itemBuilder: (_, i) {
                     final pl = playlists[i];
-                    final isSelected = pl.id == activePlaylistId;
+                    final isSelected = pl.id == widget.activePlaylistId;
                     return _PlaylistSidebarTile(
                       playlist: pl,
                       isSelected: isSelected,
-                      onTap: () => onPlaylistSelected(pl),
+                      onTap: () => widget.onPlaylistSelected(pl),
                     );
                   },
                 );

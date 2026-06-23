@@ -1,19 +1,28 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/playlist_provider.dart';
 import 'app_overlays.dart';
+import 'shell_navigation_scope.dart';
 import '../services/music_service.dart';
+import '../services/api_client.dart';
 import '../models/playlist.dart';
+import '../screens/playlist_detail_screen.dart';
 import '../models/song.dart';
 import '../models/rank_entry.dart';
 import '../models/song_mapper.dart';
 import '../widgets/desktop_sidebar.dart';
 import '../widgets/desktop_song_table.dart';
+import '../widgets/m3_title_bar.dart';
 import '../widgets/player_desktop_view.dart';
+import 'local_cover_art.dart';
 import '../screens/home_screen.dart';
 import '../screens/discover_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/search_screen.dart';
+import '../screens/local_music_screen.dart';
 
 // ---------------------------------------------------------------------------
 // Content mode enum — controls what the content area renders.
@@ -39,6 +48,7 @@ class _DesktopShellState extends State<DesktopShell> {
 
   String _currentNavId = 'home';
   String _searchQuery = '';
+  Timer? _searchDebounce;
   _ContentMode _mode = _ContentMode.nav;
 
   // ── Playlist detail state ──
@@ -53,15 +63,28 @@ class _DesktopShellState extends State<DesktopShell> {
 
   List<RankEntry> _rankEntries = [];
   bool _isLoadingRankEntries = true;
-  RankEntry? _selectedRank;
-  List<Song> _rankSongs = [];
-  bool _isLoadingRankSongs = false;
 
   // ── Recent history state ──
 
   List<Song> _historySongs = [];
   bool _isLoadingHistory = false;
   bool _historyLoaded = false;
+
+  // ── Shell-level detail stack ──
+
+  final List<Widget> _detailStack = [];
+
+  void _openInShell(Widget page) {
+    setState(() => _detailStack.add(page));
+  }
+
+  void _popFromShell() {
+    if (_detailStack.isNotEmpty) {
+      setState(() => _detailStack.removeLast());
+    }
+  }
+
+  bool get _canPopInShell => _detailStack.isNotEmpty;
 
   // ── Player bar volume ──
 
@@ -75,6 +98,19 @@ class _DesktopShellState extends State<DesktopShell> {
   void initState() {
     super.initState();
     _loadRankEntries();
+    // Load user playlists for sidebar immediately after auth is ready
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = context.read<AuthProvider>();
+      if (auth.isLoggedIn && auth.user?.userId != null) {
+        context.read<PlaylistProvider>().fetchUserPlaylist(auth.user!.userId);
+      }
+      // Listen for future logins
+      auth.addListener(() {
+        if (auth.isLoggedIn && auth.user?.userId != null) {
+          context.read<PlaylistProvider>().fetchUserPlaylist(auth.user!.userId);
+        }
+      });
+    });
   }
 
   // ==========================================================================
@@ -84,8 +120,14 @@ class _DesktopShellState extends State<DesktopShell> {
   Future<void> _loadRankEntries() async {
     setState(() => _isLoadingRankEntries = true);
     try {
-      final entries = await _musicService.getRankList();
+      final songs = await _musicService.getUserListenHistory(type: 0);
       if (mounted) {
+        final entries = songs.asMap().entries.map((e) => RankEntry(
+          id: e.value.hash?.hashCode ?? e.value.id,
+          name: e.value.name,
+          coverUrl: e.value.albumCoverUrl,
+          song: e.value,
+        )).toList();
         setState(() {
           _rankEntries = entries;
           _isLoadingRankEntries = false;
@@ -131,16 +173,26 @@ class _DesktopShellState extends State<DesktopShell> {
     }
   }
 
+  String _playlistGcId(Playlist pl) {
+    if (pl.globalCollectionId != null && pl.globalCollectionId!.isNotEmpty) {
+      return pl.globalCollectionId!;
+    }
+    final userId = pl.createUserId ?? int.tryParse(ApiClient.userId ?? '');
+    if (userId != null) {
+      return 'collection_3_${userId}_${pl.id}_0';
+    }
+    return pl.id.toString();
+  }
+
   Future<void> _loadPlaylistSongs(Playlist pl) async {
+    final gcId = _playlistGcId(pl);
     setState(() {
       _isLoadingPlaylist = true;
       _playlistTitle = pl.name;
-      _playlistId = pl.globalCollectionId ?? pl.id.toString();
+      _playlistId = gcId;
     });
     try {
-      final detail = await _musicService.getPlaylistDetail(
-        pl.globalCollectionId ?? pl.id.toString(),
-      );
+      final detail = await _musicService.getPlaylistDetail(gcId);
       if (mounted) {
         setState(() {
           _playlistSongs = detail.songs;
@@ -151,9 +203,7 @@ class _DesktopShellState extends State<DesktopShell> {
     } catch (_) {
       // Fallback: try fetching tracks directly
       try {
-        final songs = await _musicService.getPlaylistTracks(
-          pl.globalCollectionId ?? pl.id.toString(),
-        );
+        final songs = await _musicService.getPlaylistTracks(gcId);
         if (mounted) {
           setState(() {
             _playlistSongs = songs;
@@ -167,22 +217,9 @@ class _DesktopShellState extends State<DesktopShell> {
     }
   }
 
-  Future<void> _loadRankSongs(RankEntry rank) async {
-    setState(() {
-      _selectedRank = rank;
-      _isLoadingRankSongs = true;
-      _rankSongs = [];
-    });
-    try {
-      final songs = await _musicService.getRankAudios(rank.id);
-      if (mounted) {
-        setState(() {
-          _rankSongs = songs;
-          _isLoadingRankSongs = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingRankSongs = false);
+  void _playFromRank(RankEntry rank) {
+    if (rank.song != null) {
+      context.read<PlayerProvider>().playSong(rank.song!);
     }
   }
 
@@ -191,38 +228,53 @@ class _DesktopShellState extends State<DesktopShell> {
   // ==========================================================================
 
   void _onNavSelected(String id) {
+    // Clear any pushed detail pages so the base content is visible
+    _detailStack.clear();
     setState(() {
       _currentNavId = id;
       _mode = _ContentMode.nav;
       _searchQuery = '';
-      _selectedRank = null;
     });
     if (id == 'recent') _loadHistory();
     if (id == 'ranking' && _rankEntries.isEmpty) _loadRankEntries();
   }
 
   void _onPlaylistSelected(Playlist pl) {
+    _detailStack.clear();
     setState(() {
-      _mode = _ContentMode.playlist;
       _searchQuery = '';
-      _selectedRank = null;
     });
-    _loadPlaylistSongs(pl);
+    // Reuse PlaylistDetailScreen — same code path as clicking from ProfileScreen
+    final gcId = _playlistGcId(pl);
+    _openInShell(PlaylistDetailScreen(
+      key: ValueKey('pl_$gcId'),
+      gcId: gcId,
+      playlistName: pl.name,
+    ));
   }
 
   void _onSearchChanged(String query) {
-    setState(() {
-      _searchQuery = query;
-      _mode = query.isNotEmpty ? _ContentMode.search : _ContentMode.nav;
+    _searchDebounce?.cancel();
+    if (query.isEmpty) {
+      setState(() {
+        _searchQuery = '';
+        _mode = _ContentMode.nav;
+      });
+      return;
+    }
+    _searchQuery = query;
+    // Debounce 300ms: wait for user to stop typing before showing results
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        setState(() {
+          _mode = _ContentMode.search;
+        });
+      }
     });
   }
 
   void _openPlayer() {
     setState(() => _mode = _ContentMode.player);
-  }
-
-  void _closePlayer() {
-    setState(() => _mode = _ContentMode.nav);
   }
 
   // ==========================================================================
@@ -231,16 +283,13 @@ class _DesktopShellState extends State<DesktopShell> {
 
   Widget _buildContent() {
     switch (_mode) {
-      case _ContentMode.player:
-        return PlayerDesktopView(onClose: _closePlayer);
-
-      case _ContentMode.playlist:
-        return _buildPlaylistDetailView();
-
       case _ContentMode.search:
-        return const SearchScreen();
+        return SearchScreen(initialQuery: _searchQuery);
 
       case _ContentMode.nav:
+        return _buildNavContent();
+
+      default:
         return _buildNavContent();
     }
   }
@@ -256,8 +305,10 @@ class _DesktopShellState extends State<DesktopShell> {
       case 'profile':
         return const ProfileScreen();
 
+      case 'local':
+        return const LocalMusicScreen();
+
       case 'ranking':
-        if (_selectedRank != null) return _buildRankDetailView();
         return _buildRankGridView();
 
       case 'recent':
@@ -353,7 +404,7 @@ class _DesktopShellState extends State<DesktopShell> {
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => _loadRankSongs(rank),
+        onTap: () => _playFromRank(rank),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -385,46 +436,33 @@ class _DesktopShellState extends State<DesktopShell> {
   }
 
   // -------------------------------------------------------------------------
-  // Ranking – detail (song table)
-  // -------------------------------------------------------------------------
-
-  Widget _buildRankDetailView() {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 4),
-          child: Row(
-            children: [
-              IconButton(
-                icon: Icon(Icons.arrow_back, color: cs.onSurface),
-                onPressed: () => setState(() => _selectedRank = null),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                _selectedRank?.name ?? '',
-                style: tt.titleLarge,
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: DesktopSongTable(
-            songs: _rankSongs,
-            isLoading: _isLoadingRankSongs,
-            emptyMessage: '暂无排行歌曲',
-          ),
-        ),
-      ],
-    );
-  }
-
-  // -------------------------------------------------------------------------
   // Recent history
   // -------------------------------------------------------------------------
+
+  Future<void> _clearHistory() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('清空历史'),
+        content: const Text('确定要清空所有听歌历史吗？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('确定')),
+        ],
+      ),
+    );
+    if (confirm == true && mounted) {
+      setState(() {
+        _historySongs.clear();
+        _historyLoaded = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('播放记录已清空')),
+        );
+      }
+    }
+  }
 
   Widget _buildRecentHistoryView() {
     return Column(
@@ -432,13 +470,25 @@ class _DesktopShellState extends State<DesktopShell> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-          child: Text('最近播放', style: Theme.of(context).textTheme.titleLarge),
+          child: Row(
+            children: [
+              Text('最近播放', style: Theme.of(context).textTheme.titleLarge),
+              const Spacer(),
+              if (_historySongs.isNotEmpty)
+                TextButton.icon(
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('清空'),
+                  onPressed: _clearHistory,
+                ),
+            ],
+          ),
         ),
         Expanded(
           child: DesktopSongTable(
             songs: _historySongs,
             isLoading: _isLoadingHistory,
             emptyMessage: '暂无播放记录',
+            currentSongId: context.watch<PlayerProvider>().currentSong?.id,
           ),
         ),
       ],
@@ -451,52 +501,19 @@ class _DesktopShellState extends State<DesktopShell> {
 
   @override
   Widget build(BuildContext context) {
-    if (_mode == _ContentMode.player) {
-      return PlayerDesktopView(onClose: _closePlayer);
-    }
-
-    final cs = Theme.of(context).colorScheme;
-
     return Stack(
       children: [
-        Scaffold(
-          backgroundColor: cs.surface,
-          body: Column(
-            children: [
-              // ── Main content: sidebar + content area ──
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    DesktopSidebar(
-                      activeNavId: _currentNavId,
-                      activePlaylistId: _playlistLoaded && _playlistId != null
-                          ? int.tryParse(_playlistId!)
-                          : null,
-                      onNavSelected: _onNavSelected,
-                      onPlaylistSelected: _onPlaylistSelected,
-                      onSearchChanged: _onSearchChanged,
-                      searchQuery: _searchQuery,
-                    ),
-                    // ── Content area ──
-                    Expanded(
-                      child: _buildContent(),
-                    ),
-                  ],
-                ),
-              ),
+        Column(
+          children: [
+            // ── 自定义 MD3 标题栏 ──
+            // 始终位于窗口顶部。原生标题栏已在 win32_window.cpp
+            // 中通过移除 WS_CAPTION 隐藏，Windows 11 Snap Layout
+            // 通过 WM_NCHITTEST 返回 HTMAXBUTTON 保留。
+            const M3TitleBar(title: 'NGS-KG+'),
 
-              // ── Bottom player bar ──
-              _DesktopPlayerBar(
-                volume: _playerVolume,
-                onVolumeChanged: (v) {
-                  setState(() => _playerVolume = v);
-                  context.read<PlayerProvider>().setVolume(v);
-                },
-                onOpenPlayer: _openPlayer,
-              ),
-            ],
-          ),
+            // ── 主体内容 ──
+            Expanded(child: _buildContentArea()),
+          ],
         ),
 
         // ── 全局覆盖层弹窗 ──
@@ -505,6 +522,82 @@ class _DesktopShellState extends State<DesktopShell> {
         const UpdateCheckHandler(),
         const LoginPromptOverlay(),
       ],
+    );
+  }
+
+  /// 构建主体内容区域（player 全屏模式或普通桌面模式）。
+  Widget _buildContentArea() {
+    if (_mode == _ContentMode.player) {
+      return AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        switchInCurve: Curves.easeInOut,
+        switchOutCurve: Curves.easeInOut,
+        transitionBuilder: (child, animation) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.05),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          );
+        },
+        child: PlayerDesktopView(
+          key: const ValueKey('player_view'),
+          onClose: () => setState(() => _mode = _ContentMode.nav),
+        ),
+      );
+    }
+
+    final cs = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      backgroundColor: cs.surface,
+      body: Column(
+        children: [
+          // ── Main content: sidebar + content area ──
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DesktopSidebar(
+                  activeNavId: _currentNavId,
+                  activePlaylistId: _playlistLoaded && _playlistId != null
+                      ? int.tryParse(_playlistId!)
+                      : null,
+                  onNavSelected: _onNavSelected,
+                  onPlaylistSelected: _onPlaylistSelected,
+                  onSearchChanged: _onSearchChanged,
+                  searchQuery: _searchQuery,
+                ),
+                // ── Content area (with shell-level page stack) ──
+                Expanded(
+                  child: ShellNavigationScope(
+                    openInShell: _openInShell,
+                    pop: _popFromShell,
+                    canPop: _canPopInShell,
+                    navigateToSidebar: _onNavSelected,
+                    openPlayer: _openPlayer,
+                    // Switch between base content and detail page
+                    child: _detailStack.isEmpty
+                        ? _buildContent()
+                        : _detailStack.last,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Bottom player bar ──
+          _DesktopPlayerBar(
+            volume: _playerVolume,
+            onVolumeChanged: (v) {
+              setState(() => _playerVolume = v);
+              context.read<PlayerProvider>().setVolume(v);
+            },
+            onOpenPlayer: _openPlayer,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -565,19 +658,27 @@ class _DesktopPlayerBar extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // ── Playback progress indicator ──
+              // ── Seekable progress bar ──
               SizedBox(
-                height: 3,
+                height: 12,
                 child: hasSong
-                    ? LinearProgressIndicator(
-                        value: player.progress.isFinite ? player.progress : 0.0,
-                        backgroundColor: cs.surfaceContainerHighest,
-                        color: cs.primary,
+                    ? SliderTheme(
+                        data: SliderThemeData(
+                          trackHeight: 3,
+                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 0),
+                          overlayShape: const RoundSliderOverlayShape(overlayRadius: 0),
+                          activeTrackColor: cs.primary,
+                          inactiveTrackColor: cs.surfaceContainerHighest,
+                          thumbColor: Colors.transparent,
+                        ),
+                        child: Slider(
+                          value: player.progress.isFinite ? player.progress : 0.0,
+                          onChanged: (v) => player.seek(Duration(
+                            milliseconds: (v * player.duration.inMilliseconds).round(),
+                          )),
+                        ),
                       )
-                    : LinearProgressIndicator(
-                        backgroundColor: cs.surfaceContainerHighest,
-                        color: cs.surfaceContainerHighest,
-                      ),
+                    : const SizedBox.shrink(),
               ),
 
               // ── Controls row ──
@@ -594,19 +695,11 @@ class _DesktopPlayerBar extends StatelessWidget {
                           child: Row(
                             children: [
                               // Album art
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: SizedBox(
-                                  width: 48,
-                                  height: 48,
-                                  child: hasSong && song.albumCoverUrl != null
-                                      ? Image.network(
-                                          song.albumCoverUrl!,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => _coverPlaceholder(cs),
-                                        )
-                                      : _coverPlaceholder(cs),
-                                ),
+                              LocalCoverArt(
+                                url: song?.albumCoverUrl,
+                                size: 48,
+                                borderRadius: 6,
+                                coverData: song?.coverData,
                               ),
                               const SizedBox(width: 12),
                               // Song name + artist
@@ -720,7 +813,7 @@ class _DesktopPlayerBar extends StatelessWidget {
                                     child: Padding(
                                       padding: const EdgeInsets.only(right: 8),
                                       child: Text(
-                                        '${_formatDuration(player.position)} / ${_formatDuration(player.duration)}',
+                                        '${_formatDuration(player.position)}',
                                         overflow: TextOverflow.ellipsis,
                                         style: Theme.of(context)
                                             .textTheme
@@ -777,12 +870,6 @@ class _DesktopPlayerBar extends StatelessWidget {
     );
   }
 
-  Widget _coverPlaceholder(ColorScheme cs) {
-    return Container(
-      color: cs.surfaceContainerHighest,
-      child: Icon(Icons.music_note, size: 24, color: cs.onSurfaceVariant),
-    );
-  }
 }
 
 // ============================================================================

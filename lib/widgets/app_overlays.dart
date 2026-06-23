@@ -2,11 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'shell_navigation_scope.dart';
 import '../utils/navigation.dart' as app;
 import '../providers/player_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/song.dart';
+import '../screens/login_screen.dart';
 import '../services/api_client.dart';
 import '../services/update_checker.dart';
 import '../widgets/support_me_dialog.dart';
@@ -224,7 +226,11 @@ class _LoginPromptOverlayState extends State<LoginPromptOverlay> {
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
-              Navigator.pushNamed(context, '/login');
+              ShellNavigationScope.navigate(
+                context,
+                routeName: '/login',
+                shellPageBuilder: () => const LoginScreen(),
+              );
             },
             child: const Text('登录'),
           ),
