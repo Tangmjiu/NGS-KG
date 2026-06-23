@@ -24,6 +24,7 @@ import '../screens/playlist_category_screen.dart';
 
 class AppRoutes {
   static const String home = '/';
+  static const String shell = '/shell';
   static const String login = '/login';
   static const String playlistDetail = '/playlist/detail';
   static const String search = '/search';
@@ -49,6 +50,8 @@ class AppRoutes {
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
+      case shell:
+        return MaterialPageRoute(builder: (_) => const SizedBox.shrink());
       case home:
         return MaterialPageRoute(builder: (_) => const HomeScreen());
       case login:

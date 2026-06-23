@@ -4,13 +4,17 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_skill/flutter_skill.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/player_provider.dart';
 import 'providers/playlist_provider.dart';
 import 'providers/liked_songs_provider.dart';
 import 'providers/discover_provider.dart';
+import 'providers/local_music_provider.dart';
+import 'navidrome/navidrome_provider.dart';
 import 'routes/app_routes.dart';
 import 'screens/settings_screen.dart';
 import 'utils/logger.dart';
@@ -24,16 +28,32 @@ import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/cache_service.dart';
 import 'services/desktop_service.dart';
+import 'package:window_manager/window_manager.dart';
+
 import 'providers/audio_settings_provider.dart';
 import 'utils/preview_config.dart';
 import 'theme/theme_assets.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'utils/navigation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kDebugMode) {
+    FlutterSkillBinding.ensureInitialized();
+  }
 
-  // 初始化跨平台 SQLite（Windows 需 FFI�?
+  // Windows 桌面端：窗口管理器必须在 runApp 前初始化，
+  // 否则 M3TitleBar 在 initState 中访问 windowManager 会因
+  // 方法通道未注册而静默失败。
+  await windowManager.ensureInitialized();
+
+
+
+  // 初始化 just_audio_media_kit（Windows 音频后端，使用 mpv，支持 FLAC 等全格式）
+  JustAudioMediaKit.ensureInitialized();
+
+  // 初始化跨平台 SQLite（Windows 需 FFI）
   sqfliteFfiInit();
 
   await Log.init();
@@ -117,6 +137,7 @@ Future<void> main() async {
   // 小延迟确保文件读取完成；ready �?_loadSavedUser() 完成后触�?
   unawaited(authProvider.ready.then((_) {
     Log.i('main', 'AuthProvider ready, user=${authProvider.isLoggedIn}');
+    if (authProvider.isLoggedIn) likedSongs.load();
   }));
   // 注意：此处不能阻�?runApp —�?authProvider 在构造时已启�?_loadSavedUser()
   // apiClient.setAuth �?_loadSavedUser 内调用，PlayerProvider �?restorePlaybackState
@@ -136,6 +157,8 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
         ChangeNotifierProvider.value(value: likedSongs),
         ChangeNotifierProvider(create: (_) => DiscoverProvider(musicService)),
+        ChangeNotifierProvider(create: (_) => LocalMusicProvider()),
+        ChangeNotifierProvider(create: (_) => NavidromeProvider()),
       ],
       child: const NGSKGApp(),
     ),
@@ -262,13 +285,9 @@ class NGSKGApp extends StatelessWidget {
           theme: themeProvider.buildLightTheme(context, dynamicScheme: lightDynamic),
           darkTheme: themeProvider.buildDarkTheme(context, dynamicScheme: darkDynamic),
           themeMode: themeProvider.themeMode,
-          initialRoute: AppRoutes.home,
+          home: const DesktopShell(),
           onGenerateRoute: (settings) {
-            if (settings.name == AppRoutes.settings) {
-              return MaterialPageRoute(
-                builder: (_) => const SettingsScreen(),
-              );
-            }
+            // Router override: DesktopShell 作为 home，其他路由正常推送
             return AppRoutes.generateRoute(settings);
           },
           builder: (context, child) {
@@ -286,8 +305,7 @@ class NGSKGApp extends StatelessWidget {
                       ),
                     ),
                   ),
-                // 桌面端直接用 DesktopShell 作为外壳
-                const DesktopShell(),
+                if (child != null) child,
               ],
             );
           },
