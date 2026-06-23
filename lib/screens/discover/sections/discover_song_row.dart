@@ -3,6 +3,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../../../models/song.dart';
 import '../../../providers/player_provider.dart';
+import '../../../utils/responsive.dart';
+import '../../../widgets/shell_navigation_scope.dart';
+import '../../../widgets/player_desktop_view.dart';
+import '../../player_screen.dart';
 
 /// 新歌速递 — 横向滚动歌曲卡片
 class DiscoverSongRow extends StatelessWidget {
@@ -13,8 +17,14 @@ class DiscoverSongRow extends StatelessWidget {
   void _playFrom(BuildContext context, int index) {
     final player = context.read<PlayerProvider>();
     player.playSong(songs[index], playlist: songs.sublist(index));
-    player.setPlayerScreenVisible(true);
-    Navigator.pushNamed(context, '/player').then((_) => player.setPlayerScreenVisible(false));
+    // Desktop → full-screen player (replaces shell)
+    // Mobile → PlayerScreen
+    if (Responsive.isDesktop(context)) {
+      ShellNavigationScope.openFullScreenPlayer(context);
+    } else {
+      player.setPlayerScreenVisible(true);
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const PlayerScreen()));
+    }
   }
 
   @override

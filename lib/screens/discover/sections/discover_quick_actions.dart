@@ -5,6 +5,12 @@ import '../../../models/rank_entry.dart';
 import '../../../providers/player_provider.dart';
 import '../../../services/music_service.dart';
 import '../../../utils/logger.dart';
+import '../../../utils/responsive.dart';
+import '../../../widgets/player_desktop_view.dart';
+import '../../../widgets/shell_navigation_scope.dart';
+import '../../rank_detail_screen.dart';
+import '../../fm_screen.dart';
+import '../../player_screen.dart';
 
 /// 快捷操作入口 — 4 个渐变色卡片
 ///
@@ -50,12 +56,23 @@ class _QuickAction {
 final _actions = [
   _QuickAction(Icons.emoji_events, '排行榜', onTap: (context, rankList) {
     if (rankList.isNotEmpty) {
-      Navigator.pushNamed(context, '/rank/detail',
-          arguments: {'id': rankList.first.id, 'name': rankList.first.name});
+      ShellNavigationScope.navigate(
+        context,
+        routeName: '/rank/detail',
+        arguments: {'id': rankList.first.id, 'name': rankList.first.name},
+        shellPageBuilder: () => RankDetailScreen(
+          rankId: rankList.first.id,
+          rankName: rankList.first.name,
+        ),
+      );
     }
   }),
   _QuickAction(Icons.radio, '电台',
-      onTap: (context, _) => Navigator.pushNamed(context, '/fm')),
+      onTap: (context, _) => ShellNavigationScope.navigate(
+            context,
+            routeName: '/fm',
+            shellPageBuilder: () => const FmScreen(),
+          )),
   _QuickAction(Icons.auto_awesome, '每日推荐', onTap: (context, _) async {
     final musicService = MusicService();
     final player = context.read<PlayerProvider>();
@@ -63,9 +80,17 @@ final _actions = [
       final card = await musicService.getCardSongs(1);
       if (card.songs.isNotEmpty && context.mounted) {
         player.playSong(card.songs.first, playlist: card.songs);
-        player.setPlayerScreenVisible(true);
-        await Navigator.pushNamed(context, '/player');
-        player.setPlayerScreenVisible(false);
+        if (Responsive.isDesktop(context)) {
+          final scope = ShellNavigationScope.of(context);
+          scope?.openInShell(const PlayerDesktopView());
+        } else {
+          player.setPlayerScreenVisible(true);
+          ShellNavigationScope.push(
+            context, page: const PlayerScreen(),
+            routeBuilder: () =>
+                MaterialPageRoute(builder: (_) => const PlayerScreen()),
+          );
+        }
       }
     } catch (e, s) {
       Log.e('DiscoverQuickActions', 'dailyRec error', e, s);
@@ -78,9 +103,17 @@ final _actions = [
       final songs = await musicService.getTopSongs();
       if (songs.isNotEmpty && context.mounted) {
         player.playSong(songs.first, playlist: songs);
-        player.setPlayerScreenVisible(true);
-        await Navigator.pushNamed(context, '/player');
-        player.setPlayerScreenVisible(false);
+        if (Responsive.isDesktop(context)) {
+          final scope = ShellNavigationScope.of(context);
+          scope?.openInShell(const PlayerDesktopView());
+        } else {
+          player.setPlayerScreenVisible(true);
+          ShellNavigationScope.push(
+            context, page: const PlayerScreen(),
+            routeBuilder: () =>
+                MaterialPageRoute(builder: (_) => const PlayerScreen()),
+          );
+        }
       }
     } catch (e, s) {
       Log.e('DiscoverQuickActions', 'newSong error', e, s);

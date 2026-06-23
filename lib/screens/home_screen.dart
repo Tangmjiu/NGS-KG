@@ -9,7 +9,13 @@ import '../models/latest_listen_info.dart';
 import '../services/music_service.dart';
 import '../models/song_mapper.dart';
 import '../utils/logger.dart';
+import '../utils/responsive.dart';
+import '../widgets/shell_navigation_scope.dart';
 import 'search_screen.dart';
+import 'playlist_detail_screen.dart';
+import 'recommended_playlists_screen.dart';
+import 'user_profile_screen.dart';
+import 'login_screen.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -341,16 +347,22 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _continueListen() async {
-    if (_latestListen == null || _latestListen!.info == null) return;
-    final song = SongMapper.fromTrackJson(_latestListen!.info!);
-    if (song == null) return;
-    final position = Duration(seconds: _latestListen!.position);
-    final player = context.read<PlayerProvider>();
-    await player.playSong(song);
-    if (position.inSeconds > 0) {
-      await player.seek(position);
+    try {
+      if (_latestListen == null || _latestListen!.info == null) return;
+      final song = SongMapper.fromTrackJson(_latestListen!.info!);
+      if (song == null) return;
+      final position = Duration(seconds: _latestListen!.position);
+      final player = context.read<PlayerProvider>();
+      await player.playSong(song);
+      if (position.inSeconds > 0) {
+        await player.seek(position);
+      }
+      if (mounted) {
+        setState(() => _showContinueBanner = false);
+      }
+    } catch (e, s) {
+      Log.e('home_screen', 'continueListen error', e, s);
     }
-    setState(() => _showContinueBanner = false);
   }
 
   void _refreshProfile() {
@@ -361,9 +373,279 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => _buildHome();
+  Widget build(BuildContext context) {
+    return ResponsiveLayoutBuilder(
+      desktop: (_) => _buildDesktopHome(),
+      mobile: (_) => _buildMobileHome(),
+      tablet: (_) => _buildMobileHome(),
+    );
+  }
 
-  Widget _buildHome() {
+  Widget _buildDesktopHome() {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final auth = context.watch<AuthProvider>();
+
+    return Consumer<PlaylistProvider>(
+      builder: (_, provider, __) {
+        return RefreshIndicator(
+          onRefresh: () async {
+            await provider.fetchTopPlaylists();
+            await _loadRecommended();
+          },
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+            children: [
+              // ── Welcome text ──
+              Text('首页', style: tt.headlineLarge?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+
+              // ── Continue listening ──
+              if (_showContinueBanner && _latestListen != null)
+                _buildContinueBanner(cs, tt),
+
+              // ── 推荐歌单 ──
+              if (provider.topPlaylists.isNotEmpty) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('推荐歌单', style: tt.titleLarge),
+                    TextButton(
+                      onPressed: () => ShellNavigationScope.navigate(
+                        context,
+                        routeName: '/recommended/playlists',
+                        shellPageBuilder: () => const RecommendedPlaylistsScreen(),
+                      ),
+                      child: const Text('更多'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 240,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: provider.topPlaylists.length,
+                    itemBuilder: (_, i) {
+                      final pl = provider.topPlaylists[i];
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 16),
+                        child: GestureDetector(
+                          onTap: () {
+                            ShellNavigationScope.navigate(
+                              context,
+                              routeName: '/playlist/detail',
+                              arguments: {
+                                'gcId': pl.globalCollectionId ??
+                                    'collection_3_${pl.createUserId}_${pl.id}_0',
+                                'name': pl.name,
+                              },
+                              shellPageBuilder: () => PlaylistDetailScreen(
+                                gcId: pl.globalCollectionId ??
+                                    'collection_3_${pl.createUserId}_${pl.id}_0',
+                                playlistName: pl.name,
+                              ),
+                            );
+                          },
+                          child: SizedBox(
+                            width: 180,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: pl.coverUrl != null
+                                      ? CachedNetworkImage(
+                                          imageUrl: pl.coverUrl!,
+                                          width: 180,
+                                          height: 180,
+                                          fit: BoxFit.cover,
+                                          placeholder: (_, __) => Container(
+                                              color: cs.surfaceContainerHighest,
+                                              width: 180, height: 180),
+                                          errorWidget: (_, __, ___) => Container(
+                                              color: cs.surfaceContainerHighest,
+                                              width: 180, height: 180,
+                                              child: const Icon(Icons.playlist_play)),
+                                        )
+                                      : Container(
+                                          color: cs.surfaceContainerHighest,
+                                          width: 180, height: 180,
+                                          child: const Icon(Icons.playlist_play)),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(pl.name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // ── Daily recommend ──
+              if (_dailyLoading || _dailySongs.isNotEmpty)
+                _buildDesktopSongSection(_dailySongs, '每日推荐',
+                    onEnd: () => _musicService.getDailyRecommend()),
+
+              // ── 新歌推荐 ──
+              if (_recommended.isNotEmpty)
+                _buildDesktopSongSection(_recommended, '新歌推荐',
+                    onEnd: () => _musicService.getTopSongs()),
+
+              // ── Cards ──
+              for (int id = 1; id <= 6; id++)
+                if ((_cardSongs[id]?.isNotEmpty ?? false))
+                  _buildDesktopSongSection(
+                      _cardSongs[id]!, _cardNames[id] ?? '',
+                      onEnd: () => _musicService.getCardSongs(id).then((cs) => cs.songs)),
+
+              const SizedBox(height: 32),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDesktopSongSection(List<Song> songs, String title,
+      {Future<List<Song>> Function()? onEnd}) {
+    if (songs.isEmpty) return const SizedBox.shrink();
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final player = context.read<PlayerProvider>();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(title, style: tt.titleLarge),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            children: List.generate(songs.length.clamp(0, 8), (i) {
+              final song = songs[i];
+              final isLast = i == songs.length - 1 || i == 7;
+              return InkWell(
+                borderRadius: isLast ? const BorderRadius.vertical(bottom: Radius.circular(12)) : null,
+                onTap: () {
+                  player.playlistEndProvider = onEnd;
+                  player.playSong(song, playlist: songs.sublist(i));
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: song.albumCoverUrl != null
+                            ? CachedNetworkImage(
+                                imageUrl: song.albumCoverUrl!,
+                                width: 44, height: 44,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => Container(width: 44, height: 44, color: cs.surface),
+                                errorWidget: (_, __, ___) => Container(width: 44, height: 44, color: cs.surface, child: const Icon(Icons.music_note, size: 20)),
+                              )
+                            : Container(width: 44, height: 44, color: cs.surface, child: const Icon(Icons.music_note, size: 20)),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(song.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+                            const SizedBox(height: 2),
+                            Text(song.artistDisplay,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                          ],
+                        ),
+                      ),
+                      SizedBox(
+                        width: 36, height: 36,
+                        child: IconButton(
+                          icon: Icon(Icons.play_arrow_rounded, size: 20, color: cs.primary),
+                          onPressed: () {
+                            player.playlistEndProvider = onEnd;
+                            player.playSong(song, playlist: songs.sublist(i));
+                          },
+                          padding: EdgeInsets.zero,
+                          tooltip: '播放',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _buildContinueBanner(ColorScheme cs, TextTheme tt) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: const Icon(Icons.play_circle_outline),
+        title: Text(
+          _latestListen!.info?['name'] ?? '继续播放',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(_latestListen?.deviceLabel ?? '点击继续播放',
+            maxLines: 1, overflow: TextOverflow.ellipsis),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 36, height: 36,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.play_arrow, size: 20),
+                tooltip: '继续播放',
+                onPressed: _continueListen,
+              ),
+            ),
+            SizedBox(
+              width: 36, height: 36,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.close, size: 20),
+                tooltip: '关闭',
+                onPressed: () => setState(() => _showContinueBanner = false),
+              ),
+            ),
+          ],
+        ),
+        onTap: _continueListen,
+      ),
+    );
+  }
+
+  Widget _buildMobileHome() {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final topSafe = MediaQuery.of(context).padding.top;
@@ -409,23 +691,31 @@ class _HomeScreenState extends State<HomeScreen> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                subtitle: Text(_latestListen?.deviceLabel ?? '点击继续播放'),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.play_arrow),
-                                      tooltip: '继续播放',
-                                      onPressed: _continueListen,
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.close),
-                                      tooltip: '关闭',
-                                      onPressed: () => setState(
-                                          () => _showContinueBanner = false),
-                                    ),
-                                  ],
-                                ),
+                                subtitle: Text(_latestListen?.deviceLabel ?? '点击继续播放', maxLines: 1, overflow: TextOverflow.ellipsis),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 36, height: 36,
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.play_arrow, size: 20),
+                        tooltip: '继续播放',
+                        onPressed: _continueListen,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 36, height: 36,
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.close, size: 20),
+                        tooltip: '关闭',
+                        onPressed: () => setState(
+                            () => _showContinueBanner = false),
+                      ),
+                    ),
+                  ],
+                ),
                                 onTap: _continueListen,
                               ),
                             ),
@@ -438,8 +728,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                 children: [
                                   Text('推荐歌单', style: tt.headlineSmall),
                                   TextButton(
-                                    onPressed: () => Navigator.pushNamed(
-                                        context, '/recommended/playlists'),
+                                    onPressed: () => ShellNavigationScope.navigate(
+                                      context,
+                                      routeName: '/recommended/playlists',
+                                      shellPageBuilder: () => const RecommendedPlaylistsScreen(),
+                                    ),
                                     child: const Text('更多'),
                                   ),
                                 ],
@@ -458,13 +751,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                     padding: const EdgeInsets.only(right: 8),
                                     child: GestureDetector(
                                       onTap: () {
-                                        Navigator.pushNamed(
-                                            context, '/playlist/detail',
-                                            arguments: {
-                                              'gcId': pl.globalCollectionId ??
-                                                  'collection_3_${pl.createUserId}_${pl.id}_0',
-                                              'name': pl.name,
-                                            });
+                                        ShellNavigationScope.navigate(
+                                          context,
+                                          routeName: '/playlist/detail',
+                                          arguments: {
+                                            'gcId': pl.globalCollectionId ??
+                                                'collection_3_${pl.createUserId}_${pl.id}_0',
+                                            'name': pl.name,
+                                          },
+                                          shellPageBuilder: () => PlaylistDetailScreen(
+                                            gcId: pl.globalCollectionId ??
+                                                'collection_3_${pl.createUserId}_${pl.id}_0',
+                                            playlistName: pl.name,
+                                          ),
+                                        );
                                       },
                                       child: SizedBox(
                                         width: 130,
@@ -603,9 +903,10 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
               child: InkWell(
                 borderRadius: BorderRadius.circular(20),
                 onTap: () {
-                  Navigator.push(
+                  ShellNavigationScope.push(
                     context,
-                    PageRouteBuilder(
+                    page: const SearchScreen(),
+                    routeBuilder: () => PageRouteBuilder(
                       pageBuilder: (_, __, ___) => const SearchScreen(),
                       transitionsBuilder: (_, animation, __, child) {
                         return SlideTransition(
@@ -642,7 +943,11 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
           const SizedBox(width: 8),
           if (isLoggedIn && avatarUrl != null && avatarUrl!.isNotEmpty)
             GestureDetector(
-              onTap: () => Navigator.pushNamed(context, '/user/profile'),
+              onTap: () => ShellNavigationScope.navigate(
+                context,
+                routeName: '/user/profile',
+                shellPageBuilder: () => const UserProfileScreen(),
+              ),
               child: CircleAvatar(
                 radius: 18,
                 backgroundImage: CachedNetworkImageProvider(avatarUrl!),
@@ -654,8 +959,20 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
               icon: Icon(isLoggedIn ? Icons.person : Icons.person_outline,
                   color: cs.onSurfaceVariant),
               onPressed: () {
-                if (!isLoggedIn) Navigator.pushNamed(context, '/login');
-                if (isLoggedIn) Navigator.pushNamed(context, '/user/profile');
+                if (!isLoggedIn) {
+                  ShellNavigationScope.navigate(
+                    context,
+                    routeName: '/login',
+                    shellPageBuilder: () => const LoginScreen(),
+                  );
+                }
+                if (isLoggedIn) {
+                  ShellNavigationScope.navigate(
+                    context,
+                    routeName: '/user/profile',
+                    shellPageBuilder: () => const UserProfileScreen(),
+                  );
+                }
               },
             ),
           const SizedBox(width: 8),

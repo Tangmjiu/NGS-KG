@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../models/playlist.dart';
+import '../../../widgets/shell_navigation_scope.dart';
+import '../../playlist_detail_screen.dart';
 
 /// 推荐歌单 — 横向滚动卡片列表
 class DiscoverPlaylistRow extends StatelessWidget {
@@ -22,11 +24,20 @@ class DiscoverPlaylistRow extends StatelessWidget {
           final pl = playlists[i];
           return GestureDetector(
             onTap: () {
-              Navigator.pushNamed(context, '/playlist/detail', arguments: {
-                'gcId': pl.globalCollectionId ??
-                    'collection_3_${pl.createUserId}_${pl.id}_0',
-                'name': pl.name,
-              });
+              final gcId = pl.globalCollectionId ??
+                  'collection_3_${pl.createUserId}_${pl.id}_0';
+              ShellNavigationScope.navigate(
+                context,
+                routeName: '/playlist/detail',
+                arguments: {
+                  'gcId': gcId,
+                  'name': pl.name,
+                },
+                shellPageBuilder: () => PlaylistDetailScreen(
+                  gcId: gcId,
+                  playlistName: pl.name,
+                ),
+              );
             },
             child: Container(
               width: 140,

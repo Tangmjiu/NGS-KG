@@ -23,6 +23,8 @@ import '../widgets/player_controls_bar.dart';
 import '../widgets/player_progress_bar.dart';
 import '../widgets/playback_controls.dart' as legacy;
 import '../widgets/login_required_dialog.dart';
+import '../widgets/shell_navigation_scope.dart';
+import 'login_screen.dart';
 import 'audio_effects_screen.dart';
 
 /// Apple Music-style full player screen with dynamic background,
@@ -406,85 +408,82 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     ),
 
                     // ── 底部控制区（自适应高度，防止溢出） ──
-                    Flexible(
-                      flex: 0,
-                      child: SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // ── Song info ──
-                            _buildSongInfo(song),
+                    SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // ── Song info ──
+                          _buildSongInfo(song, player),
 
-                            // ── Progress bar ──
-                            PlayerProgressBar(
-                              position: player.position,
-                              duration: player.duration,
-                              progress: _isDraggingProgress
-                                  ? _dragProgressValue
-                                  : (player.progress.isFinite ? player.progress : 0.0),
-                              climaxPosition: player.climaxMs,
-                              onDragStart: () {
-                                setState(() => _isDraggingProgress = true);
+                          // ── Progress bar ──
+                          PlayerProgressBar(
+                            position: player.position,
+                            duration: player.duration,
+                            progress: _isDraggingProgress
+                                ? _dragProgressValue
+                                : (player.progress.isFinite ? player.progress : 0.0),
+                            climaxPosition: player.climaxMs,
+                            onDragStart: () {
+                              setState(() => _isDraggingProgress = true);
+                              final pos = Duration(
+                                milliseconds:
+                                    (_dragProgressValue * player.duration.inMilliseconds)
+                                        .round(),
+                              );
+                              player.lyricController.setProgress(pos);
+                            },
+                            onDragEnd: () async {
+                              await player.seek(Duration(
+                                milliseconds: (_dragProgressValue *
+                                        player.duration.inMilliseconds)
+                                    .round(),
+                              ));
+                              if (mounted) {
+                                setState(() => _isDraggingProgress = false);
+                              }
+                            },
+                            onSeek: (v) {
+                              _dragProgressValue = v;
+                              if (_isDraggingProgress) {
                                 final pos = Duration(
                                   milliseconds:
-                                      (_dragProgressValue * player.duration.inMilliseconds)
-                                          .round(),
+                                      (v * player.duration.inMilliseconds).round(),
                                 );
                                 player.lyricController.setProgress(pos);
-                              },
-                              onDragEnd: () async {
-                                await player.seek(Duration(
-                                  milliseconds: (_dragProgressValue *
-                                          player.duration.inMilliseconds)
-                                      .round(),
-                                ));
-                                if (mounted) {
-                                  setState(() => _isDraggingProgress = false);
-                                }
-                              },
-                              onSeek: (v) {
-                                _dragProgressValue = v;
-                                if (_isDraggingProgress) {
-                                  final pos = Duration(
-                                    milliseconds:
-                                        (v * player.duration.inMilliseconds).round(),
-                                  );
-                                  player.lyricController.setProgress(pos);
-                                }
-                              },
-                            ),
-                            const SizedBox(height: 12),
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 12),
 
-                            // ── Playback controls ──
-                            PlayerControlsBar(
-                              isPlaying: player.isPlaying,
-                              isLoading: player.isLoading,
-                              onPlayPause: player.togglePlayPause,
-                              onPrevious: player.playPrevious,
-                              onNext: player.playNext,
-                              playMode: player.playMode,
-                              onModeToggle: () {
-                                const modes = [
-                                  PlayMode.sequential,
-                                  PlayMode.shuffle,
-                                  PlayMode.repeatOne,
-                                ];
-                                final next = modes[
-                                    (modes.indexOf(player.playMode) + 1) %
-                                        modes.length];
-                                player.setPlayMode(next);
-                              },
-                              onShowPlaylist: () =>
-                                  legacy.PlaybackControls.showPlaylistStatic(
-                                      context, player),
-                            ),
-                            const SizedBox(height: 8),
+                          // ── Playback controls ──
+                          PlayerControlsBar(
+                            isPlaying: player.isPlaying,
+                            isLoading: player.isLoading,
+                            onPlayPause: player.togglePlayPause,
+                            onPrevious: player.playPrevious,
+                            onNext: player.playNext,
+                            playMode: player.playMode,
+                            onModeToggle: () {
+                              const modes = [
+                                PlayMode.sequential,
+                                PlayMode.shuffle,
+                                PlayMode.repeatOne,
+                              ];
+                              final next = modes[
+                                  (modes.indexOf(player.playMode) + 1) %
+                                      modes.length];
+                              player.setPlayMode(next);
+                            },
+                            onShowPlaylist: () =>
+                                legacy.PlaybackControls.showPlaylistStatic(
+                                    context, player),
+                          ),
+                          const SizedBox(height: 8),
 
-                            // ── Bottom actions ──
-                            _buildBottomActions(),
-                            SizedBox(height: MediaQuery.of(context).padding.bottom + 4),
-                          ],
-                        ),
+                          // ── Bottom actions ──
+                          _buildBottomActions(player),
+                          SizedBox(height: MediaQuery.of(context).padding.bottom + 4),
+                        ],
                       ),
                     ),
                   ],
@@ -528,8 +527,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // ── Song info ──
 
-  Widget _buildSongInfo(Song song) {
-    final player = context.watch<PlayerProvider>();
+  Widget _buildSongInfo(Song song, PlayerProvider player) {
     final resolved = player.resolvedQuality;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -587,8 +585,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // ── Bottom actions ──
 
-  Widget _buildBottomActions() {
-    final player = context.watch<PlayerProvider>();
+  Widget _buildBottomActions(PlayerProvider player) {
     final song = player.currentSong;
     final selectedKey =
         Quality.levels[player.qualityLevel % Quality.levels.length];
@@ -611,7 +608,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   if (!auth.isLoggedIn) {
                     final goLogin = await showLoginRequiredDialog(context);
                     if (goLogin && mounted) {
-                      Navigator.pushNamed(context, '/login');
+                      ShellNavigationScope.navigate(
+                        context,
+                        routeName: '/login',
+                        shellPageBuilder: () => const LoginScreen(),
+                      );
                     }
                     return;
                   }
@@ -630,9 +631,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _ActionChip(
           icon: Icons.tune_rounded,
           label: '音效',
-          onTap: () => Navigator.push(
+          onTap: () => ShellNavigationScope.push(
             context,
-            MaterialPageRoute(builder: (_) => const AudioEffectsScreen()),
+            page: const AudioEffectsScreen(),
+            title: '音效',
+            routeBuilder: () => MaterialPageRoute(builder: (_) => const AudioEffectsScreen()),
           ),
         ),
         const SizedBox(width: 12),

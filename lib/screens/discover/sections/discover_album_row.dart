@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../models/album.dart';
+import '../../../widgets/shell_navigation_scope.dart';
+import '../../album_detail_screen.dart';
 
 /// 新碟上架 — 横向滚动专辑卡片
 class DiscoverAlbumRow extends StatelessWidget {
@@ -21,8 +23,13 @@ class DiscoverAlbumRow extends StatelessWidget {
         itemBuilder: (_, i) {
           final album = albums[i];
           return GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/album/detail',
-                arguments: {'id': album.id, 'name': album.name}),
+            onTap: () => ShellNavigationScope.navigate(
+              context,
+              routeName: '/album/detail',
+              arguments: {'id': album.id, 'name': album.name},
+              shellPageBuilder: () =>
+                  AlbumDetailScreen(albumId: album.id, albumName: album.name),
+            ),
             child: Container(
               width: 140,
               margin: const EdgeInsets.only(right: 12),

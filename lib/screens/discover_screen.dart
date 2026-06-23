@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/discover_provider.dart';
+import '../utils/responsive.dart';
+import '../widgets/shell_navigation_scope.dart';
 import 'discover/sections/discover_quick_actions.dart';
+import 'recommended_playlists_screen.dart';
+import 'rank_detail_screen.dart';
+import 'fm_screen.dart';
 import 'discover/sections/discover_section_header.dart';
 import 'discover/sections/discover_playlist_row.dart';
 import 'discover/sections/discover_rank_row.dart';
@@ -35,6 +40,138 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return ResponsiveLayoutBuilder(
+      desktop: (_) => _buildDesktop(),
+      mobile: (_) => _buildMobile(),
+      tablet: (_) => _buildMobile(),
+    );
+  }
+
+  Widget _buildDesktop() {
+    final provider = context.watch<DiscoverProvider>();
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return RefreshIndicator(
+      onRefresh: () => provider.loadAll(),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+        children: [
+          // ── Title ──
+          Text('发现',
+              style: tt.headlineLarge?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+
+          if (provider.loading)
+            const SizedBox(
+              height: 200,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else ...[
+            if (provider.error != null)
+              _buildErrorState(cs, tt, provider)
+            else ...[
+              DiscoverQuickActions(rankList: provider.rankList),
+              const SizedBox(height: 16),
+
+              if (provider.hasPlaylists) ...[
+                DiscoverSectionHeader(
+                  title: '推荐歌单',
+                  onViewAll: () => ShellNavigationScope.navigate(
+                    context,
+                    routeName: '/recommended/playlists',
+                    shellPageBuilder: () => const RecommendedPlaylistsScreen(),
+                  ),
+                ),
+                DiscoverPlaylistRow(playlists: provider.topPlaylists),
+                const SizedBox(height: 8),
+              ],
+
+              if (provider.hasRanks) ...[
+                DiscoverSectionHeader(
+                  title: '热门榜单',
+                  onViewAll: () => _showRankList(provider.rankList),
+                ),
+                DiscoverRankRow(ranks: provider.rankList),
+                const SizedBox(height: 8),
+              ],
+
+              if (provider.hasPersonalFm || !provider.loading) ...[
+                DiscoverPersonalFmRow(
+                  songs: provider.personalFmSongs,
+                  onRefresh: () => provider.loadAll(),
+                ),
+                const SizedBox(height: 8),
+              ],
+
+              if (provider.hasTopSongs) ...[
+                const DiscoverSectionHeader(title: '新歌速递'),
+                DiscoverSongRow(songs: provider.topSongs),
+                const SizedBox(height: 8),
+              ],
+
+              if (provider.hasTopAlbums) ...[
+                const DiscoverSectionHeader(title: '新碟上架'),
+                DiscoverAlbumRow(albums: provider.topAlbums),
+                const SizedBox(height: 8),
+              ],
+
+              if (provider.hasScenes) ...[
+                const DiscoverSectionHeader(title: '场景音乐'),
+                DiscoverSceneRow(scenes: provider.sceneCategories),
+                const SizedBox(height: 8),
+              ],
+
+              if (provider.hasIp) ...[
+                const DiscoverSectionHeader(title: '编辑精选'),
+                DiscoverIpRow(ipList: provider.ipList),
+                const SizedBox(height: 8),
+              ],
+
+              if (provider.hasFm) ...[
+                DiscoverSectionHeader(
+                  title: '电台推荐',
+                  onViewAll: () => ShellNavigationScope.navigate(
+                    context,
+                    routeName: '/fm',
+                    shellPageBuilder: () => const FmScreen(),
+                  ),
+                ),
+                DiscoverFmRow(fmList: provider.fmList),
+              ],
+            ],
+          ],
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(ColorScheme cs, TextTheme tt, DiscoverProvider provider) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 60),
+        child: Column(
+          children: [
+            Icon(Icons.error_outline, size: 48, color: cs.error),
+            const SizedBox(height: 8),
+            Text('加载失败',
+                style: tt.titleMedium?.copyWith(color: cs.error)),
+            const SizedBox(height: 4),
+            Text(provider.error!,
+                style: tt.bodySmall, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            FilledButton.tonal(
+              onPressed: () => provider.loadAll(),
+              child: const Text('重试'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobile() {
     final provider = context.watch<DiscoverProvider>();
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
@@ -108,8 +245,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 SliverToBoxAdapter(
                   child: DiscoverSectionHeader(
                     title: '推荐歌单',
-                    onViewAll: () =>
-                        Navigator.pushNamed(context, '/recommended/playlists'),
+                    onViewAll: () => ShellNavigationScope.navigate(
+                      context,
+                      routeName: '/recommended/playlists',
+                      shellPageBuilder: () => const RecommendedPlaylistsScreen(),
+                    ),
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -186,8 +326,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 SliverToBoxAdapter(
                   child: DiscoverSectionHeader(
                     title: '电台推荐',
-                    onViewAll: () =>
-                        Navigator.pushNamed(context, '/fm'),
+                    onViewAll: () => ShellNavigationScope.navigate(
+                      context,
+                      routeName: '/fm',
+                      shellPageBuilder: () => const FmScreen(),
+                    ),
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -245,8 +388,15 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.pushNamed(context, '/rank/detail',
-                          arguments: {'id': r.id, 'name': r.name});
+                      ShellNavigationScope.navigate(
+                        context,
+                        routeName: '/rank/detail',
+                        arguments: {'id': r.id, 'name': r.name},
+                        shellPageBuilder: () => RankDetailScreen(
+                          rankId: r.id,
+                          rankName: r.name,
+                        ),
+                      );
                     },
                   );
                 },

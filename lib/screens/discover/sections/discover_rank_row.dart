@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../models/rank_entry.dart';
+import '../../../widgets/shell_navigation_scope.dart';
+import '../../rank_detail_screen.dart';
 
 /// 热门榜单 — 横向滚动卡片列表
 class DiscoverRankRow extends StatelessWidget {
@@ -21,8 +23,13 @@ class DiscoverRankRow extends StatelessWidget {
         itemBuilder: (_, i) {
           final rank = ranks[i];
           return GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/rank/detail',
-                arguments: {'id': rank.id, 'name': rank.name}),
+            onTap: () => ShellNavigationScope.navigate(
+              context,
+              routeName: '/rank/detail',
+              arguments: {'id': rank.id, 'name': rank.name},
+              shellPageBuilder: () =>
+                  RankDetailScreen(rankId: rank.id, rankName: rank.name),
+            ),
             child: Container(
               width: 110,
               margin: const EdgeInsets.only(right: 12),

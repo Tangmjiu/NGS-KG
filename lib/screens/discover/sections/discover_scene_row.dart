@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../models/scene_category.dart';
+import '../../../widgets/shell_navigation_scope.dart';
+import '../../fm_screen.dart';
 
 /// 场景音乐 — 横向滚动图标卡片
 class DiscoverSceneRow extends StatelessWidget {
@@ -21,7 +23,11 @@ class DiscoverSceneRow extends StatelessWidget {
         itemBuilder: (_, i) {
           final scene = scenes[i];
           return GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/fm'),
+            onTap: () => ShellNavigationScope.navigate(
+              context,
+              routeName: '/fm',
+              shellPageBuilder: () => const FmScreen(),
+            ),
             child: Container(
               width: 80,
               margin: const EdgeInsets.only(right: 12),

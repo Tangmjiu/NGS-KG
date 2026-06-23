@@ -14,6 +14,8 @@ import '../services/api_config.dart';
 import '../services/cache_service.dart';
 import '../services/device_service.dart';
 import '../utils/logger.dart';
+import '../utils/responsive.dart';
+import '../widgets/desktop_route_wrapper.dart';
 import 'log_viewer_screen.dart';
 import 'audio_effects_screen.dart';
 import 'audio_quality_screen.dart';
@@ -22,6 +24,8 @@ import 'theme_settings_screen.dart';
 import 'theme_market_screen.dart';
 import 'about_screen.dart';
 import '../widgets/support_me_dialog.dart';
+import '../widgets/shell_navigation_scope.dart';
+import 'login_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -50,181 +54,211 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return ResponsiveLayoutBuilder(
+      desktop: (_) => _buildDesktop(),
+      mobile: (_) => _buildMobile(),
+      tablet: (_) => _buildMobile(),
+    );
+  }
+
+  Widget _buildDesktop() {
+    // Reuse the same ListView content but wrap in DesktopRouteWrapper
+    return DesktopRouteWrapper(
+      title: '设置',
+      child: _buildSettingsContent(),
+    );
+  }
+
+  Widget _buildMobile() {
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
-      body: ListView(
-        children: [
-          // ── 账户 ──
-          const _SectionHeader('账户'),
-          Consumer<AuthProvider>(
-            builder: (_, auth, __) => ListTile(
-              title: Text(auth.isLoggedIn ? '退出登录' : '登录'),
-              subtitle: Text(auth.isLoggedIn
-                  ? '当前: ${auth.user?.nickname ?? "未知"}'
-                  : '未登录'),
-              trailing: Icon(auth.isLoggedIn ? Icons.logout : Icons.login),
-              onTap: () {
-                if (auth.isLoggedIn) {
-                  auth.logout();
-                  ApiClient.clearAuth();
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(const SnackBar(content: Text('已退出登录')));
-                } else {
-                  Navigator.pushNamed(context, '/login');
-                }
-              },
-            ),
-          ),
-          Consumer<AudioSettingsProvider>(
-            builder: (_, settings, __) => SwitchListTile(
-              secondary: const Icon(Icons.history),
-              title: const Text('提交听歌历史'),
-              subtitle: const Text('关闭后不会向服务器上报播放记录'),
-              value: settings.uploadHistory,
-              onChanged: (v) => settings.setUploadHistory(v),
-            ),
-          ),
-          const Divider(),
+      body: _buildSettingsContent(),
+    );
+  }
 
-          // ── API 服务 ──
-          const _SectionHeader('API 服务'),
-          ListTile(
-            leading: const Icon(Icons.dns_outlined),
-            title: const Text('API 服务器'),
-            subtitle: const Text('选择服务器路线或自定义地址'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ApiSettingsScreen()),
-            ),
-          ),
-          const Divider(),
-
-          // ── 主题 ──
-          const _SectionHeader('主题'),
-          ListTile(
-            leading: const Icon(Icons.palette_outlined),
-            title: const Text('主题设置'),
-            subtitle: const Text('主题模式、强调色、动态取色'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ThemeSettingsScreen()),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.storefront_outlined),
-            title: const Text('主题市场'),
-            subtitle: const Text('发现、下载、应用社区主题'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ThemeMarketScreen()),
-            ),
-          ),
-          Consumer<ThemeProvider>(
-            builder: (_, tp, __) => SwitchListTile(
-              secondary: const Icon(Icons.blur_on),
-              title: const Text('动态流光'),
-              subtitle: const Text('播放器背景根据专辑封面产生流动光效'),
-              value: tp.flowLightEnabled,
-              onChanged: (v) => tp.setFlowLightEnabled(v),
-            ),
-          ),
-          const Divider(),
-
-          // ── 播放与音质 ──
-          const _SectionHeader('播放与音质'),
-          ListTile(
-            leading: const Icon(Icons.tune),
-            title: const Text('音效'),
-            subtitle: const Text('音量、播放速度、均衡器'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AudioEffectsScreen()),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.speed),
-            title: const Text('音质设置'),
-            subtitle: const Text('WiFi/蜂窝/下载音质、智能模式'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AudioQualityScreen()),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.cleaning_services_outlined),
-            title: const Text('清除缓存'),
-            subtitle: const Text('清除临时数据和请求缓存'),
-            onTap: () async {
-              final messenger = ScaffoldMessenger.of(context);
-              await CacheService.instance.clear();
-              if (context.mounted) {
-                messenger.showSnackBar(
-                  const SnackBar(
-                      content: Text('缓存已清除'), duration: Duration(seconds: 1)),
+  Widget _buildSettingsContent() {
+    return ListView(
+      children: [
+        // ── 账户 ──
+        const _SectionHeader('账户'),
+        Consumer<AuthProvider>(
+          builder: (_, auth, __) => ListTile(
+            title: Text(auth.isLoggedIn ? '退出登录' : '登录'),
+            subtitle: Text(auth.isLoggedIn
+                ? '当前: ${auth.user?.nickname ?? "未知"}'
+                : '未登录'),
+            trailing: Icon(auth.isLoggedIn ? Icons.logout : Icons.login),
+            onTap: () {
+              if (auth.isLoggedIn) {
+                auth.logout();
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('已退出登录')));
+              } else {
+                ShellNavigationScope.navigate(
+                  context,
+                  routeName: '/login',
+                  shellPageBuilder: () => const LoginScreen(),
                 );
               }
             },
           ),
-          const Divider(),
+        ),
+        Consumer<AudioSettingsProvider>(
+          builder: (_, settings, __) => SwitchListTile(
+            secondary: const Icon(Icons.history),
+            title: const Text('提交听歌历史'),
+            subtitle: const Text('关闭后不会向服务器上报播放记录'),
+            value: settings.uploadHistory,
+            onChanged: (v) => settings.setUploadHistory(v),
+          ),
+        ),
+        const Divider(),
 
-          // ── 关于 ──
-          const _SectionHeader('关于'),
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text('关于 NGS-KG+'),
-            subtitle: Text('版本 $_appVersion${PreviewConfig.enabled ? ' · preview' : ''} · 开源声明'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AboutScreen()),
-            ),
+        // ── API 服务 ──
+        const _SectionHeader('API 服务'),
+        ListTile(
+          leading: const Icon(Icons.dns_outlined),
+          title: const Text('API 服务器'),
+          subtitle: const Text('选择服务器路线或自定义地址'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => ShellNavigationScope.push(
+            context,
+            page: const ApiSettingsScreen(),
+            routeBuilder: () => MaterialPageRoute(builder: (_) => const ApiSettingsScreen()),
           ),
-          ListTile(
-            leading: const Icon(Icons.favorite_outline),
-            title: const Text('支持作者'),
-            subtitle: const Text('去 GitHub 点个 star 或者赞助'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => showSupportMeDialog(context),
+        ),
+        const Divider(),
+
+        // ── 主题 ──
+        const _SectionHeader('主题'),
+        ListTile(
+          leading: const Icon(Icons.palette_outlined),
+          title: const Text('主题设置'),
+          subtitle: const Text('主题模式、强调色、动态取色'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => ShellNavigationScope.push(
+            context,
+            page: const ThemeSettingsScreen(),
+            routeBuilder: () => MaterialPageRoute(builder: (_) => const ThemeSettingsScreen()),
           ),
-          ListTile(
-            leading: const Icon(Icons.terminal),
-            title: const Text('开发者'),
-            subtitle: const Text('调试功能'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              showDialog(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('警告'),
-                  content: const Text('此界面仅供调试使用'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('取消'),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const DeveloperScreen()),
-                        );
-                      },
-                      child: const Text('继续'),
-                    ),
-                  ],
-                ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.storefront_outlined),
+          title: const Text('主题市场'),
+          subtitle: const Text('发现、下载、应用社区主题'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => ShellNavigationScope.push(
+            context,
+            page: const ThemeMarketScreen(),
+            routeBuilder: () => MaterialPageRoute(builder: (_) => const ThemeMarketScreen()),
+          ),
+        ),
+        Consumer<ThemeProvider>(
+          builder: (_, tp, __) => SwitchListTile(
+            secondary: const Icon(Icons.blur_on),
+            title: const Text('动态流光'),
+            subtitle: const Text('播放器背景根据专辑封面产生流动光效'),
+            value: tp.flowLightEnabled,
+            onChanged: (v) => tp.setFlowLightEnabled(v),
+          ),
+        ),
+        const Divider(),
+
+        // ── 播放与音质 ──
+        const _SectionHeader('播放与音质'),
+        ListTile(
+          leading: const Icon(Icons.tune),
+          title: const Text('音效'),
+          subtitle: const Text('音量、播放速度、均衡器'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => ShellNavigationScope.push(
+            context,
+            page: const AudioEffectsScreen(),
+            routeBuilder: () => MaterialPageRoute(builder: (_) => const AudioEffectsScreen()),
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.speed),
+          title: const Text('音质设置'),
+          subtitle: const Text('WiFi/蜂窝/下载音质、智能模式'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => ShellNavigationScope.push(
+            context,
+            page: const AudioQualityScreen(),
+            routeBuilder: () => MaterialPageRoute(builder: (_) => const AudioQualityScreen()),
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.cleaning_services_outlined),
+          title: const Text('清除缓存'),
+          subtitle: const Text('清除临时数据和请求缓存'),
+          onTap: () async {
+            final messenger = ScaffoldMessenger.of(context);
+            await CacheService.instance.clear();
+            if (context.mounted) {
+              messenger.showSnackBar(
+                const SnackBar(
+                    content: Text('缓存已清除'), duration: Duration(seconds: 1)),
               );
-            },
+            }
+          },
+        ),
+        const Divider(),
+
+        // ── 关于 ──
+        const _SectionHeader('关于'),
+        ListTile(
+          leading: const Icon(Icons.info_outline),
+          title: const Text('关于 NGS-KG+'),
+          subtitle: Text('版本 $_appVersion${PreviewConfig.enabled ? ' · preview' : ''} · 开源声明'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => ShellNavigationScope.push(
+            context,
+            page: const AboutScreen(),
+            routeBuilder: () => MaterialPageRoute(builder: (_) => const AboutScreen()),
           ),
-        ],
-      ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.favorite_outline),
+          title: const Text('支持作者'),
+          subtitle: const Text('去 GitHub 点个 star 或者赞助'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => showSupportMeDialog(context),
+        ),
+        ListTile(
+          leading: const Icon(Icons.terminal),
+          title: const Text('开发者'),
+          subtitle: const Text('调试功能'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('警告'),
+                content: const Text('此界面仅供调试使用'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('取消'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      ShellNavigationScope.push(
+                        context,
+                        page: const DeveloperScreen(),
+                        routeBuilder: () => MaterialPageRoute(
+                            builder: (_) => const DeveloperScreen()),
+                      );
+                    },
+                    child: const Text('继续'),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }
@@ -362,9 +396,11 @@ class _DeveloperScreenState extends State<DeveloperScreen> {
             title: const Text('输出日志'),
             subtitle: const Text('实时查看完整日志'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
+            onTap: () => ShellNavigationScope.push(
               context,
-              MaterialPageRoute(builder: (_) => const LogViewerScreen()),
+              page: const LogViewerScreen(),
+              title: '输出日志',
+              routeBuilder: () => MaterialPageRoute(builder: (_) => const LogViewerScreen()),
             ),
           ),
         ],

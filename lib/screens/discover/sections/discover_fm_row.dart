@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../models/radio.dart';
+import '../../../widgets/shell_navigation_scope.dart';
+import '../../fm_screen.dart';
 
 /// 电台推荐 — 横向滚动电台卡片
 class DiscoverFmRow extends StatelessWidget {
@@ -22,8 +24,12 @@ class DiscoverFmRow extends StatelessWidget {
           final fm = fmList[i];
           final img = (fm.coverUrl ?? '').replaceAll('{size}', '240');
           return GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/fm',
-                arguments: {'fmid': fm.id, 'name': fm.name}),
+            onTap: () => ShellNavigationScope.navigate(
+              context,
+              routeName: '/fm',
+              arguments: {'fmid': fm.id, 'name': fm.name},
+              shellPageBuilder: () => const FmScreen(),
+            ),
             child: Container(
               width: 80,
               margin: const EdgeInsets.only(right: 12),
