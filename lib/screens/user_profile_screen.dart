@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:dio/dio.dart';
 import '../providers/auth_provider.dart';
 import '../utils/logger.dart';
+import '../utils/responsive.dart';
 import '../models/vip_info.dart';
 import '../services/music_service.dart';
 import '../services/api_client.dart';
+import '../widgets/desktop_route_wrapper.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({super.key});
@@ -50,13 +52,26 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
-    final isWide = MediaQuery.of(context).size.width >= 880;
-    final body = _isLoading
+    final body = _buildBody(context);
+    return ResponsiveLayoutBuilder(
+      mobile: (_) => Scaffold(
+        appBar: AppBar(title: Text(user?.nickname ?? '个人主页')),
+        body: body,
+      ),
+      desktop: (_) => DesktopRouteWrapper(
+        title: '用户主页',
+        child: body,
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+    return _isLoading
         ? const Center(child: CircularProgressIndicator())
         : ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // ── 头像 ──
               Center(
                 child: CircleAvatar(
                   radius: 48,
@@ -78,18 +93,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   child: Text('ID: ${user.userId}',
                       style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 ),
-              // ── VIP 信息 ──
               if (_vipInfo?.isVipActive ?? false) ...[
                 const SizedBox(height: 8),
                 _buildVipBadge(),
               ],
               const SizedBox(height: 24),
-
-              // ── 会员卡片 ──
               if (_vipInfo?.isVipActive ?? false)
                 _buildVipCard(),
-
-              // ── 账号卡片 ──
               if (_detail != null)
                 Card(
                   child: Padding(
@@ -111,8 +121,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     ),
                   ),
                 ),
-
-              // ── 签名 ──
               if (_detail?['sign']?.toString().isNotEmpty == true)
                 Card(
                   child: Padding(
@@ -130,15 +138,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 ),
             ],
           );
-    return Scaffold(
-      appBar: AppBar(title: Text(user?.nickname ?? '个人主页')),
-      body: isWide
-          ? Center(child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: body,
-            ))
-          : body,
-    );
   }
 
   Widget _buildVipBadge() {

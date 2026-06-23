@@ -1,13 +1,12 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../models/theme_market_listing.dart';
-import '../models/theme_pack.dart';
 import '../providers/theme_provider.dart';
 import '../services/market_service.dart';
-import '../theme/theme_assets.dart';
 import '../utils/logger.dart';
+import '../utils/responsive.dart';
+import '../widgets/desktop_route_wrapper.dart';
 
 class ThemeMarketScreen extends StatefulWidget {
   const ThemeMarketScreen({super.key});
@@ -73,7 +72,6 @@ class _ThemeMarketScreenState extends State<ThemeMarketScreen> {
   }
 
   Future<void> _install(ThemeMarketListing listing) async {
-    // ── 显示下载中 ──
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -96,7 +94,6 @@ class _ThemeMarketScreenState extends State<ThemeMarketScreen> {
       return;
     }
 
-    // ── 安装 ──
     final pack = await MarketService.installTheme(bytes, '${listing.id}.zip');
     if (!mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -108,14 +105,12 @@ class _ThemeMarketScreenState extends State<ThemeMarketScreen> {
       return;
     }
 
-    // ── 添加到 ThemeProvider ──
     if (!mounted) return;
     final tp = context.read<ThemeProvider>();
     tp.addMarketPack(pack);
 
     setState(() => _installedIds.add(listing.id));
 
-    // ── 弹窗：立即应用 / 稍后再说 ──
     final apply = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -142,6 +137,14 @@ class _ThemeMarketScreenState extends State<ThemeMarketScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return ResponsiveLayoutBuilder(
+      mobile: (_) => _buildMobile(),
+      tablet: (_) => _buildMobile(),
+      desktop: (_) => _buildDesktop(),
+    );
+  }
+
+  Widget _buildMobile() {
     return Scaffold(
       appBar: AppBar(
         title: const Text('主题市场'),
@@ -154,6 +157,13 @@ class _ThemeMarketScreenState extends State<ThemeMarketScreen> {
         ],
       ),
       body: _buildBody(),
+    );
+  }
+
+  Widget _buildDesktop() {
+    return DesktopRouteWrapper(
+      title: '主题市场',
+      child: _buildBody(),
     );
   }
 
@@ -243,7 +253,6 @@ class _ThemeMarketCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── 左侧预览图 ──
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: SizedBox(
@@ -264,12 +273,10 @@ class _ThemeMarketCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            // ── 右侧信息 ──
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 名称 + 版本 + 作者
                   Text(
                     listing.name,
                     style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -282,7 +289,6 @@ class _ThemeMarketCard extends StatelessWidget {
                     style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                   ),
                   const SizedBox(height: 6),
-                  // 描述
                   Text(
                     listing.description,
                     style: tt.bodySmall,
@@ -290,7 +296,6 @@ class _ThemeMarketCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
-                  // 标签
                   if (listing.tags.isNotEmpty)
                     Wrap(
                       spacing: 6,
@@ -311,7 +316,6 @@ class _ThemeMarketCard extends StatelessWidget {
                       )).toList(),
                     ),
                   const SizedBox(height: 8),
-                  // 底部：大小 + 按钮
                   Row(
                     children: [
                       Text(
@@ -348,13 +352,13 @@ class _ThemeMarketCard extends StatelessWidget {
 
   Color _tagColor(ColorScheme cs, int index) {
     const colors = [
-      Color(0xFF7C3AED), // 紫
-      Color(0xFF0891B2), // 青
-      Color(0xFF059669), // 绿
-      Color(0xFFD97706), // 橙
-      Color(0xFFDC2626), // 红
-      Color(0xFFDB2777), // 粉
-      Color(0xFF4F46E5), // 靛
+      Color(0xFF7C3AED),
+      Color(0xFF0891B2),
+      Color(0xFF059669),
+      Color(0xFFD97706),
+      Color(0xFFDC2626),
+      Color(0xFFDB2777),
+      Color(0xFF4F46E5),
     ];
     return colors[index % colors.length];
   }

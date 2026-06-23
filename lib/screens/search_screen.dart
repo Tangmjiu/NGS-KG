@@ -9,12 +9,21 @@ import '../providers/player_provider.dart';
 import '../services/api_client.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
+import '../utils/responsive.dart';
+import '../widgets/shell_navigation_scope.dart';
+import 'rank_detail_screen.dart';
+import 'playlist_detail_screen.dart';
+import 'album_detail_screen.dart';
+import 'artist_detail_screen.dart';
 import '../widgets/song_tile.dart';
 import '../theme/theme_assets.dart';
 import '../constants/banned_words.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  /// Initial search query to pre-fill and optionally auto-execute.
+  final String initialQuery;
+
+  const SearchScreen({super.key, this.initialQuery = ''});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -58,6 +67,37 @@ class _SearchScreenState extends State<SearchScreen>
     _tabController.addListener(_onTabChanged);
     _loadHotSearch();
     _loadRanks();
+    // Auto-execute initial query (e.g. from desktop sidebar)
+    if (widget.initialQuery.isNotEmpty) {
+      _searchCtrl.text = widget.initialQuery;
+      // Post-frame to ensure mounted
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _doSearch(widget.initialQuery);
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(SearchScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Live search: sidebar query changed
+    if (widget.initialQuery != oldWidget.initialQuery) {
+      if (widget.initialQuery.isNotEmpty) {
+        _debounce?.cancel();
+        _debounce = Timer(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            _searchCtrl.text = widget.initialQuery;
+            _doSearch(widget.initialQuery);
+          }
+        });
+      } else {
+        _debounce?.cancel();
+        if (mounted) {
+          _searchCtrl.clear();
+          setState(() { _showResult = false; _suggestions = []; });
+        }
+      }
+    }
   }
 
   @override
@@ -166,6 +206,32 @@ class _SearchScreenState extends State<SearchScreen>
 
   @override
   Widget build(BuildContext context) {
+    return ResponsiveLayoutBuilder(
+      desktop: (_) => _buildDesktop(),
+      mobile: (_) => _buildMobile(),
+      tablet: (_) => _buildMobile(),
+    );
+  }
+
+  Widget _buildDesktop() {
+    return Column(
+      children: [
+        if (_showResult)
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            child: TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              tabs: _tabs.map((t) => Tab(text: t)).toList(),
+            ),
+          ),
+        Expanded(child: _buildBody()),
+      ],
+    );
+  }
+
+  Widget _buildMobile() {
     return Scaffold(
       appBar: AppBar(
         title: TextField(
@@ -291,8 +357,15 @@ class _SearchScreenState extends State<SearchScreen>
                   return GestureDetector(
                     onTap: () {
                       if (rank.id > 0) {
-                        Navigator.pushNamed(context, '/rank/detail',
-                            arguments: {'id': rank.id, 'name': name});
+                        ShellNavigationScope.navigate(
+                          context,
+                          routeName: '/rank/detail',
+                          arguments: {'id': rank.id, 'name': name},
+                          shellPageBuilder: () => RankDetailScreen(
+                            rankId: rank.id,
+                            rankName: name,
+                          ),
+                        );
                       }
                     },
                     child: Container(
@@ -443,8 +516,15 @@ class _SearchScreenState extends State<SearchScreen>
                   return listId?.toString();
                 })();
             if (gcId != null) {
-              Navigator.pushNamed(context, '/playlist/detail',
-                  arguments: {'gcId': gcId, 'name': name});
+              ShellNavigationScope.navigate(
+                context,
+                routeName: '/playlist/detail',
+                arguments: {'gcId': gcId, 'name': name},
+                shellPageBuilder: () => PlaylistDetailScreen(
+                  gcId: gcId,
+                  playlistName: name,
+                ),
+              );
             }
           },
         );
@@ -481,7 +561,15 @@ class _SearchScreenState extends State<SearchScreen>
             final id = a['albumid'];
             final albumId = id is int ? id : (id is String ? int.tryParse(id) : null) ?? a['id'] as int?;
             if (albumId != null) {
-              Navigator.pushNamed(context, '/album/detail', arguments: {'id': albumId});
+              ShellNavigationScope.navigate(
+                context,
+                routeName: '/album/detail',
+                arguments: {'id': albumId},
+                shellPageBuilder: () => AlbumDetailScreen(
+                  albumId: albumId,
+                  albumName: null,
+                ),
+              );
             }
           },
         );
@@ -518,7 +606,15 @@ class _SearchScreenState extends State<SearchScreen>
           onTap: () {
             final id = a['AuthorId'] as int? ?? a['singermid'] as int? ?? a['id'] as int?;
             if (id != null) {
-              Navigator.pushNamed(context, '/artist/detail', arguments: {'id': id});
+              ShellNavigationScope.navigate(
+                context,
+                routeName: '/artist/detail',
+                arguments: {'id': id},
+                shellPageBuilder: () => ArtistDetailScreen(
+                  artistId: id,
+                  artistName: null,
+                ),
+              );
             }
           },
         );

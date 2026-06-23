@@ -5,37 +5,51 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/theme_pack.dart';
 import '../theme/theme_assets.dart';
+import '../utils/responsive.dart';
+import '../widgets/desktop_route_wrapper.dart';
 
 class ThemeSettingsScreen extends StatelessWidget {
   const ThemeSettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
-    final cs = Theme.of(context).colorScheme;
+    return ResponsiveLayoutBuilder(
+      mobile: (_) => _buildMobile(),
+      tablet: (_) => _buildMobile(),
+      desktop: (_) => _buildDesktop(),
+    );
+  }
+
+  Widget _buildMobile() {
     return Scaffold(
       appBar: AppBar(title: const Text('主题')),
-      body: Consumer<ThemeProvider>(
-        builder: (_, tp, __) => ListView(
-          children: [
-            const SizedBox(height: 8),
-            // ── 水平主题包卡片列表 ──
-            _PackCarousel(tp: tp),
-            const Divider(height: 24),
-            // ── 当前主题详情 ──
-            _PackDetail(tp: tp),
-            const Divider(height: 24),
-            // ── 强调色 ──
-            _AccentSection(tp: tp),
-            const Divider(height: 8),
-            // ── Monet ──
-            _MonetSection(tp: tp),
-            const Divider(height: 8),
-            // ── 主题模式 ──
-            _ThemeModeSection(tp: tp),
-            const SizedBox(height: 24),
-          ],
-        ),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildDesktop() {
+    return DesktopRouteWrapper(
+      title: '主题设置',
+      child: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    return Consumer<ThemeProvider>(
+      builder: (_, tp, __) => ListView(
+        children: [
+          const SizedBox(height: 8),
+          _PackCarousel(tp: tp),
+          const Divider(height: 24),
+          _PackDetail(tp: tp),
+          const Divider(height: 24),
+          _AccentSection(tp: tp),
+          const Divider(height: 8),
+          _MonetSection(tp: tp),
+          const Divider(height: 8),
+          _ThemeModeSection(tp: tp),
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }
@@ -56,7 +70,7 @@ class _PackCarousel extends StatelessWidget {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: tp.packs.length + 1, // +1 for the "import" card
+        itemCount: tp.packs.length + 1,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (_, i) {
           if (i == tp.packs.length) return _ImportCard(tp: tp);
@@ -129,7 +143,6 @@ class _PackCardState extends State<_PackCard> {
           width: 135,
           child: Column(
             children: [
-              // ── Preview / Icon ──
               Container(
                 width: 135,
                 height: 135,
@@ -146,7 +159,6 @@ class _PackCardState extends State<_PackCard> {
                 child: _buildPreview(context),
               ),
               const SizedBox(height: 8),
-              // ── Name ──
               Text(
                 widget.pack.name,
                 maxLines: 1,
@@ -159,7 +171,6 @@ class _PackCardState extends State<_PackCard> {
                       : Theme.of(context).colorScheme.onSurface,
                 ),
               ),
-              // ── Author ──
               Text(
                 widget.pack.author,
                 maxLines: 1,
@@ -169,7 +180,6 @@ class _PackCardState extends State<_PackCard> {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
-              // ── Current badge ──
               if (widget.isSelected)
                 Container(
                   margin: const EdgeInsets.only(top: 4),
@@ -195,7 +205,6 @@ class _PackCardState extends State<_PackCard> {
   }
 
   Widget _buildPreview(BuildContext context) {
-    // 内置包 → 用软件默认 icon
     if (widget.pack.isBuiltIn) {
       return Padding(
         padding: const EdgeInsets.all(24),
@@ -203,7 +212,6 @@ class _PackCardState extends State<_PackCard> {
       );
     }
 
-    // 导入包有 preview → 显示
     if (widget.pack.previewPath != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(14),
@@ -225,7 +233,6 @@ class _PackCardState extends State<_PackCard> {
   }
 }
 
-/// "导入"卡片
 class _ImportCard extends StatelessWidget {
   final ThemeProvider tp;
   const _ImportCard({required this.tp});
@@ -308,7 +315,6 @@ class _PackDetail extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
           ],
           const SizedBox(height: 12),
-          // 覆盖清单
           if (tags.isNotEmpty) ...[
             Text('覆盖内容', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: cs.primary)),
             const SizedBox(height: 6),

@@ -14,7 +14,16 @@ import '../widgets/playlist_card.dart';
 import '../widgets/create_playlist_dialog.dart';
 import '../theme/theme_assets.dart';
 import '../utils/logger.dart';
+import '../utils/responsive.dart';
+import '../widgets/shell_navigation_scope.dart';
+import 'user_profile_screen.dart';
+import 'login_screen.dart';
+import 'local_music_screen.dart';
+import 'messages_screen.dart';
+import 'cloud_disk_screen.dart';
+import 'settings_screen.dart';
 import '../widgets/song_tile.dart';
+import 'playlist_detail_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -66,7 +75,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     final auth = context.read<AuthProvider>();
     final uid = auth.user?.userId;
     if (auth.isLoggedIn && uid != null) {
-      context.read<PlaylistProvider>().fetchUserPlaylist(uid);
+      await context.read<PlaylistProvider>().fetchUserPlaylist(uid);
     }
   }
 
@@ -88,13 +97,73 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
+    return ResponsiveLayoutBuilder(
+      desktop: (_) => _buildDesktop(),
+      mobile: (_) => _buildMobile(),
+      tablet: (_) => _buildMobile(),
+    );
+  }
+
+  Widget _buildDesktop() {
     return Consumer2<AuthProvider, PlaylistProvider>(
       builder: (_, auth, playlistProv, __) {
         return RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
             controller: _scrollCtrl,
-            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+            children: [
+              Row(
+                children: [
+                  Text('我的', style: Theme.of(context).textTheme.headlineLarge
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    tooltip: '刷新',
+                    onPressed: _refresh,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Left panel: user info + menu ──
+                  Expanded(
+                    flex: 3,
+                    child: Column(
+                      children: [
+                        if (auth.isLoggedIn) _buildUserHeader(auth),
+                        const SizedBox(height: 16),
+                        _buildMenu(auth),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  // ── Right panel: playlists ──
+                  if (auth.isLoggedIn)
+                    Expanded(
+                      flex: 5,
+                      child: _buildPlaylists(playlistProv, auth),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 32),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMobile() {
+    return Consumer2<AuthProvider, PlaylistProvider>(
+      builder: (_, auth, playlistProv, __) {
+        return RefreshIndicator(
+          onRefresh: _refresh,
+          child: ListView(
+            controller: _scrollCtrl,
             padding: const EdgeInsets.all(16),
             children: [
             if (auth.isLoggedIn) _buildUserHeader(auth),
@@ -110,7 +179,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildUserHeader(AuthProvider auth) {
-    final user = auth.user!;
+    final user = auth.user;
+    if (user == null) return const SizedBox.shrink();
     final cs = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
@@ -118,7 +188,11 @@ class _ProfileScreenState extends State<ProfileScreen>
         child: Row(
           children: [
             GestureDetector(
-              onTap: () => Navigator.pushNamed(context, '/user/profile'),
+              onTap: () => ShellNavigationScope.navigate(
+                      context,
+                      routeName: '/user/profile',
+                      shellPageBuilder: () => const UserProfileScreen(),
+                    ),
               child: CircleAvatar(
                 radius: 32,
                 backgroundImage: user.avatarUrl != null
@@ -181,34 +255,48 @@ class _ProfileScreenState extends State<ProfileScreen>
               leading: const Icon(Icons.person),
               title: const Text('登录'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.pushNamed(context, '/login'),
+              onTap: () => ShellNavigationScope.navigate(
+                      context,
+                      routeName: '/login',
+                      shellPageBuilder: () => const LoginScreen(),
+                    ),
             ),
           ListTile(
             leading: const Icon(Icons.audiotrack),
             title: const Text('本地音乐'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.pushNamed(context, '/local/music'),
+            onTap: () => ShellNavigationScope.navigate(
+                    context,
+                    routeName: '/local/music',
+                    shellPageBuilder: () => const LocalMusicScreen(),
+                  ),
           ),
           ListTile(
             leading: const Icon(Icons.history),
             title: const Text('听歌历史'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.pushNamed(context, '/history'),
+            onTap: () => ShellNavigationScope.switchToSidebarTab(context, 'recent'),
           ),
           ListTile(
             leading: const Icon(Icons.message),
             title: const Text('消息'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.pushNamed(context, '/messages'),
+            onTap: () => ShellNavigationScope.navigate(
+                    context,
+                    routeName: '/messages',
+                    shellPageBuilder: () => const MessagesScreen(),
+                  ),
           ),
           if (auth.isLoggedIn) ...[
             ListTile(
               leading: const Icon(Icons.favorite),
               title: const Text('我的收藏'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.push(
+              onTap: () => ShellNavigationScope.navigate(
                 context,
-                MaterialPageRoute(builder: (_) => const LikedSongsScreen()),
+                routeName: '/playlist/detail',
+                arguments: {'gcId': '2', 'name': '我喜欢'},
+                shellPageBuilder: () => PlaylistDetailScreen(gcId: '2', playlistName: '我喜欢'),
               ),
             ),
             // MV:
@@ -230,14 +318,22 @@ class _ProfileScreenState extends State<ProfileScreen>
               leading: const Icon(Icons.cloud),
               title: const Text('云盘'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.pushNamed(context, '/cloud'),
+              onTap: () => ShellNavigationScope.navigate(
+                      context,
+                      routeName: '/cloud',
+                      shellPageBuilder: () => const CloudDiskScreen(),
+                    ),
             ),
           ],
           ListTile(
             leading: const Icon(Icons.settings),
             title: const Text('设置'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.pushNamed(context, '/settings'),
+            onTap: () => ShellNavigationScope.navigate(
+                    context,
+                    routeName: '/settings',
+                    shellPageBuilder: () => const SettingsScreen(),
+                  ),
           ),
         ],
       ),

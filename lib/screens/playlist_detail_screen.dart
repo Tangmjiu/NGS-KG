@@ -5,7 +5,12 @@ import '../providers/playlist_provider.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../theme/theme_assets.dart';
+import '../utils/responsive.dart';
 import '../widgets/song_tile.dart';
+import '../widgets/desktop_song_table.dart';
+import '../widgets/desktop_route_wrapper.dart';
+import '../widgets/shell_navigation_scope.dart';
+import 'comments_screen.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
   final String? gcId;
@@ -65,6 +70,138 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return ResponsiveLayoutBuilder(
+      desktop: (_) => _buildDesktop(),
+      mobile: (_) => _buildMobile(),
+      tablet: (_) => _buildMobile(),
+    );
+  }
+
+  Widget _buildDesktop() {
+    return Consumer<PlaylistProvider>(
+      builder: (_, provider, __) {
+        return DesktopRouteWrapper(
+          title: provider.currentPlaylist?.playlist.name ?? '歌单详情',
+          actions: [
+            if (!_isSelecting)
+              IconButton(
+                icon: const Icon(Icons.comment_outlined),
+                tooltip: '评论',
+                onPressed: () {
+                  final pl = provider.currentPlaylist?.playlist;
+                  if (pl != null) {
+                    ShellNavigationScope.navigate(
+                      context,
+                      routeName: '/comments',
+                      arguments: {'type': 'playlist', 'id': pl.id},
+                      shellPageBuilder: () => CommentsScreen(type: 'playlist', id: pl.id),
+                    );
+                  }
+                },
+              ),
+            IconButton(
+              icon: Icon(_isSelecting ? Icons.close : Icons.checklist),
+              tooltip: _isSelecting ? '取消选择' : '多选',
+              onPressed: _toggleSelectMode,
+            ),
+          ],
+          child: _buildDesktopContent(provider),
+        );
+      },
+    );
+  }
+
+  Widget _buildDesktopContent(PlaylistProvider provider) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    if (provider.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final detail = provider.currentPlaylist;
+    if (detail == null) {
+      return emptyStateWidget(ThemeAssets.loadFailed, Icons.error_outline, '加载失败');
+    }
+    if (detail.songs.isEmpty) {
+      return emptyStateWidget(ThemeAssets.emptyContent, Icons.music_note, '暂无歌曲');
+    }
+
+    final pl = detail.playlist;
+    final cover = pl.coverUrl;
+    final desc = pl.description;
+    final hasDesc = desc != null && desc.isNotEmpty;
+
+    return Column(
+      children: [
+        // ── Playlist info header ──
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: cover != null
+                    ? CachedNetworkImage(
+                        imageUrl: cover.replaceAll('{size}', '240'),
+                        width: 100, height: 100,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) => _desktopPlaceholder(cs),
+                      )
+                    : _desktopPlaceholder(cs),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(pl.name, style: tt.titleLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 4),
+                    Text('${detail.songs.length} 首', style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                    if (hasDesc) ...[
+                      const SizedBox(height: 4),
+                      Text(desc, maxLines: 2, overflow: TextOverflow.ellipsis,
+                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                    ],
+                    const SizedBox(height: 8),
+                    FilledButton.tonalIcon(
+                      onPressed: () => context.read<PlayerProvider>()
+                          .playSong(detail.songs.first, playlist: detail.songs),
+                      icon: const Icon(Icons.play_arrow, size: 18),
+                      label: const Text('播放全部'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        // ── Song table ──
+        Expanded(
+          child: DesktopSongTable(
+            songs: detail.songs,
+            emptyMessage: '暂无歌曲',
+            isSelecting: _isSelecting,
+            selectedIndices: _selectedIndices,
+            onToggleSelection: _toggleSelection,
+            onSelectAll: () => _selectAll(detail.songs.length),
+          ),
+        ),
+        // ── Selection bar ──
+        if (_isSelecting)
+          _buildSelectionBar(context),
+      ],
+    );
+  }
+
+  Widget _desktopPlaceholder(ColorScheme cs) {
+    return Container(
+      width: 100, height: 100,
+      color: cs.surfaceContainerHighest,
+      child: const Icon(Icons.playlist_play, size: 40),
+    );
+  }
+
+  Widget _buildMobile() {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
@@ -114,11 +251,12 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       icon: const Icon(Icons.comment_outlined),
                       tooltip: '评论',
                       onPressed: () =>
-                          Navigator.pushNamed(context, '/comments',
-                              arguments: {
-                                'type': 'playlist',
-                                'id': pl.id
-                              }),
+                        ShellNavigationScope.navigate(
+                          context,
+                          routeName: '/comments',
+                          arguments: {'type': 'playlist', 'id': pl.id},
+                          shellPageBuilder: () => CommentsScreen(type: 'playlist', id: pl.id),
+                        ),
                     ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
@@ -205,6 +343,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       if (hasDesc) ...[
                         const SizedBox(height: 12),
                         Text(desc,
+                            maxLines: 4, overflow: TextOverflow.ellipsis,
                             style: tt.bodySmall?.copyWith(
                                 color: cs.onSurfaceVariant)),
                       ],

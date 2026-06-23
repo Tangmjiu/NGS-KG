@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../utils/logger.dart';
 import '../providers/auth_provider.dart';
+import '../utils/responsive.dart';
+import '../widgets/desktop_route_wrapper.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -30,7 +32,6 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final tabBody = TabBarView(
       controller: _tabCtrl,
       children: const [
@@ -38,25 +39,49 @@ class _LoginScreenState extends State<LoginScreen>
         _QrLogin(),
       ],
     );
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('登录'),
-        bottom: TabBar(
-          controller: _tabCtrl,
-          tabs: const [
-            Tab(text: '手机'),
-            Tab(text: '二维码'),
+    return ResponsiveLayoutBuilder(
+      desktop: (_) => DesktopRouteWrapper(
+        title: '登录',
+        maxWidth: 400,
+        child: Column(
+          children: [
+            TabBar(
+              controller: _tabCtrl,
+              tabs: const [
+                Tab(text: '手机'),
+                Tab(text: '二维码'),
+              ],
+            ),
+            Expanded(child: tabBody),
           ],
         ),
       ),
-      body: isWide
-          ? Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
-                child: tabBody,
-              ),
-            )
-          : tabBody,
+      mobile: (_) => Scaffold(
+        appBar: AppBar(
+          title: const Text('登录'),
+          bottom: TabBar(
+            controller: _tabCtrl,
+            tabs: const [
+              Tab(text: '手机'),
+              Tab(text: '二维码'),
+            ],
+          ),
+        ),
+        body: tabBody,
+      ),
+      tablet: (_) => Scaffold(
+        appBar: AppBar(
+          title: const Text('登录'),
+          bottom: TabBar(
+            controller: _tabCtrl,
+            tabs: const [
+              Tab(text: '手机'),
+              Tab(text: '二维码'),
+            ],
+          ),
+        ),
+        body: tabBody,
+      ),
     );
   }
 }
@@ -77,6 +102,7 @@ class _PasswordLoginState extends State<_PasswordLogin> {
   String? _errorMsg;
   bool _showCaptcha = false;
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -87,137 +113,83 @@ class _PasswordLoginState extends State<_PasswordLogin> {
   }
 
   Future<void> _login() async {
-    final username = _usernameCtrl.text.trim();
-    final password = _passwordCtrl.text.trim();
-    if (username.isEmpty) {
-      setState(() => _errorMsg = '请输入用户名');
-      return;
-    }
-    if (password.isEmpty) {
-      setState(() => _errorMsg = '请输入密码');
-      return;
-    }
-    setState(() => _errorMsg = null);
-    final auth = context.read<AuthProvider>();
-    String? captcha;
-    if (_showCaptcha) {
-      captcha = _captchaCtrl.text.trim();
-      if (captcha.isEmpty) {
-        setState(() => _errorMsg = '请输入验证码');
+    try {
+      final username = _usernameCtrl.text.trim();
+      final password = _passwordCtrl.text.trim();
+      if (username.isEmpty) {
+        setState(() => _errorMsg = '请输入用户名');
         return;
       }
-    }
-    final ok = await auth.loginWithPassword(
-      username,
-      password,
-      captcha: captcha,
-    );
-    if (ok && mounted) {
-      Navigator.pop(context);
-    } else if (auth.errorMessage != null) {
-      setState(() {
-        _errorMsg = auth.errorMessage;
-        if (_errorMsg?.contains('验证') == true) {
-          _showCaptcha = true;
+      if (password.isEmpty) {
+        setState(() => _errorMsg = '请输入密码');
+        return;
+      }
+      setState(() => _errorMsg = null);
+      final auth = context.read<AuthProvider>();
+      String? captcha;
+      if (_showCaptcha) {
+        captcha = _captchaCtrl.text.trim();
+        if (captcha.isEmpty) {
+          setState(() => _errorMsg = '请输入验证码');
+          return;
         }
-      });
+      }
+      final ok = await auth.loginWithPassword(
+        username,
+        password,
+        captcha: captcha,
+      );
+      if (ok && mounted) {
+        Navigator.pop(context);
+      } else if (auth.errorMessage != null && mounted) {
+        setState(() {
+          _errorMsg = auth.errorMessage;
+          if (_errorMsg?.contains('验证') == true) {
+            _showCaptcha = true;
+          }
+        });
+      }
+    } catch (e, s) {
+      Log.e('login_screen', 'password login error', e, s);
+      if (mounted) {
+        setState(() => _errorMsg = '登录失败: $e');
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          TextField(
-            controller: _usernameCtrl,
-            autofillHints: const [AutofillHints.username],
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              labelText: '用户名',
-              prefixIcon: const Icon(Icons.person),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
+          TextField(controller: _usernameCtrl,
+            decoration: const InputDecoration(labelText: '用户名'),
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: _passwordCtrl,
-            obscureText: _obscurePassword,
-            autofillHints: const [AutofillHints.password],
-            textInputAction: TextInputAction.done,
-            decoration: InputDecoration(
-              labelText: '密码',
-              prefixIcon: const Icon(Icons.lock),
-              suffixIcon: IconButton(
-                icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
-                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
+          TextField(controller: _passwordCtrl,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: '密码'),
           ),
           if (_showCaptcha) ...[
             const SizedBox(height: 16),
-            TextField(
-              controller: _captchaCtrl,
-              decoration: InputDecoration(
-                labelText: '验证码',
-                prefixIcon: const Icon(Icons.security),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
+            TextField(controller: _captchaCtrl,
+              decoration: const InputDecoration(labelText: '验证码'),
             ),
           ],
-          if (_errorMsg != null) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.errorContainer,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.warning, color: Theme.of(context).colorScheme.error, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _errorMsg!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
-                    ),
-                  ),
-                ],
-              ),
+          if (_errorMsg != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(_errorMsg!, style: const TextStyle(color: Colors.red, fontSize: 13)),
             ),
-          ],
           const SizedBox(height: 24),
-          Consumer<AuthProvider>(
-            builder: (_, auth, __) => SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: FilledButton(
-                onPressed: auth.isLoading ? null : _login,
-                child: auth.isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('登录'),
-              ),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : _login,
+              child: const Text('登录'),
             ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '提示：密码登录可能需要验证码验证，建议使用手机验证码登录',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -252,14 +224,16 @@ class _PhoneLoginState extends State<_PhoneLogin> {
 
   Future<void> _sendCode() async {
     final phone = _phoneCtrl.text.trim();
+    if (!mounted) return;
     setState(() => _phoneError = null);
     if (!_validatePhone(phone)) return;
+    if (!mounted) return;
     setState(() => _sendingCode = true);
     try {
       await context.read<AuthProvider>().sendCaptcha(phone);
     } catch (e, s) { Log.e('login_screen', 'error', e, s); }
-    setState(() => _sendingCode = false);
-    _startCountdown();
+    if (mounted) setState(() => _sendingCode = false);
+    if (mounted) _startCountdown();
   }
 
   bool _validatePhone(String phone) {
@@ -278,6 +252,7 @@ class _PhoneLoginState extends State<_PhoneLogin> {
     _countdown = 60;
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) { t.cancel(); return; }
       if (_countdown <= 1) {
         t.cancel();
         setState(() => _countdown = 0);
@@ -288,17 +263,21 @@ class _PhoneLoginState extends State<_PhoneLogin> {
   }
 
   Future<void> _login() async {
-    final auth = context.read<AuthProvider>();
-    final ok = await auth.loginWithPhone(
-      _phoneCtrl.text.trim(),
-      _codeCtrl.text.trim(),
-    );
-    if (ok && mounted) Navigator.pop(context);
+    try {
+      final auth = context.read<AuthProvider>();
+      final ok = await auth.loginWithPhone(
+        _phoneCtrl.text.trim(),
+        _codeCtrl.text.trim(),
+      );
+      if (ok && mounted) Navigator.pop(context);
+    } catch (e, s) {
+      Log.e('login_screen', 'phone login error', e, s);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

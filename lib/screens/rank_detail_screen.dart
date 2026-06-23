@@ -4,6 +4,9 @@ import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
+import '../utils/responsive.dart';
+import '../widgets/desktop_route_wrapper.dart';
+import '../widgets/desktop_song_table.dart';
 import '../widgets/song_tile.dart';
 
 class RankDetailScreen extends StatefulWidget {
@@ -45,6 +48,94 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return ResponsiveLayoutBuilder(
+      desktop: (_) => _buildDesktop(),
+      mobile: (_) => _buildMobile(),
+      tablet: (_) => _buildMobile(),
+    );
+  }
+
+  Widget _buildDesktop() {
+    return DesktopRouteWrapper(
+      title: widget.rankName ?? '排行榜',
+      child: _buildDesktopContent(),
+    );
+  }
+
+  Widget _buildDesktopContent() {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_songs == null || _songs!.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.trending_up, size: 48, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+            const SizedBox(height: 8),
+            Text('暂无歌曲', style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // ── Rank info header ──
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+          child: Row(
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.trending_up, size: 40, color: cs.onPrimaryContainer),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(widget.rankName ?? '排行榜',
+                        style: tt.titleLarge,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 4),
+                    Text('$_total 首',
+                        style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                    const SizedBox(height: 8),
+                    FilledButton.tonalIcon(
+                      onPressed: () => context
+                          .read<PlayerProvider>()
+                          .playSong(_songs!.first, playlist: _songs),
+                      icon: const Icon(Icons.play_arrow, size: 18),
+                      label: const Text('播放全部'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        // ── Song table ──
+        Expanded(
+          child: DesktopSongTable(
+            songs: _songs!,
+            emptyMessage: '暂无歌曲',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobile() {
     final isWide = MediaQuery.of(context).size.width >= 880;
     final bodyContent = _isLoading
         ? const Center(child: CircularProgressIndicator())
