@@ -88,7 +88,6 @@ class DiscoverProvider extends ChangeNotifier {
     try {
       final fm = await _musicService.getFmRecommend();
       _fmList = fm.take(DiscoverConstants.fmLimit).toList();
-      notifyListeners();
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadFm error', e, s);
     }
@@ -98,7 +97,6 @@ class DiscoverProvider extends ChangeNotifier {
     try {
       _topPlaylists =
           await _musicService.getTopPlaylists(limit: DiscoverConstants.playlistLimit);
-      notifyListeners();
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadPlaylists error', e, s);
     }
@@ -108,7 +106,6 @@ class DiscoverProvider extends ChangeNotifier {
     try {
       final ranks = await _musicService.getRankList();
       _rankList = ranks.take(DiscoverConstants.rankLimit).toList();
-      notifyListeners();
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadRanks error', e, s);
     }
@@ -118,7 +115,6 @@ class DiscoverProvider extends ChangeNotifier {
     try {
       final songs = await _musicService.getTopSongs();
       _topSongs = songs.take(DiscoverConstants.topSongsLimit).toList();
-      notifyListeners();
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadTopSongs error', e, s);
     }
@@ -129,7 +125,6 @@ class DiscoverProvider extends ChangeNotifier {
       _topAlbums = await _musicService.getTopAlbums(
         pageSize: DiscoverConstants.topAlbumsPageSize,
       );
-      notifyListeners();
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadTopAlbums error', e, s);
     }
@@ -139,7 +134,6 @@ class DiscoverProvider extends ChangeNotifier {
     try {
       final scenes = await _musicService.getSceneLists();
       _sceneCategories = scenes.take(DiscoverConstants.sceneLimit).toList();
-      notifyListeners();
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadSceneCategories error', e, s);
     }
@@ -149,7 +143,6 @@ class DiscoverProvider extends ChangeNotifier {
     try {
       final ip = await _musicService.getTopIp();
       _ipList = ip.take(DiscoverConstants.ipLimit).toList();
-      notifyListeners();
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadIp error', e, s);
     }
@@ -163,7 +156,6 @@ class DiscoverProvider extends ChangeNotifier {
           .whereType<Song>()
           .take(DiscoverConstants.topSongsLimit)
           .toList();
-      notifyListeners();
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadPersonalFm error', e, s);
     }

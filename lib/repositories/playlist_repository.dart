@@ -263,7 +263,7 @@ class PlaylistRepository extends BaseRepository {
     return [];
   }
 
-  Future<void> createPlaylist(String name,
+  Future<Map<String, dynamic>> createPlaylist(String name,
       {int type = 0, int isPri = 0, int? listCreateListid,
        int? listCreateUserid}) async {
     final params = <String, dynamic>{
@@ -273,7 +273,7 @@ class PlaylistRepository extends BaseRepository {
       'is_pri': isPri,
     };
     if (listCreateListid != null) params['list_create_listid'] = listCreateListid;
-    await get('/playlist/add', params: params);
+    return await get('/playlist/add', params: params);
   }
 
   Future<void> deletePlaylist(int listid) async {
