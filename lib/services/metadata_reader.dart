@@ -1,16 +1,24 @@
 import 'dart:io';
 import 'package:flutter/services.dart';
 
+import 'metadata_windows.dart';
+
 /// Reads audio file metadata using platform-specific APIs.
 ///
 /// On Android, delegates to [MediaMetadataRetriever] via MethodChannel.
 /// Falls back to filename-based extraction if the channel is unavailable.
+/// On Windows, uses the pure-Dart [WindowsMetadataReader] instead.
 class MetadataReader {
   static const _channel = MethodChannel('com.mjiutang.ngskg/metadata');
 
   /// Reads metadata from [file].
   /// Returns null if reading fails.
   static Future<AudioMetadata?> read(File file) async {
+    // Windows: use pure-Dart parser (no MethodChannel available)
+    if (Platform.isWindows) {
+      return WindowsMetadataReader.read(file);
+    }
+
     try {
       final result = await _channel.invokeMethod<Map>('readMetadata', {
         'path': file.path,
@@ -31,6 +39,7 @@ class AudioMetadata {
   final int durationMs;
   final int? bitrate;
   final Uint8List? albumArt;
+  final String? lyrics; // embedded lyrics (USLT/SYLT text or FLAC LYRICS tag)
 
   const AudioMetadata({
     this.title,
@@ -39,6 +48,7 @@ class AudioMetadata {
     this.durationMs = 0,
     this.bitrate,
     this.albumArt,
+    this.lyrics,
   });
 
   factory AudioMetadata.fromMap(Map map) {
@@ -54,6 +64,7 @@ class AudioMetadata {
       durationMs: (map['duration'] as num?)?.toInt() ?? 0,
       bitrate: (map['bitrate'] as num?)?.toInt(),
       albumArt: art,
+      lyrics: map['lyrics'] as String?,
     );
   }
 }
