@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ngskg_plus/models/song.dart';
 import 'package:ngskg_plus/models/playlist.dart';
 import 'package:ngskg_plus/models/user.dart';
+import 'package:ngskg_plus/models/theme_pack.dart';
 
 void main() {
   group('Song model', () {
@@ -257,4 +259,299 @@ void main() {
       expect(json['token'], 'tok');
     });
   });
+
+  group('ThemePack serialization', () {
+    test('ngsNagisa toJson/fromJson round-trip preserves identity', () {
+      // Convert built-in theme to JSON and back
+      final json = ngsNagisa.toJson();
+      final restored = ThemePack.fromJson(json);
+
+      expect(restored.id, ngsNagisa.id);
+      expect(restored.name, ngsNagisa.name);
+      expect(restored.author, ngsNagisa.author);
+      expect(restored.version, ngsNagisa.version);
+      expect(restored.isBuiltIn, ngsNagisa.isBuiltIn);
+      expect(restored.description, ngsNagisa.description);
+      expect(restored.assetFiles?.length, ngsNagisa.assetFiles?.length);
+      expect(restored.fontWeightFiles, isNull);
+    });
+
+    test('ColorScheme round-trip preserves all 30 light colors', () {
+      final scheme = ngsNagisa.lightScheme;
+      expect(scheme, isNotNull);
+
+      final serialized = _serializeColorSchemeForTest(scheme!);
+      final parsed = _parseColorSchemeForTest(serialized, Brightness.light);
+
+      expect(parsed.primary.value, scheme.primary.value);
+      expect(parsed.onPrimary.value, scheme.onPrimary.value);
+      expect(parsed.primaryContainer.value, scheme.primaryContainer.value);
+      expect(parsed.onPrimaryContainer.value, scheme.onPrimaryContainer.value);
+      expect(parsed.secondary.value, scheme.secondary.value);
+      expect(parsed.onSecondary.value, scheme.onSecondary.value);
+      expect(parsed.secondaryContainer.value, scheme.secondaryContainer.value);
+      expect(parsed.onSecondaryContainer.value, scheme.onSecondaryContainer.value);
+      expect(parsed.tertiary.value, scheme.tertiary.value);
+      expect(parsed.onTertiary.value, scheme.onTertiary.value);
+      expect(parsed.tertiaryContainer.value, scheme.tertiaryContainer.value);
+      expect(parsed.onTertiaryContainer.value, scheme.onTertiaryContainer.value);
+      expect(parsed.error.value, scheme.error.value);
+      expect(parsed.onError.value, scheme.onError.value);
+      expect(parsed.errorContainer.value, scheme.errorContainer.value);
+      expect(parsed.onErrorContainer.value, scheme.onErrorContainer.value);
+      expect(parsed.surface.value, scheme.surface.value);
+      expect(parsed.surfaceDim.value, scheme.surfaceDim.value);
+      expect(parsed.surfaceBright.value, scheme.surfaceBright.value);
+      expect(parsed.surfaceContainerLowest.value, scheme.surfaceContainerLowest.value);
+      expect(parsed.surfaceContainerLow.value, scheme.surfaceContainerLow.value);
+      expect(parsed.surfaceContainer.value, scheme.surfaceContainer.value);
+      expect(parsed.surfaceContainerHigh.value, scheme.surfaceContainerHigh.value);
+      expect(parsed.surfaceContainerHighest.value, scheme.surfaceContainerHighest.value);
+      expect(parsed.onSurface.value, scheme.onSurface.value);
+      expect(parsed.onSurfaceVariant.value, scheme.onSurfaceVariant.value);
+      expect(parsed.outline.value, scheme.outline.value);
+      expect(parsed.outlineVariant.value, scheme.outlineVariant.value);
+      expect(parsed.inverseSurface.value, scheme.inverseSurface.value);
+      expect(parsed.inversePrimary.value, scheme.inversePrimary.value);
+    });
+
+    test('ColorScheme round-trip preserves all 30 dark colors', () {
+      final scheme = ngsNagisa.darkScheme;
+      expect(scheme, isNotNull);
+
+      final serialized = _serializeColorSchemeForTest(scheme!);
+      final parsed = _parseColorSchemeForTest(serialized, Brightness.dark);
+
+      expect(parsed.primary.value, scheme.primary.value);
+      expect(parsed.onPrimary.value, scheme.onPrimary.value);
+      expect(parsed.primaryContainer.value, scheme.primaryContainer.value);
+      expect(parsed.onPrimaryContainer.value, scheme.onPrimaryContainer.value);
+      expect(parsed.secondary.value, scheme.secondary.value);
+      expect(parsed.onSecondary.value, scheme.onSecondary.value);
+      expect(parsed.secondaryContainer.value, scheme.secondaryContainer.value);
+      expect(parsed.onSecondaryContainer.value, scheme.onSecondaryContainer.value);
+      expect(parsed.tertiary.value, scheme.tertiary.value);
+      expect(parsed.onTertiary.value, scheme.onTertiary.value);
+      expect(parsed.tertiaryContainer.value, scheme.tertiaryContainer.value);
+      expect(parsed.onTertiaryContainer.value, scheme.onTertiaryContainer.value);
+      expect(parsed.error.value, scheme.error.value);
+      expect(parsed.onError.value, scheme.onError.value);
+      expect(parsed.errorContainer.value, scheme.errorContainer.value);
+      expect(parsed.onErrorContainer.value, scheme.onErrorContainer.value);
+      expect(parsed.surface.value, scheme.surface.value);
+      expect(parsed.surfaceDim.value, scheme.surfaceDim.value);
+      expect(parsed.surfaceBright.value, scheme.surfaceBright.value);
+      expect(parsed.surfaceContainerLowest.value, scheme.surfaceContainerLowest.value);
+      expect(parsed.surfaceContainerLow.value, scheme.surfaceContainerLow.value);
+      expect(parsed.surfaceContainer.value, scheme.surfaceContainer.value);
+      expect(parsed.surfaceContainerHigh.value, scheme.surfaceContainerHigh.value);
+      expect(parsed.surfaceContainerHighest.value, scheme.surfaceContainerHighest.value);
+      expect(parsed.onSurface.value, scheme.onSurface.value);
+      expect(parsed.onSurfaceVariant.value, scheme.onSurfaceVariant.value);
+      expect(parsed.outline.value, scheme.outline.value);
+      expect(parsed.outlineVariant.value, scheme.outlineVariant.value);
+      expect(parsed.inverseSurface.value, scheme.inverseSurface.value);
+      expect(parsed.inversePrimary.value, scheme.inversePrimary.value);
+    });
+
+    test('FontWeightFiles serialization round-trip', () {
+      final files = FontWeightFiles(
+        regular: '/path/to/regular.ttf',
+        medium: '/path/to/medium.ttf',
+        bold: '/path/to/bold.ttf',
+      );
+      final json = files.toJson();
+      final restored = FontWeightFiles.fromJson(json);
+
+      expect(restored.regular, files.regular);
+      expect(restored.medium, files.medium);
+      expect(restored.bold, files.bold);
+    });
+
+    test('md3Default with null color schemes round-trips correctly', () {
+      // md3Default has null lightScheme/darkScheme
+      final json = md3Default.toJson();
+      final restored = ThemePack.fromJson(json);
+
+      expect(restored.id, md3Default.id);
+      expect(restored.name, md3Default.name);
+      expect(restored.lightScheme, isNull);
+      expect(restored.darkScheme, isNull);
+      expect(restored.assetFiles, isNull);
+    });
+
+    test('full custom ThemePack round-trip preserves all fields', () {
+      const custom = ThemePack(
+        id: 'test_custom',
+        name: 'Test Custom',
+        author: 'Tester',
+        version: 2,
+        description: 'A test pack',
+        isBuiltIn: false,
+        previewPath: '/tmp/preview.png',
+        fontFamily: 'TestFont',
+        fontWeightFiles: FontWeightFiles(
+          regular: '/tmp/regular.ttf',
+          medium: '/tmp/medium.ttf',
+        ),
+        playerBgPath: '/tmp/bg.png',
+        assetFiles: {'icon': '/tmp/icon.png', 'loading': '/tmp/loading.png'},
+        lightScheme: ColorScheme.light(primary: Color(0xFFFF0000)),
+        darkScheme: ColorScheme.dark(primary: Color(0xFF00FF00)),
+        shapes: {'sm': 12, 'md': 16, 'lg': 24},
+        motion: ThemeMotion(durationScale: 0.8, curve: 'linear'),
+        components: ThemeComponents(
+          navigationBarElevation: 2,
+          cardElevation: 4,
+          dialogElevation: 8,
+        ),
+      );
+
+      final json = custom.toJson();
+      final restored = ThemePack.fromJson(json);
+
+      expect(restored.id, custom.id);
+      expect(restored.name, custom.name);
+      expect(restored.author, custom.author);
+      expect(restored.version, custom.version);
+      expect(restored.description, custom.description);
+      expect(restored.isBuiltIn, custom.isBuiltIn);
+      expect(restored.previewPath, custom.previewPath);
+      expect(restored.fontFamily, custom.fontFamily);
+      expect(restored.playerBgPath, custom.playerBgPath);
+      expect(restored.assetFiles?['icon'], '${custom.assetFiles!['icon']}');
+      expect(restored.assetFiles?['loading'], '${custom.assetFiles!['loading']}');
+      expect(restored.fontWeightFiles?.regular, custom.fontWeightFiles?.regular);
+      expect(restored.fontWeightFiles?.medium, custom.fontWeightFiles?.medium);
+      expect(restored.fontWeightFiles?.bold, custom.fontWeightFiles?.bold);
+      expect(restored.shapes?['sm'], custom.shapes?['sm']);
+      expect(restored.shapes?['md'], custom.shapes?['md']);
+      expect(restored.shapes?['lg'], custom.shapes?['lg']);
+      expect(restored.motion.durationScale, custom.motion.durationScale);
+      expect(restored.motion.curve, custom.motion.curve);
+      expect(restored.components.navigationBarElevation, custom.components.navigationBarElevation);
+      expect(restored.components.cardElevation, custom.components.cardElevation);
+      expect(restored.components.dialogElevation, custom.components.dialogElevation);
+      expect(restored.lightScheme?.primary.value, custom.lightScheme?.primary.value);
+      expect(restored.darkScheme?.primary.value, custom.darkScheme?.primary.value);
+    });
+  });
+}
+
+// ── Test helpers (mirror the private helpers in theme_pack.dart) ──
+
+Map<String, String> _serializeColorSchemeForTest(ColorScheme s) {
+  String colorHex(Color c) =>
+      '#${c.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+  return {
+    'primary': colorHex(s.primary),
+    'onPrimary': colorHex(s.onPrimary),
+    'primaryContainer': colorHex(s.primaryContainer),
+    'onPrimaryContainer': colorHex(s.onPrimaryContainer),
+    'secondary': colorHex(s.secondary),
+    'onSecondary': colorHex(s.onSecondary),
+    'secondaryContainer': colorHex(s.secondaryContainer),
+    'onSecondaryContainer': colorHex(s.onSecondaryContainer),
+    'tertiary': colorHex(s.tertiary),
+    'onTertiary': colorHex(s.onTertiary),
+    'tertiaryContainer': colorHex(s.tertiaryContainer),
+    'onTertiaryContainer': colorHex(s.onTertiaryContainer),
+    'error': colorHex(s.error),
+    'onError': colorHex(s.onError),
+    'errorContainer': colorHex(s.errorContainer),
+    'onErrorContainer': colorHex(s.onErrorContainer),
+    'surface': colorHex(s.surface),
+    'surfaceDim': colorHex(s.surfaceDim),
+    'surfaceBright': colorHex(s.surfaceBright),
+    'surfaceContainerLowest': colorHex(s.surfaceContainerLowest),
+    'surfaceContainerLow': colorHex(s.surfaceContainerLow),
+    'surfaceContainer': colorHex(s.surfaceContainer),
+    'surfaceContainerHigh': colorHex(s.surfaceContainerHigh),
+    'surfaceContainerHighest': colorHex(s.surfaceContainerHighest),
+    'onSurface': colorHex(s.onSurface),
+    'onSurfaceVariant': colorHex(s.onSurfaceVariant),
+    'outline': colorHex(s.outline),
+    'outlineVariant': colorHex(s.outlineVariant),
+    'inverseSurface': colorHex(s.inverseSurface),
+    'inversePrimary': colorHex(s.inversePrimary),
+  };
+}
+
+ColorScheme _parseColorSchemeForTest(Map<String, dynamic> data, Brightness brightness) {
+  Color c(String key, Color fallback) {
+    final v = data[key] as String?;
+    if (v == null || v.isEmpty) return fallback;
+    final h = v.replaceFirst('#', '');
+    final val = int.tryParse(h, radix: 16);
+    if (val == null) return fallback;
+    return Color(0xFF000000 | val);
+  }
+
+  if (brightness == Brightness.light) {
+    return ColorScheme.light(
+      primary: c('primary', const Color(0xFF2CA1F4)),
+      onPrimary: c('onPrimary', const Color(0xFFFFFFFF)),
+      primaryContainer: c('primaryContainer', const Color(0xFFD2E5FF)),
+      onPrimaryContainer: c('onPrimaryContainer', const Color(0xFF001D35)),
+      secondary: c('secondary', const Color(0xFF565F71)),
+      onSecondary: c('onSecondary', const Color(0xFFFFFFFF)),
+      secondaryContainer: c('secondaryContainer', const Color(0xFFDAE2F9)),
+      onSecondaryContainer: c('onSecondaryContainer', const Color(0xFF131C2B)),
+      tertiary: c('tertiary', const Color(0xFF6E5676)),
+      onTertiary: c('onTertiary', const Color(0xFFFFFFFF)),
+      tertiaryContainer: c('tertiaryContainer', const Color(0xFFF8D8FE)),
+      onTertiaryContainer: c('onTertiaryContainer', const Color(0xFF271430)),
+      error: c('error', const Color(0xFFBA1A1A)),
+      onError: c('onError', const Color(0xFFFFFFFF)),
+      errorContainer: c('errorContainer', const Color(0xFFFFDAD6)),
+      onErrorContainer: c('onErrorContainer', const Color(0xFF410002)),
+      surface: c('surface', const Color(0xFFFDF8FF)),
+      surfaceDim: c('surfaceDim', const Color(0xFFDED8E1)),
+      surfaceBright: c('surfaceBright', const Color(0xFFFDF8FF)),
+      surfaceContainerLowest: c('surfaceContainerLowest', const Color(0xFFFFFFFF)),
+      surfaceContainerLow: c('surfaceContainerLow', const Color(0xFFF7F2FB)),
+      surfaceContainer: c('surfaceContainer', const Color(0xFFF2ECF5)),
+      surfaceContainerHigh: c('surfaceContainerHigh', const Color(0xFFEBE6EF)),
+      surfaceContainerHighest: c('surfaceContainerHighest', const Color(0xFFE0DAE3)),
+      onSurface: c('onSurface', const Color(0xFF1C1B1F)),
+      onSurfaceVariant: c('onSurfaceVariant', const Color(0xFF49454F)),
+      outline: c('outline', const Color(0xFF7A7580)),
+      outlineVariant: c('outlineVariant', const Color(0xFFCAC4CD)),
+      inverseSurface: c('inverseSurface', const Color(0xFF313033)),
+      inversePrimary: c('inversePrimary', const Color(0xFFA9D0FF)),
+    );
+  } else {
+    return ColorScheme.dark(
+      primary: c('primary', const Color(0xFFAAC7FF)),
+      onPrimary: c('onPrimary', const Color(0xFF003258)),
+      primaryContainer: c('primaryContainer', const Color(0xFF00497D)),
+      onPrimaryContainer: c('onPrimaryContainer', const Color(0xFFD2E5FF)),
+      secondary: c('secondary', const Color(0xFFBEC6DC)),
+      onSecondary: c('onSecondary', const Color(0xFF283141)),
+      secondaryContainer: c('secondaryContainer', const Color(0xFF3E4759)),
+      onSecondaryContainer: c('onSecondaryContainer', const Color(0xFFDAE2F9)),
+      tertiary: c('tertiary', const Color(0xFFDBBDE2)),
+      onTertiary: c('onTertiary', const Color(0xFF3D2846)),
+      tertiaryContainer: c('tertiaryContainer', const Color(0xFF553F5D)),
+      onTertiaryContainer: c('onTertiaryContainer', const Color(0xFFF8D8FE)),
+      error: c('error', const Color(0xFFFFB4AB)),
+      onError: c('onError', const Color(0xFF690005)),
+      errorContainer: c('errorContainer', const Color(0xFF93000A)),
+      onErrorContainer: c('onErrorContainer', const Color(0xFFFFDAD6)),
+      surface: c('surface', const Color(0xFF141318)),
+      surfaceDim: c('surfaceDim', const Color(0xFF141318)),
+      surfaceBright: c('surfaceBright', const Color(0xFF3A383E)),
+      surfaceContainerLowest: c('surfaceContainerLowest', const Color(0xFF0E0E13)),
+      surfaceContainerLow: c('surfaceContainerLow', const Color(0xFF1C1B20)),
+      surfaceContainer: c('surfaceContainer', const Color(0xFF201F24)),
+      surfaceContainerHigh: c('surfaceContainerHigh', const Color(0xFF2B292F)),
+      surfaceContainerHighest: c('surfaceContainerHighest', const Color(0xFF36343A)),
+      onSurface: c('onSurface', const Color(0xFFE6E1E6)),
+      onSurfaceVariant: c('onSurfaceVariant', const Color(0xFFCAC4CD)),
+      outline: c('outline', const Color(0xFF948F99)),
+      outlineVariant: c('outlineVariant', const Color(0xFF49454F)),
+      inverseSurface: c('inverseSurface', const Color(0xFFE6E1E6)),
+      inversePrimary: c('inversePrimary', const Color(0xFF00619F)),
+    );
+  }
 }
