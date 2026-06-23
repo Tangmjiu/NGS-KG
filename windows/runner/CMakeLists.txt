@@ -38,3 +38,19 @@ target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)
+
+# Copy media_kit plugin DLLs to output directory (Flutter misses them in debug)
+set(MEDIA_KIT_PLUGIN_DLL
+  "${CMAKE_BINARY_DIR}/media_kit_libs_windows_audio_plugin.dll")
+set(MEDIA_KIT_MPV_DLL
+  "${NGSKG_BUILD_DIR}/libmpv/libmpv-2.dll")
+foreach(DLL ${MEDIA_KIT_PLUGIN_DLL} ${MEDIA_KIT_MPV_DLL})
+  if(EXISTS "${DLL}")
+    add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${DLL}"
+        "$<TARGET_FILE_DIR:${BINARY_NAME}>"
+      COMMENT "Copying ${DLL} to output"
+    )
+  endif()
+endforeach()

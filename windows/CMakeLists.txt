@@ -1,10 +1,16 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
 project(ngskg_plus LANGUAGES CXX)
+add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNING)
+add_compile_options(/utf-8)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /utf-8")
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
 set(BINARY_NAME "ngskg_plus")
+
+# Store build dir for runner to reference media_kit DLLs
+set(NGSKG_BUILD_DIR "${CMAKE_BINARY_DIR}" CACHE INTERNAL "Project build directory")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
@@ -66,12 +72,15 @@ include(flutter/generated_plugins.cmake)
 # Support files are copied into place next to the executable, so that it can
 # run in place. This is done instead of making a separate bundle (as on Linux)
 # so that building and running from within Visual Studio will work.
-set(BUILD_BUNDLE_DIR "$<TARGET_FILE_DIR:${BINARY_NAME}>")
+#
+# 注意：$<TARGET_FILE_DIR:...> 是生成器表达式，在 set(... CACHE ...) 中
+# 无法正确求值，会导致 CMAKE_INSTALL_PREFIX 回退到 C:\Program Files。
+# 此处直接指定本地路径，既避免管理员权限，也让 flutter run 能正确找到
+# kernel_blob.bin 等运行时文件。
+set(BUILD_BUNDLE_DIR "${CMAKE_CURRENT_BINARY_DIR}/runner")
 # Make the "install" step default, as it's required to run.
 set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
-if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH "..." FORCE)
-endif()
+set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH "..." FORCE)
 
 set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
