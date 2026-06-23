@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 class LocalSong {
   final String title;
   final String? artist;
@@ -10,6 +12,7 @@ class LocalSong {
   final String? codec;   // e.g., mp3, flac, wav
   final String? lyrics;  // raw LRC text from companion .lrc or metadata
   final String? albumCoverPath; // extracted cover art cache path
+  final Uint8List? albumCoverData; // raw cover art bytes (fallback if cache missing)
 
   const LocalSong({
     required this.title,
@@ -23,6 +26,7 @@ class LocalSong {
     this.codec,
     this.lyrics,
     this.albumCoverPath,
+    this.albumCoverData,
   });
 
   String get displayName {
