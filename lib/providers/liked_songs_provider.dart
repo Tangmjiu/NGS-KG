@@ -23,7 +23,19 @@ class LikedSongsProvider extends ChangeNotifier {
   }
 
   LikedSongsProvider(this._musicService) {
-    if (_hasLogin) load();
+    _retryLoad();
+  }
+
+  /// 延迟重试加载，等 AuthProvider 就绪（最多重试 5 次）
+  void _retryLoad({int attempt = 1}) {
+    if (attempt > 5) return;
+    Future.delayed(Duration(milliseconds: 500 * attempt), () {
+      if (!_loaded && _hasLogin) {
+        load();
+      } else if (!_loaded) {
+        _retryLoad(attempt: attempt + 1);
+      }
+    });
   }
 
   /// 未登录时 userId 为空或 '0'，跳过加载静默处理

@@ -24,6 +24,7 @@ import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/cache_service.dart';
 import 'providers/audio_settings_provider.dart';
+import 'navidrome/navidrome_provider.dart';
 import 'utils/preview_config.dart';
 import 'theme/theme_assets.dart';
 import 'utils/navigation.dart';
@@ -110,8 +111,9 @@ Future<void> main() async {
   // 先初始化认证（从本地文件加载），避免 auth 准备就绪�?PlayerProvider 发起网络请求
   final authProvider = AuthProvider(authService, likedSongs: likedSongs);
   // 小延迟确保文件读取完成；ready �?_loadSavedUser() 完成后触�?
-  unawaited(authProvider.ready.then((_) {
+    unawaited(authProvider.ready.then((_) {
     Log.i('main', 'AuthProvider ready, user=${authProvider.isLoggedIn}');
+    if (authProvider.isLoggedIn) likedSongs.load();
   }));
   // 注意：此处不能阻�?runApp —�?authProvider 在构造时已启�?_loadSavedUser()
   // apiClient.setAuth �?_loadSavedUser 内调用，PlayerProvider �?restorePlaybackState
@@ -131,6 +133,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
         ChangeNotifierProvider.value(value: likedSongs),
         ChangeNotifierProvider(create: (_) => DiscoverProvider(musicService)),
+        ChangeNotifierProvider(create: (_) => NavidromeProvider()),
       ],
       child: const NGSKGApp(),
     ),

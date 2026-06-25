@@ -2,12 +2,14 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/logger.dart';
 import '../models/local_song.dart';
 import 'metadata_reader.dart';
 
 class LocalMusicService {
   static const _audioExtensions = ['.mp3', '.flac', '.wav', '.aac', '.ogg', '.wma', '.m4a'];
+  static const _persistedDirsKey = 'local_music_folders';
 
   Future<List<LocalSong>> scanMusic() async {
     final songs = <LocalSong>[];
@@ -27,11 +29,27 @@ class LocalMusicService {
       dirs.add(Directory('/storage/emulated/0/music'));
       dirs.add(Directory('/storage/emulated/0/Music'));
     }
+    // Windows paths
+    if (Platform.isWindows) {
+      final userProfile = Platform.environment['USERPROFILE'];
+      if (userProfile != null && userProfile.isNotEmpty) {
+        dirs.add(Directory('$userProfile\\Music'));
+        dirs.add(Directory('$userProfile\\Downloads'));
+      }
+    }
     // App documents
     try {
       final appDir = await getApplicationDocumentsDirectory();
       dirs.add(Directory('${appDir.path}/music'));
     } catch (e, s) { Log.e('local_music_service', 'error', e, s); }
+    // Persisted user-configured directories
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getStringList(_persistedDirsKey) ?? [];
+      for (final path in saved) {
+        dirs.add(Directory(path));
+      }
+    } catch (_) {}
     return dirs;
   }
 
@@ -69,11 +87,13 @@ class LocalMusicService {
             if (meta.bitrate != null && meta.bitrate! > 0) {
               bitrate = meta.bitrate!;
             }
-            // Cache album art
+            // Cache album art from metadata
             if (meta.albumArt != null && meta.albumArt!.isNotEmpty) {
               coverCachePath = await _cacheAlbumArt(entry.path, meta.albumArt!);
             }
           }
+          // Fallback: check for folder.jpg / cover.jpg in same directory
+          coverCachePath ??= _findFolderCover(entry.path);
 
           // Detect codec and estimate quality from file extension
           if (ext == '.flac') {
@@ -92,7 +112,7 @@ class LocalMusicService {
             codec = 'WMA';
           }
 
-          // Read companion .lrc file
+          // Read lyrics: companion .lrc file first, then embedded
           String? lyrics;
           final lrcPath = p.setExtension(entry.path, '.lrc');
           final lrcFile = File(lrcPath);
@@ -102,6 +122,11 @@ class LocalMusicService {
             }
           } catch (e, s) {
             Log.e('local_music_service', 'lrc read error for $lrcPath', e, s);
+          }
+          // Fallback to embedded lyrics from metadata
+          if ((lyrics == null || lyrics.isEmpty) &&
+              meta?.lyrics != null && meta!.lyrics!.isNotEmpty) {
+            lyrics = meta.lyrics;
           }
 
           final stat = await entry.stat();
@@ -116,6 +141,7 @@ class LocalMusicService {
             bitrate: bitrate,
             lyrics: lyrics,
             albumCoverPath: coverCachePath,
+            albumCoverData: meta?.albumArt, // keep raw data as fallback
           ));
         }
       }
@@ -125,6 +151,17 @@ class LocalMusicService {
   bool _isAudioFile(String path) {
     final lower = path.toLowerCase();
     return _audioExtensions.any((ext) => lower.endsWith(ext));
+  }
+
+  /// Checks common folder cover filenames in the same directory as [audioPath].
+  static String? _findFolderCover(String audioPath) {
+    final dir = p.dirname(audioPath);
+    const candidates = ['cover.jpg', 'cover.png', 'folder.jpg', 'folder.png', 'Cover.jpg', 'Front.jpg', 'Folder.jpg', 'AlbumArtSmall.jpg'];
+    for (final name in candidates) {
+      final candidate = p.join(dir, name);
+      if (File(candidate).existsSync()) return candidate;
+    }
+    return null;
   }
 
   /// Caches album art JPEG to app's temporary directory and returns the file path.
@@ -141,5 +178,26 @@ class LocalMusicService {
       Log.e('local_music_service', 'cover cache error', e, s);
       return null;
     }
+  }
+
+  Future<List<String>> getPersistedDirs() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_persistedDirsKey) ?? [];
+  }
+
+  Future<void> addSearchDir(String path) async {
+    final prefs = await SharedPreferences.getInstance();
+    final dirs = prefs.getStringList(_persistedDirsKey) ?? [];
+    if (!dirs.contains(path)) {
+      dirs.add(path);
+      await prefs.setStringList(_persistedDirsKey, dirs);
+    }
+  }
+
+  Future<void> removeSearchDir(String path) async {
+    final prefs = await SharedPreferences.getInstance();
+    final dirs = prefs.getStringList(_persistedDirsKey) ?? [];
+    dirs.remove(path);
+    await prefs.setStringList(_persistedDirsKey, dirs);
   }
 }

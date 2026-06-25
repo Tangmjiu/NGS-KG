@@ -41,6 +41,7 @@ class PlaylistProvider extends ChangeNotifier {
 
   Future<void> fetchPlaylistDetail(String id) async {
     _isLoading = true;
+    _currentPlaylist = null;  // Clear previous playlist immediately
     notifyListeners();
     try {
       _currentPlaylist = await _musicService.getPlaylistDetail(id);
@@ -70,7 +71,13 @@ class PlaylistProvider extends ChangeNotifier {
   Future<bool> createPlaylist(String name, {int isPri = 0}) async {
     try {
       await _musicService.createPlaylist(name, isPri: isPri);
-      await fetchUserPlaylist(_currentUserId);
+      final uid = _currentUserId ?? int.tryParse(ApiClient.userId ?? '');
+      if (uid != null) {
+        await fetchUserPlaylist(uid);
+      } else {
+        _isLoading = false;
+        notifyListeners();
+      }
       return true;
     } catch (e, s) {
       Log.e('playlist_provider', 'createPlaylist error', e, s);

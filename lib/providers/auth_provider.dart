@@ -17,6 +17,7 @@ class AuthProvider extends ChangeNotifier {
 
   User? _user;
   bool _isLoading = false;
+  bool _isLoggingIn = false;
 
   User? get user => _user;
   bool get isLoggedIn => _user != null;
@@ -67,12 +68,15 @@ class AuthProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   Future<bool> loginWithPassword(String username, String password, {String? captcha}) async {
+    if (_isLoggingIn) return false;
+    _isLoggingIn = true;
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
     try {
       _user = await _authService.loginWithPassword(username, password, captcha: captcha);
       _isLoading = false;
+      _isLoggingIn = false;
       notifyListeners();
       if (_user != null) {
         await _saveUser();
@@ -81,6 +85,7 @@ class AuthProvider extends ChangeNotifier {
       return _user != null;
     } catch (e) {
       _isLoading = false;
+      _isLoggingIn = false;
       _errorMessage = e.toString();
       notifyListeners();
       return false;
@@ -88,12 +93,15 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<bool> loginWithPhone(String mobile, String code) async {
+    if (_isLoggingIn) return false;
+    _isLoggingIn = true;
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
     try {
       _user = await _authService.loginWithPhone(mobile, code);
       _isLoading = false;
+      _isLoggingIn = false;
       notifyListeners();
       if (_user != null) {
         await _saveUser();
@@ -102,6 +110,7 @@ class AuthProvider extends ChangeNotifier {
       return _user != null;
     } catch (e) {
       _isLoading = false;
+      _isLoggingIn = false;
       _errorMessage = e.toString();
       notifyListeners();
       return false;

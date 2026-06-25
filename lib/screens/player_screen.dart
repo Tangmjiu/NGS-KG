@@ -385,7 +385,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 paletteColor: player.backgroundColor,
                 paletteColors: player.paletteColors,
                 scrollOffset: _pageOffset,
-                flowLightEnabled: flowEnabled,
               ),
 
               // ── Content ──

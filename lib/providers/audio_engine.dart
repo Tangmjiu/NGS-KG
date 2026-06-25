@@ -193,8 +193,15 @@ class AudioEngine {
           await _player.play();
           _hasActivePlayback = true;
         } else {
-          await _player.setFilePath(fp);
+          // 本地文件：尝试 setFilePath，若失败则用 file:// URI + setUrl 重试
+          try {
+            await _player.setFilePath(fp);
+          } catch (_) {
+            final fileUri = Uri.file(fp).toString();
+            await _player.setUrl(fileUri);
+          }
           if (version != _playRequestVersion) { isLoading.value = false; return; }
+          _lastUrlFetchTime = DateTime.now();
           await _player.play();
           _hasActivePlayback = true;
         }
@@ -237,11 +244,6 @@ class AudioEngine {
             // ✅ 记录最终解析到的音质
             resolvedQualityNotifier.value = c.quality;
             Log.i('audio_engine', 'resolved quality: ${c.quality} (${c.label})');
-
-            // 上报播放历史（带重试）
-            if (uploadHistory) {
-              _uploadHistoryWithRetry(song.id, duration: song.duration);
-            }
             break;
           }
         } catch (e) {
@@ -398,10 +400,6 @@ class AudioEngine {
     isLoading.value = true;
     isCompleting.value = false;
     resolvedQualityNotifier.value = null;
-    // 先标记无活跃播放，防止 idle 回调误报错误
-    _hasActivePlayback = false;
-    // 立即停掉当前播放，避免新旧音频串混
-    _player.stop();
   }
 
   Future<void> seek(Duration pos) async {

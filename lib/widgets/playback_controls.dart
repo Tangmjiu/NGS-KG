@@ -368,29 +368,42 @@ class PlaybackControls extends StatelessWidget {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: () {
+                nameCtrl.dispose();
+                Navigator.pop(ctx);
+              },
               child: const Text('取消')),
           FilledButton(
             onPressed: () async {
               final name = nameCtrl.text.trim();
               if (name.isEmpty) return;
+              nameCtrl.dispose();
               Navigator.pop(ctx);
               try {
-                await MusicService().createPlaylist(name);
-                final playlists = await MusicService().getUserPlaylist();
-                if (playlists.isNotEmpty && context.mounted) {
-                  final pl = playlists.first;
+                final response = await MusicService().createPlaylist(name);
+                int? playlistId;
+                final data = response['data'];
+                if (data is Map) {
+                  playlistId = data['listid'] ?? data['id'] as int?;
+                } else if (data is int) {
+                  playlistId = data;
+                }
+                if (playlistId != null && context.mounted) {
                   for (final s in songs) {
-                    final data = (s.hash?.isNotEmpty ?? false)
+                    final trackData = (s.hash?.isNotEmpty ?? false)
                         ? '${s.name}|${s.hash}|${s.albumId}|${s.id}'
                         : s.name;
-                    await MusicService().addTracksToPlaylist(pl.id, data);
+                    await MusicService().addTracksToPlaylist(playlistId, trackData);
                   }
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('已保存 ${songs.length} 首到歌单「${pl.name}」')),
+                      SnackBar(content: Text('已保存 ${songs.length} 首到歌单「$name」')),
                     );
                   }
+                } else if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('歌单「$name」已创建')),
+                  );
                 }
               } catch (e) {
                 if (context.mounted) {

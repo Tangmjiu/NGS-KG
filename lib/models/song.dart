@@ -1,3 +1,9 @@
+import 'dart:io';
+
+import 'package:flutter/painting.dart';
+
+import 'dart:typed_data';
+
 import '../services/api_exception.dart';
 import 'song_mapper.dart';
 
@@ -17,6 +23,7 @@ class Song {
   final String? lyrics; // embedded LRC text (local files with companion .lrc)
   final int? climaxMs; // 歌曲高潮开始时间（毫秒），来自 /song/climax
   final int? mixSongId; // 酷狗 MixSongID，用于播放历史上传等场景
+  final Uint8List? coverData; // 内嵌封面原始数据（本地音乐用）
 
   const Song({
     required this.id,
@@ -34,11 +41,39 @@ class Song {
     this.lyrics,
     this.climaxMs,
     this.mixSongId,
+    this.coverData,
   });
 
   bool get isLocal => filePath != null;
 
   String get artistDisplay => artists.join(' / ');
+
+  ImageProvider get coverImageProvider {
+    if (coverData != null && coverData!.isNotEmpty) {
+      return MemoryImage(coverData!);
+    }
+    if (albumCoverUrl == null || albumCoverUrl!.isEmpty) {
+      return const AssetImage('assets/images/icon.png');
+    }
+    final url = albumCoverUrl!;
+    if (url.startsWith('file://') || _isRawFilePath(url)) {
+      final path = url.startsWith('file://')
+          ? Uri.parse(url).toFilePath()
+          : url;
+      return FileImage(File(path));
+    }
+    return NetworkImage(url);
+  }
+
+  /// 判断裸文件系统路径（无 scheme）。
+  static bool _isRawFilePath(String path) {
+    if (path.length >= 3 && RegExp(r'^[a-zA-Z]:[\\/]').hasMatch(path)) {
+      return true;
+    }
+    if (path.startsWith('/')) return true;
+    if (path.startsWith('./') || path.startsWith('.\\')) return true;
+    return false;
+  }
 
   /// 播放音质列表（共 7 级，从低到高）
   static const qualityLabels = ['标准', 'HQ', 'SQ', 'Hi-Res', '全景声', '蝰蛇超清', '母带'];

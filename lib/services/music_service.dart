@@ -14,6 +14,7 @@ import '../models/playlist_tag.dart';
 import '../models/card_section.dart';
 import '../models/latest_listen_info.dart';
 import '../models/scene_category.dart';
+import '../models/song_mapper.dart';
 import '../models/user.dart' as models;
 import '../models/vip_info.dart';
 import 'package:dio/dio.dart';
@@ -73,6 +74,33 @@ class MusicService {
 
   Future<int?> getSongClimax(String hash) => song.getSongClimax(hash);
 
+  Future<bool> uploadMixPlayHistory(String mixSongId) async {
+    try {
+      final ot = (DateTime.now().millisecondsSinceEpoch / 1000).round().toString();
+      await _oneShotGet('/playhistory/upload', params: {
+        'mxid': mixSongId,
+        'ot': ot,
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<List<Song>> getUserListenHistory({int type = 0}) async {
+    try {
+      final res = await _oneShotGet('/user/listen', params: {'type': type.toString()});
+      final data = res;
+      final songs = (data['data'] ?? data['list'] ?? []) as List<dynamic>;
+      return songs
+          .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
+          .whereType<Song>()
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
   Future<Map<String, dynamic>> searchLyricByHash(String hash, {String? keywords}) =>
       song.searchLyricByHash(hash, keywords: keywords);
 
@@ -128,11 +156,11 @@ class MusicService {
 
   Future<Map<String, dynamic>> createPlaylist(String name,
           {int type = 0, int isPri = 0, int? listCreateListid,
-           int? listCreateUserid}) {
-    final f = playlist.createPlaylist(name,
+           int? listCreateUserid}) async {
+    await playlist.createPlaylist(name,
         type: type, isPri: isPri, listCreateListid: listCreateListid,
         listCreateUserid: listCreateUserid);
-    return f.then((_) => <String, dynamic>{});
+    return <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> deletePlaylist(int listid) {

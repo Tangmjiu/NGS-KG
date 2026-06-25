@@ -31,6 +31,7 @@ class AudioMetadata {
   final int durationMs;
   final int? bitrate;
   final Uint8List? albumArt;
+  final String? lyrics; // embedded lyrics (USLT text or FLAC LYRICS tag)
 
   const AudioMetadata({
     this.title,
@@ -39,6 +40,7 @@ class AudioMetadata {
     this.durationMs = 0,
     this.bitrate,
     this.albumArt,
+    this.lyrics,
   });
 
   factory AudioMetadata.fromMap(Map map) {
@@ -54,6 +56,7 @@ class AudioMetadata {
       durationMs: (map['duration'] as num?)?.toInt() ?? 0,
       bitrate: (map['bitrate'] as num?)?.toInt(),
       albumArt: art,
+      lyrics: map['lyrics'] as String?,
     );
   }
 }

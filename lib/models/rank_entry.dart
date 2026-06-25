@@ -1,14 +1,18 @@
+import 'song.dart';
+
 class RankEntry {
   final int id;
   final String name;
   final String? coverUrl;
   final String? bannerUrl;
+  final Song? song;
 
   const RankEntry({
     required this.id,
     required this.name,
     this.coverUrl,
     this.bannerUrl,
+    this.song,
   });
 
   factory RankEntry.fromJson(Map<String, dynamic> json) {
