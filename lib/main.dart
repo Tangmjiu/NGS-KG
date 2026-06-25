@@ -25,6 +25,7 @@ import 'services/notification_service.dart';
 import 'services/cache_service.dart';
 import 'providers/audio_settings_provider.dart';
 import 'navidrome/navidrome_provider.dart';
+import 'providers/local_music_provider.dart';
 import 'utils/preview_config.dart';
 import 'theme/theme_assets.dart';
 import 'utils/navigation.dart';
@@ -134,6 +135,7 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: likedSongs),
         ChangeNotifierProvider(create: (_) => DiscoverProvider(musicService)),
         ChangeNotifierProvider(create: (_) => NavidromeProvider()),
+        ChangeNotifierProvider(create: (_) => LocalMusicProvider()),
       ],
       child: const NGSKGApp(),
     ),
