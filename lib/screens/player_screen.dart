@@ -8,6 +8,7 @@ import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:flutter_lyric/core/lyric_model.dart';
 import 'package:provider/provider.dart';
 import 'package:ym_lyric/model/krc_language_model.dart';
+import 'package:ym_lyric/model/krc_lyric_line_model.dart';
 import 'package:ym_lyric/utils/krc_lyric_util.dart';
 
 import '../models/song.dart';
@@ -92,6 +93,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
   String? _lastLoadedHash;
   int? _lastLoadedSongId; // for local songs without hash
   bool _lyricLoading = false;
+
+  // ─── Lyric language tracks (KRC only) ───
+  /// language→per-line texts.  0=translation(中文), 1=transliteration(罗马音)
+  Map<int, List<String>> _lyricLangMap = {};
+  List<KrcLyricLineModel>? _krcLines;  // raw KRC lines for re‑building
+  int _selectedLyricLang = 0; // default: translation
+  bool get _hasAlternateLang =>
+      _lyricLangMap.length > 1 &&
+      _lyricLangMap.values.every((v) => v.isNotEmpty);
 
   // ─── Drag state (progress bar) ───
   bool _isDraggingProgress = false;
@@ -182,6 +192,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   void _loadLyricsForSong(Song song) {
     _dragProgressValue = 0.0;
+    _lyricLangMap = {};
+    _krcLines = null;
+    _selectedLyricLang = 0;
 
     // Embedded lyrics from local files (companion .lrc or metadata)
     if (song.lyrics != null && song.lyrics!.isNotEmpty) {
@@ -221,8 +234,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
             final krcModel = KrcLyricUtil.parseLyrics(krcBytes);
             if (krcModel.krcLyricList.isEmpty) throw 'empty krc';
 
-            // Parse translations from lyricTag.language (base64 JSON)
-            List<String>? translations;
+            // Parse translation & transliteration from lyricTag.language (base64 JSON)
+            // language: 0 = translation (意译/中文翻译), 1 = transliteration (音译/罗马音)
+            _lyricLangMap = {};
             if (krcModel.lyricTag.language != null &&
                 krcModel.lyricTag.language!.isNotEmpty) {
               try {
@@ -230,60 +244,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   utf8.decode(base64Decode(krcModel.lyricTag.language!)),
                 );
                 final krcLang = KrcLanguage.fromJson(langJson);
-                if (krcLang.content.isNotEmpty) {
-                  // language: 0 = translation (意译), 1 = transliteration (音译)
-                  final langContent = krcLang.content.first.lyricContent;
-                  translations = langContent
+                for (final c in krcLang.content) {
+                  _lyricLangMap[c.language] = c.lyricContent
                       .map((words) => words.join())
                       .toList();
                 }
               } catch (_) {}
             }
 
-            // 构建翻译时间戳映射 (ms → translation text)
-            final transMap = <int, String>{};
-            if (translations != null) {
-              for (int i = 0; i < krcModel.krcLyricList.length && i < translations.length; i++) {
-                transMap[krcModel.krcLyricList[i].startTime] = translations[i];
-              }
-            }
+            // 记住原始 KRC lines，供语言切换时重建
+            _krcLines = krcModel.krcLyricList;
+            _selectedLyricLang = 0; // default: translation
 
-            // 直接构造 flutter_lyric 的 LyricWord / LyricLine / LyricModel
-            final lines = <LyricLine>[];
-            for (int i = 0; i < krcModel.krcLyricList.length; i++) {
-              final line = krcModel.krcLyricList[i];
-              String text;
-              try {
-                text = line.getWordLine();
-              } catch (_) {
-                continue; // 跳过解析失败的行（ym_lyric 空值问题）
-              }
-              if (text.trim().isEmpty) continue;
-
-              // 构造逐字时间信息 LyricWord
-              final words = <LyricWord>[];
-              if (line.line != null) {
-                final lineStart = line.startTime;
-                for (final w in line.line!) {
-                  if (w.word == null || w.word!.isEmpty) continue;
-                  final ws = (w.startTime ?? 0) + lineStart;
-                  final we = ws + (w.duration ?? 0);
-                  words.add(LyricWord(
-                    text: w.word!,
-                    start: Duration(milliseconds: ws),
-                    end: Duration(milliseconds: we),
-                  ));
-                }
-              }
-
-              lines.add(LyricLine(
-                start: Duration(milliseconds: line.startTime),
-                end: Duration(milliseconds: line.startTime + line.duration),
-                text: text,
-                words: words.isNotEmpty ? words : null,
-                translation: transMap[line.startTime],
-              ));
-            }
+            // 构建选定语言的翻译时间戳映射
+            final transMap = _buildTransMap(_selectedLyricLang);
+            final lines = _buildLyricLines(krcModel.krcLyricList, transMap);
 
             if (mounted) {
               if (hash != _lastLoadedHash) return;
@@ -326,6 +301,78 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (mounted) setState(() => _lyricLoading = false);
   }
 
+  // ─── Lyric language toggle ───────────────────────────────────
+
+  /// Build translation map for a single language track.
+  Map<int, String> _buildTransMap(int lang) {
+    final map = <int, String>{};
+    final lines = _lyricLangMap[lang];
+    if (lines == null || _krcLines == null) return map;
+    for (int i = 0;
+        i < _krcLines!.length && i < lines.length; i++) {
+      if (lines[i].isNotEmpty) {
+        map[_krcLines![i].startTime] = lines[i];
+      }
+    }
+    return map;
+  }
+
+  /// Build LyricLine list from raw KRC lines + translation map.
+  List<LyricLine> _buildLyricLines(
+    List<KrcLyricLineModel> krcLines,
+    Map<int, String> transMap,
+  ) {
+    final result = <LyricLine>[];
+    for (final line in krcLines) {
+      String text;
+      try {
+        text = line.getWordLine();
+      } catch (_) {
+        continue;
+      }
+      if (text.trim().isEmpty) continue;
+
+      final words = <LyricWord>[];
+      if (line.line != null) {
+        final lineStart = line.startTime;
+        for (final w in line.line!) {
+          if (w.word == null || w.word!.isEmpty) continue;
+          final ws = (w.startTime ?? 0) + lineStart;
+          final we = ws + (w.duration ?? 0);
+          words.add(LyricWord(
+            text: w.word!,
+            start: Duration(milliseconds: ws),
+            end: Duration(milliseconds: we),
+          ));
+        }
+      }
+
+      result.add(LyricLine(
+        start: Duration(milliseconds: line.startTime),
+        end: Duration(milliseconds: line.startTime + line.duration),
+        text: text,
+        words: words.isNotEmpty ? words : null,
+        translation: transMap[line.startTime],
+      ));
+    }
+    return result;
+  }
+
+  /// Re‑build and reload the lyric model with the other language track.
+  void _applyLyricLang(int lang) {
+    if (_krcLines == null || !_lyricLangMap.containsKey(lang)) return;
+    _selectedLyricLang = lang;
+    final transMap = _buildTransMap(lang);
+    final lines = _buildLyricLines(_krcLines!, transMap);
+    if (mounted) {
+      context.read<PlayerProvider>().loadLyricModel(LyricModel(lines: lines));
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────
+  //  Lyric UI
+  // ────────────────────────────────────────────────────────────
+
   Widget _buildLyricsPage(PlayerProvider player) {
     if (_lyricLoading) {
       return const Center(
@@ -350,9 +397,40 @@ class _PlayerScreenState extends State<PlayerScreen> {
       );
     }
 
-    return LyricView(
-      controller: player.lyricController,
-      style: _lyricStyle,
+    return Stack(
+      children: [
+        LyricView(
+          controller: player.lyricController,
+          style: _lyricStyle,
+        ),
+        // ── 歌词语言切换标签 (翻译 ⇄ 罗马音) ──
+        if (_hasAlternateLang)
+          Positioned(
+            bottom: 8,
+            right: 16,
+            child: GestureDetector(
+              onTap: () {
+                final next = _selectedLyricLang == 0 ? 1 : 0;
+                _applyLyricLang(next);
+                setState(() {});
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _selectedLyricLang == 0 ? '翻译' : '罗马音',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.white70,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
