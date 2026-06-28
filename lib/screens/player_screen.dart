@@ -25,7 +25,6 @@ import '../widgets/player_controls_bar.dart';
 import '../widgets/player_progress_bar.dart';
 import '../widgets/playback_controls.dart' as legacy;
 import '../widgets/login_required_dialog.dart';
-import 'audio_effects_screen.dart';
 
 /// Apple Music-style full player screen with dynamic background,
 /// cover-art / lyrics PageView, and smooth transitions.
@@ -99,9 +98,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Map<int, List<String>> _lyricLangMap = {};
   List<KrcLyricLineModel>? _krcLines;  // raw KRC lines for re‑building
   int _selectedLyricLang = 0; // default: translation
-  bool get _hasAlternateLang =>
-      _lyricLangMap.length > 1 &&
-      _lyricLangMap.values.every((v) => v.isNotEmpty);
+  /// Any language data available (translation and/or transliteration).
+  bool get _hasLangData => _lyricLangMap.isNotEmpty;
 
   // ─── Drag state (progress bar) ───
   bool _isDraggingProgress = false;
@@ -254,7 +252,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
             // 记住原始 KRC lines，供语言切换时重建
             _krcLines = krcModel.krcLyricList;
-            _selectedLyricLang = 0; // default: translation
+            _selectedLyricLang = _lyricLangMap.keys
+                .contains(0) ? 0 : (_lyricLangMap.keys.firstOrNull ?? 0);
 
             // 构建选定语言的翻译时间戳映射
             final transMap = _buildTransMap(_selectedLyricLang);
@@ -373,6 +372,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
   //  Lyric UI
   // ────────────────────────────────────────────────────────────
 
+  String _langLabel(int lang) {
+    switch (lang) {
+      case 0:
+        return '翻译';
+      case 1:
+        return '罗马音';
+      default:
+        return '歌词';
+    }
+  }
+
   Widget _buildLyricsPage(PlayerProvider player) {
     if (_lyricLoading) {
       return const Center(
@@ -404,13 +414,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
           style: _lyricStyle,
         ),
         // ── 歌词语言切换标签 (翻译 ⇄ 罗马音) ──
-        if (_hasAlternateLang)
+        if (_hasLangData)
           Positioned(
             bottom: 8,
             right: 16,
             child: GestureDetector(
               onTap: () {
-                final next = _selectedLyricLang == 0 ? 1 : 0;
+                final keys = _lyricLangMap.keys.toList()..sort();
+                if (keys.isEmpty) return;
+                final cur = keys.indexOf(_selectedLyricLang);
+                final next = keys[(cur + 1) % keys.length];
                 _applyLyricLang(next);
                 setState(() {});
               },
@@ -421,7 +434,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  _selectedLyricLang == 0 ? '翻译' : '罗马音',
+                  _langLabel(_selectedLyricLang),
                   style: const TextStyle(
                     fontSize: 12,
                     color: Colors.white70,
@@ -707,15 +720,33 @@ class _PlayerScreenState extends State<PlayerScreen> {
             },
           ),
         if (song != null) const SizedBox(width: 12),
+
+        // ⚡ 跳转高潮（仅在有高潮标记时显示）
+        if (song != null && player.climaxMs != null) ...[
+          _ActionChip(
+            icon: Icons.bolt,
+            label: '高潮',
+            iconColor: Colors.amberAccent,
+            onTap: () {
+              player.seek(Duration(milliseconds: player.climaxMs!));
+            },
+          ),
+          const SizedBox(width: 12),
+        ],
+
+        // 音效
         _ActionChip(
           icon: Icons.tune_rounded,
           label: '音效',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AudioEffectsScreen()),
-          ),
+          onTap: () => Navigator.pushNamed(context, '/settings/audio/effects'),
         ),
         const SizedBox(width: 12),
+
+        // 播放速度
+        _buildSpeedChip(player),
+        const SizedBox(width: 12),
+
+        // 音质选择
         PopupMenuButton<String>(
           onSelected: (key) => player.setQuality(key),
           itemBuilder: (ctx) {
@@ -748,7 +779,91 @@ class _PlayerScreenState extends State<PlayerScreen> {
             ),
           ),
         ),
+        const SizedBox(width: 12),
+
+        // ⏰ 定时关闭
+        _buildSleepTimerChip(player),
       ],
+    );
+  }
+
+  Widget _buildSpeedChip(PlayerProvider player) {
+    const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+    final current = player.currentSpeed;
+    final label = current == 1.0 ? '倍速' : '${current.toStringAsFixed(2)}x';
+    return _ActionChip(
+      icon: current == 1.0 ? Icons.play_circle_outline : Icons.fast_forward,
+      label: label,
+      onTap: () {
+        final idx = speeds.indexOf(current);
+        final next = speeds[(idx + 1) % speeds.length];
+        player.setSpeed(next);
+      },
+    );
+  }
+
+  Widget _buildSleepTimerChip(PlayerProvider player) {
+    final remaining = player.sleepTimerRemaining;
+    if (remaining != null) {
+      final min = remaining.inMinutes.remainder(60).toString().padLeft(2, '0');
+      final sec = remaining.inSeconds.remainder(60).toString().padLeft(2, '0');
+      return _ActionChip(
+        icon: Icons.timer,
+        label: '$min:$sec',
+        iconColor: Colors.orangeAccent,
+        onTap: _showSleepTimerSheet,
+      );
+    }
+    return _ActionChip(
+      icon: Icons.timer_outlined,
+      label: '定时',
+      onTap: _showSleepTimerSheet,
+    );
+  }
+
+  void _showSleepTimerSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final player = context.read<PlayerProvider>();
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('定时关闭',
+                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 16),
+                _sleepTimerOption(ctx, player, '15 分钟', Duration(minutes: 15)),
+                _sleepTimerOption(ctx, player, '30 分钟', Duration(minutes: 30)),
+                _sleepTimerOption(ctx, player, '45 分钟', Duration(minutes: 45)),
+                _sleepTimerOption(ctx, player, '60 分钟', Duration(minutes: 60)),
+                if (player.sleepTimerRemaining != null)
+                  _sleepTimerOption(ctx, player, '关闭定时', Duration.zero),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _sleepTimerOption(BuildContext ctx, PlayerProvider player, String label, Duration duration) {
+    return ListTile(
+      title: Text(label, style: const TextStyle(color: Colors.white)),
+      onTap: () {
+        if (duration == Duration.zero) {
+          player.cancelSleepTimer();
+        } else {
+          player.setSleepTimer(duration);
+        }
+        Navigator.pop(ctx);
+      },
     );
   }
 
