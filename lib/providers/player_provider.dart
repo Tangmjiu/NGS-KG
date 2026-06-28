@@ -551,6 +551,8 @@ class PlayerProvider extends ChangeNotifier
     }
     // 同步上传开关到引擎
     _engine.uploadHistory = settings.uploadHistory;
+    // 同步淡入设置到引擎
+    _engine.crossfadeMs = settings.crossfadeEnabled ? settings.crossfadeMs : 0;
   }
 
   Future<void> playIndex(int index) async {

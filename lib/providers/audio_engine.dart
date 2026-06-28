@@ -25,6 +25,7 @@ class AudioEngine {
   static const _urlStaleDuration = Duration(minutes: 10);
   int qualityLevel = 0;
   bool uploadHistory = true;
+  int crossfadeMs = 0; // 0 = off, >0 = fade-in duration
   double _speed = 1.0;
   double get speed => _speed;
 
@@ -80,6 +81,10 @@ class AudioEngine {
       } else if (state == ProcessingState.ready) {
         isCompleting.value = false;
         onReady?.call();
+        // 淡入效果：从 0 逐渐升到 1.0
+        if (crossfadeMs > 0) {
+          _startFadeIn();
+        }
       } else if (state == ProcessingState.idle) {
         if (_hasActivePlayback) {
           _hasActivePlayback = false;
@@ -426,6 +431,25 @@ class AudioEngine {
   void setSpeed(double speed) {
     _speed = speed;
     _player.setSpeed(speed);
+  }
+
+  /// 淡入：从静音逐渐升到正常音量
+  void _startFadeIn() {
+    final dur = crossfadeMs;
+    if (dur <= 0) return;
+    final steps = (dur / 50).round().clamp(5, 100);
+    final interval = Duration(milliseconds: dur ~/ steps);
+    _player.setVolume(0.0);
+    double vol = 0.0;
+    Timer.periodic(interval, (timer) {
+      vol += 1.0 / steps;
+      if (vol >= 1.0) {
+        _player.setVolume(1.0);
+        timer.cancel();
+      } else {
+        _player.setVolume(vol);
+      }
+    });
   }
 
   /// 上报播放历史，重试最多 3 次，指数退避

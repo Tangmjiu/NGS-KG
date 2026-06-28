@@ -11,6 +11,8 @@ class AudioSettingsProvider extends ChangeNotifier {
   static const _keyDownload = 'audio_quality_download';
   static const _keySmartMode = 'audio_quality_smart';
   static const _keyUploadHistory = 'audio_upload_history';
+  static const _keyCrossfade = 'audio_crossfade_enabled';
+  static const _keyCrossfadeDuration = 'audio_crossfade_ms';
 
   /// 默认值：WiFi 无损，蜂窝标准，下载无损，智能关
   static const defaultWifi = 'high';
@@ -22,6 +24,8 @@ class AudioSettingsProvider extends ChangeNotifier {
   String _downloadQuality = defaultDownload;
   bool _smartMode = false;
   bool _uploadHistory = true;
+  bool _crossfadeEnabled = false;
+  int _crossfadeMs = 2000;
 
   // ─── Getters ───
 
@@ -30,6 +34,8 @@ class AudioSettingsProvider extends ChangeNotifier {
   String get downloadQuality => _downloadQuality;
   bool get smartMode => _smartMode;
   bool get uploadHistory => _uploadHistory;
+  bool get crossfadeEnabled => _crossfadeEnabled;
+  int get crossfadeMs => _crossfadeMs;
 
   // ─── 初始化 ───
 
@@ -41,6 +47,8 @@ class AudioSettingsProvider extends ChangeNotifier {
       _downloadQuality = prefs.getString(_keyDownload) ?? defaultDownload;
       _smartMode = prefs.getBool(_keySmartMode) ?? false;
       _uploadHistory = prefs.getBool(_keyUploadHistory) ?? true;
+      _crossfadeEnabled = prefs.getBool(_keyCrossfade) ?? false;
+      _crossfadeMs = prefs.getInt(_keyCrossfadeDuration) ?? 2000;
       notifyListeners();
     } catch (e, s) {
       Log.e('AudioSettings', 'init error', e, s);
@@ -82,6 +90,20 @@ class AudioSettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keySmartMode, value);
+  }
+
+  Future<void> setCrossfadeEnabled(bool value) async {
+    _crossfadeEnabled = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyCrossfade, value);
+  }
+
+  Future<void> setCrossfadeMs(int ms) async {
+    _crossfadeMs = ms;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyCrossfadeDuration, ms);
   }
 
   /// 获取当前网络应使用的音质上限
