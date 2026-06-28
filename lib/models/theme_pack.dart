@@ -50,6 +50,20 @@ class FontWeightFiles {
     this.medium,
     this.bold,
   });
+
+  // ── 序列化 ──
+
+  Map<String, dynamic> toJson() => {
+    'regular': regular,
+    'medium': medium,
+    'bold': bold,
+  };
+
+  static FontWeightFiles fromJson(Map<String, dynamic> json) => FontWeightFiles(
+    regular: json['regular'] as String? ?? '',
+    medium: json['medium'] as String?,
+    bold: json['bold'] as String?,
+  );
 }
 
 /// 统一主题包模型
@@ -110,6 +124,101 @@ class ThemePack {
   /// 是否有完整 30 色色板
   bool get hasFullColors => lightScheme != null;
 
+  // ── 序列化 ──
+
+  /// 将主题包序列化为 JSON-compatible map。
+  Map<String, dynamic> toJson() {
+    Map<String, dynamic> componentsJson() => {
+      'navigationBarElevation': components.navigationBarElevation,
+      'cardElevation': components.cardElevation,
+      'dialogElevation': components.dialogElevation,
+    };
+
+    Map<String, double>? shapeJson(Map<String, double>? s) =>
+        s?.map((k, v) => MapEntry(k, v));
+
+    return {
+      'id': id,
+      'name': name,
+      'author': author,
+      'version': version,
+      'description': description,
+      'isBuiltIn': isBuiltIn,
+      'previewPath': previewPath,
+      'assetFiles': assetFiles,
+      'playerBgPath': playerBgPath,
+      'fontFamily': fontFamily,
+      'fontWeightFiles': fontWeightFiles?.toJson(),
+      'shapes': shapeJson(shapes),
+      'motion': {
+        'durationScale': motion.durationScale,
+        'curve': motion.curve,
+      },
+      'components': componentsJson(),
+      if (lightScheme != null)
+        'lightScheme': _serializeColorScheme(lightScheme!),
+      if (darkScheme != null)
+        'darkScheme': _serializeColorScheme(darkScheme!),
+    };
+  }
+
+  /// 从 JSON map 反序列化 ThemePack。
+  /// 用于启动时从磁盘加载已安装的主题。
+  factory ThemePack.fromJson(Map<String, dynamic> json) {
+    Map<String, double>? parseShapes(dynamic s) {
+      if (s == null) return null;
+      return (s as Map<String, dynamic>)
+          .map((k, v) => MapEntry(k, (v as num).toDouble()));
+    }
+
+    return ThemePack(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '未命名主题',
+      author: json['author'] as String? ?? '未知作者',
+      version: json['version'] as int? ?? 1,
+      description: json['description'] as String?,
+      isBuiltIn: json['isBuiltIn'] as bool? ?? false,
+      previewPath: json['previewPath'] as String?,
+      assetFiles: (json['assetFiles'] as Map<String, dynamic>?)
+          ?.cast<String, String>(),
+      playerBgPath: json['playerBgPath'] as String?,
+      fontFamily: json['fontFamily'] as String?,
+      fontWeightFiles: json['fontWeightFiles'] != null
+          ? FontWeightFiles.fromJson(
+              json['fontWeightFiles'] as Map<String, dynamic>)
+          : null,
+      shapes: parseShapes(json['shapes']),
+      motion: json['motion'] != null
+          ? ThemeMotion(
+              durationScale:
+                  (json['motion']['durationScale'] as num?)?.toDouble() ?? 1.0,
+              curve: (json['motion']['curve'] as String?) ?? 'emphasized',
+            )
+          : ThemeMotion.defaults,
+      components: json['components'] != null
+          ? ThemeComponents(
+              navigationBarElevation: (json['components']
+                      ['navigationBarElevation'] as num?)
+                  ?.toDouble() ?? 0,
+              cardElevation:
+                  (json['components']['cardElevation'] as num?)?.toDouble() ??
+                      0,
+              dialogElevation:
+                  (json['components']['dialogElevation'] as num?)?.toDouble() ??
+                      0,
+            )
+          : ThemeComponents.defaults,
+      lightScheme: json['lightScheme'] != null
+          ? _parseColorScheme(
+              json['lightScheme'] as Map<String, dynamic>, Brightness.light)
+          : null,
+      darkScheme: json['darkScheme'] != null
+          ? _parseColorScheme(
+              json['darkScheme'] as Map<String, dynamic>, Brightness.dark)
+          : null,
+    );
+  }
+
   /// UI 覆盖能力清单
   List<String> get featureTags {
     final tags = <String>[];
@@ -121,6 +230,128 @@ class ThemePack {
     if (playerBgPath != null) tags.add('播放器壁纸');
     if (motion.durationScale != 1.0) tags.add('自定义动效');
     return tags;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  序列化
+// ─────────────────────────────────────────────────────────────
+
+/// 将 ColorScheme 序列化为 {属性名 → '#RRGGBB'} 映射。
+Map<String, String> _serializeColorScheme(ColorScheme s) {
+  String colorHex(Color c) =>
+      '#${c.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+  return {
+      'primary': colorHex(s.primary),
+      'onPrimary': colorHex(s.onPrimary),
+      'primaryContainer': colorHex(s.primaryContainer),
+      'onPrimaryContainer': colorHex(s.onPrimaryContainer),
+      'secondary': colorHex(s.secondary),
+      'onSecondary': colorHex(s.onSecondary),
+      'secondaryContainer': colorHex(s.secondaryContainer),
+      'onSecondaryContainer': colorHex(s.onSecondaryContainer),
+      'tertiary': colorHex(s.tertiary),
+      'onTertiary': colorHex(s.onTertiary),
+      'tertiaryContainer': colorHex(s.tertiaryContainer),
+      'onTertiaryContainer': colorHex(s.onTertiaryContainer),
+      'error': colorHex(s.error),
+      'onError': colorHex(s.onError),
+      'errorContainer': colorHex(s.errorContainer),
+      'onErrorContainer': colorHex(s.onErrorContainer),
+      'surface': colorHex(s.surface),
+      'surfaceDim': colorHex(s.surfaceDim),
+      'surfaceBright': colorHex(s.surfaceBright),
+      'surfaceContainerLowest': colorHex(s.surfaceContainerLowest),
+      'surfaceContainerLow': colorHex(s.surfaceContainerLow),
+      'surfaceContainer': colorHex(s.surfaceContainer),
+      'surfaceContainerHigh': colorHex(s.surfaceContainerHigh),
+      'surfaceContainerHighest': colorHex(s.surfaceContainerHighest),
+      'onSurface': colorHex(s.onSurface),
+      'onSurfaceVariant': colorHex(s.onSurfaceVariant),
+      'outline': colorHex(s.outline),
+      'outlineVariant': colorHex(s.outlineVariant),
+      'inverseSurface': colorHex(s.inverseSurface),
+      'inversePrimary': colorHex(s.inversePrimary),
+  };
+}
+
+/// 从 {属性名 → '#RRGGBB'} 映射反序列化 ColorScheme。
+ColorScheme _parseColorScheme(Map<String, dynamic> data, Brightness brightness) {
+  Color c(String key, Color fallback) {
+    final v = data[key] as String?;
+    if (v == null || v.isEmpty) return fallback;
+    final h = v.replaceFirst('#', '');
+    final val = int.tryParse(h, radix: 16);
+    if (val == null) return fallback;
+    return Color(0xFF000000 | val);
+  }
+
+  if (brightness == Brightness.light) {
+    return ColorScheme.light(
+      primary: c('primary', const Color(0xFF2CA1F4)),
+      onPrimary: c('onPrimary', const Color(0xFFFFFFFF)),
+      primaryContainer: c('primaryContainer', const Color(0xFFD2E5FF)),
+      onPrimaryContainer: c('onPrimaryContainer', const Color(0xFF001D35)),
+      secondary: c('secondary', const Color(0xFF565F71)),
+      onSecondary: c('onSecondary', const Color(0xFFFFFFFF)),
+      secondaryContainer: c('secondaryContainer', const Color(0xFFDAE2F9)),
+      onSecondaryContainer: c('onSecondaryContainer', const Color(0xFF131C2B)),
+      tertiary: c('tertiary', const Color(0xFF6E5676)),
+      onTertiary: c('onTertiary', const Color(0xFFFFFFFF)),
+      tertiaryContainer: c('tertiaryContainer', const Color(0xFFF8D8FE)),
+      onTertiaryContainer: c('onTertiaryContainer', const Color(0xFF271430)),
+      error: c('error', const Color(0xFFBA1A1A)),
+      onError: c('onError', const Color(0xFFFFFFFF)),
+      errorContainer: c('errorContainer', const Color(0xFFFFDAD6)),
+      onErrorContainer: c('onErrorContainer', const Color(0xFF410002)),
+      surface: c('surface', const Color(0xFFFDF8FF)),
+      surfaceDim: c('surfaceDim', const Color(0xFFDED8E1)),
+      surfaceBright: c('surfaceBright', const Color(0xFFFDF8FF)),
+      surfaceContainerLowest: c('surfaceContainerLowest', const Color(0xFFFFFFFF)),
+      surfaceContainerLow: c('surfaceContainerLow', const Color(0xFFF7F2FB)),
+      surfaceContainer: c('surfaceContainer', const Color(0xFFF2ECF5)),
+      surfaceContainerHigh: c('surfaceContainerHigh', const Color(0xFFEBE6EF)),
+      surfaceContainerHighest: c('surfaceContainerHighest', const Color(0xFFE0DAE3)),
+      onSurface: c('onSurface', const Color(0xFF1C1B1F)),
+      onSurfaceVariant: c('onSurfaceVariant', const Color(0xFF49454F)),
+      outline: c('outline', const Color(0xFF7A7580)),
+      outlineVariant: c('outlineVariant', const Color(0xFFCAC4CD)),
+      inverseSurface: c('inverseSurface', const Color(0xFF313033)),
+      inversePrimary: c('inversePrimary', const Color(0xFFA9D0FF)),
+    );
+  } else {
+    return ColorScheme.dark(
+      primary: c('primary', const Color(0xFFAAC7FF)),
+      onPrimary: c('onPrimary', const Color(0xFF003258)),
+      primaryContainer: c('primaryContainer', const Color(0xFF00497D)),
+      onPrimaryContainer: c('onPrimaryContainer', const Color(0xFFD2E5FF)),
+      secondary: c('secondary', const Color(0xFFBEC6DC)),
+      onSecondary: c('onSecondary', const Color(0xFF283141)),
+      secondaryContainer: c('secondaryContainer', const Color(0xFF3E4759)),
+      onSecondaryContainer: c('onSecondaryContainer', const Color(0xFFDAE2F9)),
+      tertiary: c('tertiary', const Color(0xFFDBBDE2)),
+      onTertiary: c('onTertiary', const Color(0xFF3D2846)),
+      tertiaryContainer: c('tertiaryContainer', const Color(0xFF553F5D)),
+      onTertiaryContainer: c('onTertiaryContainer', const Color(0xFFF8D8FE)),
+      error: c('error', const Color(0xFFFFB4AB)),
+      onError: c('onError', const Color(0xFF690005)),
+      errorContainer: c('errorContainer', const Color(0xFF93000A)),
+      onErrorContainer: c('onErrorContainer', const Color(0xFFFFDAD6)),
+      surface: c('surface', const Color(0xFF141318)),
+      surfaceDim: c('surfaceDim', const Color(0xFF141318)),
+      surfaceBright: c('surfaceBright', const Color(0xFF3A383E)),
+      surfaceContainerLowest: c('surfaceContainerLowest', const Color(0xFF0E0E13)),
+      surfaceContainerLow: c('surfaceContainerLow', const Color(0xFF1C1B20)),
+      surfaceContainer: c('surfaceContainer', const Color(0xFF201F24)),
+      surfaceContainerHigh: c('surfaceContainerHigh', const Color(0xFF2B292F)),
+      surfaceContainerHighest: c('surfaceContainerHighest', const Color(0xFF36343A)),
+      onSurface: c('onSurface', const Color(0xFFE6E1E6)),
+      onSurfaceVariant: c('onSurfaceVariant', const Color(0xFFCAC4CD)),
+      outline: c('outline', const Color(0xFF948F99)),
+      outlineVariant: c('outlineVariant', const Color(0xFF49454F)),
+      inverseSurface: c('inverseSurface', const Color(0xFFE6E1E6)),
+      inversePrimary: c('inversePrimary', const Color(0xFF00619F)),
+    );
   }
 }
 

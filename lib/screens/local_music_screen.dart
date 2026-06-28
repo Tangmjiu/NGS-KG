@@ -405,7 +405,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                       fontSize: 13,
                       color: Theme.of(context).colorScheme.onSurfaceVariant)),
               const SizedBox(height: 20),
-              FilledButton.tonal.icon(
+              FilledButton.tonal(
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -413,8 +413,14 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                         builder: (_) => const NavidromeLoginScreen()),
                   );
                 },
-                icon: const Icon(Icons.link),
-                label: const Text('连接服务器'),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.link),
+                    SizedBox(width: 8),
+                    Text('连接服务器'),
+                  ],
+                ),
               ),
             ],
           ),

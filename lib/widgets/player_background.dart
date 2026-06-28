@@ -236,6 +236,11 @@ class FlowLightPainter extends CustomPainter {
   final double elapsed; // seconds since widget creation, never resets
   final int blobLimit; // max blobs to draw (auto-throttling)
 
+  /// Reference screen width (logical pixels) used as baseline for speed.
+  /// Frequencies are scaled by [kBaseWidth] / actual width so blob drift
+  /// speed in pixels/second is consistent across phone/tablet/desktop.
+  static const double kBaseWidth = 360;
+
   const FlowLightPainter({
     required this.colors,
     required this.elapsed,
@@ -251,6 +256,8 @@ class FlowLightPainter extends CustomPainter {
     const anchorY = [0.30, 0.25, 0.70, 0.50, 0.50, 0.30, 0.75, 0.70];
     const wander  = [0.15, 0.15, 0.25, 0.20, 0.20, 0.25, 0.15, 0.15];
 
+    // Base frequencies for a phone-sized screen (≈ 360 logical pixels).
+    // These are scaled by speedScale below so large screens don't look faster.
     const freqsX = [2.1, 1.3, 0.9, 1.8, 0.6, 2.7, 0.3, 3.5];
     const freqsY = [1.7, 2.3, 1.1, 0.8, 1.9, 0.5, 2.8, 0.2];
     const freqsR = [0.9, 0.7, 1.3, 1.1, 0.6, 1.5, 1.2, 0.4];
@@ -259,6 +266,13 @@ class FlowLightPainter extends CustomPainter {
     // Higher opacity and tighter blur so each colour stands out clearly.
     const alphas = [0.45, 0.30, 0.35, 0.40, 0.32, 0.38, 0.42, 0.30];
 
+    // ── Screen-size-aware speed scaling ──────────────────────────
+    // Blob displacement = sin(t × freq) × wander × size.width
+    // On a wider screen the same angular velocity produces a larger
+    // pixel displacement per second, making the animation look faster.
+    // We compensate by scaling frequencies inversely to screen width.
+    final speedScale = kBaseWidth / size.width;
+
     // Normalize elapsed to reduce floating-point precision loss in sin/cos
     // for long playback sessions.  Period is 2π, so values above 2π are
     // redundant for trigonometric functions.
@@ -266,17 +280,22 @@ class FlowLightPainter extends CustomPainter {
         (v) => v % (2 * pi);
 
     for (int i = 0; i < count; i++) {
-      // t = elapsed seconds × frequency — wrap to [0, 2π) for precision
-      final t = _wrap(elapsed * freqsX[i] + phases[i]);
+      // t = elapsed × frequency × speedScale — wrap to [0, 2π) for precision
+      final t = _wrap(elapsed * freqsX[i] * speedScale + phases[i]);
 
-      // Each blob sits at its anchor and swims around it
+      // Each blob sits at its anchor and swims around it.
+      // Y frequency also scaled so the Lissajous shape stays correct.
       final x = (sin(t) * wander[i] + anchorX[i]) * size.width;
-      final y = (cos(t * freqsY[i] / freqsX[i]) * wander[i] + anchorY[i]) *
-          size.height;
+      final y =
+          (cos(t * freqsY[i] / freqsX[i]) * wander[i] + anchorY[i]) * size.height;
 
-      // Radius — larger static core + gentle pulse
+      // Radius — larger static core + gentle pulse, pulse speed also scaled
       final r = size.width *
-          (0.18 + 0.12 * (sin(_wrap(elapsed * freqsR[i] + phases[i])) * 0.5 + 0.5));
+          (0.18 +
+              0.12 *
+                  (sin(_wrap(elapsed * freqsR[i] * speedScale + phases[i])) *
+                          0.5 +
+                      0.5));
 
       // Soft but not mushy — blur is moderate so each blob keeps a core
       final paint = Paint()

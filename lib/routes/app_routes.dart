@@ -21,6 +21,12 @@ import '../screens/album_detail_screen.dart';
 // MV: import '../screens/mv_player_screen.dart';
 import '../screens/recommended_playlists_screen.dart';
 import '../screens/playlist_category_screen.dart';
+import '../screens/api_settings_screen.dart';
+import '../screens/theme_settings_screen.dart';
+import '../screens/theme_market_screen.dart';
+import '../screens/audio_effects_screen.dart';
+import '../screens/about_screen.dart';
+import '../screens/log_viewer_screen.dart';
 
 class AppRoutes {
   static const String home = '/';
@@ -46,6 +52,12 @@ class AppRoutes {
   // MV: static const String mv = '/mv';
   static const String recommendedPlaylists = '/recommended/playlists';
   static const String playlistCategory = '/playlist/category';
+  static const String apiSettings = '/settings/api';
+  static const String themeSettings = '/settings/theme';
+  static const String themeMarket = '/settings/theme/market';
+  static const String audioEffects = '/settings/audio/effects';
+  static const String about = '/about';
+  static const String logViewer = '/settings/developer/log';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -150,6 +162,23 @@ class AppRoutes {
             categoryName: categoryName,
           ),
         );
+      case AppRoutes.apiSettings:
+        return MaterialPageRoute(
+            builder: (_) => const ApiSettingsScreen());
+      case AppRoutes.themeSettings:
+        return MaterialPageRoute(
+            builder: (_) => const ThemeSettingsScreen());
+      case AppRoutes.themeMarket:
+        return MaterialPageRoute(
+            builder: (_) => const ThemeMarketScreen());
+      case AppRoutes.audioEffects:
+        return MaterialPageRoute(
+            builder: (_) => const AudioEffectsScreen());
+      case AppRoutes.about:
+        return MaterialPageRoute(builder: (_) => const AboutScreen());
+      case AppRoutes.logViewer:
+        return MaterialPageRoute(
+            builder: (_) => const LogViewerScreen());
       default:
         return _fallback();
     }

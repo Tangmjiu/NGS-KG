@@ -81,6 +81,9 @@ class PlayerProvider extends ChangeNotifier
   PlayMode get playMode => _queue.playMode;
   int get qualityLevel => _qualityLevel;
 
+  /// 当前播放速度（0.5x ~ 2.0x）
+  double get currentSpeed => _engine.speed;
+
   /// 最终解析到的音质 key（如 'flac', '320'）
   /// 由 AudioEngine 在播放成功后设置
   String? get resolvedQuality => _engine.resolvedQuality;
@@ -331,6 +334,7 @@ class PlayerProvider extends ChangeNotifier
       await prefs.setInt(_keySavedPosition, _position.inMilliseconds);
       await prefs.setString(_keySavedPlayMode, _queue.playMode.name);
       await prefs.setInt(_keySavedQuality, _qualityLevel);
+      await prefs.setDouble('playback_saved_speed', _engine.speed);
       // 保存 filePath 用于本地歌曲恢复
       await prefs.setString(
           'playback_saved_file_path', song.filePath ?? '');
@@ -433,6 +437,11 @@ class PlayerProvider extends ChangeNotifier
       if (mode != null) _queue.setPlayMode(mode);
       // 应用音质设置 & uploadHistory 开关（覆盖引擎默认值）
       _applyQualityFromSettings();
+      // 恢复播放速度
+      final savedSpeed = prefs.getDouble('playback_saved_speed');
+      if (savedSpeed != null && savedSpeed > 0) {
+        _engine.setSpeed(savedSpeed);
+      }
       notifyListeners();
     } catch (_) {}
   }

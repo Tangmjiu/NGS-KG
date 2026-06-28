@@ -14,13 +14,7 @@ import '../services/api_config.dart';
 import '../services/cache_service.dart';
 import '../services/device_service.dart';
 import '../utils/logger.dart';
-import 'log_viewer_screen.dart';
-import 'audio_effects_screen.dart';
 import 'audio_quality_screen.dart';
-import 'api_settings_screen.dart';
-import 'theme_settings_screen.dart';
-import 'theme_market_screen.dart';
-import 'about_screen.dart';
 import '../widgets/support_me_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -93,10 +87,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('API 服务器'),
             subtitle: const Text('选择服务器路线或自定义地址'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ApiSettingsScreen()),
-            ),
+            onTap: () => Navigator.pushNamed(context, '/settings/api'),
           ),
           const Divider(),
 
@@ -107,20 +98,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('主题设置'),
             subtitle: const Text('主题模式、强调色、动态取色'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ThemeSettingsScreen()),
-            ),
+            onTap: () => Navigator.pushNamed(context, '/settings/theme'),
           ),
           ListTile(
             leading: const Icon(Icons.storefront_outlined),
             title: const Text('主题市场'),
             subtitle: const Text('发现、下载、应用社区主题'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ThemeMarketScreen()),
-            ),
+            onTap: () => Navigator.pushNamed(context, '/settings/theme/market'),
           ),
           Consumer<ThemeProvider>(
             builder: (_, tp, __) => SwitchListTile(
@@ -140,10 +125,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('音效'),
             subtitle: const Text('音量、播放速度、均衡器'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AudioEffectsScreen()),
-            ),
+            onTap: () => Navigator.pushNamed(context, '/settings/audio/effects'),
           ),
           ListTile(
             leading: const Icon(Icons.speed),
@@ -179,10 +161,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('关于 NGS-KG+'),
             subtitle: Text('版本 $_appVersion${PreviewConfig.enabled ? ' · preview' : ''} · 开源声明'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AboutScreen()),
-            ),
+            onTap: () => Navigator.pushNamed(context, '/about'),
           ),
           ListTile(
             leading: const Icon(Icons.favorite_outline),
@@ -362,10 +341,7 @@ class _DeveloperScreenState extends State<DeveloperScreen> {
             title: const Text('输出日志'),
             subtitle: const Text('实时查看完整日志'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const LogViewerScreen()),
-            ),
+            onTap: () => Navigator.pushNamed(context, '/settings/developer/log'),
           ),
         ],
       ),

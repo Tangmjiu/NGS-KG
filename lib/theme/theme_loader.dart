@@ -201,10 +201,7 @@ class ThemeLoader {
       await File(previewPath).writeAsBytes(previewEntry.content);
     }
 
-    // 记录已导入
-    await _recordImported(_themeId(fileName));
-
-    return ThemePack(
+    final pack = ThemePack(
       id: _themeId(fileName),
       name: name,
       author: author,
@@ -222,6 +219,48 @@ class ThemeLoader {
       assetFiles: assetFiles.isNotEmpty ? assetFiles : null,
       playerBgPath: playerBgPath,
     );
+
+    // ── 保存 manifest.json（路径用相对路径，重启后可移植） ──
+    try {
+      final basePath = appDir.path;
+      String toRelative(String p) =>
+          p.startsWith(basePath) ? p.substring(basePath.length + 1) : p;
+
+      final manifestMap = pack.toJson();
+      // 转换 assetFiles 为相对路径
+      if (manifestMap['assetFiles'] != null) {
+        final af = manifestMap['assetFiles'] as Map<String, dynamic>;
+        manifestMap['assetFiles'] = af.map((k, v) =>
+            MapEntry(k, toRelative(v as String)));
+      }
+      // 转换 previewPath
+      if (manifestMap['previewPath'] != null && (manifestMap['previewPath'] as String).isNotEmpty) {
+        manifestMap['previewPath'] = toRelative(manifestMap['previewPath'] as String);
+      }
+      // 转换 playerBgPath
+      if (manifestMap['playerBgPath'] != null && (manifestMap['playerBgPath'] as String).isNotEmpty) {
+        manifestMap['playerBgPath'] = toRelative(manifestMap['playerBgPath'] as String);
+      }
+      // 转换 fontWeightFiles 路径
+      if (manifestMap['fontWeightFiles'] != null) {
+        final fwf = manifestMap['fontWeightFiles'] as Map<String, dynamic>;
+        for (final k in ['regular', 'medium', 'bold']) {
+          if (fwf[k] != null && (fwf[k] as String).isNotEmpty) {
+            fwf[k] = toRelative(fwf[k] as String);
+          }
+        }
+      }
+
+      final savedJson = jsonEncode(manifestMap);
+      await File('${basePath}/manifest.json').writeAsString(savedJson);
+    } catch (e, s) {
+      Log.w('ThemeLoader', 'Failed to save theme manifest', e, s);
+    }
+
+    // 记录已导入
+    await _recordImported(_themeId(fileName));
+
+    return pack;
   }
 
   // ─── 已导入主题管理 ───
@@ -252,6 +291,70 @@ class ThemeLoader {
       await prefs.setStringList(_themesPrefsKey, list);
     } catch (e, s) {
       Log.e('ThemeLoader', 'deleteTheme error', e, s);
+    }
+  }
+
+  /// 从磁盘加载之前安装的主题包。
+  ///
+  /// 读取 [id] 对应目录下的 manifest.json（由 [parseZipBytes] 保存），
+  /// 反序列化为 ThemePack，并将 manifest 中的相对路径解析为绝对路径。
+  /// 如果 manifest 不存在或解析失败返回 null。
+  static Future<ThemePack?> loadPackFromDisk(String id) async {
+    try {
+      final dir = await _getThemeDir(id);
+      final manifestFile = File('${dir.path}/manifest.json');
+      if (!await manifestFile.exists()) return null;
+      final data = jsonDecode(await manifestFile.readAsString())
+          as Map<String, dynamic>;
+      final pack = ThemePack.fromJson(data);
+
+      // 解析相对路径 → 绝对路径
+      String resolve(String? p) =>
+          (p != null && p.isNotEmpty && !p.startsWith('/') && !p.contains(':\\'))
+              ? '${dir.path}/$p'
+              : (p ?? '');
+
+      final resolvedAssets = pack.assetFiles?.map((k, v) =>
+          MapEntry(k, resolve(v)));
+
+      FontWeightFiles? resolvedFonts;
+      if (pack.fontWeightFiles != null) {
+        resolvedFonts = FontWeightFiles(
+          regular: resolve(pack.fontWeightFiles!.regular),
+          medium: pack.fontWeightFiles!.medium != null
+              ? resolve(pack.fontWeightFiles!.medium)
+              : null,
+          bold: pack.fontWeightFiles!.bold != null
+              ? resolve(pack.fontWeightFiles!.bold)
+              : null,
+        );
+      }
+
+      return ThemePack(
+        id: pack.id,
+        name: pack.name,
+        author: pack.author,
+        version: pack.version,
+        description: pack.description,
+        isBuiltIn: pack.isBuiltIn,
+        previewPath: resolve(pack.previewPath).isNotEmpty
+            ? resolve(pack.previewPath)
+            : null,
+        lightScheme: pack.lightScheme,
+        darkScheme: pack.darkScheme,
+        fontFamily: pack.fontFamily,
+        fontWeightFiles: resolvedFonts,
+        shapes: pack.shapes,
+        motion: pack.motion,
+        components: pack.components,
+        assetFiles: resolvedAssets,
+        playerBgPath: resolve(pack.playerBgPath).isNotEmpty
+            ? resolve(pack.playerBgPath)
+            : null,
+      );
+    } catch (e, s) {
+      Log.e('ThemeLoader', 'Failed to load theme $id from disk', e, s);
+      return null;
     }
   }
 

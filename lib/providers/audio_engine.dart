@@ -25,6 +25,8 @@ class AudioEngine {
   static const _urlStaleDuration = Duration(minutes: 10);
   int qualityLevel = 0;
   bool uploadHistory = true;
+  double _speed = 1.0;
+  double get speed => _speed;
 
   /// 最终解析出的音质 key（MoeKoeMusic 风格：记录实际可用的最高级别）
   final ValueNotifier<String?> resolvedQualityNotifier = ValueNotifier(null);
@@ -422,6 +424,7 @@ class AudioEngine {
   }
 
   void setSpeed(double speed) {
+    _speed = speed;
     _player.setSpeed(speed);
   }
 

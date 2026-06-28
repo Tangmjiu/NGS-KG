@@ -19,7 +19,7 @@ class PlaylistCategoryScreen extends StatefulWidget {
 }
 
 class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
-  late final MusicService _musicService = context.read<MusicService>();
+  late final MusicService _musicService;
   final List<Playlist> _playlists = [];
   bool _loading = true;
   bool _hasMore = true;
@@ -29,6 +29,7 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
   @override
   void initState() {
     super.initState();
+    _musicService = context.read<MusicService>();
     _loadPlaylists();
   }
 

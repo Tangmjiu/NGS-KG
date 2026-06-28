@@ -8,6 +8,7 @@ import '../utils/logger.dart';
 import '../models/theme_pack.dart';
 import '../theme/theme_loader.dart';
 import '../theme/theme_assets.dart';
+import '../services/market_service.dart';
 import '../utils/theme.dart';
 
 /// 预设主题色定义
@@ -137,10 +138,43 @@ class ThemeProvider extends ChangeNotifier {
       _selectedPackId = prefs.getString(_keySelectedPack) ?? 'ngs_nagisa';
       _flowLightEnabled = prefs.getBool(_keyFlowLight) ?? false;
 
-      // 确保选中包存在于列表中
+      // ─── 从磁盘加载已安装的主题包 ───
+      final installedIds = await ThemeLoader.getImportedThemeIds();
+      for (final id in installedIds) {
+        if (_packs.any((p) => p.id == id)) continue;
+        try {
+          final pack = await ThemeLoader.loadPackFromDisk(id);
+          if (pack != null) {
+            _packs.add(pack);
+          } else {
+            await ThemeLoader.deleteTheme(id);
+            try { await MarketService.uninstallTheme(id); } catch (_) {}
+          }
+        } catch (e, s) {
+          Log.e('ThemeProvider', 'Failed to load theme $id from disk', e, s);
+          await ThemeLoader.deleteTheme(id);
+          try { await MarketService.uninstallTheme(id); } catch (_) {}
+        }
+      }
+
+      // ─── 同步市场安装记录：清理被孤立的市场记录 ───
+      try {
+        final marketIds = await MarketService.getInstalledIds();
+        final remaining = _packs.map((p) => p.id).toSet();
+        for (final id in marketIds) {
+          if (!remaining.contains(id)) {
+            await MarketService.uninstallTheme(id);
+          }
+        }
+      } catch (_) {}
+
+      // 确保选中包存在于列表中（可能在加载已安装主题后变更）
       if (!_packs.any((p) => p.id == _selectedPackId)) {
         _selectedPackId = 'ngs_nagisa';
       }
+
+      // 应用当前主题包的资源路径到 ThemeAssets
+      _applyPackAssets();
 
       // ─── 加载自定义字体 ───
       unawaited(_loadFontsForPack(currentPack));
@@ -207,6 +241,10 @@ class ThemeProvider extends ChangeNotifier {
     );
     if (pack.isBuiltIn) return; // 不能删内置包
     await ThemeLoader.deleteTheme(packId);
+    // 同步清除市场安装记录，防止市场页面仍显示"已安装"
+    try {
+      await MarketService.uninstallTheme(packId);
+    } catch (_) {}
     _packs.removeWhere((p) => p.id == packId);
     if (_selectedPackId == packId) {
       _selectedPackId = 'ngs_nagisa';
@@ -222,6 +260,10 @@ class ThemeProvider extends ChangeNotifier {
       ThemeAssets.loadFromThemePack(pack);
     } else {
       ThemeAssets.resetToDefault();
+      // playerBg 不依赖 assetFiles，reset 后需重新应用
+      if (pack.playerBgPath != null) {
+        ThemeAssets.playerBg = pack.playerBgPath!;
+      }
     }
   }
 
@@ -381,11 +423,18 @@ class ThemeProvider extends ChangeNotifier {
 
   ThemeData buildLightTheme(BuildContext context, {ColorScheme? dynamicScheme}) {
     final scheme = _resolveScheme(Brightness.light, dynamicScheme: dynamicScheme);
-    return buildThemeData(scheme, currentPack, hasGlobalBg: currentPack.playerBgPath != null);
+    return buildThemeData(scheme, currentPack, hasGlobalBg: _hasValidBg);
   }
 
   ThemeData buildDarkTheme(BuildContext context, {ColorScheme? dynamicScheme}) {
     final scheme = _resolveScheme(Brightness.dark, dynamicScheme: dynamicScheme);
-    return buildThemeData(scheme, currentPack, hasGlobalBg: currentPack.playerBgPath != null);
+    return buildThemeData(scheme, currentPack, hasGlobalBg: _hasValidBg);
+  }
+
+  /// 是否有有效的背景图文件（路径不为空且文件存在）
+  bool get _hasValidBg {
+    final path = currentPack.playerBgPath;
+    if (path == null || path.isEmpty) return false;
+    return File(path).existsSync();
   }
 }
