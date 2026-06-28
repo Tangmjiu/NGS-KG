@@ -113,7 +113,7 @@ class EqualizerHelper(context: Context, audioSessionId: Int) {
     }
 
     /** 获取频段数量 */
-    fun getNumberOfBands(): Int = equalizer.numberOfBands
+    fun getNumberOfBands(): Short = equalizer.numberOfBands
 
     /** 获取指定频段的中心频率（毫赫兹 mHz） */
     fun getCenterFreq(band: Int): Int = equalizer.getCenterFreq(band.toShort())
@@ -141,6 +141,7 @@ class EqualizerHelper(context: Context, audioSessionId: Int) {
  * 活跃的 Equalizer 实例，避免竞态。
  */
 private object EqualizerHolder {
+    private const val TAG = "EqualizerHelper.Holder"
     private var instance: Equalizer? = null
     private var sessionId: Int = -1
 
