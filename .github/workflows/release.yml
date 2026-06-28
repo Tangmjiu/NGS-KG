@@ -71,6 +71,11 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      # ═══ Use official Gradle mirror (Tencent mirror times out in CI) ═══
+      - name: Use official Gradle distribution for CI
+        run: |
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
+
       # ── Build release APK (split-per-abi) ──
       - name: Build release APK
         run: flutter build apk --release --split-per-abi

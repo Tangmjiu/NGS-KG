@@ -64,6 +64,11 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      # ═══ Use official Gradle mirror (Tencent mirror times out in CI) ═══
+      - name: Use official Gradle distribution for CI
+        run: |
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
+
       # ── Build debug APK (仅 arm64-v8a，加快 CI 速度) ──
       - name: Build debug APK
         run: flutter build apk --debug --target-platform android-arm64
