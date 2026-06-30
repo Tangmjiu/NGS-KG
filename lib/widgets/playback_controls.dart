@@ -104,7 +104,7 @@ class PlaybackControls extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.5,
+        initialChildSize: 0.8,
         minChildSize: 0.3,
         maxChildSize: 0.85,
         expand: false,
