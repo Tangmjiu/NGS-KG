@@ -444,7 +444,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       case 0:
         return '翻译';
       case 1:
-        return '罗马�?;
+        return '罗马音';
       default:
         return '歌词';
     }
@@ -503,7 +503,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
       child: Row(
-      children: [
+        children: [
           // [词] source badge (点击打开歌词设置)
           GestureDetector(
             onTap: _showLyricSettingsSheet,
@@ -528,25 +528,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           fontSize: 10,
                           color: Colors.white38,
                           height: 1.2)),
-                ],
-              ),
-            ),
-          ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('�?,
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white54,
-                        height: 1.2)),
-                const SizedBox(width: 4),
-                Text(source,
-                    style: const TextStyle(
-                        fontSize: 10,
-                        color: Colors.white38,
-                        height: 1.2)),
                 ],
               ),
             ),
@@ -893,7 +874,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             final liked = lp.likedIds.contains(song.id);
             return _IconBarItem(
               icon: liked ? Icons.favorite : Icons.favorite_border,
-              label: liked ? '已收�? : '收藏',
+              label: liked ? '已收藏' : '收藏',
               iconColor: liked ? Colors.redAccent : null,
               onTap: () async {
                 final auth = context.read<AuthProvider>();
