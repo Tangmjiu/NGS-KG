@@ -168,26 +168,46 @@ class _SearchScreenState extends State<SearchScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: TextField(
-          controller: _searchCtrl,
-          focusNode: _focusNode,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: '搜索歌曲、歌单、歌手...',
-            border: InputBorder.none,
-            suffixIcon: _searchCtrl.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
-                    tooltip: '清除',
-                    onPressed: () {
-                      _searchCtrl.clear();
-                      _onSearchChanged('');
-                    },
-                  )
-                : null,
+        title: Container(
+          height: 40,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(20),
           ),
-          onChanged: _onSearchChanged,
-          onSubmitted: _doSearch,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: TextField(
+            controller: _searchCtrl,
+            focusNode: _focusNode,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: '搜索歌曲、歌单、歌手...',
+              border: InputBorder.none,
+              isCollapsed: true,
+              contentPadding: EdgeInsets.zero,
+              prefixIcon: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(Icons.search, size: 20,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+              suffixIcon: _searchCtrl.text.isNotEmpty
+                  ? SizedBox(
+                      width: 28,
+                      child: IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        tooltip: '清除',
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          _onSearchChanged('');
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    )
+                  : null,
+            ),
+            onChanged: _onSearchChanged,
+            onSubmitted: _doSearch,
+          ),
         ),
         bottom: _showResult
             ? TabBar(

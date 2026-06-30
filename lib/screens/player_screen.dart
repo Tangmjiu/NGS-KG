@@ -15,7 +15,6 @@ import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../providers/liked_songs_provider.dart';
 import '../providers/auth_provider.dart';
-import '../providers/theme_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../constants/quality.dart';
@@ -36,40 +35,40 @@ class PlayerScreen extends StatefulWidget {
 }
 
 class _PlayerScreenState extends State<PlayerScreen> {
-  // ─── LyricView 样式（Apple Music 风格） ───
+  // ─── LyricView 样式（沉浸暗色风格） ───
   static final _lyricStyle = LyricStyle(
     textStyle: const TextStyle(
       fontSize: 16,
-      fontWeight: FontWeight.w400,
-      height: 1.4,
-      color: Colors.white54,
+      fontWeight: FontWeight.w300,
+      height: 1.6,
+      color: Color(0xFFB0A8C0), // 灰紫
     ),
     activeStyle: const TextStyle(
       fontSize: 24,
       fontWeight: FontWeight.w600,
       height: 1.4,
-      color: Colors.white38,
+      color: Colors.white,
     ),
     translationStyle: const TextStyle(
       fontSize: 14,
       fontWeight: FontWeight.w300,
-      height: 1.2,
-      color: Colors.white38,
+      height: 1.3,
+      color: Color(0xFF8A7FA0), // 淡紫
     ),
-    translationActiveColor: Colors.white60,
-    lineGap: 20,
+    translationActiveColor: Colors.white70,
+    lineGap: 24,
     translationLineGap: 4,
     lineTextAlign: TextAlign.left,
     contentAlignment: CrossAxisAlignment.start,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 28),
     selectionAnchorPosition: 0.5,
     selectionAlignment: MainAxisAlignment.center,
     activeAnchorPosition: 0.5,
     activeAlignment: MainAxisAlignment.center,
     activeHighlightColor: Colors.white,
     activeHighlightExtraFadeWidth: 14,
-    selectedColor: Colors.white38,
-    selectedTranslationColor: Colors.white38,
+    selectedColor: const Color(0xFF8A7FA0),
+    selectedTranslationColor: const Color(0xFF8A7FA0),
     scrollDuration: const Duration(milliseconds: 400),
     scrollCurve: Curves.easeInOutCubic,
     scrollDurations: {},
@@ -182,6 +181,54 @@ class _PlayerScreenState extends State<PlayerScreen> {
       context.read<PlayerProvider>().removeListener(_onPlayerTick);
     } catch (_) {}
     super.dispose();
+  }
+
+  // ─── Speech bubble helper for ⋮ menu items — shows a bottom sheet ──
+
+  void _showSleepTimerSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final player = context.read<PlayerProvider>();
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('定时关闭',
+                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 16),
+                _sleepTimerOption(ctx, player, '15 分钟', const Duration(minutes: 15)),
+                _sleepTimerOption(ctx, player, '30 分钟', const Duration(minutes: 30)),
+                _sleepTimerOption(ctx, player, '45 分钟', const Duration(minutes: 45)),
+                _sleepTimerOption(ctx, player, '60 分钟', const Duration(minutes: 60)),
+                if (player.sleepTimerRemaining != null)
+                  _sleepTimerOption(ctx, player, '关闭定时', Duration.zero),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _sleepTimerOption(BuildContext ctx, PlayerProvider player, String label, Duration duration) {
+    return ListTile(
+      title: Text(label, style: const TextStyle(color: Colors.white)),
+      onTap: () {
+        if (duration == Duration.zero) {
+          player.cancelSleepTimer();
+        } else {
+          player.setSleepTimer(duration);
+        }
+        Navigator.pop(ctx);
+      },
+    );
   }
 
   // ────────────────────────────────────────────────────────────
@@ -383,18 +430,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
-  Widget _buildLyricsPage(PlayerProvider player) {
-    if (_lyricLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white70),
-      );
-    }
-
+  Widget _buildLyricsPage(PlayerProvider player, Song song) {
     final model = player.lyricController.lyricNotifier.value;
     final hasLyrics = model != null && model.lines.isNotEmpty;
 
-    if (!hasLyrics) {
-      return Center(
+    Widget lyricsContent;
+    if (_lyricLoading) {
+      lyricsContent = const Center(
+        child: CircularProgressIndicator(color: Colors.white70),
+      );
+    } else if (!hasLyrics) {
+      lyricsContent = Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -405,20 +451,68 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ],
         ),
       );
+    } else {
+      lyricsContent = LyricView(
+        controller: player.lyricController,
+        style: _lyricStyle,
+      );
     }
 
-    return Stack(
+    return Column(
       children: [
-        LyricView(
-          controller: player.lyricController,
-          style: _lyricStyle,
-        ),
-        // ── 歌词语言切换标签 (翻译 ⇄ 罗马音) ──
-        if (_hasLangData)
-          Positioned(
-            bottom: 8,
-            right: 16,
-            child: GestureDetector(
+        // Header (same as cover page)
+        _buildPageHeader(song),
+
+        // Lyrics area
+        Expanded(child: lyricsContent),
+
+        // Footer: source badge + language toggle
+        _buildLyricsFooter(),
+      ],
+    );
+  }
+
+  Widget _buildLyricsFooter() {
+    // Determine source label
+    // Default to KUGOU; could check song.path for local, Navidrome flag etc.
+    String source = 'KUGOU';
+    // TODO: detect source — LOCAL if local file, NAVIDROME if from Navidrome
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+      child: Row(
+        children: [
+          // [词] source badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('词',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white54,
+                        height: 1.2)),
+                const SizedBox(width: 4),
+                Text(source,
+                    style: const TextStyle(
+                        fontSize: 10,
+                        color: Colors.white38,
+                        height: 1.2)),
+              ],
+            ),
+          ),
+
+          const Spacer(),
+
+          // Language toggle (only when KRC has lang data)
+          if (_hasLangData)
+            GestureDetector(
               onTap: () {
                 final keys = _lyricLangMap.keys.toList()..sort();
                 if (keys.isEmpty) return;
@@ -428,22 +522,31 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 setState(() {});
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text(
-                  _langLabel(_selectedLyricLang),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.white70,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _langLabel(_selectedLyricLang),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white54,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    const Icon(Icons.arrow_forward_ios,
+                        size: 10, color: Colors.white38),
+                  ],
                 ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -465,7 +568,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
           );
         }
 
-        final flowEnabled = context.watch<ThemeProvider>().flowLightEnabled;
         return Scaffold(
           backgroundColor: Colors.black,
           body: Stack(
@@ -487,97 +589,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       child: PageView(
                         controller: _pageController,
                         children: [
-                          // Page 0: Cover art
-                          PlayerCoverArt(
-                            song: song,
-                            scrollOffset: _pageOffset,
-                          ),
-                          // Page 1: Lyrics
-                          _buildLyricsPage(player),
+                          // Page 0: Cover + controls
+                          _buildCoverPage(player, song),
+                          // Page 1: Immersive lyrics
+                          _buildLyricsPage(player, song),
                         ],
-                      ),
-                    ),
-
-                    // ── 底部控制区（自适应高度，防止溢出） ──
-                    Flexible(
-                      flex: 0,
-                      child: SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // ── Song info ──
-                            _buildSongInfo(song),
-
-                            // ── Progress bar ──
-                            PlayerProgressBar(
-                              position: player.position,
-                              duration: player.duration,
-                              progress: _isDraggingProgress
-                                  ? _dragProgressValue
-                                  : (player.progress.isFinite ? player.progress : 0.0),
-                              climaxPosition: player.climaxMs,
-                              onDragStart: () {
-                                setState(() => _isDraggingProgress = true);
-                                final pos = Duration(
-                                  milliseconds:
-                                      (_dragProgressValue * player.duration.inMilliseconds)
-                                          .round(),
-                                );
-                                player.lyricController.setProgress(pos);
-                              },
-                              onDragEnd: () async {
-                                await player.seek(Duration(
-                                  milliseconds: (_dragProgressValue *
-                                          player.duration.inMilliseconds)
-                                      .round(),
-                                ));
-                                if (mounted) {
-                                  setState(() => _isDraggingProgress = false);
-                                }
-                              },
-                              onSeek: (v) {
-                                _dragProgressValue = v;
-                                if (_isDraggingProgress) {
-                                  final pos = Duration(
-                                    milliseconds:
-                                        (v * player.duration.inMilliseconds).round(),
-                                  );
-                                  player.lyricController.setProgress(pos);
-                                }
-                              },
-                            ),
-                            const SizedBox(height: 12),
-
-                            // ── Playback controls ──
-                            PlayerControlsBar(
-                              isPlaying: player.isPlaying,
-                              isLoading: player.isLoading,
-                              onPlayPause: player.togglePlayPause,
-                              onPrevious: player.playPrevious,
-                              onNext: player.playNext,
-                              playMode: player.playMode,
-                              onModeToggle: () {
-                                const modes = [
-                                  PlayMode.sequential,
-                                  PlayMode.shuffle,
-                                  PlayMode.repeatOne,
-                                ];
-                                final next = modes[
-                                    (modes.indexOf(player.playMode) + 1) %
-                                        modes.length];
-                                player.setPlayMode(next);
-                              },
-                              onShowPlaylist: () =>
-                                  legacy.PlaybackControls.showPlaylistStatic(
-                                      context, player),
-                            ),
-                            const SizedBox(height: 8),
-
-                            // ── Bottom actions ──
-                            _buildBottomActions(),
-                            SizedBox(height: MediaQuery.of(context).padding.bottom + 4),
-                          ],
-                        ),
                       ),
                     ),
                   ],
@@ -593,8 +609,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   // ── Top bar ──
 
   Widget _buildTopBar() {
+    final player = context.watch<PlayerProvider>();
+    const speeds = [1.0, 0.5, 0.75, 1.25, 1.5, 2.0];
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       child: Row(
         children: [
           IconButton(
@@ -604,73 +622,90 @@ class _PlayerScreenState extends State<PlayerScreen> {
             onPressed: () => Navigator.pop(context),
           ),
           const Spacer(),
-          // Page indicator dots
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _PageDot(active: _pageOffset < 0.5),
-              const SizedBox(width: 6),
-              _PageDot(active: _pageOffset >= 0.5),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white, size: 24),
+            color: Colors.grey[900],
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onSelected: (value) {
+              switch (value) {
+                case 'speed':
+                  final idx = speeds.indexOf(player.currentSpeed);
+                  final next = speeds[(idx + 1) % speeds.length];
+                  player.setSpeed(next);
+                  break;
+                case 'sleep':
+                  _showSleepTimerSheet();
+                  break;
+              }
+            },
+            itemBuilder: (ctx) => [
+              PopupMenuItem(
+                value: 'speed',
+                child: Row(
+                  children: [
+                    const Icon(Icons.fast_forward, color: Colors.white70, size: 20),
+                    const SizedBox(width: 12),
+                    Text('倍速 ${player.currentSpeed.toStringAsFixed(2)}x',
+                        style: const TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'sleep',
+                child: Row(
+                  children: [
+                    const Icon(Icons.timer_outlined, color: Colors.white70, size: 20),
+                    const SizedBox(width: 12),
+                    Text('定时关闭',
+                        style: const TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
             ],
           ),
-          const SizedBox(width: 16),
         ],
       ),
     );
   }
 
-  // ── Song info ──
+  // ── Page header (shared by cover page and lyrics page) ──
 
-  Widget _buildSongInfo(Song song) {
-    final player = context.watch<PlayerProvider>();
-    final resolved = player.resolvedQuality;
+  Widget _buildPageHeader(Song song) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: Row(
         children: [
-          // 歌名行 + 解析音质徽章（MoeKoeMusic 风格）
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Flexible(
-                child: Text(
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: Colors.white.withValues(alpha: 0.15),
+            child: const Icon(Icons.music_note, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
                   song.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
                 ),
-              ),
-              if (resolved != null) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.white30),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    Quality.label(resolved),
-                    style: const TextStyle(fontSize: 10, color: Colors.white70),
+                const SizedBox(height: 2),
+                Text(
+                  song.artistDisplay,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.white60,
                   ),
                 ),
               ],
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            song.artistDisplay,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.white60,
             ),
           ),
         ],
@@ -678,75 +713,168 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  // ── Bottom actions ──
+  // ── Page 0: cover page ──
 
-  Widget _buildBottomActions() {
-    final player = context.watch<PlayerProvider>();
-    final song = player.currentSong;
+  Widget _buildCoverPage(PlayerProvider player, Song song) {
     final selectedKey =
         Quality.levels[player.qualityLevel % Quality.levels.length];
     final showLabel = player.resolvedQuality ?? selectedKey;
     final qualityLabel = Quality.label(showLabel);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    const speeds = [1.0, 0.5, 0.75, 1.25, 1.5, 2.0];
+
+    return Column(
       children: [
-        // 收藏按钮
-        if (song != null)
-          Consumer<LikedSongsProvider>(
-            builder: (_, lp, __) {
-              final liked = lp.likedIds.contains(song.id);
-              return _ActionChip(
-                icon: liked ? Icons.favorite : Icons.favorite_border,
-                label: liked ? '已收藏' : '收藏',
-                iconColor: liked ? Colors.redAccent : null,
-                onTap: () async {
-                  final auth = context.read<AuthProvider>();
-                  if (!auth.isLoggedIn) {
-                    final goLogin = await showLoginRequiredDialog(context);
-                    if (goLogin && mounted) {
-                      Navigator.pushNamed(context, '/login');
-                    }
-                    return;
-                  }
-                  lp.toggle(SongInfo(
-                    id: song.id,
-                    name: song.name,
-                    hash: song.hash ?? '',
-                    albumId: song.albumId,
-                    audioId: song.id,
-                  ));
-                },
+        // Header
+        _buildPageHeader(song),
+
+        // Spacer pushes cover to center
+        const Spacer(),
+
+        // Album cover
+        PlayerCoverArt(song: song, scrollOffset: _pageOffset),
+
+        const SizedBox(height: 20),
+
+        // Quality text
+        Text(
+          qualityLabel,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: Colors.white60,
+            letterSpacing: 1.2,
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Progress bar
+        PlayerProgressBar(
+          position: player.position,
+          duration: player.duration,
+          progress: _isDraggingProgress
+              ? _dragProgressValue
+              : (player.progress.isFinite ? player.progress : 0.0),
+          onDragStart: () {
+            setState(() => _isDraggingProgress = true);
+            final pos = Duration(
+              milliseconds:
+                  (_dragProgressValue * player.duration.inMilliseconds).round(),
+            );
+            player.lyricController.setProgress(pos);
+          },
+          onDragEnd: () async {
+            await player.seek(Duration(
+              milliseconds: (_dragProgressValue *
+                      player.duration.inMilliseconds)
+                  .round(),
+            ));
+            if (mounted) {
+              setState(() => _isDraggingProgress = false);
+            }
+          },
+          onSeek: (v) {
+            _dragProgressValue = v;
+            if (_isDraggingProgress) {
+              final pos = Duration(
+                milliseconds: (v * player.duration.inMilliseconds).round(),
               );
-            },
-          ),
-        if (song != null) const SizedBox(width: 12),
+              player.lyricController.setProgress(pos);
+            }
+          },
+        ),
 
-        // ⚡ 跳转高潮（仅在有高潮标记时显示）
-        if (song != null && player.climaxMs != null) ...[
-          _ActionChip(
-            icon: Icons.bolt,
-            label: '高潮',
-            iconColor: Colors.amberAccent,
-            onTap: () {
-              player.seek(Duration(milliseconds: player.climaxMs!));
-            },
-          ),
-          const SizedBox(width: 12),
-        ],
+        const SizedBox(height: 12),
 
-        // 音效
-        _ActionChip(
+        // Three controls: ◁ ▶ ▷
+        PlayerControlsBar(
+          isPlaying: player.isPlaying,
+          isLoading: player.isLoading,
+          onPlayPause: player.togglePlayPause,
+          onPrevious: player.playPrevious,
+          onNext: player.playNext,
+        ),
+
+        const SizedBox(height: 8),
+
+        // Five icon bottom bar
+        _buildIconBar(player, song, speeds),
+
+        SizedBox(height: MediaQuery.of(context).padding.bottom + 4),
+      ],
+    );
+  }
+
+  // ── Five-icon bottom bar ──
+
+  Widget _buildIconBar(PlayerProvider player, Song song, List<double> speeds) {
+    final selectedKey =
+        Quality.levels[player.qualityLevel % Quality.levels.length];
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        // ↺ Play mode
+        _IconBarItem(
+          icon: _modeIcon(player.playMode),
+          label: _modeLabel(player.playMode),
+          onTap: () {
+            const modes = [
+              PlayMode.sequential,
+              PlayMode.shuffle,
+              PlayMode.repeatOne,
+            ];
+            final next =
+                modes[(modes.indexOf(player.playMode) + 1) % modes.length];
+            player.setPlayMode(next);
+          },
+        ),
+
+        // ⓘ Song info / Favorite
+        Consumer<LikedSongsProvider>(
+          builder: (_, lp, __) {
+            final liked = lp.likedIds.contains(song.id);
+            return _IconBarItem(
+              icon: liked ? Icons.favorite : Icons.favorite_border,
+              label: liked ? '已收藏' : '收藏',
+              iconColor: liked ? Colors.redAccent : null,
+              onTap: () async {
+                final auth = context.read<AuthProvider>();
+                if (!auth.isLoggedIn) {
+                  final goLogin = await showLoginRequiredDialog(context);
+                  if (goLogin && mounted) {
+                    Navigator.pushNamed(context, '/login');
+                  }
+                  return;
+                }
+                lp.toggle(SongInfo(
+                  id: song.id,
+                  name: song.name,
+                  hash: song.hash ?? '',
+                  albumId: song.albumId,
+                  audioId: song.id,
+                ));
+              },
+            );
+          },
+        ),
+
+        // ⎔ Audio effects
+        _IconBarItem(
           icon: Icons.tune_rounded,
           label: '音效',
-          onTap: () => Navigator.pushNamed(context, '/settings/audio/effects'),
+          onTap: () =>
+              Navigator.pushNamed(context, '/settings/audio/effects'),
         ),
-        const SizedBox(width: 12),
 
-        // 播放速度
-        _buildSpeedChip(player),
-        const SizedBox(width: 12),
+        // ☰ Playlist queue
+        _IconBarItem(
+          icon: Icons.playlist_play,
+          label: '队列',
+          onTap: () =>
+              legacy.PlaybackControls.showPlaylistStatic(context, player),
+        ),
 
-        // 音质选择
+        // ⋮ More (quality selector)
         PopupMenuButton<String>(
           onSelected: (key) => player.setQuality(key),
           itemBuilder: (ctx) {
@@ -758,149 +886,67 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 child: Row(
                   children: [
                     if (key == selectedKey)
-                      Icon(Icons.check, size: 18, color: Theme.of(ctx).colorScheme.primary),
+                      const Icon(Icons.check, size: 18, color: Colors.white70),
                     SizedBox(width: key == selectedKey ? 8 : 26),
-                    Text(label),
+                    Text(label,
+                        style: const TextStyle(color: Colors.white)),
                   ],
                 ),
               );
             }).toList();
           },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.speed, size: 20, color: Colors.white60),
-                const SizedBox(height: 4),
-                Text(qualityLabel,
-                    style: const TextStyle(fontSize: 10, color: Colors.white60)),
-              ],
-            ),
+          child: const _IconBarItem(
+            icon: Icons.more_horiz,
+            label: '更多',
+            padding: EdgeInsets.zero,
           ),
         ),
-        const SizedBox(width: 12),
-
-        // ⏰ 定时关闭
-        _buildSleepTimerChip(player),
       ],
     );
   }
 
-  Widget _buildSpeedChip(PlayerProvider player) {
-    const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
-    final current = player.currentSpeed;
-    final label = current == 1.0 ? '倍速' : '${current.toStringAsFixed(2)}x';
-    return _ActionChip(
-      icon: current == 1.0 ? Icons.play_circle_outline : Icons.fast_forward,
-      label: label,
-      onTap: () {
-        final idx = speeds.indexOf(current);
-        final next = speeds[(idx + 1) % speeds.length];
-        player.setSpeed(next);
-      },
-    );
-  }
-
-  Widget _buildSleepTimerChip(PlayerProvider player) {
-    final remaining = player.sleepTimerRemaining;
-    if (remaining != null) {
-      final min = remaining.inMinutes.remainder(60).toString().padLeft(2, '0');
-      final sec = remaining.inSeconds.remainder(60).toString().padLeft(2, '0');
-      return _ActionChip(
-        icon: Icons.timer,
-        label: '$min:$sec',
-        iconColor: Colors.orangeAccent,
-        onTap: _showSleepTimerSheet,
-      );
+  IconData _modeIcon(PlayMode mode) {
+    switch (mode) {
+      case PlayMode.sequential:
+        return Icons.repeat;
+      case PlayMode.shuffle:
+        return Icons.shuffle;
+      case PlayMode.repeatOne:
+        return Icons.repeat_one;
+      case PlayMode.radio:
+        return Icons.radio;
     }
-    return _ActionChip(
-      icon: Icons.timer_outlined,
-      label: '定时',
-      onTap: _showSleepTimerSheet,
-    );
   }
 
-  void _showSleepTimerSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.grey[900],
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        final player = context.read<PlayerProvider>();
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('定时关闭',
-                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 16),
-                _sleepTimerOption(ctx, player, '15 分钟', Duration(minutes: 15)),
-                _sleepTimerOption(ctx, player, '30 分钟', Duration(minutes: 30)),
-                _sleepTimerOption(ctx, player, '45 分钟', Duration(minutes: 45)),
-                _sleepTimerOption(ctx, player, '60 分钟', Duration(minutes: 60)),
-                if (player.sleepTimerRemaining != null)
-                  _sleepTimerOption(ctx, player, '关闭定时', Duration.zero),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+  String _modeLabel(PlayMode mode) {
+    switch (mode) {
+      case PlayMode.sequential:
+        return '顺序';
+      case PlayMode.shuffle:
+        return '随机';
+      case PlayMode.repeatOne:
+        return '单曲';
+      case PlayMode.radio:
+        return '电台';
+    }
   }
-
-  Widget _sleepTimerOption(BuildContext ctx, PlayerProvider player, String label, Duration duration) {
-    return ListTile(
-      title: Text(label, style: const TextStyle(color: Colors.white)),
-      onTap: () {
-        if (duration == Duration.zero) {
-          player.cancelSleepTimer();
-        } else {
-          player.setSleepTimer(duration);
-        }
-        Navigator.pop(ctx);
-      },
-    );
-  }
-
 
 }
 
-/// Small page-indicator dot in the top bar.
-class _PageDot extends StatelessWidget {
-  final bool active;
-  const _PageDot({required this.active});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      width: 6,
-      height: 6,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: active ? Colors.white : Colors.white38,
-      ),
-    );
-  }
-}
-
-/// Small icon+label action button used in the bottom bar.
-class _ActionChip extends StatelessWidget {
+/// Icon + label item used in the bottom icon bar.
+class _IconBarItem extends StatelessWidget {
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final Color? iconColor;
+  final EdgeInsetsGeometry? padding;
 
-  const _ActionChip({
+  const _IconBarItem({
     required this.icon,
     required this.label,
-    required this.onTap,
+    this.onTap,
     this.iconColor,
+    this.padding,
   });
 
   @override
@@ -909,12 +955,12 @@ class _ActionChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: padding ?? const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 20, color: iconColor ?? Colors.white60),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(label,
                 style: const TextStyle(fontSize: 10, color: Colors.white60)),
           ],

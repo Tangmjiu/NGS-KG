@@ -626,15 +626,16 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
     final cs = Theme.of(context).colorScheme;
     return Container(
       height: maxExtent,
-      color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+      color: cs.surface,
       padding: EdgeInsets.only(top: topSafe + 8, bottom: 8),
       child: Row(
         children: [
           const SizedBox(width: 16),
           Expanded(
             child: Material(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
+              color: cs.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(20),
+              clipBehavior: Clip.antiAlias,
               child: InkWell(
                 borderRadius: BorderRadius.circular(20),
                 onTap: () {
