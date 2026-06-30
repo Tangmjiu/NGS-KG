@@ -118,6 +118,15 @@ class SongTile extends StatelessWidget {
                 _addToPlaylist(context);
               },
             ),
+            _menuItem(
+              context,
+              icon: Icons.queue_music,
+              label: '加入队列',
+              onTap: () {
+                Navigator.pop(context);
+                context.read<PlayerProvider>().addToQueue(song);
+              },
+            ),
             if (song.albumId > 0)
               _menuItem(
                 context,

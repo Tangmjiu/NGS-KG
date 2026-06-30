@@ -103,7 +103,8 @@ class PlaybackControls extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (_) => DraggableScrollableSheet(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => DraggableScrollableSheet(
         initialChildSize: 0.8,
         minChildSize: 0.3,
         maxChildSize: 0.85,
@@ -112,11 +113,54 @@ class PlaybackControls extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(
-                title:
-                    Text('播放列表', style: Theme.of(context).textTheme.titleSmall),
-                trailing: Text('${player.playlist.length} 首',
-                    style: Theme.of(context).textTheme.bodySmall),
+              // ── 队列选择器 ──
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.queue_music, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: null,
+                          hint: Text('当前队列 (${player.playlist.length})',
+                              style: Theme.of(context).textTheme.titleSmall),
+                          isExpanded: false,
+                          dropdownColor: const Color(0xFF1E1E1E),
+                          items: [
+                            if (player.savedQueueNames.isNotEmpty)
+                              ...player.savedQueueNames.map((name) =>
+                                DropdownMenuItem(
+                                  value: 'load_$name',
+                                  child: Text(name, style: const TextStyle(color: Colors.white)),
+                                ),
+                              ),
+                            const DropdownMenuItem(
+                              value: '__save',
+                              child: Text('+ 保存当前队列', style: TextStyle(color: Colors.white54)),
+                            ),
+                          ],
+                          onChanged: (v) {
+                            if (v == null) return;
+                            if (v == '__save') {
+                              _showSaveQueueDialog(context, player, setSheetState);
+                            } else if (v.startsWith('load_')) {
+                              final name = v.substring(5);
+                              player.loadQueue(name);
+                              Navigator.pop(context);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add, size: 20),
+                      tooltip: '保存当前队列',
+                      onPressed: () => _showSaveQueueDialog(context, player, setSheetState),
+                    ),
+                  ],
+                ),
               ),
               Divider(height: 1, color: cs.outlineVariant),
               if (player.playlist.isEmpty)
@@ -258,6 +302,7 @@ class PlaybackControls extends StatelessWidget {
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -344,6 +389,43 @@ class PlaybackControls extends StatelessWidget {
               player.setPlaylist([]);
             },
             child: const Text('清空'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static void _showSaveQueueDialog(BuildContext context, PlayerProvider player, void Function(void Function()) setSheetState) {
+    final nameCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('保存队列'),
+        content: TextField(
+          controller: nameCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '队列名称',
+            hintText: '我的精选',
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () {
+                nameCtrl.dispose();
+                Navigator.pop(ctx);
+              },
+              child: const Text('取消')),
+          FilledButton(
+            onPressed: () {
+              final name = nameCtrl.text.trim();
+              if (name.isEmpty) return;
+              nameCtrl.dispose();
+              Navigator.pop(ctx);
+              player.saveQueueAs(name);
+              setSheetState(() {});
+            },
+            child: const Text('保存'),
           ),
         ],
       ),

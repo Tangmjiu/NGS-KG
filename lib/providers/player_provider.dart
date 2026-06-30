@@ -261,8 +261,11 @@ class PlayerProvider extends ChangeNotifier
     };
     _queue.addListener(_onQueueChanged);
 
-    // 启动后恢复上次的播放状态
-    WidgetsBinding.instance.addPostFrameCallback((_) => restorePlaybackState());
+    // 启动后恢复上次的播放状态和队列列表
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      restorePlaybackState();
+      restoreQueueNames();
+    });
   }
 
   /// Clears the entire playlist.
@@ -725,6 +728,67 @@ class PlayerProvider extends ChangeNotifier
 
   void playNextSong(Song song) {
     _queue.insertAt(_queue.currentIndex + 1, song);
+  }
+
+  // ─── 多队列管理 ───
+
+  /// 队列名称 → 歌曲列表
+  final Map<String, List<Song>> _savedQueues = {};
+  static const _keySavedQueueNames = 'saved_queue_names';
+
+  /// 所有已保存的队列名称列表
+  List<String> get savedQueueNames => _savedQueues.keys.toList();
+
+  /// 将当前播放队列保存为指定名称
+  void saveQueueAs(String name) {
+    _savedQueues[name] = List.from(_queue.playlist);
+    notifyListeners();
+    _persistQueueNames();
+  }
+
+  /// 加载已保存的队列替换当前播放列表
+  void loadQueue(String name) {
+    final songs = _savedQueues[name];
+    if (songs == null) return;
+    _queue.setPlaylist(List.from(songs), startIndex: 0);
+    notifyListeners();
+  }
+
+  /// 删除已保存的队列
+  void deleteQueue(String name) {
+    _savedQueues.remove(name);
+    notifyListeners();
+    _persistQueueNames();
+  }
+
+  /// 将当前队列追加到已保存队列末尾
+  void appendToSavedQueue(String name) {
+    _savedQueues[name]?.addAll(_queue.playlist);
+    notifyListeners();
+    _persistQueueNames();
+  }
+
+  /// 持久化队列名称列表（仅保存名称，歌曲数据在内存中）
+  Future<void> _persistQueueNames() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          _keySavedQueueNames, jsonEncode(_savedQueues.keys.toList()));
+    } catch (_) {}
+  }
+
+  /// 从 SharedPreferences 恢复队列名称列表
+  Future<void> restoreQueueNames() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final json = prefs.getString(_keySavedQueueNames);
+      if (json != null && json.isNotEmpty) {
+        final names = jsonDecode(json) as List<dynamic>;
+        for (final name in names) {
+          _savedQueues[name as String] = [];
+        }
+      }
+    } catch (_) {}
   }
 
   void setPlayerScreenVisible(bool v) {
