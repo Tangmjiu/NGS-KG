@@ -243,14 +243,11 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
   }
 
   Future<void> _check() async {
-    // 仅在登录后检查，且失败时不弹窗（静默处理�?
-    final authCtx = app.navKey.currentContext;
-    if (authCtx == null) return;
-    final auth = authCtx.read<AuthProvider>();
+    if (!mounted) return;
+    final auth = context.read<AuthProvider>();
     if (!auth.isLoggedIn) return;
 
     try {
-      // 使用直接 Dio 调用，绕过全局错误弹窗拦截�?
       final client = ApiClient.instance;
       final res = await client.get('/lastest/songs/listen',
           params: {'pagesize': 1});
@@ -259,7 +256,6 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
       final body = data['data'] as Map<String, dynamic>? ?? data;
       final devInfo = body['dev_info'] as Map<String, dynamic>?;
       final wording = devInfo?['wording'] as String? ?? '其他设备';
-      // 优先�?curr_song，回退�?songs[0]
       Map<String, dynamic>? songInfo;
       final currSong = body['curr_song'] as Map?;
       if (currSong is Map) {
@@ -278,15 +274,18 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
             ?? info['songname'] as String? ?? '未知歌曲')
             .replaceAll(RegExp(r'\.mp3$', caseSensitive: false), '');
         final singer = info['singername'] as String?;
+        // 用 Navigator 的 overlay context 保证 Dialog 能正常路由
+        final navCtx = Navigator.of(context).context;
+        if (!mounted) return;
         showDialog(
-            context: context,
+            context: navCtx,
             builder: (_) => AlertDialog(
                   title: const Text('继续播放'),
                   content: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('检测到�?$wording'),
+                      Text('检测到 $wording'),
                       const SizedBox(height: 8),
                       Text(songName,
                           style: Theme.of(context).textTheme.titleMedium),
@@ -295,11 +294,11 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
                   ),
                   actions: [
                     TextButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () => Navigator.pop(navCtx),
                         child: const Text('取消')),
                     FilledButton(
                       onPressed: () {
-                        Navigator.pop(context);
+                        Navigator.pop(navCtx);
                         final hash = info['hash'] as String?;
                         final songId = (info['mixsongid'] as num?)?.toInt()
                             ?? (info['id'] as num?)?.toInt() ?? 0;
@@ -312,16 +311,14 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
                           duration: (info['timelen'] as num?)?.toInt() ?? 0,
                           hash: hash,
                         );
-                        context.read<PlayerProvider>().playSong(song);
+                        if (mounted) context.read<PlayerProvider>().playSong(song);
                       },
                       child: const Text('继续'),
                     ),
                   ],
                 ));
       }
-    } catch (_) {
-      // 静默：继续播放接口失败不重要，不弹窗不日�?
-    }
+    } catch (_) {}
   }
 
   @override
@@ -423,12 +420,14 @@ class _LoginPromptOverlayState extends State<_LoginPromptOverlay> {
   }
 
   Future<void> _maybeShow() async {
+    if (!mounted) return;
     final auth = context.read<AuthProvider>();
     if (auth.isLoggedIn) return;
-    if (!mounted) return;
 
+    final navCtx = Navigator.of(context).context;
+    if (!mounted) return;
     showDialog(
-      context: context,
+      context: navCtx,
       builder: (ctx) => AlertDialog(
         title: const Text('风控提示'),
         content: const Text('由于酷狗风控机制，建议您登录后再使用'),
