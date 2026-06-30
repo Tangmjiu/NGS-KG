@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/theme_pack.dart';
 import '../theme/theme_assets.dart';
+import '../routes/app_routes.dart';
 
 class ThemeSettingsScreen extends StatelessWidget {
   const ThemeSettingsScreen({super.key});
@@ -33,6 +34,14 @@ class ThemeSettingsScreen extends StatelessWidget {
             const Divider(height: 8),
             // ── 主题模式 ──
             _ThemeModeSection(tp: tp),
+            const Divider(height: 8),
+            // ── 歌词设置 ──
+            ListTile(
+              leading: const Icon(Icons.lyrics_outlined),
+              title: const Text('歌词设置'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.pushNamed(context, AppRoutes.lyricSettings),
+            ),
             const SizedBox(height: 24),
           ],
         ),

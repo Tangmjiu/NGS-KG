@@ -12,7 +12,9 @@ import 'package:ym_lyric/model/krc_lyric_line_model.dart';
 import 'package:ym_lyric/utils/krc_lyric_util.dart';
 
 import '../models/song.dart';
+import '../models/lyric_settings.dart';
 import '../providers/player_provider.dart';
+import '../providers/theme_provider.dart';
 import '../providers/liked_songs_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/music_service.dart';
@@ -24,6 +26,7 @@ import '../widgets/player_controls_bar.dart';
 import '../widgets/player_progress_bar.dart';
 import '../widgets/playback_controls.dart' as legacy;
 import '../widgets/login_required_dialog.dart';
+import '../widgets/lyric_settings_panel.dart';
 
 /// Apple Music-style full player screen with dynamic background,
 /// cover-art / lyrics PageView, and smooth transitions.
@@ -35,52 +38,56 @@ class PlayerScreen extends StatefulWidget {
 }
 
 class _PlayerScreenState extends State<PlayerScreen> {
-  // ─── LyricView 样式（沉浸暗色风格） ───
-  static final _lyricStyle = LyricStyle(
-    textStyle: const TextStyle(
-      fontSize: 16,
-      fontWeight: FontWeight.w300,
-      height: 1.6,
-      color: Color(0xFFB0A8C0), // 灰紫
-    ),
-    activeStyle: const TextStyle(
-      fontSize: 24,
-      fontWeight: FontWeight.w600,
-      height: 1.4,
-      color: Colors.white,
-    ),
-    translationStyle: const TextStyle(
-      fontSize: 14,
-      fontWeight: FontWeight.w300,
-      height: 1.3,
-      color: Color(0xFF8A7FA0), // 淡紫
-    ),
-    translationActiveColor: Colors.white70,
-    lineGap: 24,
-    translationLineGap: 4,
-    lineTextAlign: TextAlign.left,
-    contentAlignment: CrossAxisAlignment.start,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 28),
-    selectionAnchorPosition: 0.5,
-    selectionAlignment: MainAxisAlignment.center,
-    activeAnchorPosition: 0.5,
-    activeAlignment: MainAxisAlignment.center,
-    activeHighlightColor: Colors.white,
-    activeHighlightExtraFadeWidth: 14,
-    selectedColor: const Color(0xFF8A7FA0),
-    selectedTranslationColor: const Color(0xFF8A7FA0),
-    scrollDuration: const Duration(milliseconds: 400),
-    scrollCurve: Curves.easeInOutCubic,
-    scrollDurations: {},
-    enableSwitchAnimation: true,
-    switchEnterDuration: const Duration(milliseconds: 200),
-    switchExitDuration: const Duration(milliseconds: 200),
-    switchEnterCurve: Curves.easeIn,
-    switchExitCurve: Curves.easeOut,
-    selectionAutoResumeMode: SelectionAutoResumeMode.selecting,
-    selectionAutoResumeDuration: const Duration(milliseconds: 500),
-    activeAutoResumeDuration: const Duration(milliseconds: 3000),
-  );
+  // ─── 构建 LyricView 样式（从设置动态读取） ───
+  LyricStyle _buildLyricStyle() {
+    final ls = context.read<ThemeProvider>().lyricSettings;
+    return LyricStyle(
+      textStyle: TextStyle(
+        fontSize: ls.fontSize,
+        fontWeight: ls.resolvedWeight,
+        height: 1.6,
+        color: const Color(0xFFB0A8C0), // 灰紫
+      ),
+      activeStyle: TextStyle(
+        fontSize: ls.activeFontSize,
+        fontWeight: ls.resolvedWeight,
+        height: 1.4,
+        color: Colors.white,
+      ),
+      // 翻译/罗马音用字号区分，不用粗�?
+      translationStyle: TextStyle(
+        fontSize: ls.translationFontSize,
+        fontWeight: ls.resolvedWeight,
+        height: 1.3,
+        color: const Color(0xFF8A7FA0), // 淡紫
+      ),
+      translationActiveColor: Colors.white70,
+      lineGap: 24,
+      translationLineGap: 4,
+      lineTextAlign: ls.centerAlign ? TextAlign.center : TextAlign.left,
+      contentAlignment: ls.centerAlign ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 28),
+      selectionAnchorPosition: 0.5,
+      selectionAlignment: MainAxisAlignment.center,
+      activeAnchorPosition: 0.5,
+      activeAlignment: MainAxisAlignment.center,
+      activeHighlightColor: Colors.white,
+      activeHighlightExtraFadeWidth: 14,
+      selectedColor: const Color(0xFF8A7FA0),
+      selectedTranslationColor: const Color(0xFF8A7FA0),
+      scrollDuration: const Duration(milliseconds: 400),
+      scrollCurve: Curves.easeInOutCubic,
+      scrollDurations: {},
+      enableSwitchAnimation: true,
+      switchEnterDuration: const Duration(milliseconds: 200),
+      switchExitDuration: const Duration(milliseconds: 200),
+      switchEnterCurve: Curves.easeIn,
+      switchExitCurve: Curves.easeOut,
+      selectionAutoResumeMode: SelectionAutoResumeMode.selecting,
+      selectionAutoResumeDuration: const Duration(milliseconds: 500),
+      activeAutoResumeDuration: const Duration(milliseconds: 3000),
+    );
+  }
 
   // ─── PageView ───
   final PageController _pageController = PageController();
@@ -93,7 +100,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _lyricLoading = false;
 
   // ─── Lyric language tracks (KRC only) ───
-  /// language→per-line texts.  0=translation(中文), 1=transliteration(罗马音)
+  /// language→per-line texts.  0=translation(中文), 1=transliteration(罗马�?
   Map<int, List<String>> _lyricLangMap = {};
   List<KrcLyricLineModel>? _krcLines;  // raw KRC lines for re‑building
   int _selectedLyricLang = 0; // default: translation
@@ -131,8 +138,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final song = player.currentSong;
     if (song == null) return;
 
-    // 拖拽进度条时同步歌词滚动（仅在歌词页可见时才更新 controller）
-    // 否则 controller 会被拖拽位置污染，进歌词页时第一帧显示错误
+    // 拖拽进度条时同步歌词滚动（仅在歌词页可见时才更新 controller�?
+    // 否则 controller 会被拖拽位置污染，进歌词页时第一帧显示错�?
     if (_isDraggingProgress && _pageOffset >= 0.5) {
       final dragPos = Duration(
         milliseconds: (_dragProgressValue * player.duration.inMilliseconds)
@@ -164,7 +171,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     setState(() {
       _pageOffset = newOffset;
     });
-    // 进入歌词页面时同步 controller 到实际播放位置
+    // 进入歌词页面时同�?controller 到实际播放位�?
     if (wasBelowHalf && newOffset >= 0.5 && mounted) {
       final player = context.read<PlayerProvider>();
       if (!_isDraggingProgress) {
@@ -183,7 +190,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     super.dispose();
   }
 
-  // ─── Speech bubble helper for ⋮ menu items — shows a bottom sheet ──
+  // ─── Speech bubble helper for �?menu items �?shows a bottom sheet ──
 
   void _showSleepTimerSheet() {
     showModalBottomSheet(
@@ -214,6 +221,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ),
         );
       },
+    );
+  }
+
+  void _showLyricSettingsSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => const SafeArea(
+        child: LyricSettingsPanel(),
+      ),
     );
   }
 
@@ -280,7 +300,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             if (krcModel.krcLyricList.isEmpty) throw 'empty krc';
 
             // Parse translation & transliteration from lyricTag.language (base64 JSON)
-            // language: 0 = translation (意译/中文翻译), 1 = transliteration (音译/罗马音)
+            // language: 0 = translation (意译/中文翻译), 1 = transliteration (音译/罗马�?
             _lyricLangMap = {};
             if (krcModel.lyricTag.language != null &&
                 krcModel.lyricTag.language!.isNotEmpty) {
@@ -297,7 +317,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               } catch (_) {}
             }
 
-            // 记住原始 KRC lines，供语言切换时重建
+            // 记住原始 KRC lines，供语言切换时重�?
             _krcLines = krcModel.krcLyricList;
             _selectedLyricLang = _lyricLangMap.keys
                 .contains(0) ? 0 : (_lyricLangMap.keys.firstOrNull ?? 0);
@@ -424,7 +444,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       case 0:
         return '翻译';
       case 1:
-        return '罗马音';
+        return '罗马�?;
       default:
         return '歌词';
     }
@@ -452,9 +472,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
       );
     } else {
+      // Key forces LyricView to recompute layout when language track switches
       lyricsContent = LyricView(
+        key: ValueKey('lyrics_${_selectedLyricLang}_${_lastLoadedHash ?? _lastLoadedSongId}'),
         controller: player.lyricController,
-        style: _lyricStyle,
+        style: _buildLyricStyle(),
       );
     }
 
@@ -476,23 +498,44 @@ class _PlayerScreenState extends State<PlayerScreen> {
     // Determine source label
     // Default to KUGOU; could check song.path for local, Navidrome flag etc.
     String source = 'KUGOU';
-    // TODO: detect source — LOCAL if local file, NAVIDROME if from Navidrome
+    // TODO: detect source �?LOCAL if local file, NAVIDROME if from Navidrome
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
       child: Row(
-        children: [
-          // [词] source badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(4),
+      children: [
+          // [词] source badge (点击打开歌词设置)
+          GestureDetector(
+            onTap: _showLyricSettingsSheet,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('词',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white54,
+                          height: 1.2)),
+                  const SizedBox(width: 4),
+                  Text(source,
+                      style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.white38,
+                          height: 1.2)),
+                ],
+              ),
             ),
+          ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('词',
+                const Text('�?,
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -504,7 +547,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         fontSize: 10,
                         color: Colors.white38,
                         height: 1.2)),
-              ],
+                ],
+              ),
             ),
           ),
 
@@ -636,6 +680,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 case 'sleep':
                   _showSleepTimerSheet();
                   break;
+                case 'lyric_settings':
+                  _showLyricSettingsSheet();
+                  break;
               }
             },
             itemBuilder: (ctx) => [
@@ -645,7 +692,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   children: [
                     const Icon(Icons.fast_forward, color: Colors.white70, size: 20),
                     const SizedBox(width: 12),
-                    Text('倍速 ${player.currentSpeed.toStringAsFixed(2)}x',
+                    Text('倍�?${player.currentSpeed.toStringAsFixed(2)}x',
                         style: const TextStyle(color: Colors.white)),
                   ],
                 ),
@@ -657,6 +704,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     const Icon(Icons.timer_outlined, color: Colors.white70, size: 20),
                     const SizedBox(width: 12),
                     Text('定时关闭',
+                        style: const TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'lyric_settings',
+                child: Row(
+                  children: [
+                    const Icon(Icons.lyrics_outlined, color: Colors.white70, size: 20),
+                    const SizedBox(width: 12),
+                    Text('歌词设置',
                         style: const TextStyle(color: Colors.white)),
                   ],
                 ),
@@ -786,7 +844,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
         const SizedBox(height: 12),
 
-        // Three controls: ◁ ▶ ▷
+        // Three controls: �?�?�?
         PlayerControlsBar(
           isPlaying: player.isPlaying,
           isLoading: player.isLoading,
@@ -813,7 +871,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        // ↺ Play mode
+        // �?Play mode
         _IconBarItem(
           icon: _modeIcon(player.playMode),
           label: _modeLabel(player.playMode),
@@ -829,13 +887,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
           },
         ),
 
-        // ⓘ Song info / Favorite
+        // �?Song info / Favorite
         Consumer<LikedSongsProvider>(
           builder: (_, lp, __) {
             final liked = lp.likedIds.contains(song.id);
             return _IconBarItem(
               icon: liked ? Icons.favorite : Icons.favorite_border,
-              label: liked ? '已收藏' : '收藏',
+              label: liked ? '已收�? : '收藏',
               iconColor: liked ? Colors.redAccent : null,
               onTap: () async {
                 final auth = context.read<AuthProvider>();
@@ -858,7 +916,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           },
         ),
 
-        // ⎔ Audio effects
+        // �?Audio effects
         _IconBarItem(
           icon: Icons.tune_rounded,
           label: '音效',
@@ -866,7 +924,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               Navigator.pushNamed(context, '/settings/audio/effects'),
         ),
 
-        // ☰ Playlist queue
+        // �?Playlist queue
         _IconBarItem(
           icon: Icons.playlist_play,
           label: '队列',
@@ -874,7 +932,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               legacy.PlaybackControls.showPlaylistStatic(context, player),
         ),
 
-        // ⋮ More (quality selector)
+        // �?More (quality selector)
         PopupMenuButton<String>(
           onSelected: (key) => player.setQuality(key),
           itemBuilder: (ctx) {

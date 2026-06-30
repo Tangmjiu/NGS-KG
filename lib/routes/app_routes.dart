@@ -27,6 +27,7 @@ import '../screens/theme_market_screen.dart';
 import '../screens/audio_effects_screen.dart';
 import '../screens/about_screen.dart';
 import '../screens/log_viewer_screen.dart';
+import '../screens/lyric_settings_screen.dart';
 
 class AppRoutes {
   static const String home = '/';
@@ -58,6 +59,7 @@ class AppRoutes {
   static const String audioEffects = '/settings/audio/effects';
   static const String about = '/about';
   static const String logViewer = '/settings/developer/log';
+  static const String lyricSettings = '/settings/lyric';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -179,6 +181,9 @@ class AppRoutes {
       case AppRoutes.logViewer:
         return MaterialPageRoute(
             builder: (_) => const LogViewerScreen());
+      case AppRoutes.lyricSettings:
+        return MaterialPageRoute(
+            builder: (_) => const LyricSettingsScreen());
       default:
         return _fallback();
     }
