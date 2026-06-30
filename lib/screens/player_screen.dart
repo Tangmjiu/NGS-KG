@@ -40,20 +40,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
   // ─── 构建 LyricView 样式（从设置动态读取） ───
   LyricStyle _buildLyricStyle() {
     final ls = context.read<ThemeProvider>().lyricSettings;
+    final normalColor = const Color(0xFFB0A8C0);
+    final activeColor = Colors.white;
     return LyricStyle(
+      // 普通行和焦点行使用相同字号，避免折行; 用颜色+字重区分
       textStyle: TextStyle(
         fontSize: ls.fontSize,
         fontWeight: ls.resolvedWeight,
         height: 1.6,
-        color: const Color(0xFFB0A8C0), // 灰紫
+        color: normalColor,
       ),
       activeStyle: TextStyle(
-        fontSize: ls.activeFontSize,
-        fontWeight: ls.resolvedWeight,
+        fontSize: ls.fontSize, // ← 与普通行相同字号，杜绝折行
+        fontWeight: FontWeight.w600,
         height: 1.4,
-        color: Colors.white,
+        color: activeColor,
       ),
-      // 翻译/罗马音用字号区分，不用粗�?
+      // 翻译/罗马音用字号区分，不用粗细
       translationStyle: TextStyle(
         fontSize: ls.translationFontSize,
         fontWeight: ls.resolvedWeight,
@@ -68,7 +71,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 28),
       selectionAnchorPosition: 0.5,
       selectionAlignment: MainAxisAlignment.center,
-      activeAnchorPosition: 0.5,
+      // 焦点行锚点稍偏上(0.4)，补偿标题栏上移后视觉中心偏移
+      activeAnchorPosition: 0.4,
       activeAlignment: MainAxisAlignment.center,
       activeHighlightColor: Colors.white,
       activeHighlightExtraFadeWidth: 14,
@@ -233,6 +237,87 @@ class _PlayerScreenState extends State<PlayerScreen> {
       builder: (_) => const SafeArea(
         child: LyricSettingsPanel(),
       ),
+    );
+  }
+
+  void _showMoreSheet() {
+    const spds = [1.0, 0.5, 0.75, 1.25, 1.5, 2.0];
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final p = context.read<PlayerProvider>();
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 倍速
+                ListTile(
+                  leading: const Icon(Icons.fast_forward, color: Colors.white70, size: 20),
+                  title: Text('倍速 ${p.currentSpeed.toStringAsFixed(2)}x',
+                      style: const TextStyle(color: Colors.white)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ...spds.map((s) => Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(4),
+                          onTap: () => p.setSpeed(s),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: s == p.currentSpeed
+                                  ? Colors.white.withValues(alpha: 0.15)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text('${s}x',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: s == p.currentSpeed ? Colors.white : Colors.white38,
+                                  fontWeight: s == p.currentSpeed ? FontWeight.w600 : FontWeight.normal,
+                                )),
+                          ),
+                        ),
+                      )),
+                    ],
+                  ),
+                ),
+                const Divider(color: Colors.white12, height: 1),
+                // 定时关闭
+                ListTile(
+                  leading: const Icon(Icons.timer_outlined, color: Colors.white70, size: 20),
+                  title: const Text('定时关闭',
+                      style: TextStyle(color: Colors.white)),
+                  trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showSleepTimerSheet();
+                  },
+                ),
+                const Divider(color: Colors.white12, height: 1),
+                // 音质切换
+                ListTile(
+                  leading: const Icon(Icons.speed, color: Colors.white70, size: 20),
+                  title: const Text('音质切换',
+                      style: TextStyle(color: Colors.white)),
+                  trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showQualitySheet();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -542,13 +627,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
       );
     } else {
       // Key forces LyricView to recompute layout when language track switches
-      lyricsContent = Padding(
-        padding: EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.10),
-        child: LyricView(
-          key: ValueKey('lyrics_${_selectedLyricLang}_${_lastLoadedHash ?? _lastLoadedSongId}'),
-          controller: player.lyricController,
-          style: _buildLyricStyle(),
-        ),
+      lyricsContent = LyricView(
+        key: ValueKey('lyrics_${_selectedLyricLang}_${_lastLoadedHash ?? _lastLoadedSongId}'),
+        controller: player.lyricController,
+        style: _buildLyricStyle(),
       );
     }
 
@@ -662,39 +744,57 @@ class _PlayerScreenState extends State<PlayerScreen> {
           );
         }
 
+        // ── Slide-down gesture state ──
+        double _dragOffset = 0;
+        const double _dismissThreshold = 150;
+
         return Scaffold(
           backgroundColor: Colors.black,
-          body: Stack(
-            children: [
-              // ── Dynamic background ──
-              PlayerBackground(
-                albumCoverUrl: song.albumCoverUrl,
-                paletteColor: player.backgroundColor,
-                paletteColors: player.paletteColors,
-                scrollOffset: _pageOffset,
-              ),
-
-              // ── Content ──
-              SafeArea(
-                child: Column(
-                  children: [
-                    // ── Page header (shared, pinned at top) ──
-                    _buildPageHeader(song),
-                    Expanded(
-                      child: PageView(
-                        controller: _pageController,
-                        children: [
-                          // Page 0: Cover + controls
-                          _buildCoverPage(player, song),
-                          // Page 1: Immersive lyrics
-                          _buildLyricsPage(player, song),
-                        ],
-                      ),
-                    ),
-                  ],
+          body: GestureDetector(
+            onVerticalDragUpdate: (details) {
+              _dragOffset += details.delta.dy;
+              if (_dragOffset > _dismissThreshold && mounted) {
+                Navigator.pop(context);
+              }
+            },
+            onVerticalDragEnd: (details) {
+              _dragOffset = 0;
+              if ((details.primaryVelocity ?? 0) > 800 && mounted) {
+                Navigator.pop(context);
+              }
+            },
+            child: Stack(
+              children: [
+                // ── Dynamic background ──
+                PlayerBackground(
+                  albumCoverUrl: song.albumCoverUrl,
+                  paletteColor: player.backgroundColor,
+                  paletteColors: player.paletteColors,
+                  scrollOffset: _pageOffset,
                 ),
-              ),
-            ],
+
+                // ── Content ──
+                SafeArea(
+                  child: Column(
+                    children: [
+                      // ── Page header (shared, pinned at top) ──
+                      _buildPageHeader(song),
+                      Expanded(
+                        child: PageView(
+                          controller: _pageController,
+                          children: [
+                            // Page 0: Cover + controls
+                            _buildCoverPage(player, song),
+                            // Page 1: Immersive lyrics
+                            _buildLyricsPage(player, song),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -830,10 +930,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        // �?Play mode
+        // ↺ Play mode
         _IconBarItem(
           icon: _modeIcon(player.playMode),
-          label: _modeLabel(player.playMode),
           onTap: () {
             const modes = [
               PlayMode.sequential,
@@ -846,13 +945,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
           },
         ),
 
-        // �?Song info / Favorite
+        // ♡ Song info / Favorite
         Consumer<LikedSongsProvider>(
           builder: (_, lp, __) {
             final liked = lp.likedIds.contains(song.id);
             return _IconBarItem(
               icon: liked ? Icons.favorite : Icons.favorite_border,
-              label: liked ? '已收藏' : '收藏',
               iconColor: liked ? Colors.redAccent : null,
               onTap: () async {
                 final auth = context.read<AuthProvider>();
@@ -878,7 +976,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
         // ⎔ Audio effects
         _IconBarItem(
           icon: Icons.tune_rounded,
-          label: '音效',
           onTap: () =>
               Navigator.pushNamed(context, '/settings/audio/effects'),
         ),
@@ -886,67 +983,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
         // ☰ Playlist queue
         _IconBarItem(
           icon: Icons.playlist_play,
-          label: '队列',
           onTap: () =>
               legacy.PlaybackControls.showPlaylistStatic(context, player),
         ),
 
-        // ⋮ More menu (speed / sleep timer / quality)
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_horiz, color: Colors.white60, size: 24),
-          color: const Color(0xFF1E1E1E),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          onSelected: (value) {
-            switch (value) {
-              case 'speed':
-                const spds = [1.0, 0.5, 0.75, 1.25, 1.5, 2.0];
-                final idx = spds.indexOf(player.currentSpeed);
-                final next = spds[(idx + 1) % spds.length];
-                player.setSpeed(next);
-                break;
-              case 'sleep':
-                _showSleepTimerSheet();
-                break;
-              case 'quality':
-                _showQualitySheet();
-                break;
-            }
-          },
-          itemBuilder: (ctx) => [
-            PopupMenuItem(
-              value: 'speed',
-              child: Row(
-                children: [
-                  const Icon(Icons.fast_forward, color: Colors.white70, size: 20),
-                  const SizedBox(width: 12),
-                  Text('倍速 ${player.currentSpeed.toStringAsFixed(2)}x',
-                      style: const TextStyle(color: Colors.white)),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'sleep',
-              child: Row(
-                children: [
-                  const Icon(Icons.timer_outlined, color: Colors.white70, size: 20),
-                  const SizedBox(width: 12),
-                  Text('定时关闭',
-                      style: const TextStyle(color: Colors.white)),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'quality',
-              child: Row(
-                children: [
-                  const Icon(Icons.speed, color: Colors.white70, size: 20),
-                  const SizedBox(width: 12),
-                  Text('音质切换',
-                      style: const TextStyle(color: Colors.white)),
-                ],
-              ),
-            ),
-          ],
+        // ⋮ More — opens bottom sheet
+        _IconBarItem(
+          icon: Icons.more_horiz,
+          onTap: _showMoreSheet,
         ),
       ],
     );
@@ -965,31 +1009,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
-  String _modeLabel(PlayMode mode) {
-    switch (mode) {
-      case PlayMode.sequential:
-        return '顺序';
-      case PlayMode.shuffle:
-        return '随机';
-      case PlayMode.repeatOne:
-        return '单曲';
-      case PlayMode.radio:
-        return '电台';
-    }
-  }
-
 }
 
 /// Icon + label item used in the bottom icon bar.
 class _IconBarItem extends StatelessWidget {
   final IconData icon;
-  final String label;
   final VoidCallback? onTap;
   final Color? iconColor;
 
   const _IconBarItem({
     required this.icon,
-    required this.label,
     this.onTap,
     this.iconColor,
   });
@@ -1000,16 +1029,8 @@ class _IconBarItem extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 20, color: iconColor ?? Colors.white60),
-            const SizedBox(height: 2),
-            Text(label,
-                style: const TextStyle(fontSize: 10, color: Colors.white60)),
-          ],
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Icon(icon, size: 22, color: iconColor ?? Colors.white60),
       ),
     );
   }
