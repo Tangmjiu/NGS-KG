@@ -27,8 +27,8 @@ class LyricSettings {
 
   static const LyricSettings defaults = LyricSettings();
 
-  /// 当前行的字号（active = fontSize × 1.5）
-  double get activeFontSize => fontSize * 1.5;
+  /// 当前行的字号（active = fontSize × 1.35，避免大字号折行）
+  double get activeFontSize => fontSize * 1.35;
 
   /// 翻译/罗马音的字号（translation = fontSize × 0.85）
   double get translationFontSize => fontSize * 0.85;
