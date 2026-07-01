@@ -20,7 +20,7 @@ class PlayerCoverArt extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final size = (constraints.maxWidth * 0.65).clamp(200.0, 350.0);
+        final size = (constraints.maxWidth * 0.78).clamp(200.0, 400.0);
 
         return Center(
           child: AnimatedOpacity(
