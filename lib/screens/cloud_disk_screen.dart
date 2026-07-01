@@ -18,6 +18,7 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
   List<Map<String, dynamic>> _songs = [];
   bool _isLoading = true;
   int? _playingIndex;
+  String? _error;
 
   @override
   void initState() {
@@ -33,9 +34,10 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
     }
     try {
       final songs = await _musicService.getUserCloudDisk();
-      if (mounted) setState(() => _songs = songs);
+      if (mounted) setState(() { _songs = songs; _error = null; });
     } catch (e, s) {
       Log.e('CloudDisk', 'load error', e, s);
+      if (mounted) setState(() => _error = '加载失败，请下拉刷新重试');
     }
     if (mounted) setState(() => _isLoading = false);
   }
@@ -60,7 +62,12 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
         id: hash.hashCode,
         name: item['name'] as String? ?? '',
         artists: [item['author_name'] as String? ?? ''],
+        albumName: item['album_name'] as String?,
+        albumCoverUrl: item['cover'] as String?,
+        duration: ((item['timelength'] as int?) ?? 0) ~/ 1000,
         hash: hash,
+        mixSongId: int.tryParse(item['mixsongid']?.toString() ?? ''),
+        qualities: hash.isNotEmpty ? {'128': hash} : null,
         filePath: url,
       );
       if (!mounted) { return; }
@@ -76,18 +83,29 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
     final isWide = MediaQuery.of(context).size.width >= 880;
     final bodyContent = _isLoading
         ? const Center(child: CircularProgressIndicator())
-        : _songs.isEmpty
+        : _error != null
             ? Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.cloud_off, size: 80, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    Icon(Icons.error_outline, size: 80, color: Theme.of(context).colorScheme.error),
                     const SizedBox(height: 16),
-                    Text('云盘暂无歌曲', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                    Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
                   ],
                 ),
               )
-            : RefreshIndicator(
+            : _songs.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.cloud_off, size: 80, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        const SizedBox(height: 16),
+                        Text('云盘暂无歌曲', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      ],
+                    ),
+                  )
+                : RefreshIndicator(
                 onRefresh: _load,
                 child: ListView.builder(
                   padding: const EdgeInsets.only(top: 8),
