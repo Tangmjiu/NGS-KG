@@ -168,11 +168,14 @@ class _SearchScreenState extends State<SearchScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         title: Container(
           height: 40,
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(25),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: TextField(

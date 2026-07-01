@@ -41,7 +41,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   LyricStyle _buildLyricStyle() {
     final ls = context.read<ThemeProvider>().lyricSettings;
     // 焦点行字重 = 用户设置 + 200（确保比普通行重）
-    final int activeWeightIdx = ((ls.fontWeight / 100).round() + 2).clamp(3, 9);
+    final int activeWeightIdx = ((ls.fontWeight / 100).round() + 2).clamp(3, 8);
     final activeWeight = FontWeight.values[activeWeightIdx];
     return LyricStyle(
       textStyle: TextStyle(
