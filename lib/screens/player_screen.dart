@@ -780,6 +780,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 // ── Content ──
                 SafeArea(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // ── Page header (shared, pinned at top) ──
                       _buildPageHeader(song),
