@@ -32,8 +32,11 @@ class AudioEngine {
   /// 最终解析出的音质 key（MoeKoeMusic 风格：记录实际可用的最高级别）
   final ValueNotifier<String?> resolvedQualityNotifier = ValueNotifier(null);
 
-  /// 当前歌曲可用音质选项（来自 privilege 预查）
+  /// 当前歌曲可用编码音质选项（来自 privilege 预查）
   List<QualityOption> _currentQualityOptions = [];
+
+  /// 当前歌曲可用音效选项（来自 privilege 预查）
+  List<QualityOption> _currentEffectOptions = [];
 
   /// Privilege 缓存（hash → PrivilegeInfo），避免重复请求
   final Map<String, PrivilegeInfo> _privilegeCache = {};
@@ -121,9 +124,13 @@ class AudioEngine {
   /// 最后一次播放成功解析到的音质 key（供 Provider 读取）
   String? get resolvedQuality => resolvedQualityNotifier.value;
 
-  /// 当前歌曲的可用音质选项列表
+  /// 当前歌曲的可用编码音质选项列表
   List<QualityOption> get currentQualityOptions =>
       List.unmodifiable(_currentQualityOptions);
+
+  /// 当前歌曲的可用音效选项列表（来自 privilege）
+  List<QualityOption> get currentEffectOptions =>
+      List.unmodifiable(_currentEffectOptions);
 
   /// 获取当前音质 key（用于 refresh 等场景）
   String _currentQualityKey() {
@@ -154,7 +161,9 @@ class AudioEngine {
             _privilegeCache[hash] = info;
           }
         }
-        if (info.options.isNotEmpty) {
+        if (info.options.isNotEmpty || info.effectOptions.isNotEmpty) {
+          _currentQualityOptions = info.options;
+          _currentEffectOptions = info.effectOptions;
           final candidates = info.candidates(preferredQuality, fallbackHash: hash);
           return candidates.map((opt) => _Candidate(
             quality: opt.value,
@@ -168,6 +177,9 @@ class AudioEngine {
     }
 
     // 回退：基于 qualityLevel 的降级链，使用歌曲原始 hash
+    // privilege 失败时清空选项列表，让 UI 按全量 levels 回退显示
+    _currentQualityOptions = [];
+    _currentEffectOptions = [];
     final chain = Quality.fallbackChain(preferredQuality);
     return chain.map((q) => _Candidate(
       quality: q,
@@ -177,7 +189,7 @@ class AudioEngine {
   }
 
   /// ─── 核心播放方法 ───
-  Future<void> play(Song song, {int? version}) async {
+  Future<void> play(Song song, {int? version, String effectKey = 'none'}) async {
     version ??= _playRequestVersion;
     if (version != _playRequestVersion) {
       isLoading.value = false;
@@ -216,12 +228,46 @@ class AudioEngine {
         return;
       }
 
-      // 在线歌曲：特权查询 → 候选链 → 逐个尝试
-      final preferred = _currentQualityKey();
-      final candidates = await _buildCandidates(song, preferred);
+      // 在线歌曲：优先尝试音效 → 特权查询 → 候选链 → 逐个尝试
       bool played = false;
 
-      for (final c in candidates) {
+      // 有效果选中时，先尝试效果 URL（需先加载 privilege）
+      if (effectKey != 'none') {
+        await _buildCandidates(song, _currentQualityKey());
+        final effectOpts = _currentEffectOptions;
+        if (effectOpts.isNotEmpty) {
+          final matched = effectOpts.where((o) => o.value == effectKey);
+          if (matched.isNotEmpty) {
+            final opt = matched.first;
+            try {
+              final songUrl = await _musicService.getSongUrl(
+                song.id,
+                hash: opt.hash.isNotEmpty ? opt.hash : song.hash,
+                quality: opt.value,
+              );
+              if (version != _playRequestVersion) { isLoading.value = false; return; }
+              if (!songUrl.isVideo && songUrl.url.isNotEmpty) {
+                await _player.setUrl(songUrl.url);
+                if (version != _playRequestVersion) { isLoading.value = false; return; }
+                _lastUrlFetchTime = DateTime.now();
+                await _player.play();
+                _hasActivePlayback = true;
+                played = true;
+                resolvedQualityNotifier.value = opt.value;
+                Log.i('audio_engine', 'effect resolved: ${opt.value} (${opt.label})');
+              }
+            } catch (_) {
+              // 效果失败，降级到编码音质
+            }
+          }
+        }
+      }
+
+      // 编码音质候选链
+      if (!played) {
+        final preferred = _currentQualityKey();
+        final candidates = await _buildCandidates(song, preferred);
+        for (final c in candidates) {
         if (version != _playRequestVersion) { isLoading.value = false; return; }
         if (c.hash.isEmpty && c.quality == '128') continue; // 无 hash 跳过
 
@@ -259,7 +305,8 @@ class AudioEngine {
           Log.w('audio_engine', 'candidate quality=${c.quality} failed: $e');
           // 继续尝试下一个候选
         }
-      }
+      } // end for
+      } // end if (!played) quality candidates
 
       if (!played) {
         // 所有候选都失败，重试
@@ -338,7 +385,11 @@ class AudioEngine {
   }
 
   /// 切换音质（保持播放进度）
-  Future<bool> switchQuality(Song song, String qualityKey, {Duration? currentPosition}) async {
+  ///
+  /// [qualityKey] 编码音质 key，[effectKey] 可选音效 key（'none' 表示无效果）。
+  /// 有效果时优先尝试音效 URL，失败后回退到编码音质候选链。
+  Future<bool> switchQuality(Song song, String qualityKey,
+      {Duration? currentPosition, String effectKey = 'none'}) async {
     if (song.hash == null || song.hash!.isEmpty) return false;
 
     final pos = currentPosition ?? position.value;
@@ -348,37 +399,70 @@ class AudioEngine {
     await _player.pause();
 
     try {
-      // 对目标音质失效缓存，_buildCandidates 会重新查询
+      // 失效缓存，_buildCandidates 会重新查询
       invalidatePrivilege(song.hash);
 
-      final candidates = await _buildCandidates(song, qualityKey);
       bool played = false;
 
-      for (final c in candidates) {
-        try {
-          final songUrl = await _musicService.getSongUrl(
-            song.id,
-            hash: c.hash.isNotEmpty ? c.hash : song.hash,
-            quality: c.quality,
-          );
-          if (songUrl.isVideo) continue;
-          if (songUrl.url.isNotEmpty) {
-            await _player.setUrl(songUrl.url);
-            _lastUrlFetchTime = DateTime.now();
-            resolvedQualityNotifier.value = c.quality;
-
-            // 保持播放进度
-            await _player.seek(pos);
-
-            if (wasPlaying) {
-              await _player.play();
+      // 有效果选中时有 privilege 数据 → 优先尝试效果 URL
+      if (effectKey != 'none') {
+        // 先触发 privilege 加载
+        await _buildCandidates(song, qualityKey);
+        final effectOpts = _currentEffectOptions;
+        if (effectOpts.isNotEmpty) {
+          final matched = effectOpts.where((o) => o.value == effectKey);
+          if (matched.isNotEmpty) {
+            final opt = matched.first;
+            try {
+              final songUrl = await _musicService.getSongUrl(
+                song.id,
+                hash: opt.hash.isNotEmpty ? opt.hash : song.hash,
+                quality: opt.value,
+              );
+              if (!songUrl.isVideo && songUrl.url.isNotEmpty) {
+                await _player.setUrl(songUrl.url);
+                _lastUrlFetchTime = DateTime.now();
+                resolvedQualityNotifier.value = opt.value;
+                await _player.seek(pos);
+                if (wasPlaying) await _player.play();
+                played = true;
+                Log.i('audio_engine', 'effect switch: -> ${opt.value} (${opt.label})');
+              }
+            } catch (_) {
+              // 效果失败，降级到编码音质
             }
-            played = true;
-            Log.i('audio_engine', 'quality switch: -> ${c.quality} (${c.label})');
-            break;
           }
-        } catch (_) {
-          continue;
+        }
+      }
+
+      // 效果未选中或效果失败 → 编码音质候选链
+      if (!played) {
+        final candidates = await _buildCandidates(song, qualityKey);
+        for (final c in candidates) {
+          try {
+            final songUrl = await _musicService.getSongUrl(
+              song.id,
+              hash: c.hash.isNotEmpty ? c.hash : song.hash,
+              quality: c.quality,
+            );
+            if (songUrl.isVideo) continue;
+            if (songUrl.url.isNotEmpty) {
+              await _player.setUrl(songUrl.url);
+              _lastUrlFetchTime = DateTime.now();
+              resolvedQualityNotifier.value = c.quality;
+
+              await _player.seek(pos);
+
+              if (wasPlaying) {
+                await _player.play();
+              }
+              played = true;
+              Log.i('audio_engine', 'quality switch: -> ${c.quality} (${c.label})');
+              break;
+            }
+          } catch (_) {
+            continue;
+          }
         }
       }
 
@@ -407,6 +491,8 @@ class AudioEngine {
     isLoading.value = true;
     isCompleting.value = false;
     resolvedQualityNotifier.value = null;
+    _currentQualityOptions = [];
+    _currentEffectOptions = [];
   }
 
   Future<void> seek(Duration pos) async {

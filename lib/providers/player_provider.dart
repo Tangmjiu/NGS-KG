@@ -39,6 +39,7 @@ class PlayerProvider extends ChangeNotifier
   Duration _duration = Duration.zero;
   String? _error;
   int _qualityLevel = 0;
+  String _effectKey = 'none';
 
   // ─── Dynamic palette & lyric state ───
   ExtractedPalette? _palette;
@@ -88,8 +89,17 @@ class PlayerProvider extends ChangeNotifier
   /// 由 AudioEngine 在播放成功后设置
   String? get resolvedQuality => _engine.resolvedQuality;
 
-  /// 当前歌曲的可用音质选项（来自 /privilege/lite）
+  /// 当前歌曲的可用编码音质选项（来自 /privilege/lite）
   List<QualityOption> get qualityOptions => _engine.currentQualityOptions;
+
+  /// 当前歌曲的可用音效选项（来自 /privilege/lite）
+  List<QualityOption> get effectOptions => _engine.currentEffectOptions;
+
+  /// 当前选中的音效 key（'none' 表示无效果）
+  String get effectKey => _effectKey;
+
+  /// 当前音效的显示标签
+  String get effectLabel => Quality.effectLabel(_effectKey);
 
   /// 当前解析音质的显示标签
   String get resolvedQualityLabel {
@@ -445,7 +455,7 @@ class PlayerProvider extends ChangeNotifier
     final s = song ?? _queue.currentSong;
     if (s == null) return;
     _applyQualityFromSettings();
-    _engine.play(s, version: version ?? _engine.currentVersion);
+    _engine.play(s, version: version ?? _engine.currentVersion, effectKey: _effectKey);
   }
 
   void _onComplete() {
@@ -566,7 +576,7 @@ class PlayerProvider extends ChangeNotifier
     _isPlaying = true; // ← 立即标记，UI 及时响应
     notifyListeners();
     final version = _engine.currentVersion;
-    await _engine.play(current, version: version);
+    await _engine.play(current, version: version, effectKey: _effectKey);
     _updateNotification();
     // Extract palette from album art (supports both network and file:// URIs)
     _extractPaletteFromCover(current);
@@ -654,7 +664,7 @@ class PlayerProvider extends ChangeNotifier
         _engine.resetForNewSong();
         final version = _engine.currentVersion;
         notifyListeners();
-        await _engine.play(song, version: version);
+        await _engine.play(song, version: version, effectKey: _effectKey);
       } else {
         _engine.clearError();
         _isLoading = false;
@@ -806,8 +816,22 @@ class PlayerProvider extends ChangeNotifier
     }
   }
 
-  /// 获取全部音质列表
-  List<String> getAvailableQualities() => List.unmodifiable(Quality.levels);
+  /// 获取当前歌曲的实际可用音质 key 列表（来自 privilege）
+  /// privilege 无数据时回退到全部 levels
+  List<String> getAvailableQualities() {
+    final opts = _engine.currentQualityOptions;
+    if (opts.isNotEmpty) {
+      return opts.map((o) => o.value).toList();
+    }
+    return List.unmodifiable(Quality.levels);
+  }
+
+  /// 检查某个音质 key 当前是否可用
+  bool isQualityAvailable(String key) {
+    final opts = _engine.currentQualityOptions;
+    if (opts.isEmpty) return true; // 无 privilege 数据时全部可用
+    return opts.any((o) => o.value == key);
+  }
 
   /// 获取当前音质的显示标签（优先使用实际解析到的音质）
   String get currentQualityLabel {
@@ -832,7 +856,7 @@ class PlayerProvider extends ChangeNotifier
 
     // 用 engine 的无缝切换
     final success = await _engine.switchQuality(song, qualityKey,
-        currentPosition: _position);
+        currentPosition: _position, effectKey: _effectKey);
 
     // 切换成功后强制刷新歌词
     if (success) {
@@ -840,6 +864,34 @@ class PlayerProvider extends ChangeNotifier
     }
     notifyListeners();
     return success;
+  }
+
+  /// 设置音效（保持播放进度）
+  Future<bool> setEffect(String effectKey) async {
+    final normalized = Quality.normalizeEffect(effectKey);
+    if (_effectKey == normalized) return true;
+    _effectKey = normalized;
+    notifyListeners();
+
+    // 如果正在播放，用 engine 重新加载带效果/不带效果的 URL
+    if (_isPlaying || _isPlayerScreenVisible) {
+      final song = _queue.currentSong;
+      if (song != null && song.hash != null && song.hash!.isNotEmpty) {
+        await _engine.switchQuality(song,
+            Quality.levels[_qualityLevel % Quality.levels.length],
+            currentPosition: _position,
+            effectKey: _effectKey);
+      }
+    }
+    return true;
+  }
+
+  /// 检查音效当前是否有 privilege 可用
+  bool isEffectAvailable(String key) {
+    if (key == 'none') return true;
+    final opts = _engine.currentEffectOptions;
+    if (opts.isEmpty) return false;
+    return opts.any((o) => o.value == key);
   }
 
   // ──────────────────────────────────────────────────────────────
