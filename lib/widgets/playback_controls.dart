@@ -130,7 +130,7 @@ class PlaybackControls extends StatelessWidget {
                           dropdownColor: const Color(0xFF1E1E1E),
                           items: [
                             if (player.savedQueueNames.isNotEmpty)
-                              ...player.savedQueueNames.map((name) =>
+                              ...player.savedQueueNames.where((n) => (player.playlistOfSavedQueue(n)?.isNotEmpty ?? false)).map((name) =>
                                 DropdownMenuItem(
                                   value: 'load_$name',
                                   child: Text(name, style: const TextStyle(color: Colors.white)),

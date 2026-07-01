@@ -209,19 +209,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('定时关闭',
-                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 16),
-                _sleepTimerOption(ctx, player, '15 分钟', const Duration(minutes: 15)),
-                _sleepTimerOption(ctx, player, '30 分钟', const Duration(minutes: 30)),
-                _sleepTimerOption(ctx, player, '45 分钟', const Duration(minutes: 45)),
-                _sleepTimerOption(ctx, player, '60 分钟', const Duration(minutes: 60)),
-                if (player.sleepTimerRemaining != null)
-                  _sleepTimerOption(ctx, player, '关闭定时', Duration.zero),
-              ],
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('定时关闭',
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 16),
+                  _sleepTimerOption(ctx, player, '15 分钟', const Duration(minutes: 15)),
+                  _sleepTimerOption(ctx, player, '30 分钟', const Duration(minutes: 30)),
+                  _sleepTimerOption(ctx, player, '45 分钟', const Duration(minutes: 45)),
+                  _sleepTimerOption(ctx, player, '60 分钟', const Duration(minutes: 60)),
+                  if (player.sleepTimerRemaining != null)
+                    _sleepTimerOption(ctx, player, '关闭定时', Duration.zero),
+                ],
+              ),
             ),
           ),
         );
@@ -255,67 +257,72 @@ class _PlayerScreenState extends State<PlayerScreen> {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 倍速
-                ListTile(
-                  leading: const Icon(Icons.fast_forward, color: Colors.white70, size: 20),
-                  title: Text('倍速 ${p.currentSpeed.toStringAsFixed(2)}x',
-                      style: const TextStyle(color: Colors.white)),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ...spds.map((s) => Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(4),
-                          onTap: () => p.setSpeed(s),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: s == p.currentSpeed
-                                  ? Colors.white.withValues(alpha: 0.15)
-                                  : Colors.transparent,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 倍速
+                  ListTile(
+                    leading: const Icon(Icons.fast_forward, color: Colors.white70, size: 20),
+                    title: Text('倍速 ${p.currentSpeed.toStringAsFixed(1)}x',
+                        style: const TextStyle(color: Colors.white)),
+                    trailing: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ...spds.map((s) => Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 3),
+                            child: InkWell(
                               borderRadius: BorderRadius.circular(4),
+                              onTap: () => p.setSpeed(s),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: s == p.currentSpeed
+                                      ? Colors.white.withValues(alpha: 0.15)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text('${s}x',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: s == p.currentSpeed ? Colors.white : Colors.white38,
+                                      fontWeight: s == p.currentSpeed ? FontWeight.w600 : FontWeight.normal,
+                                    )),
+                              ),
                             ),
-                            child: Text('${s}x',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: s == p.currentSpeed ? Colors.white : Colors.white38,
-                                  fontWeight: s == p.currentSpeed ? FontWeight.w600 : FontWeight.normal,
-                                )),
-                          ),
-                        ),
-                      )),
-                    ],
+                          )),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-                const Divider(color: Colors.white12, height: 1),
-                // 定时关闭
-                ListTile(
-                  leading: const Icon(Icons.timer_outlined, color: Colors.white70, size: 20),
-                  title: const Text('定时关闭',
-                      style: TextStyle(color: Colors.white)),
-                  trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _showSleepTimerSheet();
-                  },
-                ),
-                const Divider(color: Colors.white12, height: 1),
-                // 音质切换
-                ListTile(
-                  leading: const Icon(Icons.speed, color: Colors.white70, size: 20),
-                  title: const Text('音质切换',
-                      style: TextStyle(color: Colors.white)),
-                  trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _showQualitySheet();
-                  },
-                ),
-              ],
+                  const Divider(color: Colors.white12, height: 1),
+                  // 定时关闭
+                  ListTile(
+                    leading: const Icon(Icons.timer_outlined, color: Colors.white70, size: 20),
+                    title: const Text('定时关闭',
+                        style: TextStyle(color: Colors.white)),
+                    trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _showSleepTimerSheet();
+                    },
+                  ),
+                  const Divider(color: Colors.white12, height: 1),
+                  // 音质切换
+                  ListTile(
+                    leading: const Icon(Icons.speed, color: Colors.white70, size: 20),
+                    title: const Text('音质切换',
+                        style: TextStyle(color: Colors.white)),
+                    trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _showQualitySheet();
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -338,16 +345,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('音质选择',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 12),
-                ...Quality.levels.map((key) {
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('音质选择',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 12),
+                  ...Quality.levels.map((key) {
                   final label = Quality.label(key);
                   final isSelected = key == selectedKey;
                   return ListTile(
@@ -373,6 +381,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 }),
               ],
             ),
+          ),
           ),
         );
       },
@@ -630,7 +639,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
       );
     } else {
-      // Key forces LyricView to recompute layout when language track switches
       lyricsContent = LyricView(
         key: ValueKey('lyrics_${_selectedLyricLang}_${_lastLoadedHash ?? _lastLoadedSongId}'),
         controller: player.lyricController,
@@ -640,8 +648,42 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     return Column(
       children: [
-        // Lyrics area
-        Expanded(child: lyricsContent),
+        const SizedBox(height: 4),
+
+        // Lyrics area with dark backdrop for readability
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                children: [
+                  // Blur backdrop (semi-transparent dark overlay)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.3),
+                            Colors.black.withValues(alpha: 0.15),
+                            Colors.black.withValues(alpha: 0.3),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Lyrics
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: lyricsContent,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
 
         // Footer: source badge + language toggle
         _buildLyricsFooter(),

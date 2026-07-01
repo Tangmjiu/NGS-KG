@@ -51,7 +51,7 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
   @override
   Widget build(BuildContext context) {
     final player = context.read<PlayerProvider>();
-    final audioSettings = context.read<AudioSettingsProvider>();
+    final audioSettings = context.watch<AudioSettingsProvider>();
     final isWide = MediaQuery.of(context).size.width >= 880;
     final body = ListView(
       padding: const EdgeInsets.all(16),

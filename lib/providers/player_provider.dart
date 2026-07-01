@@ -739,6 +739,9 @@ class PlayerProvider extends ChangeNotifier
   /// 所有已保存的队列名称列表
   List<String> get savedQueueNames => _savedQueues.keys.toList();
 
+  /// 获取已保存队列的歌曲列表
+  List<Song>? playlistOfSavedQueue(String name) => _savedQueues[name];
+
   /// 将当前播放队列保存为指定名称
   void saveQueueAs(String name) {
     _savedQueues[name] = List.from(_queue.playlist);
