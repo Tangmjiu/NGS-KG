@@ -643,36 +643,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
       );
     }
 
-    // 歌词暗色背景 + 内容
-    Widget lyricsStack = Stack(
-      children: [
-        // Dark backdrop for readability
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.3),
-                  Colors.black.withValues(alpha: 0.15),
-                  Colors.black.withValues(alpha: 0.3),
-                ],
-              ),
-            ),
-          ),
-        ),
-        // Lyrics
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 24),
-          child: lyricsContent,
-        ),
-      ],
+    // 歌词内容（无黑色背景遮罩）
+    Widget lyricsWidget = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: lyricsContent,
     );
 
-    // blurEffect 开启时：用 ShaderMask 给整个区域（背景+文字）做上下边缘渐隐
+    // blurEffect 开启时：用 ShaderMask 给文字做上下边缘渐隐
     if (ls.blurEffect) {
-      lyricsStack = ShaderMask(
+      lyricsWidget = ShaderMask(
         shaderCallback: (bounds) {
           return LinearGradient(
             begin: Alignment.topCenter,
@@ -687,7 +666,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ).createShader(bounds);
         },
         blendMode: BlendMode.dstIn,
-        child: lyricsStack,
+        child: lyricsWidget,
       );
     }
 
@@ -695,13 +674,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
       children: [
         const SizedBox(height: 4),
 
-        // Lyrics area with dark backdrop for readability
+        // Lyrics area
         Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: lyricsStack,
+              child: lyricsWidget,
             ),
           ),
         ),
