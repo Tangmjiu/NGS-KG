@@ -138,12 +138,10 @@ class _QualityTile extends StatelessWidget {
         return '约 1 MB/min，最省流量';
       case '320':
         return '约 2.4 MB/min，音质与流量均衡';
+      case 'flac':
+        return '无损 FLAC，适合 WiFi 环境';
       case 'high':
-        return '无损格式，适合 WiFi 环境';
-      case 'viper_clear':
-        return '蝰蛇超清音质增强';
-      case 'super':
-        return 'DSD 超高解析，文件较大';
+        return 'Hi-Res 高解析，适合 WiFi 环境';
       default:
         return '';
     }

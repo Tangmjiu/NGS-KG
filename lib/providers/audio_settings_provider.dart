@@ -110,8 +110,8 @@ class AudioSettingsProvider extends ChangeNotifier {
   /// [isWifi]：是否 WiFi 网络
   String getEffectiveQuality(bool isWifi) {
     if (_smartMode) {
-      // 智能模式：WiFi 用最高可用，蜂窝按用户设定
-      return isWifi ? 'super' : _cellularQuality;
+      // 智能模式：WiFi 用用户设定的 WiFi 音质上限，蜂窝按用户设定
+      return isWifi ? _wifiQuality : _cellularQuality;
     }
     return isWifi ? _wifiQuality : _cellularQuality;
   }
