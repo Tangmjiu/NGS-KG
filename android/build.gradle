@@ -10,7 +10,25 @@ allprojects {
 
 rootProject.buildDir = '../build'
 subprojects {
-    project.buildDir = "${rootProject.buildDir}/${project.name}"
+    project.evaluationDependsOn(':app')
+    afterEvaluate { p ->
+        if (p.hasProperty('android')) {
+            p.android {
+                if (namespace == null) {
+                    namespace p.group
+                }
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+        }
+        if (p.hasProperty('kotlinOptions')) {
+            p.kotlinOptions {
+                jvmTarget = "17"
+            }
+        }
+    }
 }
 
 // 兼容 AGP 8+：为缺少 namespace 的库模块注入 group 作为默认值
