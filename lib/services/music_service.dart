@@ -121,6 +121,9 @@ class MusicService {
   Future<Map<String, dynamic>> searchComplex(String keyword) =>
       song.searchComplex(keyword);
 
+  Future<Map<String, dynamic>?> getKrmAudio(int albumAudioId) =>
+      song.getKrmAudio(albumAudioId);
+
   // ─── Playlist ───
 
   Future<PlaylistDetail> getPlaylistDetail(String gcId) =>

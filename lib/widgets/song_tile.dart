@@ -140,6 +140,19 @@ class SongTile extends StatelessWidget {
                   });
                 },
               ),
+            if (song.artistId != null && song.artistId! > 0)
+              _menuItem(
+                context,
+                icon: Icons.person,
+                label: '查看歌手',
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/artist/detail', arguments: {
+                    'id': song.artistId,
+                    'name': song.artists.isNotEmpty ? song.artists.first : '',
+                  });
+                },
+              ),
           ],
         ),
       ),

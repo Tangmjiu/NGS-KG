@@ -18,6 +18,7 @@ class SongMapper {
         albumName: json['AlbumName'] as String?,
         albumCoverUrl: cover,
         albumId: _tryInt(json['AlbumID']),
+        artistId: _tryInt(json['SingerID']),
         duration: (json['Duration'] as int?) ?? 0,
         hash: fileHash,
         qualities: fileHash != null && fileHash.isNotEmpty
@@ -143,6 +144,10 @@ class SongMapper {
       if (albumId == 0 && base != null) {
         albumId = _tryInt(base['album_id']);
       }
+      int? artistId = _tryInt(json['author_id']);
+      if ((artistId == null || artistId == 0) && base != null) {
+        artistId = _tryInt(base['author_id']);
+      }
 
       return Song(
         id: _tryInt(json['audio_id'] ?? base?['audio_id'] ?? json['id']),
@@ -150,6 +155,7 @@ class SongMapper {
         artists: [artist],
         albumCoverUrl: cover,
         albumId: albumId,
+        artistId: artistId,
         duration: timelen ~/ 1000,
         hash: hash,
         qualities: q.isNotEmpty ? q : null,
@@ -196,6 +202,7 @@ class SongMapper {
         artists: [json['author_name'] as String? ?? ''],
         albumCoverUrl: cover,
         albumId: _tryInt(json['album_id']),
+        artistId: _tryInt(json['author_id']),
         duration: _durationFromAudioInfo(json['audio_info']),
         hash: hash,
         qualities: q.isNotEmpty ? q : null,

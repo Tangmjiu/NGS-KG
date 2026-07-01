@@ -23,6 +23,7 @@ class Song {
   final String? lyrics; // embedded LRC text (local files with companion .lrc)
   final int? climaxMs; // 歌曲高潮开始时间（毫秒），来自 /song/climax
   final int? mixSongId; // 酷狗 MixSongID，用于播放历史上传等场景
+  final int? artistId;  // 歌手 ID，用于导航到歌手详情
   final Uint8List? coverData; // 内嵌封面原始数据（本地音乐用）
 
   const Song({
@@ -41,6 +42,7 @@ class Song {
     this.lyrics,
     this.climaxMs,
     this.mixSongId,
+    this.artistId,
     this.coverData,
   });
 

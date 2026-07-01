@@ -20,6 +20,7 @@ class CardSection {
         final cover = rawCover.replaceAll('{size}', '240');
         final rawId = (j['mixsongid'] ?? j['audio_id'] ?? j['songid'] ?? j['id'] ?? 0);
         final rawAlbumId = (j['album_id'] ?? j['albumid'] ?? 0);
+        final rawArtistId = (j['author_id'] ?? j['singer_id'] ?? 0);
         final rawDuration = ((j['time_length'] ?? j['timelength'] ?? 0) as num).toInt();
         return Song(
           id: rawId is int ? rawId : int.tryParse(rawId.toString()) ?? 0,
@@ -28,6 +29,7 @@ class CardSection {
           albumName: (j['album_name'] as String?) ?? (j['albumname'] as String?),
           albumCoverUrl: cover.isNotEmpty ? cover : null,
           albumId: rawAlbumId is int ? rawAlbumId : 0,
+          artistId: rawArtistId is int ? rawArtistId : int.tryParse(rawArtistId.toString()),
           duration: rawDuration > 1000 ? rawDuration ~/ 1000 : rawDuration,
           hash: (j['hash'] as String?) ?? (j['Hash'] as String?),
         );

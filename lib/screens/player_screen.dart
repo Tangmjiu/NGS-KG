@@ -259,75 +259,111 @@ class _PlayerScreenState extends State<PlayerScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) {
-        final p = context.read<PlayerProvider>();
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 倍速
-                  ListTile(
-                    leading: const Icon(Icons.fast_forward, color: Colors.white70, size: 20),
-                    title: Text('倍速 ${p.currentSpeed.toStringAsFixed(1)}x',
-                        style: const TextStyle(color: Colors.white)),
-                    trailing: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ...spds.map((s) => Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 3),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(4),
-                              onTap: () => p.setSpeed(s),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: s == p.currentSpeed
-                                      ? Colors.white.withValues(alpha: 0.15)
-                                      : Colors.transparent,
+              child: Consumer<PlayerProvider>(
+                builder: (context, p, _) {
+                  final song = p.currentSong;
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 倍速（Consumer 包裹使得 setSpeed 后自动刷新）
+                      ListTile(
+                        leading: const Icon(Icons.fast_forward, color: Colors.white70, size: 20),
+                        title: Text('倍速 ${p.currentSpeed.toStringAsFixed(1)}x',
+                            style: const TextStyle(color: Colors.white)),
+                        trailing: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ...spds.map((s) => Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 3),
+                                child: InkWell(
                                   borderRadius: BorderRadius.circular(4),
+                                  onTap: () => p.setSpeed(s),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: s == p.currentSpeed
+                                          ? Colors.white.withValues(alpha: 0.15)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text('${s}x',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: s == p.currentSpeed ? Colors.white : Colors.white38,
+                                          fontWeight: s == p.currentSpeed ? FontWeight.w600 : FontWeight.normal,
+                                        )),
+                                  ),
                                 ),
-                                child: Text('${s}x',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: s == p.currentSpeed ? Colors.white : Colors.white38,
-                                      fontWeight: s == p.currentSpeed ? FontWeight.w600 : FontWeight.normal,
-                                    )),
-                              ),
-                            ),
-                          )),
-                        ],
+                              )),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const Divider(color: Colors.white12, height: 1),
-                  // 定时关闭
-                  ListTile(
-                    leading: const Icon(Icons.timer_outlined, color: Colors.white70, size: 20),
-                    title: const Text('定时关闭',
-                        style: TextStyle(color: Colors.white)),
-                    trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _showSleepTimerSheet();
-                    },
-                  ),
-                  const Divider(color: Colors.white12, height: 1),
-                  // 音质切换
-                  ListTile(
-                    leading: const Icon(Icons.speed, color: Colors.white70, size: 20),
-                    title: const Text('音质切换',
-                        style: TextStyle(color: Colors.white)),
-                    trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _showQualitySheet();
-                    },
-                  ),
-                ],
+                      const Divider(color: Colors.white12, height: 1),
+                      // 查看专辑
+                      if (song != null && song.albumId > 0)
+                        ListTile(
+                          leading: const Icon(Icons.album, color: Colors.white70, size: 20),
+                          title: const Text('查看专辑',
+                              style: TextStyle(color: Colors.white)),
+                          trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            Navigator.pushNamed(context, '/album/detail', arguments: {
+                              'id': song.albumId,
+                              'name': song.albumName,
+                            });
+                          },
+                        ),
+                      // 查看歌手
+                      if (song != null && song.artistId != null && song.artistId! > 0)
+                        ListTile(
+                          leading: const Icon(Icons.person, color: Colors.white70, size: 20),
+                          title: Text('查看歌手：${song.artistDisplay}',
+                              style: const TextStyle(color: Colors.white)),
+                          trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            Navigator.pushNamed(context, '/artist/detail', arguments: {
+                              'id': song.artistId,
+                              'name': song.artists.isNotEmpty ? song.artists.first : '',
+                            });
+                          },
+                        ),
+                      if ((song != null && (song.albumId > 0 || (song.artistId != null && song.artistId! > 0))))
+                        const Divider(color: Colors.white12, height: 1),
+                      // 定时关闭
+                      ListTile(
+                        leading: const Icon(Icons.timer_outlined, color: Colors.white70, size: 20),
+                        title: const Text('定时关闭',
+                            style: TextStyle(color: Colors.white)),
+                        trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _showSleepTimerSheet();
+                        },
+                      ),
+                      const Divider(color: Colors.white12, height: 1),
+                      // 音质切换
+                      ListTile(
+                        leading: const Icon(Icons.speed, color: Colors.white70, size: 20),
+                        title: const Text('音质切换',
+                            style: TextStyle(color: Colors.white)),
+                        trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _showQualitySheet();
+                        },
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),

@@ -150,6 +150,7 @@ class SongRepository extends BaseRepository {
           albumName: json['album_name'] as String?,
           albumCoverUrl: cover,
           albumId: (json['album_id'] as int?) ?? 0,
+          artistId: (json['author_id'] as int?) ?? (json['singer_id'] as int?),
           duration: ((json['timelength'] as num?)?.toInt() ?? 0) ~/ 1000,
           hash: json['hash'] as String?,
         );
@@ -201,6 +202,8 @@ class SongRepository extends BaseRepository {
         name: json['ori_audio_name'] as String? ?? '',
         artists: [(json['author_name'] as String? ?? '')],
         albumCoverUrl: cover,
+        albumId: (json['album_id'] as int?) ?? 0,
+        artistId: (json['author_id'] as int?),
         duration: timelength > 1000 ? timelength ~/ 1000 : timelength,
         hash: json['hash'] as String?,
       );
@@ -249,6 +252,24 @@ class SongRepository extends BaseRepository {
           }
         }
       }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// /krm/audio — 获取音乐专辑/歌手信息
+  ///
+  /// 通过 [albumAudioId] (MixSongID) 查询，返回包含 album_id 和 author_id 的地图。
+  /// 用于在播放器中动态解析"查看专辑""查看歌手"所需的 ID。
+  Future<Map<String, dynamic>?> getKrmAudio(int albumAudioId) async {
+    try {
+      final res = await get('/krm/audio', params: {
+        'album_audio_id': albumAudioId,
+        'fields': 'album_info,authors.base,base',
+      });
+      final data = res['data'];
+      if (data is Map) return data as Map<String, dynamic>;
       return null;
     } catch (_) {
       return null;
