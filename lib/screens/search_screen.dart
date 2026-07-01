@@ -185,6 +185,7 @@ class _SearchScreenState extends State<SearchScreen>
             decoration: InputDecoration(
               hintText: '搜索歌曲、歌单、歌手...',
               border: InputBorder.none,
+              filled: false,
               isCollapsed: true,
               contentPadding: EdgeInsets.zero,
               prefixIcon: Padding(

@@ -91,6 +91,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
       selectionAutoResumeMode: SelectionAutoResumeMode.selecting,
       selectionAutoResumeDuration: const Duration(milliseconds: 500),
       activeAutoResumeDuration: const Duration(milliseconds: 3000),
+
+      // 上下渐隐范围：仅 blurEffect 开启时生效
+      fadeRange: ls.blurEffect
+          ? FadeRange(top: 0.15, bottom: 0.15)
+          : null,
     );
   }
 
@@ -109,6 +114,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Map<int, List<String>> _lyricLangMap = {};
   List<KrcLyricLineModel>? _krcLines;  // raw KRC lines for re‑building
   int _selectedLyricLang = 0; // default: translation
+  bool _showTranslation = true;
   /// Any language data available (translation and/or transliteration).
   bool get _hasLangData => _lyricLangMap.isNotEmpty;
 
@@ -585,7 +591,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         end: Duration(milliseconds: line.startTime + line.duration),
         text: text,
         words: words.isNotEmpty ? words : null,
-        translation: transMap[line.startTime],
+        translation: _showTranslation ? transMap[line.startTime] : null,
       ));
     }
     return result;
@@ -595,6 +601,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _applyLyricLang(int lang) {
     if (_krcLines == null || !_lyricLangMap.containsKey(lang)) return;
     _selectedLyricLang = lang;
+    _showTranslation = true;
     final transMap = _buildTransMap(lang);
     final lines = _buildLyricLines(_krcLines!, transMap);
     if (mounted) {
@@ -606,20 +613,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   //  Lyric UI
   // ────────────────────────────────────────────────────────────
 
-  String _langLabel(int lang) {
-    switch (lang) {
-      case 0:
-        return '翻译';
-      case 1:
-        return '罗马音';
-      default:
-        return '歌词';
-    }
-  }
-
   Widget _buildLyricsPage(PlayerProvider player, Song song) {
     final model = player.lyricController.lyricNotifier.value;
     final hasLyrics = model != null && model.lines.isNotEmpty;
+    final ls = context.read<ThemeProvider>().lyricSettings;
 
     Widget lyricsContent;
     if (_lyricLoading) {
@@ -646,6 +643,54 @@ class _PlayerScreenState extends State<PlayerScreen> {
       );
     }
 
+    // 歌词暗色背景 + 内容
+    Widget lyricsStack = Stack(
+      children: [
+        // Dark backdrop for readability
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.3),
+                  Colors.black.withValues(alpha: 0.15),
+                  Colors.black.withValues(alpha: 0.3),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Lyrics
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: lyricsContent,
+        ),
+      ],
+    );
+
+    // blurEffect 开启时：用 ShaderMask 给整个区域（背景+文字）做上下边缘渐隐
+    if (ls.blurEffect) {
+      lyricsStack = ShaderMask(
+        shaderCallback: (bounds) {
+          return LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.transparent,
+              Colors.black,
+              Colors.black,
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.12, 0.88, 1.0],
+          ).createShader(bounds);
+        },
+        blendMode: BlendMode.dstIn,
+        child: lyricsStack,
+      );
+    }
+
     return Column(
       children: [
         const SizedBox(height: 4),
@@ -656,31 +701,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Stack(
-                children: [
-                  // Blur backdrop (semi-transparent dark overlay)
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withValues(alpha: 0.3),
-                            Colors.black.withValues(alpha: 0.15),
-                            Colors.black.withValues(alpha: 0.3),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Lyrics
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: lyricsContent,
-                  ),
-                ],
-              ),
+              child: lyricsStack,
             ),
           ),
         ),
@@ -736,12 +757,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
           if (_hasLangData)
             GestureDetector(
               onTap: () {
-                final keys = _lyricLangMap.keys.toList()..sort();
-                if (keys.isEmpty) return;
-                final cur = keys.indexOf(_selectedLyricLang);
-                final next = keys[(cur + 1) % keys.length];
-                _applyLyricLang(next);
-                setState(() {});
+                setState(() => _showTranslation = !_showTranslation);
+                if (_showTranslation) {
+                  _applyLyricLang(0);
+                } else {
+                  final lines = _buildLyricLines(_krcLines!, {});
+                  if (mounted) {
+                    context
+                        .read<PlayerProvider>()
+                        .loadLyricModel(LyricModel(lines: lines));
+                  }
+                }
               },
               child: Container(
                 padding:
@@ -754,15 +780,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      _langLabel(_selectedLyricLang),
+                      _showTranslation ? '翻译' : '歌词',
                       style: const TextStyle(
                         fontSize: 11,
                         color: Colors.white54,
                       ),
                     ),
                     const SizedBox(width: 2),
-                    const Icon(Icons.arrow_forward_ios,
-                        size: 10, color: Colors.white38),
+                    Icon(
+                      _showTranslation
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                      size: 10,
+                      color: Colors.white38,
+                    ),
                   ],
                 ),
               ),
