@@ -1,105 +1,74 @@
 import 'package:flutter/material.dart';
 
-/// Hi-Res Audio 徽标组件，显示在封面图左下角
+/// Hi-Res Audio 官方徽标
 ///
-/// 参考官方 Hi-Res 金标设计：圆形金底 + Hi-Res AUDIO 文字 + 白勾。
+/// 日本音频协会（JAS）官方设计：黑底圆角矩形 + 金色顶部横条
+/// + 金色 "Hi-Res" 文字 + 白色 "AUDIO" 文字
 class HiResBadge extends StatelessWidget {
-  final double size;
+  /// 徽标高度，宽度自动按官方比例 2.5:1
+  final double height;
 
-  const HiResBadge({super.key, this.size = 36});
+  const HiResBadge({super.key, this.height = 28});
 
   @override
   Widget build(BuildContext context) {
+    final width = height * 2.5;
     return Container(
-      width: size,
-      height: size,
+      width: width,
+      height: height,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFFD700), // 金色
-            Color(0xFFFFA500), // 橙金
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(height * 0.08),
+        border: Border.all(color: const Color(0xFFC8A84E), width: 1.2),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          // 金色顶部横条
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: height * 0.28,
+              color: const Color(0xFFC8A84E),
+            ),
+          ),
+          // "Hi-Res" 文字 — 金色
+          Positioned(
+            left: 0,
+            right: 0,
+            top: height * 0.30,
+            child: Text(
+              'Hi-Res',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: const Color(0xFFC8A84E),
+                fontSize: height * 0.38,
+                fontWeight: FontWeight.w900,
+                height: 1.0,
+              ),
+            ),
+          ),
+          // "AUDIO" 文字 — 白色
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: height * 0.08,
+            child: Text(
+              'AUDIO',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: height * 0.18,
+                fontWeight: FontWeight.w700,
+                letterSpacing: width * 0.035,
+                height: 1.0,
+              ),
+            ),
           ),
         ],
       ),
-      child: CustomPaint(
-        painter: _HiResPainter(),
-      ),
     );
   }
-}
-
-class _HiResPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-    final scale = size.width / 36; // 以 36px 为基准
-
-    // 白勾路径
-    final checkPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2 * scale
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final checkPath = Path()
-      ..moveTo(cx - 6 * scale, cy)
-      ..lineTo(cx - 2.5 * scale, cy + 4 * scale)
-      ..lineTo(cx + 6.5 * scale, cy - 4 * scale);
-    canvas.drawPath(checkPath, checkPaint);
-
-    // "Hi-Res" 文字
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: 'Hi-Res',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 6.5 * scale,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.2 * scale,
-          height: 1.0,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(cx - textPainter.width / 2, cy + 4 * scale),
-    );
-
-    // "AUDIO"
-    final audioPainter = TextPainter(
-      text: TextSpan(
-        text: 'AUDIO',
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.85),
-          fontSize: 3.2 * scale,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.8 * scale,
-          height: 1.0,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-    audioPainter.layout();
-    audioPainter.paint(
-      canvas,
-      Offset(cx - audioPainter.width / 2, cy + 9.8 * scale),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
