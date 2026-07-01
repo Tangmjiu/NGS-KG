@@ -12,14 +12,13 @@ rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
-subprojects {
-    project.evaluationDependsOn(':app')
-    afterEvaluate { p ->
-        if (p.hasProperty('android')) {
-            p.android {
-                if (namespace == null) {
-                    namespace p.group
-                }
+
+// 兼容 AGP 8+：为缺少 namespace 的库模块注入 group 作为默认值
+subprojects { sub ->
+    sub.plugins.withId("com.android.library") {
+        sub.android {
+            if (namespace == null) {
+                namespace sub.group
             }
         }
     }
