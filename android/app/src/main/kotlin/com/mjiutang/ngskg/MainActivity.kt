@@ -176,6 +176,9 @@ class MainActivity : FlutterActivity() {
             val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
             val bitrateStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)
             val embeddedPicture = retriever.embeddedPicture
+            val lyrics = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_LYRICS)
+            } else null
 
             val duration = durationStr?.toIntOrNull() ?: 0
             val bitrate = bitrateStr?.toIntOrNull()
@@ -186,7 +189,8 @@ class MainActivity : FlutterActivity() {
                 "album" to (album?.takeIf { it.isNotEmpty() }),
                 "duration" to duration,
                 "bitrate" to bitrate,
-                "albumArt" to (embeddedPicture?.toList())
+                "albumArt" to (embeddedPicture?.toList()),
+                "lyrics" to (lyrics?.takeIf { it.isNotEmpty() })
             )
         } finally {
             retriever.release()

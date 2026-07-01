@@ -354,9 +354,6 @@ class PlayerProvider extends ChangeNotifier
         'filePath': s.filePath ?? '',
         'isLocal': s.isLocal,
         'lyrics': s.lyrics ?? '',
-        'coverData': s.coverData != null && s.coverData!.isNotEmpty
-            ? base64Encode(s.coverData!)
-            : '',
       }).toList();
       await prefs.setString(
           _keySavedQueueJson, jsonEncode(queueJson));
@@ -391,11 +388,6 @@ class PlayerProvider extends ChangeNotifier
           final m = e as Map<String, dynamic>;
           final isLocal = m['isLocal'] == true;
           final filePath = m['filePath'] as String? ?? '';
-          Uint8List? coverData;
-          final cd = m['coverData'] as String? ?? '';
-          if (cd.isNotEmpty) {
-            try { coverData = base64Decode(cd); } catch (_) {}
-          }
           return Song(
             id: m['id'] as int,
             name: m['name'] as String? ?? '',
@@ -409,7 +401,6 @@ class PlayerProvider extends ChangeNotifier
                 : null,
             filePath: isLocal && filePath.isNotEmpty ? filePath : null,
             lyrics: m['lyrics'] as String?,
-            coverData: coverData,
           );
         }).toList();
       } else {

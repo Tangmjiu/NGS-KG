@@ -1,10 +1,9 @@
-import 'dart:typed_data';
-
 class LocalSong {
   final String title;
   final String? artist;
   final String? album;
   final String filePath;
+  final int? mediaStoreId;  // Android MediaStore _ID from on_audio_query
   final int duration;
   final int size;
   final int? bitrate;    // kbps
@@ -12,13 +11,13 @@ class LocalSong {
   final String? codec;   // e.g., mp3, flac, wav
   final String? lyrics;  // raw LRC text from companion .lrc or metadata
   final String? albumCoverPath; // extracted cover art cache path
-  final Uint8List? albumCoverData; // raw cover art bytes (fallback if cache missing)
 
   const LocalSong({
     required this.title,
     this.artist,
     this.album,
     required this.filePath,
+    this.mediaStoreId,
     this.duration = 0,
     this.size = 0,
     this.bitrate,
@@ -26,7 +25,6 @@ class LocalSong {
     this.codec,
     this.lyrics,
     this.albumCoverPath,
-    this.albumCoverData,
   });
 
   String get displayName {

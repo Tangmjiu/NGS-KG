@@ -165,13 +165,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                     leading: CircleAvatar(
                       backgroundColor:
                           Theme.of(context).colorScheme.surfaceContainerHighest,
-                      backgroundImage: song.coverData != null
-                          ? MemoryImage(song.coverData!)
-                          : null,
-                      child: song.coverData == null
-                          ? Icon(Icons.music_note,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant)
-                          : null,
+                      backgroundImage: song.coverImageProvider,
                     ),
                     title: Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                     subtitle: Text(
@@ -185,7 +179,14 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                         ? Icon(Icons.equalizer,
                             color: Theme.of(context).colorScheme.primary)
                         : null,
-                    onTap: () {
+                    onTap: () async {
+                      // 触发按需封面 + 歌词加载（非阻塞）
+                      final matchingLocal = prov.songs.firstWhere(
+                        (ls) => ls.filePath == song.filePath,
+                        orElse: () => prov.songs.first,
+                      );
+                      prov.loadDeferredMetadata(matchingLocal);
+
                       final playlist = prov.toSongList();
                       context.read<PlayerProvider>().playSong(song, playlist: playlist);
                     },
