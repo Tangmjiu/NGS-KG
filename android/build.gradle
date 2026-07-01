@@ -11,23 +11,28 @@ allprojects {
 rootProject.buildDir = '../build'
 subprojects {
     project.evaluationDependsOn(':app')
+}
+
+// 用 allprojects 统一配置所有模块（包括根项目）的编译选项
+allprojects {
     afterEvaluate { p ->
         if (p.hasProperty('android')) {
-            p.android {
-                if (namespace == null) {
-                    namespace p.group
-                }
-                compileOptions {
-                    sourceCompatibility JavaVersion.VERSION_17
-                    targetCompatibility JavaVersion.VERSION_17
-                }
+            // 注入缺失的 namespace（兼容 AGP 8+）
+            if (p.android.namespace == null) {
+                p.android.namespace = p.group
             }
         }
-        if (p.hasProperty('kotlinOptions')) {
-            p.kotlinOptions {
-                jvmTarget = "17"
-            }
+    }
+    // 配置所有 Kotlin 编译任务的 JVM 目标版本
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions {
+            jvmTarget = "17"
         }
+    }
+    // 配置所有 Java 编译任务的目标版本
+    tasks.withType(JavaCompile).configureEach {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 }
 
