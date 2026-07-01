@@ -40,21 +40,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
   // ─── 构建 LyricView 样式（从设置动态读取） ───
   LyricStyle _buildLyricStyle() {
     final ls = context.read<ThemeProvider>().lyricSettings;
-    final normalColor = const Color(0xFFB0A8C0);
-    final activeColor = Colors.white;
+    // 焦点行字重 = 用户设置 + 200（确保比普通行重）
+    final int activeWeightIdx = ((ls.fontWeight / 100).round() + 2).clamp(3, 9);
+    final activeWeight = FontWeight.values[activeWeightIdx];
     return LyricStyle(
-      // 普通行和焦点行使用相同字号，避免折行; 用颜色+字重区分
       textStyle: TextStyle(
         fontSize: ls.fontSize,
         fontWeight: ls.resolvedWeight,
         height: 1.6,
-        color: normalColor,
+        color: const Color(0xFFB0A8C0), // 灰紫
       ),
+      // 焦点行同字号杜绝折行，但加粗 + 白色 + 字间距确保视觉突出
       activeStyle: TextStyle(
-        fontSize: ls.fontSize, // ← 与普通行相同字号，杜绝折行
-        fontWeight: FontWeight.w600,
+        fontSize: ls.fontSize,
+        fontWeight: activeWeight,
         height: 1.4,
-        color: activeColor,
+        color: Colors.white,
+        letterSpacing: 0.5,
       ),
       // 翻译/罗马音用字号区分，不用粗细
       translationStyle: TextStyle(
@@ -468,7 +470,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       .map((words) => words.join())
                       .toList();
                 }
-              } catch (_) {}
+              } catch (e, s) {
+                Log.e('player_screen', 'krc lang parse error', e, s);
+              }
             }
 
             // 记住原始 KRC lines，供语言切换时重�?
