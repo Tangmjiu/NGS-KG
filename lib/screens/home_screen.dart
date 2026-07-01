@@ -249,6 +249,11 @@ class _HomeScreenState extends State<HomeScreen> {
     6: 'VIP专属推荐',
   };
 
+  static const _cardTitlesYouth = {
+    3014: '喜欢这首歌的 TA 也喜欢',
+    3101: '概念 er 新推',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -308,14 +313,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadCardSongs() async {
+    final cardIds = [1, 2, 3, 4, 5, 6, 3014, 3101];
     final futures = <Future<void>>[];
-    for (int id = 1; id <= 6; id++) {
+    for (final id in cardIds) {
       futures.add((() async {
         try {
-          final data = await _musicService.getCardSongs(id);
+          final bool isYouth = id > 1000;
+          final data = isYouth
+              ? await _musicService.getCardSongsYouth(id, pagesize: 20)
+              : await _musicService.getCardSongs(id);
           if (!mounted) return;
+          final title = isYouth
+              ? (_cardTitlesYouth[id] ?? '推荐')
+              : (_cardTitles[id] ?? '');
           _cardNames[id] =
-              data.recDesc.isNotEmpty ? data.recDesc : _cardTitles[id] ?? '';
+              data.recDesc.isNotEmpty ? data.recDesc : title;
           _cardSongs[id] = data.songs;
         } catch (e, s) {
           Log.e('home_screen', 'error', e, s);
@@ -594,6 +606,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                 _cardSongs[6]!, _cardNames[6] ?? 'VIP专属推荐',
                                 onEnd: () => _musicService
                                     .getCardSongs(6)
+                                    .then((cs) => cs.songs)),
+                          if (_cardSongs[3014]?.isNotEmpty ?? false)
+                            _buildSongList(
+                                _cardSongs[3014]!, _cardNames[3014] ?? '喜欢这首歌的 TA 也喜欢',
+                                onEnd: () => _musicService
+                                    .getCardSongsYouth(3014)
+                                    .then((cs) => cs.songs)),
+                          if (_cardSongs[3101]?.isNotEmpty ?? false)
+                            _buildSongList(
+                                _cardSongs[3101]!, _cardNames[3101] ?? '概念 er 新推',
+                                onEnd: () => _musicService
+                                    .getCardSongsYouth(3101)
                                     .then((cs) => cs.songs)),
                         ],
                       ),

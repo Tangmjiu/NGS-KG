@@ -113,6 +113,8 @@ class MusicService {
   Future<List<Song>> getTopSongs() => song.getTopSongs();
 
   Future<CardSection> getCardSongs(int cardId) => song.getCardSongs(cardId);
+  Future<CardSection> getCardSongsYouth(int cardId, {int? pagesize}) =>
+      song.getCardSongsYouth(cardId, pagesize: pagesize);
 
   Future<List<Song>> getDailyRecommend() => song.getDailyRecommend();
 

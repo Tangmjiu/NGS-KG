@@ -167,6 +167,18 @@ class SongRepository extends BaseRepository {
     return const CardSection(recDesc: '', songs: []);
   }
 
+  /// 概念版推荐卡片（支持 card_id: 3001/3004/3005/3006/3014/3101）
+  Future<CardSection> getCardSongsYouth(int cardId, {int? pagesize}) async {
+    final params = <String, dynamic>{'card_id': cardId};
+    if (pagesize != null) params['pagesize'] = pagesize;
+    final res = await get('/top/card/youth', params: params);
+    final raw = res['data'];
+    if (raw is Map) {
+      return CardSection.fromJson(raw as Map<String, dynamic>);
+    }
+    return const CardSection(recDesc: '', songs: []);
+  }
+
   /// 每日推荐歌曲（对应 MoeKoeMusic /everyday/recommend）
   ///
   /// 返回 data.song_list，每项含 hash/ori_audio_name/sizable_cover/author_name/time_length
