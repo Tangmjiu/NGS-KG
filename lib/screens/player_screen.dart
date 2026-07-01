@@ -350,15 +350,42 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         },
                       ),
                       const Divider(color: Colors.white12, height: 1),
-                      // 音质切换
+                      // 编码音质
                       ListTile(
                         leading: const Icon(Icons.speed, color: Colors.white70, size: 20),
-                        title: const Text('音质切换',
+                        title: const Text('编码音质',
                             style: TextStyle(color: Colors.white)),
-                        trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(p.currentQualityLabel,
+                                style: const TextStyle(fontSize: 12, color: Colors.white38)),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                          ],
+                        ),
                         onTap: () {
                           Navigator.pop(ctx);
                           _showQualitySheet();
+                        },
+                      ),
+                      const Divider(color: Colors.white12, height: 1),
+                      // 音效
+                      ListTile(
+                        leading: const Icon(Icons.spatial_audio, color: Colors.white70, size: 20),
+                        title: const Text('音效',
+                            style: TextStyle(color: Colors.white)),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(p.effectLabel,
+                                style: const TextStyle(fontSize: 12, color: Colors.white38)),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                        ],),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _showEffectSheet();
                         },
                       ),
                     ],
@@ -372,10 +399,96 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
+  void _showEffectSheet() {
+    final player = context.read<PlayerProvider>();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final p = context.read<PlayerProvider>();
+        final currentEffect = p.effectKey;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('音效',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 12),
+                  // "关闭"选项始终可用
+                  ListTile(
+                    leading: Icon(
+                      currentEffect == 'none'
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                      color: currentEffect == 'none' ? Colors.white : Colors.white38,
+                      size: 20,
+                    ),
+                    title: const Text('关闭',
+                        style: TextStyle(color: Colors.white)),
+                    subtitle: const Text('不使用音效',
+                        style: TextStyle(fontSize: 12, color: Colors.white38)),
+                    onTap: () {
+                      p.setEffect('none');
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                  ...Quality.effects.map((key) {
+                    final isSelected = key == currentEffect;
+                    final isAvailable = p.isEffectAvailable(key);
+                    final label = Quality.effectLabel(key);
+                    return ListTile(
+                      leading: Icon(
+                        isSelected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        color: isSelected
+                            ? Colors.white
+                            : (isAvailable ? Colors.white38 : Colors.white10),
+                        size: 20,
+                      ),
+                      title: Text(label,
+                          style: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : (isAvailable ? Colors.white60 : Colors.white24),
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          )),
+                      subtitle: !isAvailable
+                          ? Text('当前歌曲不支持',
+                              style: const TextStyle(fontSize: 12, color: Colors.white24))
+                          : null,
+                      enabled: isAvailable,
+                      onTap: isAvailable
+                          ? () {
+                              p.setEffect(key);
+                              Navigator.pop(ctx);
+                            }
+                          : null,
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _showQualitySheet() {
     final player = context.read<PlayerProvider>();
     final selectedKey =
         Quality.levels[player.qualityLevel % Quality.levels.length];
+    final availableQualities = player.getAvailableQualities();
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1E1E1E),
@@ -400,27 +513,72 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   ...Quality.levels.map((key) {
                   final label = Quality.label(key);
                   final isSelected = key == selectedKey;
+                  final isAvailable = p.isQualityAvailable(key);
                   return ListTile(
                     leading: Icon(
                       isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                      color: isSelected ? Colors.white : Colors.white38,
+                      color: isSelected
+                          ? Colors.white
+                          : (isAvailable ? Colors.white38 : Colors.white10),
                       size: 20,
                     ),
                     title: Text(label,
                         style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white60,
+                          color: isSelected
+                              ? Colors.white
+                              : (isAvailable ? Colors.white60 : Colors.white24),
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                         )),
-                    subtitle: Text(
-                      _qualitySubtitle(key),
-                      style: const TextStyle(fontSize: 12, color: Colors.white38),
+                    subtitle: Row(
+                      children: [
+                        Text(
+                          _qualitySubtitle(key),
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: isAvailable ? Colors.white38 : Colors.white10),
+                        ),
+                        if (!isAvailable) ...[
+                          const SizedBox(width: 8),
+                          Text('当前歌曲不支持',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.white24)),
+                        ],
+                        if (isAvailable && !availableQualities.contains(key)) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text('降级可用',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white24)),
+                          ),
+                        ],
+                      ],
                     ),
-                    onTap: () {
-                      p.setQuality(key);
-                      Navigator.pop(ctx);
-                    },
+                    enabled: isAvailable,
+                    onTap: isAvailable
+                        ? () {
+                            p.setQuality(key);
+                            Navigator.pop(ctx);
+                          }
+                        : null,
                   );
                 }),
+                if (availableQualities.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      '当前歌曲最高支持: ${Quality.label(availableQualities.last)}',
+                      style: const TextStyle(fontSize: 12, color: Colors.white24),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -932,10 +1090,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
   // ── Page 0: cover page ──
 
   Widget _buildCoverPage(PlayerProvider player, Song song) {
-    final selectedKey =
+    // 从 privilege 取最高可用音质，无数据时 fallback 到当前选中
+    final qualityOptions = player.qualityOptions;
+    final highestAvailable = qualityOptions.isNotEmpty
+        ? qualityOptions.last.value
+        : null;
+    final showKey = player.resolvedQuality ?? highestAvailable ??
         Quality.levels[player.qualityLevel % Quality.levels.length];
-    final showLabel = player.resolvedQuality ?? selectedKey;
-    final qualityLabel = Quality.label(showLabel);
+    final qualityLabel = Quality.label(showKey);
+    final showHiRes = showKey == 'high';
     const speeds = [1.0, 0.5, 0.75, 1.25, 1.5, 2.0];
 
     return Column(
@@ -943,7 +1106,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
         // Album cover — flex takes remaining space above bottom controls
         Expanded(
           child: Center(
-            child: PlayerCoverArt(song: song, scrollOffset: _pageOffset),
+            child: PlayerCoverArt(
+              song: song,
+              scrollOffset: _pageOffset,
+              showHiRes: showHiRes,
+            ),
           ),
         ),
 
