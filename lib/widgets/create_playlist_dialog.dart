@@ -56,7 +56,11 @@ class _CreatePlaylistDialogState extends State<CreatePlaylistDialog> {
     final ok = await context.read<PlaylistProvider>().createPlaylist(name);
     if (mounted) {
       Navigator.pop(context);
-      if (!ok) {
+      if (ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('歌单已创建')),
+        );
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('创建失败')),
         );

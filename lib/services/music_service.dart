@@ -162,14 +162,13 @@ class MusicService {
   Future<Map<String, dynamic>> createPlaylist(String name,
           {int type = 0, int isPri = 0, int? listCreateListid,
            int? listCreateUserid}) async {
-    await playlist.createPlaylist(name,
+    return playlist.createPlaylist(name,
         type: type, isPri: isPri, listCreateListid: listCreateListid,
         listCreateUserid: listCreateUserid);
-    return <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> deletePlaylist(int listid) {
-    return playlist.deletePlaylist(listid).then((_) => <String, dynamic>{});
+  Future<void> deletePlaylist(int listid) async {
+    await playlist.deletePlaylist(listid);
   }
 
   Future<Map<String, dynamic>> addTracksToPlaylist(int listid, String data) {

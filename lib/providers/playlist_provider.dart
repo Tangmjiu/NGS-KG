@@ -88,7 +88,13 @@ class PlaylistProvider extends ChangeNotifier {
   Future<bool> deletePlaylist(int listid) async {
     try {
       await _musicService.deletePlaylist(listid);
-      await fetchUserPlaylist(_currentUserId);
+      final uid = _currentUserId ?? int.tryParse(ApiClient.userId ?? '');
+      if (uid != null) {
+        await fetchUserPlaylist(uid);
+      } else {
+        _isLoading = false;
+        notifyListeners();
+      }
       return true;
     } catch (e, s) {
       Log.e('playlist_provider', 'deletePlaylist error', e, s);
