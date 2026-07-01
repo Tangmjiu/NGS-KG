@@ -62,12 +62,18 @@ class LocalMusicService {
       ignoreCase: true,
     );
 
+    // 加载用户自定义扫描目录，如有则过滤 MediaStore 结果
+    final customDirs = await getPersistedDirs();
+    final hasCustomDirs = customDirs.isNotEmpty;
+
     final songs = <LocalSong>[];
     for (final s in raw) {
       final title = s.title;
       final data = s.data;
       if (title == null || title.isEmpty) continue;
       if (data == null || data.isEmpty) continue;
+      // 用户自定义目录模式下，跳过不在指定目录的文件
+      if (hasCustomDirs && !customDirs.any((d) => data.startsWith(d))) continue;
 
       final ext = p.extension(data).toLowerCase();
       if (!_audioExtensions.contains(ext)) continue;
@@ -75,13 +81,13 @@ class LocalMusicService {
       final codec = _detectCodec(ext);
 
       // 文件夹封面（快速检查，不走 MMR）
-      String? coverPath = _findFolderCover(data);
+      String? coverPath = await _findFolderCover(data);
 
       // 之前缓存的封面
       coverPath ??= await _findCachedCover(data);
 
       // 配套 .lrc 歌词
-      String? lyrics = _readCompanionLrc(data);
+      String? lyrics = await _readCompanionLrc(data);
 
       songs.add(LocalSong(
         title: title,
@@ -162,7 +168,7 @@ class LocalMusicService {
               coverCachePath = await _cacheAlbumArt(entry.path, meta.albumArt!);
             }
           }
-          coverCachePath ??= _findFolderCover(entry.path);
+          coverCachePath ??= await _findFolderCover(entry.path);
 
           if (ext == '.flac') { codec = 'FLAC'; bitrate ??= 900; }
           else if (ext == '.wav') { codec = 'WAV'; bitrate ??= 1411; }
@@ -171,7 +177,7 @@ class LocalMusicService {
           else if (ext == '.ogg') { codec = 'OGG'; }
           else if (ext == '.wma') { codec = 'WMA'; }
 
-          String? lyrics = _readCompanionLrc(entry.path);
+          String? lyrics = await _readCompanionLrc(entry.path);
           if ((lyrics == null || lyrics.isEmpty) && meta?.lyrics != null && meta!.lyrics!.isNotEmpty) {
             lyrics = meta.lyrics;
           }
@@ -201,22 +207,22 @@ class LocalMusicService {
     return _audioExtensions.any((ext) => lower.endsWith(ext));
   }
 
-  static String? _findFolderCover(String audioPath) {
+  static Future<String?> _findFolderCover(String audioPath) async {
     final dir = p.dirname(audioPath);
     const candidates = ['cover.jpg', 'cover.png', 'folder.jpg', 'folder.png',
       'Cover.jpg', 'Front.jpg', 'Folder.jpg', 'AlbumArtSmall.jpg'];
     for (final name in candidates) {
       final candidate = p.join(dir, name);
-      if (File(candidate).existsSync()) return candidate;
+      if (await File(candidate).exists()) return candidate;
     }
     return null;
   }
 
-  static String? _readCompanionLrc(String audioPath) {
+  static Future<String?> _readCompanionLrc(String audioPath) async {
     final lrcPath = p.setExtension(audioPath, '.lrc');
     try {
       final lrcFile = File(lrcPath);
-      if (lrcFile.existsSync()) return lrcFile.readAsStringSync();
+      if (await lrcFile.exists()) return await lrcFile.readAsString();
     } catch (e, s) {
       Log.e('local_music_service', 'lrc read error', e, s);
     }
@@ -228,7 +234,7 @@ class LocalMusicService {
       final cacheDir = await getTemporaryDirectory();
       final baseName = p.basenameWithoutExtension(audioPath);
       final cacheFile = File('${cacheDir.path}/album_art_$baseName.jpg');
-      return cacheFile.existsSync() ? cacheFile.path : null;
+      return await cacheFile.exists() ? cacheFile.path : null;
     } catch (_) {
       return null;
     }

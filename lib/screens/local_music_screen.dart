@@ -94,6 +94,14 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
             const Text('需要存储权限才能扫描本地音乐'),
             const SizedBox(height: 24),
             FilledButton.tonal(
+              onPressed: () {
+                setState(() => _permissionDenied = false);
+                _initScan();
+              },
+              child: const Text('重新请求权限'),
+            ),
+            const SizedBox(height: 8),
+            FilledButton.tonal(
               onPressed: Platform.isAndroid ? openAppSettings : null,
               child: const Text('去设置开启'),
             ),
