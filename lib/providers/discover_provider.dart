@@ -9,6 +9,7 @@ import '../models/scene_category.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../constants/discover_constants.dart';
+import 'player_provider.dart';
 
 /// 发现页状态管理
 ///
@@ -29,6 +30,15 @@ class DiscoverProvider extends ChangeNotifier {
   List<SceneCategory> _sceneCategories = [];
   List<Map<String, dynamic>> _ipList = [];
   List<Song> _personalFmSongs = [];
+
+  // ─── 私人 FM 状态 ───
+  String _fmMode = 'normal';                       // normal=红心 small=小众 peak=速览
+  int _fmPoolId = 0;                               // 0=口味(Alpha) 1=风格(Beta) 2=探索(Gamma)
+  List<Song> _personalFmBuffer = [];               // 预取缓冲池
+  static const int _fmBufferThreshold = 4;          // 自动补货阈值
+  bool _isFmActive = false;                        // 当前是否处于 FM 播放模式
+  Map<String, dynamic>? _currentFmFeedback;         // 当前歌曲反馈数据 {hash, songid, playtime}
+
   // ─── 状态 ───
 
   bool _loading = true;
@@ -46,6 +56,12 @@ class DiscoverProvider extends ChangeNotifier {
   List<Song> get personalFmSongs => _personalFmSongs;
   bool get loading => _loading;
   String? get error => _error;
+
+  // ─── FM Getters ───
+  String get fmMode => _fmMode;
+  int get fmPoolId => _fmPoolId;
+  List<Song> get personalFmBuffer => _personalFmBuffer;
+  bool get isFmActive => _isFmActive;
 
   bool get hasPlaylists => _topPlaylists.isNotEmpty;
   bool get hasRanks => _rankList.isNotEmpty;
@@ -150,12 +166,118 @@ class DiscoverProvider extends ChangeNotifier {
 
   Future<void> _loadPersonalFm() async {
     try {
-      _personalFmSongs = (await _musicService.getFmRecommend())
+      final raw = await _musicService.getPersonalFm(mode: _fmMode, songPoolId: _fmPoolId);
+      final songs = raw
+          .map((e) => SongMapper.fromFmJson(e))
           .whereType<Song>()
-          .take(DiscoverConstants.topSongsLimit)
           .toList();
+      _personalFmSongs = songs.take(DiscoverConstants.topSongsLimit).toList();
+      // 同时填充缓冲池
+      _personalFmBuffer = List.from(_personalFmSongs);
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadPersonalFm error', e, s);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  私人 FM 操作方法
+  // ═══════════════════════════════════════════
+
+  /// 切换 FM 推荐模式
+  void setFmMode(String mode) {
+    if (mode == _fmMode) return;
+    _fmMode = mode;
+    _personalFmBuffer.clear();
+    _isFmActive = false;
+    notifyListeners();
+  }
+
+  /// 切换 AI 算法池
+  void setFmPoolId(int poolId) {
+    if (poolId == _fmPoolId) return;
+    _fmPoolId = poolId;
+    _personalFmBuffer.clear();
+    _isFmActive = false;
+    notifyListeners();
+  }
+
+  /// 提供者回调：由 PlayerProvider 在 FM 队列播完时调用，获取下一批歌曲
+  Future<List<Song>> fetchNextFmBatch() async {
+    if (_personalFmBuffer.length <= _fmBufferThreshold) {
+      await _refillFmBuffer();
+    }
+    final batch = _personalFmBuffer.take(5).toList();
+    if (batch.isNotEmpty) {
+      _personalFmBuffer.removeRange(0, batch.length);
+    }
+    return batch;
+  }
+
+  /// 补货缓冲池（携带当前反馈数据）
+  Future<void> _refillFmBuffer() async {
+    try {
+      final raw = await _musicService.getPersonalFm(
+        mode: _fmMode,
+        songPoolId: _fmPoolId,
+        hash: _currentFmFeedback?['hash'] as String?,
+        songid: _currentFmFeedback?['songid'] as int?,
+        playtime: _currentFmFeedback?['playtime'] as int?,
+        action: 'play',
+        isOverplay: 0,
+        remainSongcnt: _personalFmBuffer.length,
+      );
+      final songs = raw
+          .map((e) => SongMapper.fromFmJson(e))
+          .whereType<Song>()
+          .toList();
+      _personalFmBuffer.addAll(songs);
+    } catch (_) {}
+  }
+
+  /// 上报「不喜欢」并获取替代推荐
+  Future<List<Song>> dislikeCurrentFmSong(Song song) async {
+    try {
+      final raw = await _musicService.getPersonalFm(
+        mode: _fmMode,
+        songPoolId: _fmPoolId,
+        hash: song.hash,
+        songid: song.mixSongId ?? song.id,
+        playtime: 0,
+        action: 'garbage',
+        isOverplay: 0,
+        remainSongcnt: _personalFmBuffer.length,
+      );
+      final songs = raw
+          .map((e) => SongMapper.fromFmJson(e))
+          .whereType<Song>()
+          .toList();
+      _personalFmBuffer.addAll(songs);
+      return songs;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// 更新当前 FM 歌曲的反馈数据（播放时由 PlayerProvider 调用）
+  void updateFmFeedback(Song song, {int playtime = 0}) {
+    _currentFmFeedback = {
+      'hash': song.hash,
+      'songid': song.mixSongId ?? song.id,
+      'playtime': playtime,
+    };
+  }
+
+  /// 启动私人 FM 播放
+  Future<void> startFmPlayback(PlayerProvider player) async {
+    if (_personalFmBuffer.isEmpty) {
+      await _refillFmBuffer();
+    }
+    if (_personalFmBuffer.isNotEmpty) {
+      final initialSongs = _personalFmBuffer.take(10).toList();
+      _personalFmBuffer.removeRange(0, initialSongs.length);
+      _isFmActive = true;
+      // 使用 startFmPlaylist 设置 playlistEndProvider 并播放
+      player.startFmPlaylist(initialSongs, bufferProvider: fetchNextFmBatch);
     }
   }
 }
