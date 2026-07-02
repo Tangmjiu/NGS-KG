@@ -75,22 +75,20 @@ jobs:
       # ── Build debug APK (仅 arm64-v8a，加快 CI 速度) ──
       - name: Build debug APK
         run: |
-          flutter build apk --debug --target-platform android-arm64 || {
-            echo "::warning::flutter build apk failed to find APK. Searching manually..."
-          }
-          # AGP 8.x may output the APK at a different path than Flutter expects.
-          # If flutter-apk/ is empty, find the APK and copy it.
-          if [ ! -f build/app/outputs/flutter-apk/app-debug.apk ]; then
-            mkdir -p build/app/outputs/flutter-apk
-            APK=$(find build -name "app-debug.apk" -type f 2>/dev/null | head -1)
-            if [ -n "$APK" ]; then
-              cp "$APK" build/app/outputs/flutter-apk/app-debug.apk
-              echo "APK copied from $APK"
-            else
-              echo "::error::No APK found in build directory!"
-              exit 1
-            fi
-          fi
+          # Run Gradle directly (not via flutter build) to see full output
+          cd android
+          ./gradlew app:assembleDebug \
+            -Ptarget-platform=android-arm64 \
+            -Ptarget=lib/main.dart \
+            -Pbase-application-name=android.app.Application \
+            --no-daemon \
+            --info 2>&1 | tail -80
+          # Check if APK was produced
+          echo "=== Searching for APK ==="
+          find /home/runner/work/NGS-KG/NGS-KG -name "*.apk" -type f 2>/dev/null
+          echo "=== Build directories ==="
+          ls -la /home/runner/work/NGS-KG/NGS-KG/build/app/outputs/ 2>/dev/null || echo "build/app/outputs not found"
+          ls -la /home/runner/work/NGS-KG/NGS-KG/android/app/build/outputs/ 2>/dev/null || echo "android/app/build/outputs not found"
 
       # ── Upload debug APK ──
       - name: Upload debug APK
