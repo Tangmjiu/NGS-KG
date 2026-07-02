@@ -25,6 +25,11 @@ class Song {
   final int? mixSongId; // 酷狗 MixSongID，用于播放历史上传等场景
   final int? artistId;  // 歌手 ID，用于导航到歌手详情
   final Uint8List? coverData; // 内嵌封面原始数据（本地音乐用）
+  // ─── 私人 FM 扩展字段 ───
+  final String? recDesc;        // FM 推荐理由（如"根据您喜欢的华语流行"）
+  final String? language;       // 语言标签（CN/EN/JP/KR）
+  final String? similarDesc;    // 相似推荐说明（如"和您收藏的XX相似"）
+  final List<Map<String, dynamic>>? relateGoods; // 音质层级数据
 
   const Song({
     required this.id,
@@ -44,6 +49,10 @@ class Song {
     this.mixSongId,
     this.artistId,
     this.coverData,
+    this.recDesc,
+    this.language,
+    this.similarDesc,
+    this.relateGoods,
   });
 
   bool get isLocal => filePath != null;

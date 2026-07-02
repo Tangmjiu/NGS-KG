@@ -213,6 +213,45 @@ class SongMapper {
     }
   }
 
+  /// 私人 FM 推荐结果映射
+  ///
+  /// 兼容来自 /personal/fm 接口的响应格式。
+  /// 相比 fromTrackJson，额外抽取 FM 特有字段：rec_desc, language, similar_desc, relate_goods。
+  static Song? fromFmJson(Map<String, dynamic> json) {
+    try {
+      final base = fromTrackJson(json);
+      if (base == null) return null;
+      return Song(
+        id: base.id,
+        name: base.name,
+        artists: base.artists,
+        albumName: base.albumName,
+        albumCoverUrl: base.albumCoverUrl,
+        duration: base.duration,
+        lyricUrl: base.lyricUrl,
+        filePath: base.filePath,
+        hash: base.hash,
+        qualities: base.qualities,
+        albumId: base.albumId,
+        fileId: base.fileId,
+        lyrics: base.lyrics,
+        climaxMs: base.climaxMs,
+        mixSongId: base.mixSongId,
+        artistId: base.artistId,
+        coverData: base.coverData,
+        recDesc: json['rec_desc'] as String?,
+        language: json['language'] as String?,
+        similarDesc: json['similar_desc'] as String?,
+        relateGoods: (json['relate_goods'] as List<dynamic>?)
+            ?.map((e) => e as Map<String, dynamic>)
+            .toList(),
+      );
+    } catch (e, s) {
+      Log.e('song_mapper', 'fromFmJson error', e, s);
+      return null;
+    }
+  }
+
   static int _tryInt(dynamic v) {
     if (v is int) return v;
     if (v is String) return int.tryParse(v) ?? 0;
