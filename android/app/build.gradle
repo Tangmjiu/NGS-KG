@@ -70,6 +70,21 @@ flutter {
     source '../..'
 }
 
+// ─── AGP 8.x workaround: Flutter Gradle Plugin's APK copy via deprecated ───
+// variant.outputs may not work, leaving flutter-apk/ empty.
+// This ensures the APK is always copied after assembleDebug.
+afterEvaluate {
+    tasks.matching { it.name.startsWith('assemble') && it.name.endsWith('Debug') }.configureEach { task ->
+        task.doLast {
+            copy {
+                from "${project.buildDir}/outputs/apk/debug/"
+                into "${project.buildDir}/outputs/flutter-apk/"
+                include "*.apk"
+            }
+        }
+    }
+}
+
 dependencies {
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"
     implementation "org.jetbrains.kotlin:kotlin-stdlib:2.1.0"
