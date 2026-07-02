@@ -74,7 +74,23 @@ jobs:
 
       # ── Build debug APK (仅 arm64-v8a，加快 CI 速度) ──
       - name: Build debug APK
-        run: flutter build apk --debug --target-platform android-arm64
+        run: |
+          flutter build apk --debug --target-platform android-arm64 || {
+            echo "::warning::flutter build apk failed to find APK. Searching manually..."
+          }
+          # AGP 8.x may output the APK at a different path than Flutter expects.
+          # If flutter-apk/ is empty, find the APK and copy it.
+          if [ ! -f build/app/outputs/flutter-apk/app-debug.apk ]; then
+            mkdir -p build/app/outputs/flutter-apk
+            APK=$(find build -name "app-debug.apk" -type f 2>/dev/null | head -1)
+            if [ -n "$APK" ]; then
+              cp "$APK" build/app/outputs/flutter-apk/app-debug.apk
+              echo "APK copied from $APK"
+            else
+              echo "::error::No APK found in build directory!"
+              exit 1
+            fi
+          fi
 
       # ── Upload debug APK ──
       - name: Upload debug APK
