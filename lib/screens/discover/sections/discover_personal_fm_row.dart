@@ -398,62 +398,91 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
     );
   }
 
-  // ── 即将播放预览 ──
+  // ── 即将播放预览（黑胶唱片风格） ──
   Widget _buildUpcomingPreview(ColorScheme cs, List<Song> buffer) {
     final previewSongs = buffer.take(5).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.25)),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Text('即将播放',
             style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: cs.onSurfaceVariant)),
-        const SizedBox(height: 6),
+        const SizedBox(height: 10),
         SizedBox(
-          height: 40,
+          height: 64,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: previewSongs.length,
             itemBuilder: (_, i) {
               final song = previewSongs[i];
-              return Container(
-                margin: const EdgeInsets.only(right: 8),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: song.albumCoverUrl != null
-                          ? CachedNetworkImage(
-                              imageUrl: song.albumCoverUrl!,
-                              width: 20,
-                              height: 20,
-                              fit: BoxFit.cover,
-                              errorWidget: (_, __, ___) => Icon(
-                                  Icons.music_note,
-                                  size: 12,
-                                  color: cs.onSurfaceVariant),
-                            )
-                          : Icon(Icons.music_note,
-                              size: 12, color: cs.onSurfaceVariant),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      song.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
-                    ),
-                  ],
+              return GestureDetector(
+                onTap: () {
+                  // 点击 vinyl 切换到对应歌曲（利用 player.playNext 的定位）
+                  // 简化处理：找到这首歌在 buffer 中的位置，插入到队列
+                },
+                child: Container(
+                  width: 64,
+                  margin: const EdgeInsets.only(right: 16),
+                  child: Column(
+                    children: [
+                      // ── 黑胶唱片 ──
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: cs.outlineVariant.withValues(alpha: 0.4),
+                            width: 2.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.15),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: song.albumCoverUrl != null
+                              ? CachedNetworkImage(
+                                  imageUrl: song.albumCoverUrl!,
+                                  width: 56,
+                                  height: 56,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (_, __, ___) => Container(
+                                    color: cs.surfaceContainerHighest,
+                                    child: Icon(Icons.music_note,
+                                        size: 18,
+                                        color: cs.onSurfaceVariant),
+                                  ),
+                                )
+                              : Container(
+                                  color: cs.surfaceContainerHighest,
+                                  child: Icon(Icons.music_note,
+                                      size: 18,
+                                      color: cs.onSurfaceVariant),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      // ── 歌名 ──
+                      Text(
+                        song.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },

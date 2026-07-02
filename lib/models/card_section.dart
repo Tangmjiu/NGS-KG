@@ -16,6 +16,10 @@ class CardSection {
         final rawName = (j['ori_audio_name'] ?? j['songname'] ?? j['name'] ?? '') as String;
         final rawArtist = (j['author_name'] ?? j['singer_name'] ?? j['singername'] ?? '') as String;
         var rawCover = (j['sizable_cover'] ?? j['cover'] ?? j['img'] ?? '') as String;
+        if (rawCover.isEmpty) {
+          final tp = j['trans_param'] as Map<String, dynamic>?;
+          rawCover = tp?['union_cover'] as String? ?? '';
+        }
         if (rawCover.startsWith('//')) rawCover = 'https:$rawCover';
         final cover = rawCover.replaceAll('{size}', '240');
         final rawId = (j['mixsongid'] ?? j['audio_id'] ?? j['songid'] ?? j['id'] ?? 0);
