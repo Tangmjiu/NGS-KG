@@ -5,12 +5,10 @@ import '../../../models/song.dart';
 import '../../../providers/player_provider.dart';
 import '../../../providers/discover_provider.dart';
 
-/// 私人 FM — 紧凑嵌入式播放器
+/// 私人 FM — MD3 卡片式嵌入式播放器
 ///
-/// 嵌入在发现页顶部，三种状态：
-/// - 空闲：模式/池切换 + 「启动FM」按钮
-/// - 加载中：微调器
-/// - 播放中：当前歌曲卡片 + 传输控件 + 即将播放预览
+/// 嵌入在发现页顶部，三种状态：空闲 / 加载中 / 播放中。
+/// 点击标题循环切换模式：红心 → 小众 → 速览。
 class DiscoverPersonalFmRow extends StatefulWidget {
   const DiscoverPersonalFmRow({super.key});
 
@@ -26,6 +24,13 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
   static const _poolValues = [0, 1, 2];
   static const _poolLabels = ['口味', '风格', '探索'];
 
+  // ─── 循环切换模式 ───
+  void _cycleMode(DiscoverProvider provider) {
+    final currentIndex = _modeValues.indexOf(provider.fmMode);
+    final nextIndex = (currentIndex + 1) % _modeValues.length;
+    provider.setFmMode(_modeValues[nextIndex]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -38,237 +43,227 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
     final buffer = provider.personalFmBuffer;
     final fmSongs = provider.personalFmSongs;
     final hasContent = isFmActive || fmSongs.isNotEmpty;
+    final modeLabel = _modeLabels[_modeValues.indexOf(provider.fmMode)];
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isFmActive
-                ? cs.primary.withValues(alpha: 0.2)
-                : cs.outlineVariant.withValues(alpha: 0.3),
-          ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Card(
+        elevation: 1,
+        margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
-            // ── Header: 标题 + 模式切换 ──
-            _buildHeader(cs, tt, provider),
-
-            // ── AI 算法池切换（第二行） ──
-            _buildPoolRow(cs, tt, provider),
-
-            // ── 内容区 ──
-            if (_fmLoading)
-              _buildLoadingState(cs, tt)
-            else if (isFmActive && currentSong != null)
-              _buildPlayingState(cs, tt, provider, player, currentSong, buffer)
-            else
-              _buildIdleState(cs, tt, provider, player, hasContent, fmSongs),
+            // ── 装饰性圆形底图 ──
+            Positioned(
+              top: -40,
+              left: -20,
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: cs.primary.withValues(alpha: 0.06),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -30,
+              right: -20,
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: cs.tertiary.withValues(alpha: 0.05),
+                ),
+              ),
+            ),
+            // ── 主内容 ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── 顶部：标题行 ──
+                  Row(
+                    children: [
+                      Icon(Icons.podcasts, size: 22, color: cs.primary),
+                      const SizedBox(width: 8),
+                      // 点击标题循环切换模式
+                      GestureDetector(
+                        onTap: () => _cycleMode(provider),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '$modeLabel Radio',
+                              style: tt.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: cs.onSurface,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.swap_horiz_rounded,
+                              size: 16,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      if (isFmActive)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: cs.tertiaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '播放中',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: cs.onTertiaryContainer,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  // ── 副标题 / 算法池 ──
+                  Row(
+                    children: [
+                      const SizedBox(width: 30),
+                      ...List.generate(_poolLabels.length, (i) {
+                        final selected = provider.fmPoolId == _poolValues[i];
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: InkWell(
+                            onTap: () => _onPoolChanged(provider, _poolValues[i]),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? cs.secondaryContainer
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                _poolLabels[i],
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: selected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                  color: selected
+                                      ? cs.onSecondaryContainer
+                                      : cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  // ── 内容区 ──
+                  if (_fmLoading)
+                    _buildLoadingState(cs)
+                  else if (isFmActive && currentSong != null)
+                    _buildPlayingState(
+                        cs, tt, provider, player, currentSong, buffer)
+                  else
+                    _buildIdleState(cs, provider, player, hasContent),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  // ── Header ──
-  Widget _buildHeader(ColorScheme cs, TextTheme tt, DiscoverProvider provider) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-      child: Row(
-        children: [
-          Icon(Icons.podcasts, size: 20, color: cs.primary),
-          const SizedBox(width: 8),
-          Text('FM', style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(width: 12),
-          ...List.generate(_modeLabels.length, (i) {
-            final selected = provider.fmMode == _modeValues[i];
-            return Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: InkWell(
-                onTap: () => _onModeChanged(provider, _modeValues[i]),
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: selected ? cs.primaryContainer : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: selected ? cs.primary : cs.outlineVariant,
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Text(
-                    _modeLabels[i],
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                      color: selected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }),
-          const Spacer(),
-          // 当前状态指示
-          if (provider.isFmActive)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: cs.tertiaryContainer,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                '播放中',
-                style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: cs.onTertiaryContainer),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // ── 算法池切换 ──
-  Widget _buildPoolRow(ColorScheme cs, TextTheme tt, DiscoverProvider provider) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-      child: Row(
-        children: [
-          const SizedBox(width: 28), // 与 "FM" 图标对齐
-          ...List.generate(_poolLabels.length, (i) {
-            final selected = provider.fmPoolId == _poolValues[i];
-            return Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: InkWell(
-                onTap: () => _onPoolChanged(provider, _poolValues[i]),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: selected ? cs.secondaryContainer : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    _poolLabels[i],
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                      color: selected ? cs.onSecondaryContainer : cs.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
   // ── 空闲状态 ──
-  Widget _buildIdleState(ColorScheme cs, TextTheme tt,
-      DiscoverProvider provider, PlayerProvider player, bool hasContent,
-      [List<Song> fmSongs = const []]) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (hasContent)
-            // 有歌但没在播放 → 展示封面预览
-            SizedBox(
-              height: 100,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: fmSongs.length > 5 ? 5 : fmSongs.length,
-                itemBuilder: (_, i) {
-                  final song = fmSongs[i];
-                  return GestureDetector(
-                    onTap: () => _startFm(provider, player),
-                    child: Container(
-                      width: 90,
-                      margin: const EdgeInsets.only(right: 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: song.albumCoverUrl != null
-                                ? CachedNetworkImage(
-                                    imageUrl: song.albumCoverUrl!,
-                                    width: 90,
-                                    height: 90,
-                                    fit: BoxFit.cover,
-                                    errorWidget: (_, __, ___) => Container(
-                                      color: cs.surfaceContainerHighest,
-                                      child: Icon(Icons.music_note,
-                                          color: cs.onSurfaceVariant),
-                                    ),
-                                  )
-                                : Container(
-                                    width: 90,
-                                    height: 90,
-                                    color: cs.surfaceContainerHighest,
-                                    child: Icon(Icons.music_note,
-                                        color: cs.onSurfaceVariant),
-                                  ),
+  Widget _buildIdleState(ColorScheme cs, DiscoverProvider provider,
+      PlayerProvider player, bool hasContent) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '根据你的听歌口味智能推荐',
+          style: ttBody(cs, provider.fmMode),
+        ),
+        const SizedBox(height: 16),
+        if (hasContent)
+          SizedBox(
+            height: 80,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: provider.personalFmSongs.length > 5
+                  ? 5
+                  : provider.personalFmSongs.length,
+              itemBuilder: (_, i) {
+                final song = provider.personalFmSongs[i];
+                return Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: song.albumCoverUrl != null
+                        ? CachedNetworkImage(
+                            imageUrl: song.albumCoverUrl!,
+                            width: 80,
+                            height: 80,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, __, ___) => Container(
+                              width: 80,
+                              height: 80,
+                              color: cs.surfaceContainerHighest,
+                              child:
+                                  Icon(Icons.music_note, color: cs.onSurfaceVariant),
+                            ),
+                          )
+                        : Container(
+                            width: 80,
+                            height: 80,
+                            color: cs.surfaceContainerHighest,
+                            child:
+                                Icon(Icons.music_note, color: cs.onSurfaceVariant),
                           ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
-          const SizedBox(height: 12),
-          Center(
-            child: FilledButton.icon(
-              onPressed: _fmLoading ? null : () => _startFm(provider, player),
-              icon: _fmLoading
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.play_arrow_rounded, size: 20),
-              label: Text(
-                hasContent ? '继续FM推荐' : '启动私人FM',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
+          ),
+        const SizedBox(height: 12),
+        Center(
+          child: FilledButton.icon(
+            onPressed: _fmLoading ? null : () => _startFm(provider, player),
+            icon: const Icon(Icons.play_arrow_rounded, size: 20),
+            label: Text(hasContent ? '继续FM推荐' : '启动私人FM'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
               ),
             ),
           ),
-          if (!hasContent)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Center(
-                child: Text(
-                  '根据你的听歌口味智能推荐',
-                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                ),
-              ),
-            ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   // ── 加载状态 ──
-  Widget _buildLoadingState(ColorScheme cs, TextTheme tt) {
+  Widget _buildLoadingState(ColorScheme cs) {
     return const Padding(
-      padding: EdgeInsets.all(32),
+      padding: EdgeInsets.symmetric(vertical: 40),
       child: Center(child: CircularProgressIndicator()),
     );
   }
@@ -282,156 +277,134 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
     Song currentSong,
     List<Song> buffer,
   ) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
-      child: Column(
-        children: [
-          // ── 当前歌曲卡片 ──
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 封面
-              ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: currentSong.albumCoverUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: currentSong.albumCoverUrl!,
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => Container(
-                          width: 80,
-                          height: 80,
-                          color: cs.surfaceContainerHighest,
-                          child:
-                              Icon(Icons.music_note, color: cs.onSurfaceVariant),
-                        ),
-                      )
-                    : Container(
-                        width: 80,
-                        height: 80,
-                        color: cs.surfaceContainerHighest,
-                        child:
-                            Icon(Icons.music_note, color: cs.onSurfaceVariant),
-                      ),
-              ),
-              const SizedBox(width: 14),
-              // 歌曲信息
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      currentSong.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: tt.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      currentSong.artistDisplay,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 12, color: cs.onSurfaceVariant),
-                    ),
-                    // 推荐理由
-                    if (currentSong.recDesc != null &&
-                        currentSong.recDesc!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        currentSong.recDesc!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: cs.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    // 传输控件
-                    Row(
-                      children: [
-                        // 不喜欢
-                        _iconButton(
-                          Icons.heart_broken_outlined,
-                          cs.error.withValues(alpha: 0.7),
-                          () => _dislike(provider, player, currentSong),
-                        ),
-                        const SizedBox(width: 4),
-                        // 上一首（不可用，FM 没有上一首）
-                        _iconButton(
-                          Icons.skip_previous_rounded,
-                          cs.onSurfaceVariant.withValues(alpha: 0.4),
-                          null,
-                        ),
-                        const SizedBox(width: 4),
-                        // 播放/暂停
-                        Container(
-                          decoration: BoxDecoration(
-                            color: cs.primary,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: IconButton(
-                            icon: Icon(
-                              player.isPlaying
-                                  ? Icons.pause_rounded
-                                  : Icons.play_arrow_rounded,
-                              color: cs.onPrimary,
-                              size: 22,
-                            ),
-                            onPressed: () => player.togglePlayPause(),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                                minWidth: 40, minHeight: 40),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        // 下一首
-                        _iconButton(
-                          Icons.skip_next_rounded,
-                          cs.onSurfaceVariant,
-                          () => player.playNext(),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── 歌曲信息 ──
+        Text(
+          currentSong.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          currentSong.artistDisplay,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+        ),
+        if (currentSong.recDesc != null &&
+            currentSong.recDesc!.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            currentSong.recDesc!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              color: cs.primary,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-          // ── 即将播放预览 ──
-          if (buffer.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _buildUpcomingPreview(cs, tt, buffer),
-          ],
         ],
+        const SizedBox(height: 14),
+        // ── 底部交互行：等距频谱条 + FAB ──
+        Row(
+          children: [
+            // 频谱条（左侧装饰）
+            _buildEqualizerBars(cs, isPlaying: player.isPlaying),
+            const Spacer(),
+            // 不喜欢按钮
+            SizedBox(
+              width: 36,
+              height: 36,
+              child: IconButton(
+                icon: Icon(Icons.heart_broken_outlined, size: 18),
+                color: cs.error.withValues(alpha: 0.75),
+                onPressed: () => _dislike(provider, player, currentSong),
+                padding: EdgeInsets.zero,
+                splashRadius: 18,
+              ),
+            ),
+            const SizedBox(width: 4),
+            // 上一首（FM 不可用，灰显）
+            SizedBox(
+              width: 36,
+              height: 36,
+              child: IconButton(
+                icon: Icon(Icons.skip_previous_rounded, size: 20),
+                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                onPressed: null,
+                padding: EdgeInsets.zero,
+                splashRadius: 18,
+              ),
+            ),
+            const SizedBox(width: 8),
+            // 播放/暂停 FAB
+            FloatingActionButton.small(
+              heroTag: 'fm_play',
+              onPressed: () => player.togglePlayPause(),
+              backgroundColor: cs.primary,
+              foregroundColor: cs.onPrimary,
+              child: Icon(
+                player.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 8),
+            // 下一首
+            SizedBox(
+              width: 36,
+              height: 36,
+              child: IconButton(
+                icon: Icon(Icons.skip_next_rounded, size: 20),
+                color: cs.onSurfaceVariant,
+                onPressed: () => player.playNext(),
+                padding: EdgeInsets.zero,
+                splashRadius: 18,
+              ),
+            ),
+          ],
+        ),
+        // ── 即将播放预览 ──
+        if (buffer.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _buildUpcomingPreview(cs, buffer),
+        ],
+      ],
+    );
+  }
+
+  // ── 等距频谱条 ──
+  Widget _buildEqualizerBars(ColorScheme cs, {required bool isPlaying}) {
+    // 8 条高度不同的竖线
+    final heights = [8, 14, 10, 18, 12, 16, 9, 13];
+    return SizedBox(
+      height: 24,
+      child: Row(
+        children: heights.map((h) {
+          return Container(
+            width: 3,
+            height: h.toDouble(),
+            margin: const EdgeInsets.symmetric(horizontal: 2.5),
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: isPlaying ? 0.7 : 0.3),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
 
-  Widget _iconButton(IconData icon, Color color, VoidCallback? onTap) {
-    return IconButton(
-      icon: Icon(icon, size: 20),
-      color: color,
-      onPressed: onTap,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-      splashRadius: 18,
-    );
-  }
-
   // ── 即将播放预览 ──
-  Widget _buildUpcomingPreview(
-      ColorScheme cs, TextTheme tt, List<Song> buffer) {
+  Widget _buildUpcomingPreview(ColorScheme cs, List<Song> buffer) {
     final previewSongs = buffer.take(5).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.3)),
+        Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.25)),
         const SizedBox(height: 8),
         Text('即将播放',
             style: TextStyle(
@@ -440,7 +413,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
                 color: cs.onSurfaceVariant)),
         const SizedBox(height: 6),
         SizedBox(
-          height: 44,
+          height: 40,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: previewSongs.length,
@@ -449,10 +422,10 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
               return Container(
                 margin: const EdgeInsets.only(right: 8),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: cs.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -462,24 +435,23 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
                       child: song.albumCoverUrl != null
                           ? CachedNetworkImage(
                               imageUrl: song.albumCoverUrl!,
-                              width: 24,
-                              height: 24,
+                              width: 20,
+                              height: 20,
                               fit: BoxFit.cover,
                               errorWidget: (_, __, ___) => Icon(
                                   Icons.music_note,
-                                  size: 14,
+                                  size: 12,
                                   color: cs.onSurfaceVariant),
                             )
                           : Icon(Icons.music_note,
-                              size: 14, color: cs.onSurfaceVariant),
+                              size: 12, color: cs.onSurfaceVariant),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 4),
                     Text(
                       song.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 11, color: cs.onSurfaceVariant),
+                      style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
                     ),
                   ],
                 ),
@@ -491,17 +463,18 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
     );
   }
 
-  // ── 交互 ──
-
-  void _onModeChanged(DiscoverProvider provider, String mode) {
-    provider.setFmMode(mode);
-    // 如果当前激活，提示用户重新启动
-    if (provider.isFmActive && mounted) setState(() {});
+  // ── 工具方法 ──
+  TextStyle ttBody(ColorScheme cs, String mode) {
+    return TextStyle(
+      fontSize: 12,
+      color: cs.onSurfaceVariant,
+    );
   }
+
+  // ── 交互 ──
 
   void _onPoolChanged(DiscoverProvider provider, int poolId) {
     provider.setFmPoolId(poolId);
-    if (provider.isFmActive && mounted) setState(() {});
   }
 
   Future<void> _startFm(DiscoverProvider provider, PlayerProvider player) async {
@@ -512,9 +485,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
 
   Future<void> _dislike(DiscoverProvider provider, PlayerProvider player,
       Song currentSong) async {
-    // 上报不喜欢
     await provider.dislikeCurrentFmSong(currentSong);
-    // 从队列移除 + 切下一首
     player.playNext();
   }
 }
