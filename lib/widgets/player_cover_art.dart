@@ -69,6 +69,8 @@ class PlayerCoverArt extends StatelessWidget {
                                   song.albumCoverUrl!.isNotEmpty
                               ? CachedNetworkImage(
                                   imageUrl: song.albumCoverUrl!,
+                                  width: size,
+                                  height: size,
                                   fit: BoxFit.cover,
                                   placeholder: (_, __) => _fallback(size),
                                   errorWidget: (_, __, ___) => _fallback(size),

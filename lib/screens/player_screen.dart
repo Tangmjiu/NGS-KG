@@ -1098,7 +1098,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final showKey = player.resolvedQuality ?? highestAvailable ??
         Quality.levels[player.qualityLevel % Quality.levels.length];
     final qualityLabel = Quality.label(showKey);
-    final showHiRes = showKey == 'high';
+    // 仅在真实源解析完成（resolvedQuality != null）且为 FLAC 时才显示金标
+    final showHiRes = player.resolvedQuality == 'high';
     const speeds = [1.0, 0.5, 0.75, 1.25, 1.5, 2.0];
 
     return Column(

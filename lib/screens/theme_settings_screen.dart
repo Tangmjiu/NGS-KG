@@ -35,6 +35,16 @@ class ThemeSettingsScreen extends StatelessWidget {
             // ── 主题模式 ──
             _ThemeModeSection(tp: tp),
             const Divider(height: 8),
+            // ── Hi-Res 金标 ──
+            SwitchListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              secondary: const Icon(Icons.verified_outlined),
+              title: const Text('显示 Hi-Res 金标'),
+              subtitle: const Text('播放无损音质时在专辑封面上显示'),
+              value: tp.showHiResBadge,
+              onChanged: (v) => tp.setShowHiResBadge(v),
+            ),
+            const Divider(height: 8),
             // ── 歌词设置 ──
             ListTile(
               leading: const Icon(Icons.lyrics_outlined),
