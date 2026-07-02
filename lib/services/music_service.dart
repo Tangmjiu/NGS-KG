@@ -406,24 +406,30 @@ class MusicService {
     String? hash,
     int? songid,
     int? playtime,
-    String action = 'play',
-    int isOverplay = 0,
-    int remainSongcnt = 0,
+    String? action,
+    int? isOverplay,
+    int? remainSongcnt,
   }) async {
     final params = <String, dynamic>{
       'mode': mode,
       'song_pool_id': songPoolId,
-      'action': action,
-      'is_overplay': isOverplay,
-      'remain_songcnt': remainSongcnt,
     };
+    // 以下参数仅当显式传入时才发送（初始请求不传，后续反馈闭环才传）
+    if (action != null) params['action'] = action;
+    if (isOverplay != null) params['is_overplay'] = isOverplay;
+    if (remainSongcnt != null) params['remain_songcnt'] = remainSongcnt;
     if (hash != null) params['hash'] = hash;
     if (songid != null) params['songid'] = songid;
     if (playtime != null) params['playtime'] = playtime;
     final cookieStr = await _getCookieString();
     if (cookieStr != null) params['cookie'] = cookieStr;
     final res = await _oneShotGet('/personal/fm', params: params, silent: true);
-    if (res['data'] is List) return (res['data'] as List).cast<Map<String, dynamic>>();
+    final data = res['data'];
+    if (data is List) return data.cast<Map<String, dynamic>>();
+    if (data is Map) {
+      final list = data['song_list'] as List<dynamic>?;
+      if (list != null) return list.cast<Map<String, dynamic>>();
+    }
     return [];
   }
 

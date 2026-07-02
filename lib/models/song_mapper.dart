@@ -213,36 +213,117 @@ class SongMapper {
     }
   }
 
-  /// 私人 FM 推荐结果映射
+  /// 私人 FM 推荐结果映射（/personal/fm 专用）
   ///
-  /// 兼容来自 /personal/fm 接口的响应格式。
-  /// 相比 fromTrackJson，额外抽取 FM 特有字段：rec_desc, language, similar_desc, relate_goods。
+  /// FM API 返回字段与常规歌曲接口不同：
+  /// - name 在 songname / ori_audio_name
+  /// - artist 在 author_name
+  /// - 时长在 time_length（秒）
+  /// - 封面在 trans_param.union_cover
+  /// - rec_song_info.rec_desc / similar_desc / language 等推荐元数据
   static Song? fromFmJson(Map<String, dynamic> json) {
     try {
-      final base = fromTrackJson(json);
-      if (base == null) return null;
+      // ── 名称 ──
+      final rawName = (json['songname'] ?? json['ori_audio_name'] ?? '') as String;
+      var parts = rawName.split(' - ');
+      if (parts.length == 1 && rawName.contains('、')) {
+        parts = ['', rawName];
+      }
+
+      // ── 歌手 ──
+      final artist = parts.length > 1
+          ? parts[0]
+          : (json['author_name'] as String? ?? '');
+
+      // ── 封面 ──
+      var cover = json['cover'] as String? ??
+          json['imgUrl'] as String?;
+      if (cover == null || cover.isEmpty) {
+        final transParam = json['trans_param'] as Map<String, dynamic>?;
+        cover = transParam?['union_cover'] as String?;
+      }
+      if (cover != null) {
+        cover = cover.replaceAll('{size}', '480');
+        if (cover.startsWith('//')) cover = 'https:$cover';
+      }
+
+      // ── hash 与音质映射 ──
+      final q = <String, String>{};
+      String? hash = json['hash'] as String?;
+      if (hash != null && hash.isNotEmpty) q['128'] = hash;
+
+      // 逐级读取各音质 hash（FM 响应直接带 hash_128/320/flac）
+      for (final entry in _qualityFields.entries) {
+        final v = json[entry.value] as String?;
+        if (v != null && v.isNotEmpty) q[entry.key] = v;
+      }
+
+      // 从 relate_goods 补充音质
+      final relateGoods = json['relate_goods'] as List<dynamic>?;
+      if (relateGoods != null && q.length < 2) {
+        for (final g in relateGoods) {
+          if (g is Map) {
+            final level = g['level'];
+            final gh = g['hash'] as String?;
+            if (gh != null && gh.isNotEmpty) {
+              if (level == 4 && !q.containsKey('320')) q['320'] = gh;
+              if (level == 5 && !q.containsKey('flac')) q['flac'] = gh;
+              if (level == 6 && !q.containsKey('high')) q['high'] = gh;
+            }
+          }
+        }
+      }
+
+      if (!q.containsKey('320')) {
+        final v = json['hash_320'] as String?;
+        if (v != null && v.isNotEmpty) q['320'] = v;
+      }
+
+      // ── 时长 ──
+      int duration = (json['time_length'] as num?)?.toInt() ?? 0;
+      if (duration <= 0) {
+        duration = (json['timelength_320'] as num?)?.toInt() ?? 0;
+      }
+      if (duration <= 0) {
+        duration = (json['timelength'] as num?)?.toInt() ?? 0;
+        if (duration > 1000) duration = duration ~/ 1000; // 毫秒转秒
+      }
+
+      // ── ID ──
+      final id = (json['mixsongid'] as num?)?.toInt() ??
+          (json['songid'] as num?)?.toInt() ??
+          (json['audio_id'] as num?)?.toInt() ??
+          (json['id'] as num?)?.toInt() ??
+          0;
+
+      // ── artistId ──
+      int? artistId;
+      final singerInfo = json['singerinfo'] as List<dynamic>?;
+      if (singerInfo != null && singerInfo.isNotEmpty) {
+        final first = singerInfo.first as Map<String, dynamic>?;
+        artistId = (first?['id'] as num?)?.toInt();
+      }
+
+      // ── FM 元数据 ──
+      final recInfo = json['rec_song_info'] as Map<String, dynamic>?;
+
       return Song(
-        id: base.id,
-        name: base.name,
-        artists: base.artists,
-        albumName: base.albumName,
-        albumCoverUrl: base.albumCoverUrl,
-        duration: base.duration,
-        lyricUrl: base.lyricUrl,
-        filePath: base.filePath,
-        hash: base.hash,
-        qualities: base.qualities,
-        albumId: base.albumId,
-        fileId: base.fileId,
-        lyrics: base.lyrics,
-        climaxMs: base.climaxMs,
-        mixSongId: base.mixSongId,
-        artistId: base.artistId,
-        coverData: base.coverData,
-        recDesc: json['rec_desc'] as String?,
+        id: id,
+        name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
+        artists: [artist],
+        albumName: json['album_name'] as String?,
+        albumCoverUrl: cover,
+        duration: duration,
+        hash: hash,
+        qualities: q.isNotEmpty ? q : null,
+        albumId: (json['album_id'] as num?)?.toInt() ?? 0,
+        mixSongId: (json['mixsongid'] as num?)?.toInt(),
+        artistId: artistId,
+        fileId: (json['scid'] as num?)?.toInt(),
+        recDesc: recInfo?['rec_desc'] as String?,
         language: json['language'] as String?,
-        similarDesc: json['similar_desc'] as String?,
-        relateGoods: (json['relate_goods'] as List<dynamic>?)
+        similarDesc: recInfo?['similar_desc'] as String?,
+        relateGoods: relateGoods
             ?.map((e) => e as Map<String, dynamic>)
             .toList(),
       );
@@ -251,6 +332,14 @@ class SongMapper {
       return null;
     }
   }
+
+  /// 音质 hash 字段映射表
+  static const Map<String, String> _qualityFields = {
+    '128': 'hash_128',
+    '320': 'hash_320',
+    'flac': 'hash_flac',
+    'high': 'hash_high',
+  };
 
   static int _tryInt(dynamic v) {
     if (v is int) return v;
