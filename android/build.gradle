@@ -9,6 +9,13 @@ allprojects {
 }
 
 rootProject.buildDir = '../build'
+
+// 统一所有子项目 buildDir 到 rootProject.buildDir/<project-name>
+// 确保 Flutter CLI 能在 build/app/outputs/flutter-apk/ 找到 APK
+allprojects { p ->
+    p.buildDir = "${rootProject.buildDir}/${p.name}"
+}
+
 subprojects {
     project.evaluationDependsOn(':app')
     tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
