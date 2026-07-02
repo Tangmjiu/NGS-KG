@@ -4,6 +4,8 @@
 
 <h1 align="center">NGS-KG+</h1>
 
+[English](./documents/README.en.md) | 简体中文
+
 <p align="center">
   基于酷狗音乐第三方 API 的 Flutter 音乐播放器
 </p>
