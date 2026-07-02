@@ -75,20 +75,21 @@ jobs:
       # ── Build debug APK (仅 arm64-v8a，加快 CI 速度) ──
       - name: Build debug APK
         run: |
-          # Run Gradle directly (not via flutter build) to see full output
-          cd android
-          ./gradlew app:assembleDebug \
-            -Ptarget-platform=android-arm64 \
-            -Ptarget=lib/main.dart \
-            -Pbase-application-name=android.app.Application \
-            --no-daemon \
-            --info 2>&1 | tail -80
-          # Check if APK was produced
-          echo "=== Searching for APK ==="
-          find /home/runner/work/NGS-KG/NGS-KG -name "*.apk" -type f 2>/dev/null
-          echo "=== Build directories ==="
-          ls -la /home/runner/work/NGS-KG/NGS-KG/build/app/outputs/ 2>/dev/null || echo "build/app/outputs not found"
-          ls -la /home/runner/work/NGS-KG/NGS-KG/android/app/build/outputs/ 2>/dev/null || echo "android/app/build/outputs not found"
+          flutter build apk --debug --target-platform android-arm64 --android-skip-build-dependency-validation
+          # flutter build apk exits 0 but may look in the wrong path for APK.
+          # The actual APK is in android/app/build/outputs/flutter-apk/.
+          # Copy it to where the upload step expects it.
+          mkdir -p build/app/outputs/flutter-apk
+          if [ -f android/app/build/outputs/flutter-apk/app-debug.apk ]; then
+            cp android/app/build/outputs/flutter-apk/app-debug.apk build/app/outputs/flutter-apk/app-debug.apk
+            echo "APK copied from android/app/build/outputs/flutter-apk/"
+          elif [ -f build/app/outputs/flutter-apk/app-debug.apk ]; then
+            echo "APK already at expected path"
+          else
+            echo "::error::APK not found anywhere!"
+            find . -name "*.apk" -type f 2>/dev/null
+            exit 1
+          fi
 
       # ── Upload debug APK ──
       - name: Upload debug APK
