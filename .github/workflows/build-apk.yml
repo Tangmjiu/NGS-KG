@@ -19,7 +19,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /opt/hostedtoolcache/flutter
-          key: flutter-${{ runner.os }}-3.41.0-stable
+          key: flutter-${{ runner.os }}-3.44.0-stable
           restore-keys: |
             flutter-${{ runner.os }}-
 
@@ -50,7 +50,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.0'
+          flutter-version: '3.44.0'
           channel: 'stable'
 
       - name: Install Android SDK
