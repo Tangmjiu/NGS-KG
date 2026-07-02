@@ -393,11 +393,33 @@ class MusicService {
 
   /// 私人 FM（猜你喜欢）
   ///
-  /// [mode] normal=红心 small=小众
-  /// [songPoolId] 0=Alpha 1=Beta 2=Gamma
-  Future<List<Map<String, dynamic>>> getPersonalFm({String mode = 'normal', int songPoolId = 0}) async {
-    final params = <String, dynamic>{'mode': mode, 'song_pool_id': songPoolId};
-    // 部分服务器需要 cookie 查询参数
+  /// [mode] normal=红心 small=小众 peak=速览
+  /// [songPoolId] 0=Alpha(口味) 1=Beta(风格) 2=Gamma(探索)
+  /// [action] play=正常播放反馈 garbage=不喜欢
+  /// [hash] [songid] 当前歌曲信息（用于反馈闭环）
+  /// [playtime] 已播放秒数
+  /// [isOverplay] 歌曲是否完整播完
+  /// [remainSongcnt] buffer 剩余歌曲数（让服务端决定是否继续推）
+  Future<List<Map<String, dynamic>>> getPersonalFm({
+    String mode = 'normal',
+    int songPoolId = 0,
+    String? hash,
+    int? songid,
+    int? playtime,
+    String action = 'play',
+    int isOverplay = 0,
+    int remainSongcnt = 0,
+  }) async {
+    final params = <String, dynamic>{
+      'mode': mode,
+      'song_pool_id': songPoolId,
+      'action': action,
+      'is_overplay': isOverplay,
+      'remain_songcnt': remainSongcnt,
+    };
+    if (hash != null) params['hash'] = hash;
+    if (songid != null) params['songid'] = songid;
+    if (playtime != null) params['playtime'] = playtime;
     final cookieStr = await _getCookieString();
     if (cookieStr != null) params['cookie'] = cookieStr;
     final res = await _oneShotGet('/personal/fm', params: params, silent: true);
