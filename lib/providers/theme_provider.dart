@@ -54,6 +54,7 @@ class ThemeProvider extends ChangeNotifier {
   static const _keyFirstLaunchDate = 'theme_first_launch_date';
   static const _keySupportDismissed = 'theme_support_dismissed';
   static const _keyFlowLight = 'theme_flow_light';
+  static const _keyShowHiResBadge = 'theme_show_hi_res';
   static const _keyLyricSettings = 'theme_lyric_settings';
 
   static const int supportPopupDays = 14;
@@ -65,6 +66,7 @@ class ThemeProvider extends ChangeNotifier {
   Color _customColor = const Color(0xFF2CA1F4);
   bool _useMonet = false;
   bool _flowLightEnabled = false;
+  bool _showHiResBadge = true;
   LyricSettings _lyricSettings = LyricSettings.defaults;
 
   final List<ThemePack> _packs = [ngsNagisa, md3Default];
@@ -91,6 +93,7 @@ class ThemeProvider extends ChangeNotifier {
   Color get customColor => _customColor;
   bool get useMonet => _useMonet;
   bool get flowLightEnabled => _flowLightEnabled;
+  bool get showHiResBadge => _showHiResBadge;
   LyricSettings get lyricSettings => _lyricSettings;
 
   /// 应用主题包的歌词设置默认值（用户未手动修改时）
@@ -162,6 +165,7 @@ class ThemeProvider extends ChangeNotifier {
       _useMonet = prefs.getBool(_keyUseMonet) ?? false;
       _selectedPackId = prefs.getString(_keySelectedPack) ?? 'ngs_nagisa';
       _flowLightEnabled = prefs.getBool(_keyFlowLight) ?? false;
+      _showHiResBadge = prefs.getBool(_keyShowHiResBadge) ?? true;
 
       // ─── 歌词显示设置 ───
       final lsStr = prefs.getString(_keyLyricSettings);
@@ -418,6 +422,18 @@ class ThemeProvider extends ChangeNotifier {
       await prefs.setBool(_keyFlowLight, v);
     } catch (e, s) {
       Log.e('ThemeProvider', 'persist flowLight error', e, s);
+    }
+  }
+
+  /// 设置是否显示 Hi-Res 金标
+  Future<void> setShowHiResBadge(bool v) async {
+    _showHiResBadge = v;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyShowHiResBadge, v);
+    } catch (e, s) {
+      Log.e('ThemeProvider', 'persist showHiResBadge error', e, s);
     }
   }
 
