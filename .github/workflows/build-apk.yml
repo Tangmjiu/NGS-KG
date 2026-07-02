@@ -13,40 +13,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ═══ Cache ═══
-
-      - name: Cache Flutter SDK
-        uses: actions/cache@v4
-        with:
-          path: /opt/hostedtoolcache/flutter
-          key: flutter-${{ runner.os }}-3.44.0-stable
-          restore-keys: |
-            flutter-${{ runner.os }}-
-
-      - name: Cache Pub dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pub-cache
-            .dart_tool
-          key: pub-${{ runner.os }}-${{ hashFiles('pubspec.yaml', 'pubspec.lock') }}
-          restore-keys: |
-            pub-${{ runner.os }}-
-
-      - name: Cache Android SDK
-        uses: actions/cache@v4
-        with:
-          path: /usr/local/lib/android/sdk
-          key: android-sdk-${{ runner.os }}
-
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: ~/.gradle/caches
-          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -55,6 +21,11 @@ jobs:
 
       - name: Install Android SDK
         uses: android-actions/setup-android@v2
+
+      - name: Install SDK 36
+        run: |
+          yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" 2>/dev/null || true
+          sdkmanager --list_installed 2>/dev/null | grep "platforms"
 
       - name: Create assets directories
         run: |
@@ -67,29 +38,12 @@ jobs:
       # ═══ CI network config: replace China mirrors with global ones ═══
       - name: Use global Gradle/Maven mirrors for CI
         run: |
-          # Gradle distribution: Tencent → official
           sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
-          # Maven mirrors: remove Aliyun (502 in CI), keep google/mavenCentral
           sed -i '/maven.*aliyun/d' android/settings.gradle android/build.gradle
 
-      # ── Build debug APK (仅 arm64-v8a，加快 CI 速度) ──
+      # ── Build debug APK ──
       - name: Build debug APK
-        run: |
-          flutter build apk --debug --target-platform android-arm64 --android-skip-build-dependency-validation
-          # flutter build apk exits 0 but may look in the wrong path for APK.
-          # The actual APK is in android/app/build/outputs/flutter-apk/.
-          # Copy it to where the upload step expects it.
-          mkdir -p build/app/outputs/flutter-apk
-          if [ -f android/app/build/outputs/flutter-apk/app-debug.apk ]; then
-            cp android/app/build/outputs/flutter-apk/app-debug.apk build/app/outputs/flutter-apk/app-debug.apk
-            echo "APK copied from android/app/build/outputs/flutter-apk/"
-          elif [ -f build/app/outputs/flutter-apk/app-debug.apk ]; then
-            echo "APK already at expected path"
-          else
-            echo "::error::APK not found anywhere!"
-            find . -name "*.apk" -type f 2>/dev/null
-            exit 1
-          fi
+        run: flutter build apk --debug --target-platform android-arm64 --android-skip-build-dependency-validation
 
       # ── Upload debug APK ──
       - name: Upload debug APK
