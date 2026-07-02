@@ -236,6 +236,7 @@ class ThemePack {
     if (fontFamily != null) tags.add('自定义字体');
     if (shapes != null) tags.add('自定义形状');
     if (playerBgPath != null) tags.add('播放器壁纸');
+    if (assetFiles?.containsKey('hi_res_badge') == true) tags.add('Hi-Res 金标');
     if (motion.durationScale != 1.0) tags.add('自定义动效');
     return tags;
   }

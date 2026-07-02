@@ -106,6 +106,7 @@ class ThemeLoader {
         'sthiswrong', 'codecrash', 'loading', 'ban', 'supportme', 'icon',
         'album_placeholder', 'playlist_placeholder', 'artist_placeholder',
         'empty_playlist', 'empty_content', 'load_failed',
+        'hi_res_badge',
       ];
 
       for (final key in assetKeys) {

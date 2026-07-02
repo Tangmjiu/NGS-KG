@@ -31,6 +31,9 @@ class ThemeAssets {
   static String artistPlaceholder = '';
   static String playerBg = '';
 
+  // ─── Hi-Res 金标 ───
+  static String hiResBadge = 'assets/images/hi_res_badge.svg';
+
   // ─── 空状态 / 失败插画（主题包可覆盖） ───
   static String emptyPlaylist = _defEmptyPlaylist;  // 歌单/收藏为空
   static String emptyContent = _defEmptyContent;   // 通用空数据（暂无歌曲/评论等）
@@ -60,6 +63,7 @@ class ThemeAssets {
     if (files.containsKey('empty_playlist')) emptyPlaylist = files['empty_playlist']!;
     if (files.containsKey('empty_content')) emptyContent = files['empty_content']!;
     if (files.containsKey('load_failed')) loadFailed = files['load_failed']!;
+    if (files.containsKey('hi_res_badge')) hiResBadge = files['hi_res_badge']!;
 
     if (pack.playerBgPath != null) playerBg = pack.playerBgPath!;
   }
@@ -76,6 +80,7 @@ class ThemeAssets {
     playlistPlaceholder = '';
     artistPlaceholder = '';
     playerBg = '';
+    hiResBadge = 'assets/images/hi_res_badge.svg';
     emptyPlaylist = _defEmptyPlaylist;
     emptyContent = _defEmptyContent;
     loadFailed = _defLoadFailed;
