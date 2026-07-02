@@ -181,13 +181,13 @@ class _SearchScreenState extends State<SearchScreen>
           child: TextField(
             controller: _searchCtrl,
             focusNode: _focusNode,
-            autofocus: true,
+            autofocus: false,
             decoration: InputDecoration(
               hintText: '搜索歌曲、歌单、歌手...',
               border: InputBorder.none,
               filled: false,
               isCollapsed: true,
-              contentPadding: EdgeInsets.zero,
+              contentPadding: const EdgeInsets.symmetric(vertical: 10),
               prefixIcon: Padding(
                 padding: const EdgeInsets.only(right: 4),
                 child: Icon(Icons.search, size: 20,
