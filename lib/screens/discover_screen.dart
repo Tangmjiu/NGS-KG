@@ -97,6 +97,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 ),
               )
             else ...[
+              // ── 私人 FM（置顶） ──
+              SliverToBoxAdapter(
+                child: DiscoverPersonalFmRow(),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 8)),
+
               // ── Quick actions ──
               SliverToBoxAdapter(
                 child: DiscoverQuickActions(rankList: provider.rankList),
@@ -127,16 +133,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 ),
                 SliverToBoxAdapter(
                   child: DiscoverRankRow(ranks: provider.rankList),
-                ),
-              ],
-
-              // ── FM ──
-              if (provider.hasPersonalFm || !provider.loading) ...[
-                SliverToBoxAdapter(
-                  child: DiscoverPersonalFmRow(
-                    songs: provider.personalFmSongs,
-                    onRefresh: () => provider.loadAll(),
-                  ),
                 ),
               ],
 
