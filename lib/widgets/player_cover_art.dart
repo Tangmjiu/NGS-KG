@@ -80,7 +80,7 @@ class PlayerCoverArt extends StatelessWidget {
                       ),
                       if (showHiRes)
                         Positioned(
-                          left: 8,
+                          left: 4,
                           bottom: 8,
                           child: HiResBadge(height: 28),
                         ),
