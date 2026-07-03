@@ -176,7 +176,17 @@ class DiscoverProvider extends ChangeNotifier {
       if (songs.isNotEmpty) {
         debugPrint('[FM] first song: ${songs.first.name} / ${songs.first.artistDisplay} / cover: ${songs.first.albumCoverUrl}');
       }
-      _personalFmSongs = songs.take(DiscoverConstants.topSongsLimit).toList();
+      // 去重
+      final deduped = <Song>[];
+      for (final song in songs) {
+        if (!deduped.any((existing) =>
+            (existing.hash != null && song.hash != null && existing.hash == song.hash) ||
+            (existing.mixSongId != null && song.mixSongId != null && existing.mixSongId == song.mixSongId) ||
+            existing.id == song.id)) {
+          deduped.add(song);
+        }
+      }
+      _personalFmSongs = deduped.take(DiscoverConstants.topSongsLimit).toList();
       _personalFmBuffer = List.from(_personalFmSongs);
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadPersonalFm error', e, s);
@@ -187,21 +197,19 @@ class DiscoverProvider extends ChangeNotifier {
   //  私人 FM 操作方法
   // ═══════════════════════════════════════════
 
-  /// 切换 FM 推荐模式
+  /// 切换 FM 推荐模式（不中断当前播放，下次补货使用新模式）
   void setFmMode(String mode) {
     if (mode == _fmMode) return;
     _fmMode = mode;
-    _personalFmBuffer.clear();
-    _isFmActive = false;
+    // 不清理 buffer，不退出 FM 状态 — 下次 _refillFmBuffer 会使用新模式
     notifyListeners();
   }
 
-  /// 切换 AI 算法池
+  /// 切换 AI 算法池（不中断当前播放，下次补货使用新算法池）
   void setFmPoolId(int poolId) {
     if (poolId == _fmPoolId) return;
     _fmPoolId = poolId;
-    _personalFmBuffer.clear();
-    _isFmActive = false;
+    // 不清理 buffer，不退出 FM 状态 — 下次 _refillFmBuffer 会使用新算法池
     notifyListeners();
   }
 
@@ -220,7 +228,9 @@ class DiscoverProvider extends ChangeNotifier {
   }
 
   /// 补货缓冲池（携带当前反馈数据）
-  Future<void> _refillFmBuffer() async {
+  ///
+  /// [isOverplay] 当前歌曲是否完整播完（1=是，0=跳过），传入 -1 表示从 _fmPendingOverplay 读取
+  Future<void> _refillFmBuffer({int isOverplay = 0}) async {
     try {
       final raw = await _musicService.getPersonalFm(
         mode: _fmMode,
@@ -229,18 +239,41 @@ class DiscoverProvider extends ChangeNotifier {
         songid: _currentFmFeedback?['songid'] as int?,
         playtime: _currentFmFeedback?['playtime'] as int?,
         action: 'play',
-        isOverplay: 0,
+        isOverplay: isOverplay,
         remainSongcnt: _personalFmBuffer.length,
       );
-      final songs = raw
+      final newSongs = raw
           .map((e) => SongMapper.fromFmJson(e))
           .whereType<Song>()
           .toList();
-      _personalFmBuffer.addAll(songs);
+      // 去重合并：以 hash > mixSongId > id 三级 key 去重
+      for (final song in newSongs) {
+        if (!_songExistsInBuffer(song)) {
+          _personalFmBuffer.add(song);
+        }
+      }
       notifyListeners();
     } catch (e, s) {
       Log.e('DiscoverProvider', '_refillFmBuffer error', e, s);
     }
+  }
+
+  /// 由 UI 调用：刷新 FM 缓冲池（例如切换模式/算法池后触发预取）
+  Future<void> refreshFmBuffer() async {
+    if (_personalFmBuffer.length > _fmBufferThreshold) return;
+    await _refillFmBuffer();
+  }
+
+  /// 三级 key 去重：hash > mixSongId > id
+  bool _songExistsInBuffer(Song song) {
+    return _personalFmBuffer.any((existing) =>
+        (existing.hash != null &&
+            song.hash != null &&
+            existing.hash == song.hash) ||
+        (existing.mixSongId != null &&
+            song.mixSongId != null &&
+            existing.mixSongId == song.mixSongId) ||
+        existing.id == song.id);
   }
 
   /// 上报「不喜欢」并获取替代推荐
@@ -256,13 +289,18 @@ class DiscoverProvider extends ChangeNotifier {
         isOverplay: 0,
         remainSongcnt: _personalFmBuffer.length,
       );
-      final songs = raw
+      final newSongs = raw
           .map((e) => SongMapper.fromFmJson(e))
           .whereType<Song>()
           .toList();
-      _personalFmBuffer.addAll(songs);
+      // 去重合并
+      for (final song in newSongs) {
+        if (!_songExistsInBuffer(song)) {
+          _personalFmBuffer.add(song);
+        }
+      }
       notifyListeners();
-      return songs;
+      return newSongs;
     } catch (e, s) {
       Log.e('DiscoverProvider', 'dislikeCurrentFmSong error', e, s);
       return [];
