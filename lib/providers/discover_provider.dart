@@ -176,13 +176,13 @@ class DiscoverProvider extends ChangeNotifier {
       if (songs.isNotEmpty) {
         debugPrint('[FM] first song: ${songs.first.name} / ${songs.first.artistDisplay} / cover: ${songs.first.albumCoverUrl}');
       }
-      // 去重
+      // 去重（id==0 不参与去重，因 fromFmJson 回退到 0）
       final deduped = <Song>[];
       for (final song in songs) {
         if (!deduped.any((existing) =>
             (existing.hash != null && song.hash != null && existing.hash == song.hash) ||
             (existing.mixSongId != null && song.mixSongId != null && existing.mixSongId == song.mixSongId) ||
-            existing.id == song.id)) {
+            (existing.id > 0 && existing.id == song.id))) {
           deduped.add(song);
         }
       }
@@ -258,13 +258,13 @@ class DiscoverProvider extends ChangeNotifier {
     }
   }
 
-  /// 由 UI 调用：刷新 FM 缓冲池（例如切换模式/算法池后触发预取）
+  /// 由 UI 调用：刷新 FM 缓冲池（切换模式/算法池后触发预取）
+  /// 跳过阈值检查，确保新参数立即生效
   Future<void> refreshFmBuffer() async {
-    if (_personalFmBuffer.length > _fmBufferThreshold) return;
     await _refillFmBuffer();
   }
 
-  /// 三级 key 去重：hash > mixSongId > id
+  /// 三级 key 去重：hash > mixSongId > id（id==0 不参与去重，因 fromFmJson 回退到 0）
   bool _songExistsInBuffer(Song song) {
     return _personalFmBuffer.any((existing) =>
         (existing.hash != null &&
@@ -273,7 +273,7 @@ class DiscoverProvider extends ChangeNotifier {
         (existing.mixSongId != null &&
             song.mixSongId != null &&
             existing.mixSongId == song.mixSongId) ||
-        existing.id == song.id);
+        (existing.id > 0 && existing.id == song.id));
   }
 
   /// 上报「不喜欢」并获取替代推荐

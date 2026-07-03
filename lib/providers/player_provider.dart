@@ -487,7 +487,10 @@ class PlayerProvider extends ChangeNotifier
     if (_handlingComplete) return;
     _handlingComplete = true;
     final current = _queue.currentSong;
-    if (current == null) return;
+    if (current == null) {
+      _handlingComplete = false;
+      return;
+    }
     switch (_queue.playMode) {
       case PlayMode.repeatOne:
         _engine.isCompleting.value = false;
@@ -496,7 +499,10 @@ class PlayerProvider extends ChangeNotifier
         return; // 不切歌，无需通知
       case PlayMode.shuffle:
         final idx = _queue.nextIndex();
-        if (idx == null) return;
+        if (idx == null) {
+          _handlingComplete = false;
+          return;
+        }
         _engine.resetForNewSong();
         _queue.playIndex(idx);
         _enginePlayWithQuality(_queue.currentSong ?? current);
