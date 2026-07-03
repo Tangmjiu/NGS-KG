@@ -367,11 +367,11 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
             ),
           ],
         ),
-        // ── 即将播放预览 ──
-        if (buffer.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          _buildUpcomingPreview(cs, buffer),
-        ],
+          // ── 即将播放预览 ──
+          if (buffer.isNotEmpty || player.playlist.length > player.currentIndex + 1) ...[
+            const SizedBox(height: 12),
+            _buildUpcomingPreview(cs, player, buffer),
+          ],
       ],
     );
   }
@@ -399,8 +399,23 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
   }
 
   // ── 即将播放预览（黑胶唱片风格） ──
-  Widget _buildUpcomingPreview(ColorScheme cs, List<Song> buffer) {
-    final previewSongs = buffer.take(5).toList();
+  /// 展示队列剩余歌曲 + 预取池中的歌曲，去重后最多 5 首
+  Widget _buildUpcomingPreview(ColorScheme cs, PlayerProvider player, List<Song> buffer) {
+    // 队列中尚未播放的歌曲（当前索引之后）
+    final remainingInQueue = player.playlist.length > player.currentIndex + 1
+        ? player.playlist.sublist(player.currentIndex + 1)
+        : <Song>[];
+    // 合并队列剩余 + 预取池，去重
+    final seen = <int>{};
+    final combined = <Song>[];
+    for (final song in [...remainingInQueue, ...buffer]) {
+      if (seen.contains(song.id)) continue;
+      seen.add(song.id);
+      combined.add(song);
+      if (combined.length >= 5) break;
+    }
+    if (combined.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -417,9 +432,9 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
           height: 56,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: previewSongs.length,
+            itemCount: combined.length,
             itemBuilder: (_, i) {
-              final song = previewSongs[i];
+              final song = combined[i];
               return Container(
                 width: 56,
                 margin: const EdgeInsets.only(right: 14),
