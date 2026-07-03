@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +10,8 @@ import '../../../providers/discover_provider.dart';
 ///
 /// 嵌入在发现页顶部，三种状态：空闲 / 加载中 / 播放中。
 /// 点击标题循环切换模式：红心 → 小众 → 速览。
+/// MD3 Motion: vinyl spin 4s/rev, eq bars 350ms pulse,
+/// state crossfade 300ms, button bg 200ms.
 class DiscoverPersonalFmRow extends StatefulWidget {
   const DiscoverPersonalFmRow({super.key});
 
@@ -16,24 +19,86 @@ class DiscoverPersonalFmRow extends StatefulWidget {
   State<DiscoverPersonalFmRow> createState() => _DiscoverPersonalFmRowState();
 }
 
-class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
+class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
+    with TickerProviderStateMixin {
   bool _fmLoading = false;
   bool _fmPreloaded = false;
+
+  // ─── MD3 Motion: vinyl rotation (4s per rev, standard easing) ───
+  late final AnimationController _vinylSpinController;
+
+  // ─── MD3 Motion: equalizer bars (350ms pulse) ───
+  late final AnimationController _eqController;
+  static const int _eqBarCount = 8;
+  final List<double> _eqHeights = List.generate(
+    _eqBarCount,
+    (_) => Random().nextDouble() * 12 + 4,
+  );
 
   static const _modeValues = ['normal', 'small', 'peak'];
   static const _modeLabels = ['红心', '小众', '速览'];
   static const _poolValues = [0, 1, 2];
   static const _poolLabels = ['口味', '风格', '探索'];
 
-  // ─── 预取（类似 EchoMusic onMounted 预加载） ───
+  @override
+  void initState() {
+    super.initState();
+    // MD3: vinyl — 4s per rotation, standard easing for start/stop
+    _vinylSpinController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 4000),
+    );
+    // MD3: eq — 350ms repeating pulse
+    _eqController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _eqController.addListener(_randomizeEq);
+  }
+
+  @override
+  void dispose() {
+    _vinylSpinController.dispose();
+    _eqController.removeListener(_randomizeEq);
+    _eqController.dispose();
+    super.dispose();
+  }
+
+  void _randomizeEq() {
+    if (!_eqController.isAnimating) return;
+    for (int i = 0; i < _eqBarCount; i++) {
+      _eqHeights[i] = Random().nextDouble() * 12 + 4;
+    }
+  }
+
+  // ─── 同步动画状态与播放状态 ───
+  void _syncAnimations(bool isPlaying) {
+    if (isPlaying) {
+      if (!_vinylSpinController.isAnimating) {
+        _vinylSpinController.repeat();
+      }
+      if (!_eqController.isAnimating) {
+        _eqController.repeat();
+      }
+    } else {
+      if (_vinylSpinController.isAnimating) {
+        _vinylSpinController.stop();
+      }
+      if (_eqController.isAnimating) {
+        _eqController.stop();
+      }
+    }
+  }
+
+  // ─── 预取 ───
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_fmPreloaded) {
       _fmPreloaded = true;
       final provider = context.read<DiscoverProvider>();
-      if (provider.personalFmBuffer.isEmpty && provider.personalFmSongs.isEmpty) {
-        // 后台预取，不阻塞 UI
+      if (provider.personalFmBuffer.isEmpty &&
+          provider.personalFmSongs.isEmpty) {
         provider.loadAll();
       }
     }
@@ -41,11 +106,10 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
 
   // ─── 循环切换模式 ───
   void _cycleMode(DiscoverProvider provider) {
-    if (_fmLoading) return; // 加载中不响应
+    if (_fmLoading) return;
     final currentIndex = _modeValues.indexOf(provider.fmMode);
     final nextIndex = (currentIndex + 1) % _modeValues.length;
     provider.setFmMode(_modeValues[nextIndex]);
-    // 如果当前正在播放 FM，模式切换后重新获取并播放
     if (provider.isFmActive) {
       _startFm(provider, context.read<PlayerProvider>());
     }
@@ -64,6 +128,10 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
     final fmSongs = provider.personalFmSongs;
     final hasContent = isFmActive || fmSongs.isNotEmpty;
     final modeLabel = _modeLabels[_modeValues.indexOf(provider.fmMode)];
+    final isPlaying = player.isPlaying;
+
+    // 同步动画与播放状态
+    _syncAnimations(isPlaying && isFmActive);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -112,17 +180,22 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
                     children: [
                       Icon(Icons.podcasts, size: 22, color: cs.primary),
                       const SizedBox(width: 8),
-                      // 点击标题循环切换模式
                       GestureDetector(
                         onTap: () => _cycleMode(provider),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              '$modeLabel Radio',
-                              style: tt.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: cs.onSurface,
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 200),
+                              transitionBuilder: (c, a) =>
+                                  FadeTransition(opacity: a, child: c),
+                              child: Text(
+                                '$modeLabel Radio',
+                                key: ValueKey(modeLabel),
+                                style: tt.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: cs.onSurface,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 4),
@@ -136,7 +209,8 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
                       ),
                       const Spacer(),
                       if (isFmActive)
-                        Container(
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
@@ -155,7 +229,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  // ── 副标题 / 算法池 ──
+                  // ── 算法池（MD3 AnimatedContainer 背景过渡） ──
                   Row(
                     children: [
                       const SizedBox(width: 30),
@@ -164,9 +238,11 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
                         return Padding(
                           padding: const EdgeInsets.only(right: 6),
                           child: InkWell(
-                            onTap: () => _onPoolChanged(provider, _poolValues[i]),
+                            onTap: () =>
+                                _onPoolChanged(provider, _poolValues[i]),
                             borderRadius: BorderRadius.circular(8),
-                            child: Container(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
@@ -194,14 +270,22 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  // ── 内容区 ──
+                  // ── 内容区：MD3 AnimatedCrossFade 过渡 ──
                   if (_fmLoading)
                     _buildLoadingState(cs)
-                  else if (isFmActive && currentSong != null)
-                    _buildPlayingState(
-                        cs, tt, provider, player, currentSong, buffer)
                   else
-                    _buildIdleState(cs, provider, player, hasContent),
+                    AnimatedCrossFade(
+                      duration: const Duration(milliseconds: 300),
+                      firstCurve: Curves.easeInOut,
+                      secondCurve: Curves.easeInOut,
+                      sizeCurve: Curves.easeInOut,
+                      crossFadeState: (isFmActive && currentSong != null)
+                          ? CrossFadeState.showSecond
+                          : CrossFadeState.showFirst,
+                      firstChild: _buildIdleState(cs, provider, player, hasContent),
+                      secondChild: _buildPlayingState(
+                          cs, tt, provider, player, currentSong!, buffer),
+                    ),
                 ],
               ),
             ),
@@ -216,10 +300,11 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
       PlayerProvider player, bool hasContent) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           '根据你的听歌口味智能推荐',
-          style: ttBody(cs, provider.fmMode),
+          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
         ),
         const SizedBox(height: 16),
         if (hasContent)
@@ -246,16 +331,16 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
                               width: 80,
                               height: 80,
                               color: cs.surfaceContainerHighest,
-                              child:
-                                  Icon(Icons.music_note, color: cs.onSurfaceVariant),
+                              child: Icon(Icons.music_note,
+                                  color: cs.onSurfaceVariant),
                             ),
                           )
                         : Container(
                             width: 80,
                             height: 80,
                             color: cs.surfaceContainerHighest,
-                            child:
-                                Icon(Icons.music_note, color: cs.onSurfaceVariant),
+                            child: Icon(Icons.music_note,
+                                color: cs.onSurfaceVariant),
                           ),
                   ),
                 );
@@ -269,7 +354,8 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
             icon: const Icon(Icons.play_arrow_rounded, size: 20),
             label: Text(hasContent ? '继续FM推荐' : '启动私人FM'),
             style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
@@ -299,6 +385,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         // ── 歌曲信息 ──
         Text(
@@ -329,103 +416,100 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
           ),
         ],
         const SizedBox(height: 14),
-        // ── 底部交互行：等距频谱条 + FAB ──
+        // ── 底部交互行 ──
         Row(
           children: [
-            // 频谱条（左侧装饰）
-            _buildEqualizerBars(cs, isPlaying: player.isPlaying),
+            // 频谱条（MD3 350ms pulse animation）
+            AnimatedBuilder(
+              animation: _eqController,
+              builder: (_, __) => _buildEqualizerBars(cs,
+                  isPlaying: player.isPlaying && _eqController.isAnimating),
+            ),
             const Spacer(),
-            // 不喜欢按钮
-            SizedBox(
-              width: 36,
-              height: 36,
-              child: IconButton(
-                icon: Icon(Icons.heart_broken_outlined, size: 18),
-                color: cs.error.withValues(alpha: 0.75),
-                onPressed: () => _dislike(provider, player, currentSong),
-                padding: EdgeInsets.zero,
-                splashRadius: 18,
-              ),
-            ),
+            _iconBtn(Icons.heart_broken_outlined,
+                cs.error.withValues(alpha: 0.75),
+                () => _dislike(provider, player, currentSong)),
             const SizedBox(width: 4),
-            // 上一首（FM 不可用，灰显）
-            SizedBox(
-              width: 36,
-              height: 36,
-              child: IconButton(
-                icon: Icon(Icons.skip_previous_rounded, size: 20),
-                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-                onPressed: null,
-                padding: EdgeInsets.zero,
-                splashRadius: 18,
-              ),
-            ),
+            _iconBtn(Icons.skip_previous_rounded,
+                cs.onSurfaceVariant.withValues(alpha: 0.3), null),
             const SizedBox(width: 8),
-            // 播放/暂停 FAB
+            // FAB 播放/暂停
             FloatingActionButton.small(
               heroTag: 'fm_play',
               onPressed: () => player.togglePlayPause(),
               backgroundColor: cs.primary,
               foregroundColor: cs.onPrimary,
-              child: Icon(
-                player.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                size: 22,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 150),
+                transitionBuilder: (c, a) =>
+                    RotationTransition(turns: a, child: c),
+                child: Icon(
+                  player.isPlaying
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
+                  key: ValueKey(player.isPlaying),
+                  size: 22,
+                ),
               ),
             ),
             const SizedBox(width: 8),
-            // 下一首
-            SizedBox(
-              width: 36,
-              height: 36,
-              child: IconButton(
-                icon: Icon(Icons.skip_next_rounded, size: 20),
-                color: cs.onSurfaceVariant,
-                onPressed: () => player.playNext(),
-                padding: EdgeInsets.zero,
-                splashRadius: 18,
-              ),
-            ),
+            _iconBtn(
+                Icons.skip_next_rounded, cs.onSurfaceVariant,
+                () => player.playNext()),
           ],
         ),
-          // ── 即将播放预览 ──
-          if (buffer.isNotEmpty || player.playlist.length > player.currentIndex + 1) ...[
-            const SizedBox(height: 12),
-            _buildUpcomingPreview(cs, player, buffer, currentSong),
-          ],
+        // ── 即将播放预览 ──
+        if (buffer.isNotEmpty ||
+            player.playlist.length > player.currentIndex + 1) ...[
+          const SizedBox(height: 12),
+          _buildUpcomingPreview(cs, player, buffer, currentSong),
+        ],
       ],
     );
   }
 
-  // ── 等距频谱条 ──
+  Widget _iconBtn(IconData icon, Color color, VoidCallback? onTap) {
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: IconButton(
+        icon: Icon(icon, size: 20),
+        color: color,
+        onPressed: onTap,
+        padding: EdgeInsets.zero,
+        splashRadius: 18,
+      ),
+    );
+  }
+
+  // ── 等距频谱条（MD3 350ms pulse） ──
   Widget _buildEqualizerBars(ColorScheme cs, {required bool isPlaying}) {
-    // 8 条高度不同的竖线
-    final heights = [8, 14, 10, 18, 12, 16, 9, 13];
     return SizedBox(
       height: 24,
       child: Row(
-        children: heights.map((h) {
-          return Container(
+        children: List.generate(_eqBarCount, (i) {
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
             width: 3,
-            height: h.toDouble(),
+            height: isPlaying ? _eqHeights[i] : 6.0,
             margin: const EdgeInsets.symmetric(horizontal: 2.5),
             decoration: BoxDecoration(
-              color: cs.primary.withValues(alpha: isPlaying ? 0.7 : 0.3),
+              color: cs.primary.withValues(alpha: isPlaying ? 0.8 : 0.25),
               borderRadius: BorderRadius.circular(2),
             ),
           );
-        }).toList(),
+        }),
       ),
     );
   }
 
   // ── 即将播放预览（黑胶唱片风格） ──
-  /// 展示队列剩余歌曲 + 预取池中的歌曲，去重后最多 5 首，不包含当前播放
-  Widget _buildUpcomingPreview(ColorScheme cs, PlayerProvider player, List<Song> buffer, Song currentSong) {
-    // 队列中尚未播放的歌曲（当前索引之后）
+  Widget _buildUpcomingPreview(ColorScheme cs, PlayerProvider player,
+      List<Song> buffer, Song currentSong) {
     final remainingInQueue = player.playlist.length > player.currentIndex + 1
         ? player.playlist.sublist(player.currentIndex + 1)
         : <Song>[];
-    // 合并队列剩余 + 预取池，去重，排除当前播放
     final seen = <int>{};
     final combined = <Song>[];
     for (final song in [...remainingInQueue, ...buffer]) {
@@ -456,49 +540,55 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
             itemCount: combined.length,
             itemBuilder: (_, i) {
               final song = combined[i];
-              return Container(
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
                 width: 56,
                 margin: const EdgeInsets.only(right: 14),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // ── 黑胶唱片 ──
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: cs.outlineVariant.withValues(alpha: 0.4),
-                          width: 2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.12),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
+                    // 黑胶唱片（MD3: hover scale via Transform + InkWell）
+                    InkWell(
+                      borderRadius: BorderRadius.circular(24),
+                      onTap: () {},
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: cs.outlineVariant.withValues(alpha: 0.4),
+                            width: 2,
                           ),
-                        ],
-                      ),
-                      child: ClipOval(
-                        child: song.albumCoverUrl != null
-                            ? CachedNetworkImage(
-                                imageUrl: song.albumCoverUrl!,
-                                width: 44,
-                                height: 44,
-                                fit: BoxFit.cover,
-                                errorWidget: (_, __, ___) => Container(
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.12),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: song.albumCoverUrl != null
+                              ? CachedNetworkImage(
+                                  imageUrl: song.albumCoverUrl!,
+                                  width: 44,
+                                  height: 44,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (_, __, ___) => Container(
+                                    color: cs.surfaceContainerHighest,
+                                    child: Icon(Icons.music_note,
+                                        size: 14,
+                                        color: cs.onSurfaceVariant),
+                                  ),
+                                )
+                              : Container(
                                   color: cs.surfaceContainerHighest,
                                   child: Icon(Icons.music_note,
                                       size: 14,
                                       color: cs.onSurfaceVariant),
                                 ),
-                              )
-                            : Container(
-                                color: cs.surfaceContainerHighest,
-                                child: Icon(Icons.music_note,
-                                    size: 14, color: cs.onSurfaceVariant),
-                              ),
+                        ),
                       ),
                     ),
                   ],
@@ -511,18 +601,13 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
     );
   }
 
-  // ── 工具方法 ──
-  TextStyle ttBody(ColorScheme cs, String mode) {
-    return TextStyle(
-      fontSize: 12,
-      color: cs.onSurfaceVariant,
-    );
-  }
-
   // ── 交互 ──
 
   void _onPoolChanged(DiscoverProvider provider, int poolId) {
     provider.setFmPoolId(poolId);
+    if (provider.isFmActive) {
+      _startFm(provider, context.read<PlayerProvider>());
+    }
   }
 
   Future<void> _startFm(DiscoverProvider provider, PlayerProvider player) async {
