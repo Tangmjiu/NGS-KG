@@ -280,20 +280,20 @@ class SongMapper {
       }
 
       // ── 时长 ──
-      int duration = (json['time_length'] as num?)?.toInt() ?? 0;
+      int duration = _safeInt(json['time_length']);
       if (duration <= 0) {
-        duration = (json['timelength_320'] as num?)?.toInt() ?? 0;
+        duration = _safeInt(json['timelength_320']);
       }
       if (duration <= 0) {
-        duration = (json['timelength'] as num?)?.toInt() ?? 0;
+        duration = _safeInt(json['timelength']);
         if (duration > 1000) duration = duration ~/ 1000; // 毫秒转秒
       }
 
       // ── ID ──
-      final id = (json['mixsongid'] as num?)?.toInt() ??
-          (json['songid'] as num?)?.toInt() ??
-          (json['audio_id'] as num?)?.toInt() ??
-          (json['id'] as num?)?.toInt() ??
+      final id = _safeInt(json['mixsongid']) ??
+          _safeInt(json['songid']) ??
+          _safeInt(json['audio_id']) ??
+          _safeInt(json['id']) ??
           0;
 
       // ── artistId ──
@@ -301,7 +301,7 @@ class SongMapper {
       final singerInfo = json['singerinfo'] as List<dynamic>?;
       if (singerInfo != null && singerInfo.isNotEmpty) {
         final first = singerInfo.first as Map<String, dynamic>?;
-        artistId = (first?['id'] as num?)?.toInt();
+        artistId = _safeInt(first?['id']);
       }
 
       // ── FM 元数据 ──
@@ -316,10 +316,10 @@ class SongMapper {
         duration: duration,
         hash: hash,
         qualities: q.isNotEmpty ? q : null,
-        albumId: (json['album_id'] as num?)?.toInt() ?? 0,
-        mixSongId: (json['mixsongid'] as num?)?.toInt(),
+        albumId: _safeInt(json['album_id']) ?? 0,
+        mixSongId: _safeInt(json['mixsongid']),
         artistId: artistId,
-        fileId: (json['scid'] as num?)?.toInt(),
+        fileId: _safeInt(json['scid']),
         recDesc: recInfo?['rec_desc'] as String?,
         language: json['language'] as String?,
         similarDesc: recInfo?['similar_desc'] as String?,
@@ -340,6 +340,14 @@ class SongMapper {
     'flac': 'hash_flac',
     'high': 'hash_high',
   };
+
+  /// 安全解析 int，兼容 String 和 num 类型
+  static int? _safeInt(dynamic v) {
+    if (v is int) return v;
+    if (v is String) return int.tryParse(v);
+    if (v is num) return v.toInt();
+    return null;
+  }
 
   static int _tryInt(dynamic v) {
     if (v is int) return v;
