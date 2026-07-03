@@ -48,10 +48,10 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
       vsync: this,
       duration: const Duration(milliseconds: 4000),
     );
-    // MD3: eq — 350ms repeating pulse
+    // MD3: eq — 200ms repeating pulse, snappy
     _eqController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 350),
+      duration: const Duration(milliseconds: 200),
     );
     _eqController.addListener(_randomizeEq);
   }
@@ -497,7 +497,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
       child: Row(
         children: List.generate(_eqBarCount, (i) {
           return AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
+            duration: const Duration(milliseconds: 100),
             curve: Curves.easeInOut,
             width: 3,
             height: isPlaying ? _eqHeights[i] : 6.0,
