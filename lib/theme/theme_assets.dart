@@ -32,7 +32,7 @@ class ThemeAssets {
   static String playerBg = '';
 
   // ─── Hi-Res 金标 ───
-  static String hiResBadge = 'assets/images/hi_res_badge.svg';
+  static String hiResBadge = 'assets/images/hi_res_badge.jpg';
 
   // ─── 空状态 / 失败插画（主题包可覆盖） ───
   static String emptyPlaylist = _defEmptyPlaylist;  // 歌单/收藏为空
@@ -80,7 +80,7 @@ class ThemeAssets {
     playlistPlaceholder = '';
     artistPlaceholder = '';
     playerBg = '';
-    hiResBadge = 'assets/images/hi_res_badge.svg';
+    hiResBadge = 'assets/images/hi_res_badge.jpg';
     emptyPlaylist = _defEmptyPlaylist;
     emptyContent = _defEmptyContent;
     loadFailed = _defLoadFailed;
