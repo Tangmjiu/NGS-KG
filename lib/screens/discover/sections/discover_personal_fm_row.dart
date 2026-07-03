@@ -403,86 +403,69 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
     final previewSongs = buffer.take(5).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.25)),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         Text('即将播放',
             style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: cs.onSurfaceVariant)),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         SizedBox(
-          height: 64,
+          height: 56,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: previewSongs.length,
             itemBuilder: (_, i) {
               final song = previewSongs[i];
-              return GestureDetector(
-                onTap: () {
-                  // 点击 vinyl 切换到对应歌曲（利用 player.playNext 的定位）
-                  // 简化处理：找到这首歌在 buffer 中的位置，插入到队列
-                },
-                child: Container(
-                  width: 64,
-                  margin: const EdgeInsets.only(right: 16),
-                  child: Column(
-                    children: [
-                      // ── 黑胶唱片 ──
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: cs.outlineVariant.withValues(alpha: 0.4),
-                            width: 2.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.15),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+              return Container(
+                width: 56,
+                margin: const EdgeInsets.only(right: 14),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // ── 黑胶唱片 ──
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: cs.outlineVariant.withValues(alpha: 0.4),
+                          width: 2,
                         ),
-                        child: ClipOval(
-                          child: song.albumCoverUrl != null
-                              ? CachedNetworkImage(
-                                  imageUrl: song.albumCoverUrl!,
-                                  width: 56,
-                                  height: 56,
-                                  fit: BoxFit.cover,
-                                  errorWidget: (_, __, ___) => Container(
-                                    color: cs.surfaceContainerHighest,
-                                    child: Icon(Icons.music_note,
-                                        size: 18,
-                                        color: cs.onSurfaceVariant),
-                                  ),
-                                )
-                              : Container(
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: song.albumCoverUrl != null
+                            ? CachedNetworkImage(
+                                imageUrl: song.albumCoverUrl!,
+                                width: 44,
+                                height: 44,
+                                fit: BoxFit.cover,
+                                errorWidget: (_, __, ___) => Container(
                                   color: cs.surfaceContainerHighest,
                                   child: Icon(Icons.music_note,
-                                      size: 18,
+                                      size: 14,
                                       color: cs.onSurfaceVariant),
                                 ),
-                        ),
+                              )
+                            : Container(
+                                color: cs.surfaceContainerHighest,
+                                child: Icon(Icons.music_note,
+                                    size: 14, color: cs.onSurfaceVariant),
+                              ),
                       ),
-                      const SizedBox(height: 4),
-                      // ── 歌名 ──
-                      Text(
-                        song.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               );
             },

@@ -214,6 +214,7 @@ class DiscoverProvider extends ChangeNotifier {
     if (batch.isNotEmpty) {
       _personalFmBuffer.removeRange(0, batch.length);
     }
+    notifyListeners();
     return batch;
   }
 
@@ -235,6 +236,7 @@ class DiscoverProvider extends ChangeNotifier {
           .whereType<Song>()
           .toList();
       _personalFmBuffer.addAll(songs);
+      notifyListeners();
     } catch (e, s) {
       Log.e('DiscoverProvider', '_refillFmBuffer error', e, s);
     }
@@ -258,6 +260,7 @@ class DiscoverProvider extends ChangeNotifier {
           .whereType<Song>()
           .toList();
       _personalFmBuffer.addAll(songs);
+      notifyListeners();
       return songs;
     } catch (e, s) {
       Log.e('DiscoverProvider', 'dislikeCurrentFmSong error', e, s);
