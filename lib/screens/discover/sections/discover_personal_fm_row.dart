@@ -274,17 +274,25 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                   if (_fmLoading)
                     _buildLoadingState(cs)
                   else
-                    AnimatedCrossFade(
-                      duration: const Duration(milliseconds: 300),
-                      firstCurve: Curves.easeInOut,
-                      secondCurve: Curves.easeInOut,
-                      sizeCurve: Curves.easeInOut,
-                      crossFadeState: (isFmActive && currentSong != null)
-                          ? CrossFadeState.showSecond
-                          : CrossFadeState.showFirst,
-                      firstChild: _buildIdleState(cs, provider, player, hasContent),
-                      secondChild: _buildPlayingState(
-                          cs, tt, provider, player, currentSong!, buffer),
+                    ClipRect(
+                      child: AnimatedCrossFade(
+                        duration: const Duration(milliseconds: 300),
+                        firstCurve: Curves.easeInOut,
+                        secondCurve: Curves.easeInOut,
+                        sizeCurve: Curves.easeInOut,
+                        crossFadeState: (isFmActive && currentSong != null)
+                            ? CrossFadeState.showSecond
+                            : CrossFadeState.showFirst,
+                        firstChild: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 140),
+                          child: _buildIdleState(cs, provider, player, hasContent),
+                        ),
+                        secondChild: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 140),
+                          child: _buildPlayingState(
+                              cs, tt, provider, player, currentSong!, buffer),
+                        ),
+                      ),
                     ),
                 ],
               ),
