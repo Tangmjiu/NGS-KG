@@ -24,6 +24,19 @@ import 'liked_songs_provider.dart';
 
 export 'playlist_queue.dart' show PlayMode;
 
+/// 独立 FM 队列：进入 FM 前保存的普通队列快照
+class FmQueueSnapshot {
+  final List<Song> songs;
+  final int index;
+  final PlayMode playMode;
+
+  const FmQueueSnapshot({
+    required this.songs,
+    required this.index,
+    required this.playMode,
+  });
+}
+
 class PlayerProvider extends ChangeNotifier
     with SleepTimerMixin, KeepScreenOnMixin {
   final MusicService _musicService;
@@ -51,10 +64,13 @@ class PlayerProvider extends ChangeNotifier
   int? _climaxMs; // 毫秒，当前歌曲的高潮开始时间
 
   // ─── 私人 FM 隔离状态 ───
-  bool _isFmMode = false;
   VoidCallback? _fmDislikeCallback;
-  List<Song>? _savedNormalQueue;
-  int _savedNormalIndex = 0;
+
+  /// 重入保护：防止 _onComplete / _loadMoreAndContinue 在极短歌曲时被多次调用
+  bool _handlingComplete = false;
+
+  /// 进入 FM 前保存的正常队列快照（exitFmMode 时恢复）
+  FmQueueSnapshot? _fmSavedNormalSnapshot;
 
   int? get climaxMs => _climaxMs;
 
@@ -118,7 +134,7 @@ class PlayerProvider extends ChangeNotifier
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _queue.isLoadingMore;
   bool get isPlayerScreenVisible => _isPlayerScreenVisible;
-  bool get isFmMode => _isFmMode;
+  bool get isFmMode => _queue.type == QueueType.fm;
   Duration get position => _position;
   Duration get duration => _duration;
   String? get error => _error;
@@ -467,12 +483,16 @@ class PlayerProvider extends ChangeNotifier
 
   void _onComplete() {
     if (!_engine.isCompleting.value) return;
+    // 重入保护：极短歌曲或异步回调可能触发多次
+    if (_handlingComplete) return;
+    _handlingComplete = true;
     final current = _queue.currentSong;
     if (current == null) return;
     switch (_queue.playMode) {
       case PlayMode.repeatOne:
         _engine.isCompleting.value = false;
         _engine.seekAndPlay(Duration.zero);
+        _handlingComplete = false;
         return; // 不切歌，无需通知
       case PlayMode.shuffle:
         final idx = _queue.nextIndex();
@@ -506,6 +526,7 @@ class PlayerProvider extends ChangeNotifier
         }
         break;
     }
+    _handlingComplete = false;
     // 通知 UI 更新歌词、封面等信息
     _lyricController.loadLyricModel(LyricModel(lines: []));
     _climaxMs = null;
@@ -531,6 +552,7 @@ class PlayerProvider extends ChangeNotifier
         final next = _queue.currentSong;
         if (next != null) {
           _enginePlayWithQuality(next);
+          _handlingComplete = false;
           return;
         }
       }
@@ -539,6 +561,7 @@ class PlayerProvider extends ChangeNotifier
     }
     _queue.setLoadingMore(false);
     _isLoading = false;
+    _handlingComplete = false;
     _updateNotification();
     notifyListeners();
   }
@@ -629,10 +652,9 @@ class PlayerProvider extends ChangeNotifier
   }
 
   Future<void> playSong(Song song, {List<Song>? playlist}) async {
-    // 播放普通歌曲时退出 FM 模式
-    if (_isFmMode) {
-      _isFmMode = false;
-      _fmDislikeCallback = null;
+    // 退出 FM 模式（恢复普通队列，下方 setPlaylist 会覆盖为新的播放列表）
+    if (_queue.type == QueueType.fm) {
+      exitFmMode();
     }
     _queue.playlistEndProvider = null;
     _engine.clearError();
@@ -652,20 +674,23 @@ class PlayerProvider extends ChangeNotifier
     await playIndex(_queue.currentIndex);
   }
 
-  /// 启动私人 FM 播放列表（带自动续播）
+  /// 启动私人 FM 播放列表（独立队列）
   ///
-  /// 自动保存当前普通队列，进入 FM 隔离模式。
-  /// 退出 FM 模式（通过 playSong）时自动恢复普通队列。
+  /// 自动保存当前普通队列快照，切换到 FM 独立队列（QueueType.fm）。
+  /// 退出 FM 模式后自动恢复普通队列。
   void startFmPlaylist(List<Song> songs,
       {required Future<List<Song>> Function() bufferProvider,
       VoidCallback? onDislike}) {
     if (songs.isEmpty) return;
-    // 进入 FM 模式前保存当前普通队列
-    if (!_isFmMode) {
-      _savedNormalQueue = List.from(_queue.playlist);
-      _savedNormalIndex = _queue.currentIndex;
+    // 进入 FM 模式前保存当前普通队列快照
+    if (_queue.type != QueueType.fm) {
+      _fmSavedNormalSnapshot = FmQueueSnapshot(
+        songs: List.from(_queue.playlist),
+        index: _queue.currentIndex,
+        playMode: _queue.playMode,
+      );
     }
-    _isFmMode = true;
+    _queue.setType(QueueType.fm);
     _fmDislikeCallback = onDislike;
     _queue.playlistEndProvider = null;
     _engine.clearError();
@@ -673,6 +698,27 @@ class PlayerProvider extends ChangeNotifier
     _queue.setPlayMode(PlayMode.sequential);
     _queue.playlistEndProvider = bufferProvider;
     playIndex(0);
+  }
+
+  /// 退出 FM 模式，恢复之前保存的普通队列快照。
+  ///
+  /// 调用后队列类型恢复为 [QueueType.normal]。
+  /// 如果 [exitFmMode] 后紧接着调用 [playSong] 等设置新播放列表的方法，
+  /// 恢复的快照会被覆盖，这是预期行为。
+  void exitFmMode() {
+    if (_queue.type != QueueType.fm) return;
+    _queue.playlistEndProvider = null;
+    _fmDislikeCallback = null;
+    _queue.setType(QueueType.normal);
+    if (_fmSavedNormalSnapshot != null) {
+      _queue.setPlaylist(
+        List.from(_fmSavedNormalSnapshot!.songs),
+        startIndex: _fmSavedNormalSnapshot!.index,
+      );
+      _queue.setPlayMode(_fmSavedNormalSnapshot!.playMode);
+    }
+    _fmSavedNormalSnapshot = null;
+    notifyListeners();
   }
 
   /// 将整张歌单/专辑追加到当前队列末尾。
@@ -724,7 +770,7 @@ class PlayerProvider extends ChangeNotifier
 
   void playPrevious() {
     // FM 模式：上一曲变成「不喜欢 + 下一首」
-    if (_isFmMode) {
+    if (_queue.type == QueueType.fm) {
       _fmDislikeCallback?.call();
       playNext();
       return;

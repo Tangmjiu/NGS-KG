@@ -4,6 +4,9 @@ import '../models/song.dart';
 
 enum PlayMode { sequential, shuffle, repeatOne, radio }
 
+/// 队列类型 — 区分普通队列与 FM 独立队列
+enum QueueType { normal, fm }
+
 class PlaylistQueue extends ValueNotifier<int> {
   final Random _random = Random();
 
@@ -16,6 +19,18 @@ class PlaylistQueue extends ValueNotifier<int> {
   bool _isLoadingMore = false;
 
   Future<List<Song>> Function()? playlistEndProvider;
+
+  QueueType _type = QueueType.normal;
+
+  /// 当前队列类型
+  QueueType get type => _type;
+
+  /// 设置队列类型（会 notify）
+  void setType(QueueType type) {
+    if (_type == type) return;
+    _type = type;
+    notifyListeners();
+  }
 
   PlaylistQueue() : super(0);
 
