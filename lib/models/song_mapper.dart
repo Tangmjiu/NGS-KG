@@ -280,12 +280,12 @@ class SongMapper {
       }
 
       // ── 时长 ──
-      int duration = _safeInt(json['time_length']);
+      int duration = _safeInt(json['time_length']) ?? 0;
       if (duration <= 0) {
-        duration = _safeInt(json['timelength_320']);
+        duration = _safeInt(json['timelength_320']) ?? 0;
       }
       if (duration <= 0) {
-        duration = _safeInt(json['timelength']);
+        duration = _safeInt(json['timelength']) ?? 0;
         if (duration > 1000) duration = duration ~/ 1000; // 毫秒转秒
       }
 
