@@ -288,8 +288,19 @@ class DiscoverProvider extends ChangeNotifier {
       _personalFmBuffer.removeRange(0, initialSongs.length);
       _isFmActive = true;
       notifyListeners();
-      // 使用 startFmPlaylist 设置 playlistEndProvider 并播放
-      player.startFmPlaylist(initialSongs, bufferProvider: fetchNextFmBatch);
+      // 传入 dislike 回调，让 player 在上一曲时触发
+      player.startFmPlaylist(
+        initialSongs,
+        bufferProvider: fetchNextFmBatch,
+        onDislike: () => _fmDislikeCallback(player),
+      );
     }
+  }
+
+  /// 被 PlayerProvider 调用的 dislike 回调
+  void _fmDislikeCallback(PlayerProvider player) {
+    final song = player.currentSong;
+    if (song == null) return;
+    dislikeCurrentFmSong(song);
   }
 }

@@ -28,8 +28,10 @@ class PlaybackControls extends StatelessWidget {
                 ),
                 SizedBox(width: isWide ? 8 : 4),
                 IconButton(
-                  icon: const Icon(Icons.skip_previous, size: 32),
-                  tooltip: '上一首',
+                  icon: Icon(player.isFmMode
+                      ? Icons.heart_broken_outlined
+                      : Icons.skip_previous, size: 32),
+                  tooltip: player.isFmMode ? '不喜欢' : '上一首',
                   onPressed: player.playPrevious,
                 ),
                 SizedBox(width: isWide ? 16 : 8),

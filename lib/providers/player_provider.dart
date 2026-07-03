@@ -50,6 +50,12 @@ class PlayerProvider extends ChangeNotifier
   // ─── 歌曲高潮标记 ───
   int? _climaxMs; // 毫秒，当前歌曲的高潮开始时间
 
+  // ─── 私人 FM 隔离状态 ───
+  bool _isFmMode = false;
+  VoidCallback? _fmDislikeCallback;
+  List<Song>? _savedNormalQueue;
+  int _savedNormalIndex = 0;
+
   int? get climaxMs => _climaxMs;
 
   // ─── 通知节流 ───
@@ -112,6 +118,7 @@ class PlayerProvider extends ChangeNotifier
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _queue.isLoadingMore;
   bool get isPlayerScreenVisible => _isPlayerScreenVisible;
+  bool get isFmMode => _isFmMode;
   Duration get position => _position;
   Duration get duration => _duration;
   String? get error => _error;
@@ -622,6 +629,11 @@ class PlayerProvider extends ChangeNotifier
   }
 
   Future<void> playSong(Song song, {List<Song>? playlist}) async {
+    // 播放普通歌曲时退出 FM 模式
+    if (_isFmMode) {
+      _isFmMode = false;
+      _fmDislikeCallback = null;
+    }
     _queue.playlistEndProvider = null;
     _engine.clearError();
     if (playlist != null) {
@@ -642,16 +654,23 @@ class PlayerProvider extends ChangeNotifier
 
   /// 启动私人 FM 播放列表（带自动续播）
   ///
-  /// 与 [playSong] 不同，此方法会设置 [playlistEndProvider] 回调，
-  /// 当 FM 队列播完时自动调用 [bufferProvider] 获取下一批歌曲。
+  /// 自动保存当前普通队列，进入 FM 隔离模式。
+  /// 退出 FM 模式（通过 playSong）时自动恢复普通队列。
   void startFmPlaylist(List<Song> songs,
-      {required Future<List<Song>> Function() bufferProvider}) {
+      {required Future<List<Song>> Function() bufferProvider,
+      VoidCallback? onDislike}) {
     if (songs.isEmpty) return;
+    // 进入 FM 模式前保存当前普通队列
+    if (!_isFmMode) {
+      _savedNormalQueue = List.from(_queue.playlist);
+      _savedNormalIndex = _queue.currentIndex;
+    }
+    _isFmMode = true;
+    _fmDislikeCallback = onDislike;
     _queue.playlistEndProvider = null;
     _engine.clearError();
     _queue.setPlaylist(songs, startIndex: 0);
     _queue.setPlayMode(PlayMode.sequential);
-    // 设置续播回调（sequential 模式末尾会自动检测 playlistEndProvider）
     _queue.playlistEndProvider = bufferProvider;
     playIndex(0);
   }
@@ -704,6 +723,12 @@ class PlayerProvider extends ChangeNotifier
   }
 
   void playPrevious() {
+    // FM 模式：上一曲变成「不喜欢 + 下一首」
+    if (_isFmMode) {
+      _fmDislikeCallback?.call();
+      playNext();
+      return;
+    }
     if (_queue.playlist.isEmpty) return;
     if (_position.inSeconds > 3) {
       seek(Duration.zero);
