@@ -644,15 +644,14 @@ class PlayerProvider extends ChangeNotifier
   ///
   /// 与 [playSong] 不同，此方法会设置 [playlistEndProvider] 回调，
   /// 当 FM 队列播完时自动调用 [bufferProvider] 获取下一批歌曲。
-  /// 使用 radio 播放模式确保队列末尾始终触发 _loadMoreAndContinue。
   void startFmPlaylist(List<Song> songs,
       {required Future<List<Song>> Function() bufferProvider}) {
     if (songs.isEmpty) return;
-    _queue.playlistEndProvider = null; // 清空再设置，确保干净状态
+    _queue.playlistEndProvider = null;
     _engine.clearError();
     _queue.setPlaylist(songs, startIndex: 0);
-    _queue.setPlayMode(PlayMode.radio);
-    // 设置续播回调
+    _queue.setPlayMode(PlayMode.sequential);
+    // 设置续播回调（sequential 模式末尾会自动检测 playlistEndProvider）
     _queue.playlistEndProvider = bufferProvider;
     playIndex(0);
   }

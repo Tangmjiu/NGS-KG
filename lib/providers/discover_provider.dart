@@ -206,14 +206,15 @@ class DiscoverProvider extends ChangeNotifier {
   }
 
   /// 提供者回调：由 PlayerProvider 在 FM 队列播完时调用，获取下一批歌曲
+  /// 始终先补货再取歌，确保不返回空列表
   Future<List<Song>> fetchNextFmBatch() async {
-    if (_personalFmBuffer.length <= _fmBufferThreshold) {
-      await _refillFmBuffer();
-    }
-    final batch = _personalFmBuffer.take(5).toList();
-    if (batch.isNotEmpty) {
-      _personalFmBuffer.removeRange(0, batch.length);
-    }
+    // 先补货
+    await _refillFmBuffer();
+    // 从 buffer 取最多 10 首
+    final batchSize = _personalFmBuffer.length >= 10 ? 10 : _personalFmBuffer.length;
+    if (batchSize == 0) return [];
+    final batch = _personalFmBuffer.take(batchSize).toList();
+    _personalFmBuffer.removeRange(0, batch.length);
     notifyListeners();
     return batch;
   }
