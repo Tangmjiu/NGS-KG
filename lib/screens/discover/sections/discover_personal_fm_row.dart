@@ -18,17 +18,37 @@ class DiscoverPersonalFmRow extends StatefulWidget {
 
 class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
   bool _fmLoading = false;
+  bool _fmPreloaded = false;
 
   static const _modeValues = ['normal', 'small', 'peak'];
   static const _modeLabels = ['红心', '小众', '速览'];
   static const _poolValues = [0, 1, 2];
   static const _poolLabels = ['口味', '风格', '探索'];
 
+  // ─── 预取（类似 EchoMusic onMounted 预加载） ───
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_fmPreloaded) {
+      _fmPreloaded = true;
+      final provider = context.read<DiscoverProvider>();
+      if (provider.personalFmBuffer.isEmpty && provider.personalFmSongs.isEmpty) {
+        // 后台预取，不阻塞 UI
+        provider.loadAll();
+      }
+    }
+  }
+
   // ─── 循环切换模式 ───
   void _cycleMode(DiscoverProvider provider) {
+    if (_fmLoading) return; // 加载中不响应
     final currentIndex = _modeValues.indexOf(provider.fmMode);
     final nextIndex = (currentIndex + 1) % _modeValues.length;
     provider.setFmMode(_modeValues[nextIndex]);
+    // 如果当前正在播放 FM，模式切换后重新获取并播放
+    if (provider.isFmActive) {
+      _startFm(provider, context.read<PlayerProvider>());
+    }
   }
 
   @override
@@ -370,7 +390,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
           // ── 即将播放预览 ──
           if (buffer.isNotEmpty || player.playlist.length > player.currentIndex + 1) ...[
             const SizedBox(height: 12),
-            _buildUpcomingPreview(cs, player, buffer),
+            _buildUpcomingPreview(cs, player, buffer, currentSong),
           ],
       ],
     );
@@ -399,16 +419,17 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow> {
   }
 
   // ── 即将播放预览（黑胶唱片风格） ──
-  /// 展示队列剩余歌曲 + 预取池中的歌曲，去重后最多 5 首
-  Widget _buildUpcomingPreview(ColorScheme cs, PlayerProvider player, List<Song> buffer) {
+  /// 展示队列剩余歌曲 + 预取池中的歌曲，去重后最多 5 首，不包含当前播放
+  Widget _buildUpcomingPreview(ColorScheme cs, PlayerProvider player, List<Song> buffer, Song currentSong) {
     // 队列中尚未播放的歌曲（当前索引之后）
     final remainingInQueue = player.playlist.length > player.currentIndex + 1
         ? player.playlist.sublist(player.currentIndex + 1)
         : <Song>[];
-    // 合并队列剩余 + 预取池，去重
+    // 合并队列剩余 + 预取池，去重，排除当前播放
     final seen = <int>{};
     final combined = <Song>[];
     for (final song in [...remainingInQueue, ...buffer]) {
+      if (song.id == currentSong.id) continue;
       if (seen.contains(song.id)) continue;
       seen.add(song.id);
       combined.add(song);
