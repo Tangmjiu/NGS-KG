@@ -167,12 +167,16 @@ class DiscoverProvider extends ChangeNotifier {
   Future<void> _loadPersonalFm() async {
     try {
       final raw = await _musicService.getPersonalFm(mode: _fmMode, songPoolId: _fmPoolId);
+      debugPrint('[FM] getPersonalFm raw count: ${raw.length}');
       final songs = raw
           .map((e) => SongMapper.fromFmJson(e))
           .whereType<Song>()
           .toList();
+      debugPrint('[FM] after mapping: ${songs.length} songs');
+      if (songs.isNotEmpty) {
+        debugPrint('[FM] first song: ${songs.first.name} / ${songs.first.artistDisplay} / cover: ${songs.first.albumCoverUrl}');
+      }
       _personalFmSongs = songs.take(DiscoverConstants.topSongsLimit).toList();
-      // 同时填充缓冲池
       _personalFmBuffer = List.from(_personalFmSongs);
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadPersonalFm error', e, s);
@@ -231,7 +235,9 @@ class DiscoverProvider extends ChangeNotifier {
           .whereType<Song>()
           .toList();
       _personalFmBuffer.addAll(songs);
-    } catch (_) {}
+    } catch (e, s) {
+      Log.e('DiscoverProvider', '_refillFmBuffer error', e, s);
+    }
   }
 
   /// 上报「不喜欢」并获取替代推荐
@@ -253,7 +259,8 @@ class DiscoverProvider extends ChangeNotifier {
           .toList();
       _personalFmBuffer.addAll(songs);
       return songs;
-    } catch (_) {
+    } catch (e, s) {
+      Log.e('DiscoverProvider', 'dislikeCurrentFmSong error', e, s);
       return [];
     }
   }
@@ -276,6 +283,7 @@ class DiscoverProvider extends ChangeNotifier {
       final initialSongs = _personalFmBuffer.take(10).toList();
       _personalFmBuffer.removeRange(0, initialSongs.length);
       _isFmActive = true;
+      notifyListeners();
       // 使用 startFmPlaylist 设置 playlistEndProvider 并播放
       player.startFmPlaylist(initialSongs, bufferProvider: fetchNextFmBatch);
     }
