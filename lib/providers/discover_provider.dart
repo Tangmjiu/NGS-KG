@@ -220,9 +220,13 @@ class DiscoverProvider extends ChangeNotifier {
     await _refillFmBuffer();
     // 从 buffer 取最多 10 首
     final batchSize = _personalFmBuffer.length >= 10 ? 10 : _personalFmBuffer.length;
-    if (batchSize == 0) return [];
+    if (batchSize == 0) {
+      debugPrint('[FM] fetchNextFmBatch: buffer empty after refill — returning []');
+      return [];
+    }
     final batch = _personalFmBuffer.take(batchSize).toList();
     _personalFmBuffer.removeRange(0, batch.length);
+    debugPrint('[FM] fetchNextFmBatch: took $batchSize, buffer now has ${_personalFmBuffer.length}');
     notifyListeners();
     return batch;
   }
@@ -232,26 +236,40 @@ class DiscoverProvider extends ChangeNotifier {
   /// [isOverplay] 当前歌曲是否完整播完（1=是，0=跳过），传入 -1 表示从 _fmPendingOverplay 读取
   Future<void> _refillFmBuffer({int isOverplay = 0}) async {
     try {
+      final hash = _currentFmFeedback?['hash'] as String?;
+      final songid = _currentFmFeedback?['songid'] as int?;
+      final playtime = _currentFmFeedback?['playtime'] as int?;
+      debugPrint('[FM] _refillFmBuffer: mode=$_fmMode pool=$_fmPoolId'
+          ' hash=$hash songid=$songid playtime=$playtime'
+          ' remain=${_personalFmBuffer.length}');
       final raw = await _musicService.getPersonalFm(
         mode: _fmMode,
         songPoolId: _fmPoolId,
-        hash: _currentFmFeedback?['hash'] as String?,
-        songid: _currentFmFeedback?['songid'] as int?,
-        playtime: _currentFmFeedback?['playtime'] as int?,
+        hash: hash,
+        songid: songid,
+        playtime: playtime,
         action: 'play',
         isOverplay: isOverplay,
         remainSongcnt: _personalFmBuffer.length,
       );
+      debugPrint('[FM] _refillFmBuffer: API returned ${raw.length} raw items');
       final newSongs = raw
           .map((e) => SongMapper.fromFmJson(e))
           .whereType<Song>()
           .toList();
-      // 去重合并：以 hash > mixSongId > id 三级 key 去重
+      debugPrint('[FM] _refillFmBuffer: after mapping ${newSongs.length} songs');
+      // 去重合并：以 hash > mixSongId > id 三级 key 去重（id==0 不参与）
+      int added = 0, skipped = 0;
       for (final song in newSongs) {
         if (!_songExistsInBuffer(song)) {
           _personalFmBuffer.add(song);
+          added++;
+        } else {
+          skipped++;
         }
       }
+      debugPrint('[FM] _refillFmBuffer: added $added, skipped $skipped dedup,'
+          ' buffer now ${_personalFmBuffer.length}');
       notifyListeners();
     } catch (e, s) {
       Log.e('DiscoverProvider', '_refillFmBuffer error', e, s);
@@ -327,10 +345,12 @@ class DiscoverProvider extends ChangeNotifier {
       _isFmActive = true;
       notifyListeners();
       // 传入 dislike 回调，让 player 在上一曲时触发
+      // 传入 playbackUpdate 回调，让 player 上报播放反馈
       player.startFmPlaylist(
         initialSongs,
         bufferProvider: fetchNextFmBatch,
         onDislike: () => _fmDislikeCallback(player),
+        onPlaybackUpdate: updateFmFeedback,
       );
     }
   }

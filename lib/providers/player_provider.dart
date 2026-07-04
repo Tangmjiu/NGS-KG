@@ -66,6 +66,9 @@ class PlayerProvider extends ChangeNotifier
   // ─── 私人 FM 隔离状态 ───
   VoidCallback? _fmDislikeCallback;
 
+  /// FM 播放反馈回调 — 由 DiscoverProvider 传入，定期上报 hash/songid/playtime
+  void Function(Song song, {int playtime})? _fmPlaybackUpdateCallback;
+
   /// 重入保护：防止 _onComplete / _loadMoreAndContinue 在极短歌曲时被多次调用
   bool _handlingComplete = false;
 
@@ -491,6 +494,13 @@ class PlayerProvider extends ChangeNotifier
       _handlingComplete = false;
       return;
     }
+    // FM 模式：上报歌曲播放完成反馈（完整播完）
+    if (_queue.type == QueueType.fm) {
+      _fmPlaybackUpdateCallback?.call(current, playtime: current.duration);
+      debugPrint('[FM] _onComplete: idx=${_queue.currentIndex}/${_queue.playlist.length}'
+          ' hasEndProvider=${_queue.playlistEndProvider != null}'
+          ' song=${current.name}');
+    }
     switch (_queue.playMode) {
       case PlayMode.repeatOne:
         _engine.isCompleting.value = false;
@@ -548,8 +558,11 @@ class PlayerProvider extends ChangeNotifier
     _queue.setLoadingMore(true);
     _isLoading = true;
     notifyListeners();
+    debugPrint('[FM] _loadMoreAndContinue: START type=${_queue.type}');
     try {
       final moreSongs = await _queue.playlistEndProvider?.call() ?? [];
+      debugPrint('[FM] _loadMoreAndContinue: got ${moreSongs.length} songs,'
+          ' queueLen=${_queue.playlist.length} curIdx=${_queue.currentIndex}');
       if (moreSongs.isNotEmpty) {
         _queue.append(moreSongs);
         _queue.setLoadingMore(false);
@@ -622,6 +635,10 @@ class PlayerProvider extends ChangeNotifier
     if (current.mixSongId != null) {
       _musicService.uploadMixPlayHistory(current.mixSongId.toString());
     }
+    // FM 模式：上报歌曲开始播放，让 API 获知当前上下文
+    if (_queue.type == QueueType.fm) {
+      _fmPlaybackUpdateCallback?.call(current, playtime: 0);
+    }
     notifyListeners();
   }
 
@@ -686,7 +703,8 @@ class PlayerProvider extends ChangeNotifier
   /// 退出 FM 模式后自动恢复普通队列。
   void startFmPlaylist(List<Song> songs,
       {required Future<List<Song>> Function() bufferProvider,
-      VoidCallback? onDislike}) {
+      VoidCallback? onDislike,
+      void Function(Song song, {int playtime})? onPlaybackUpdate}) {
     if (songs.isEmpty) return;
     // 进入 FM 模式前保存当前普通队列快照
     if (_queue.type != QueueType.fm) {
@@ -698,6 +716,7 @@ class PlayerProvider extends ChangeNotifier
     }
     _queue.setType(QueueType.fm);
     _fmDislikeCallback = onDislike;
+    _fmPlaybackUpdateCallback = onPlaybackUpdate;
     _queue.playlistEndProvider = null;
     _engine.clearError();
     _queue.setPlaylist(songs, startIndex: 0);
@@ -713,8 +732,11 @@ class PlayerProvider extends ChangeNotifier
   /// 恢复的快照会被覆盖，这是预期行为。
   void exitFmMode() {
     if (_queue.type != QueueType.fm) return;
+    debugPrint('[FM] exitFmMode: restoring saved queue'
+        ' (${_fmSavedNormalSnapshot?.songs.length ?? 0} songs)');
     _queue.playlistEndProvider = null;
     _fmDislikeCallback = null;
+    _fmPlaybackUpdateCallback = null;
     _queue.setType(QueueType.normal);
     if (_fmSavedNormalSnapshot != null) {
       _queue.setPlaylist(
