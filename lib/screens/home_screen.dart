@@ -251,7 +251,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static const _cardTitlesYouth = {
     3014: '喜欢这首歌的 TA 也喜欢',
-    3101: '概念 er 新推',
   };
 
   @override
@@ -313,7 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadCardSongs() async {
-    final cardIds = [1, 2, 3, 4, 5, 6, 3014, 3101];
+    final cardIds = [1, 2, 3, 4, 5, 6, 3014];
     final futures = <Future<void>>[];
     for (final id in cardIds) {
       futures.add((() async {
@@ -612,12 +611,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 _cardSongs[3014]!, _cardNames[3014] ?? '喜欢这首歌的 TA 也喜欢',
                                 onEnd: () => _musicService
                                     .getCardSongsYouth(3014)
-                                    .then((cs) => cs.songs)),
-                          if (_cardSongs[3101]?.isNotEmpty ?? false)
-                            _buildSongList(
-                                _cardSongs[3101]!, _cardNames[3101] ?? '概念 er 新推',
-                                onEnd: () => _musicService
-                                    .getCardSongsYouth(3101)
                                     .then((cs) => cs.songs)),
                         ],
                       ),
