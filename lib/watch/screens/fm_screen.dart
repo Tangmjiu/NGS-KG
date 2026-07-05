@@ -228,12 +228,13 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.radio_rounded, size: 14, color: Colors.grey[400]),
+        Icon(Icons.radio_rounded, size: 14,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
         const SizedBox(width: 4),
         Text(
           '私人FM',
           style: TextStyle(
-            color: Colors.grey[400],
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
             fontSize: 11,
             fontWeight: FontWeight.w500,
             letterSpacing: 0.5,
@@ -251,8 +252,8 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
       children: [
         Text(
           song.name,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -264,7 +265,7 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
         Text(
           song.artistDisplay,
           style: TextStyle(
-            color: Colors.grey[400],
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
             fontSize: 13,
           ),
           textAlign: TextAlign.center,
@@ -308,7 +309,9 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
             icon: Icon(
               isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
               size: 24,
-              color: isLiked ? Colors.red[400] : Colors.grey,
+              color: isLiked
+                  ? Theme.of(context).colorScheme.error
+                  : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
             ),
             padding: EdgeInsets.zero,
             splashRadius: 24,
@@ -326,7 +329,7 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
       height: 48,
       child: IconButton(
         icon: const Icon(Icons.skip_next_rounded, size: 28),
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.onSurface,
         padding: EdgeInsets.zero,
         splashRadius: 24,
         onPressed: _nextTrack,
