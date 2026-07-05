@@ -1,0 +1,222 @@
+// Copyright (c) 2025-2026 mjiutang
+// SPDX-License-Identifier: MIT
+//
+// Wear OS 手表主屏幕 — 圆屏适配首页，含问候语、当前播放与快速操作入口
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../../providers/player_provider.dart';
+import '../widgets/watch_song_tile.dart';
+import '../widgets/round_safe_area.dart';
+import 'player_screen.dart';
+import 'search_screen.dart';
+import 'playlist_list_screen.dart';
+import 'local_music_screen.dart';
+import 'fm_screen.dart';
+import 'settings_screen.dart';
+import 'queue_screen.dart';
+
+/// 手表版主屏幕 — 圆屏适配的首页（问候 + 当前播放 + 快速操作入口）
+class WatchHomeScreen extends StatelessWidget {
+  const WatchHomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return RoundSafeArea(
+      child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 12,
+          ),
+          child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── 1. 问候标题 ──
+            Text(
+              'NGS-KG Watch',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // ── 2. 当前播放（有歌曲时才显示） ──
+            Consumer<PlayerProvider>(
+              builder: (context, player, _) {
+                final song = player.currentSong;
+                if (song == null) return const SizedBox.shrink();
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WatchPlayerScreen(),
+                      ),
+                    ),
+                    child: WatchSongTile.fromSong(
+                      song: song,
+                      isPlaying: player.isPlaying,
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            // ── 3. 快速操作区标题 ──
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Quick Actions',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+
+            // ── 4. 快速操作入口（2×3 网格） ──
+            const _QuickActionGrid(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 快速操作按钮网格
+// ══════════════════════════════════════════════════════════════════════════════
+
+/// 快速操作数据模型
+class _ActionItem {
+  final String label;
+  final IconData icon;
+  final WidgetBuilder? screenBuilder;
+
+  const _ActionItem(this.label, this.icon, this.screenBuilder);
+}
+
+/// 2×3 快速操作按钮网格，适配圆屏
+class _QuickActionGrid extends StatelessWidget {
+  const _QuickActionGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 12,
+      alignment: WrapAlignment.center,
+      runAlignment: WrapAlignment.center,
+      children: [
+        _QuickActionButton(
+          item: const _ActionItem('Search', Icons.search, null),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const WatchSearchScreen()),
+          ),
+        ),
+        _QuickActionButton(
+          item: const _ActionItem('Playlists', Icons.queue_music, null),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const WatchPlaylistListScreen(),
+            ),
+          ),
+        ),
+        _QuickActionButton(
+          item: const _ActionItem('Queue', Icons.queue_music, null),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const WatchQueueScreen()),
+          ),
+        ),
+        _QuickActionButton(
+          item: const _ActionItem('FM', Icons.radio, null),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const WatchFmScreen()),
+          ),
+        ),
+        _QuickActionButton(
+          item: const _ActionItem('Settings', Icons.settings, null),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const WatchSettingsScreen()),
+          ),
+        ),
+        _QuickActionButton(
+          item: const _ActionItem('Local', Icons.folder_open, null),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const WatchLocalMusicScreen(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+}
+
+/// 单个圆形快速操作按钮 + 标签
+class _QuickActionButton extends StatelessWidget {
+  final _ActionItem item;
+  final VoidCallback onTap;
+
+  const _QuickActionButton({
+    required this.item,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return SizedBox(
+      width: 88,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 圆形图标按钮
+          Material(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(28),
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(28),
+              customBorder: const CircleBorder(),
+              child: Container(
+                width: 56,
+                height: 56,
+                alignment: Alignment.center,
+                child: Icon(
+                  item.icon,
+                  size: 26,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          // 标签文字
+          Text(
+            item.label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.8),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
