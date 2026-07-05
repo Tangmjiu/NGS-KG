@@ -120,7 +120,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                     IconButton(
                       icon: Icon(
                         _isFollowing ? Icons.favorite : Icons.favorite_border,
-                        color: _isFollowing ? Colors.red : null,
+                        color: _isFollowing ? Theme.of(context).colorScheme.error : null,
                       ),
                       tooltip: _isFollowing ? '取消关注' : '关注',
                       onPressed: _toggleFollow,

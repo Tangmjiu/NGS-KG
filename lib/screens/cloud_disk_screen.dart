@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../providers/player_provider.dart';
 import '../utils/logger.dart';
 import '../services/music_service.dart';
+import '../utils/responsive.dart';
 
 class CloudDiskScreen extends StatefulWidget {
   const CloudDiskScreen({super.key});
@@ -80,7 +81,6 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final bodyContent = _isLoading
         ? const Center(child: CircularProgressIndicator())
         : _error != null
@@ -140,7 +140,7 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
               );
     return Scaffold(
       appBar: AppBar(title: const Text('云盘')),
-      body: isWide
+        body: context.isWide
           ? Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 600),

@@ -10,6 +10,7 @@ import '../services/api_client.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
+import '../utils/responsive.dart';
 import '../theme/theme_assets.dart';
 import '../constants/banned_words.dart';
 
@@ -222,7 +223,7 @@ class _SearchScreenState extends State<SearchScreen>
               )
             : null,
       ),
-      body: MediaQuery.of(context).size.width >= 880
+      body: context.isWide
           ? Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 600),

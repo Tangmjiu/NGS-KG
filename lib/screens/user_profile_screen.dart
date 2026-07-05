@@ -6,6 +6,8 @@ import '../utils/logger.dart';
 import '../models/vip_info.dart';
 import '../services/music_service.dart';
 import '../services/api_client.dart';
+import '../utils/responsive.dart';
+import '../constants/spacing.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({super.key});
@@ -50,11 +52,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final body = _isLoading
         ? const Center(child: CircularProgressIndicator())
         : ListView(
-            padding: const EdgeInsets.all(16),
+            padding: AppSpacing.screen,
             children: [
               // ── 头像 ──
               Center(
@@ -93,7 +94,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               if (_detail != null)
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: AppSpacing.screen,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -116,7 +117,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               if (_detail?['sign']?.toString().isNotEmpty == true)
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: AppSpacing.screen,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -132,7 +133,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           );
     return Scaffold(
       appBar: AppBar(title: Text(user?.nickname ?? '个人主页')),
-      body: isWide
+        body: context.isWide
           ? Center(child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
               child: body,
@@ -169,7 +170,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       padding: const EdgeInsets.only(bottom: 12),
       child: Card(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: AppSpacing.screen,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

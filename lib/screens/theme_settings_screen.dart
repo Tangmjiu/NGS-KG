@@ -12,7 +12,6 @@ class ThemeSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('主题')),
@@ -240,7 +239,7 @@ class _PackCardState extends State<_PackCard> {
   }
 
   Widget _fallbackIcon() {
-    return const Icon(Icons.archive_outlined, size: 48, color: Colors.grey);
+    return Icon(Icons.archive_outlined, size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant);
   }
 }
 
@@ -409,7 +408,7 @@ class _AccentSection extends StatelessWidget {
                     onTap: () => tp.setAccent(preset.key),
                   )),
               _ColorDot(
-                color: tp.accentKey == 'custom' ? tp.customColor : Colors.grey,
+                color: tp.accentKey == 'custom' ? tp.customColor : Theme.of(context).colorScheme.onSurfaceVariant,
                 selected: tp.accentKey == 'custom',
                 label: '取色',
                 icon: Icons.colorize,

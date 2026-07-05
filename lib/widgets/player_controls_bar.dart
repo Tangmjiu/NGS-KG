@@ -20,12 +20,13 @@ class PlayerControlsBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         // -- Previous --
         IconButton(
-          icon: const Icon(Icons.skip_previous, size: 36, color: Colors.white),
+          icon: Icon(Icons.skip_previous, size: 36, color: cs.onSurface),
           onPressed: onPrevious,
           splashRadius: 24,
           padding: EdgeInsets.zero,
@@ -42,15 +43,15 @@ class PlayerControlsBar extends StatelessWidget {
           child: Container(
             width: 64,
             height: 64,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white,
+              color: cs.onSurface,
             ),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
               switchInCurve: Curves.easeInOut,
               switchOutCurve: Curves.easeInOut,
-              child: _buildPlayPauseChild(),
+              child: _buildPlayPauseChild(cs),
             ),
           ),
         ),
@@ -59,7 +60,7 @@ class PlayerControlsBar extends StatelessWidget {
 
         // -- Next --
         IconButton(
-          icon: const Icon(Icons.skip_next, size: 36, color: Colors.white),
+          icon: Icon(Icons.skip_next, size: 36, color: cs.onSurface),
           onPressed: onNext,
           splashRadius: 24,
           padding: EdgeInsets.zero,
@@ -69,15 +70,15 @@ class PlayerControlsBar extends StatelessWidget {
     );
   }
 
-  Widget _buildPlayPauseChild() {
+  Widget _buildPlayPauseChild(ColorScheme cs) {
     if (isLoading) {
-      return const SizedBox(
-        key: ValueKey('loading'),
+      return SizedBox(
+        key: const ValueKey('loading'),
         width: 28,
         height: 28,
         child: CircularProgressIndicator(
           strokeWidth: 2.5,
-          color: Colors.black54,
+          color: cs.surface,
         ),
       );
     }
@@ -86,7 +87,7 @@ class PlayerControlsBar extends StatelessWidget {
       key: ValueKey(isPlaying),
       isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
       size: 36,
-      color: Colors.black87,
+      color: cs.surface,
     );
   }
 }

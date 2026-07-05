@@ -172,7 +172,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                       setState(() => _tagFilter = '');
                     },
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32),
+                    constraints: const BoxConstraints(minWidth: 48),
                   ),
               ],
             ),

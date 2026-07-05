@@ -5,6 +5,7 @@ import '../models/song.dart';
 import '../models/radio.dart';
 import '../providers/player_provider.dart';
 import '../utils/logger.dart';
+import '../constants/spacing.dart';
 import '../services/music_service.dart';
 
 class FmScreen extends StatefulWidget {
@@ -171,10 +172,10 @@ class _FmScreenState extends State<FmScreen> {
           if (isExpanded)
             _loadingSongs
                 ? const Padding(
-                    padding: EdgeInsets.all(16), child: CircularProgressIndicator())
+                    padding: AppSpacing.screen, child: CircularProgressIndicator())
                 : _fmSongs.isEmpty
                     ? const Padding(
-                        padding: EdgeInsets.all(16), child: Text('暂无歌曲'))
+                        padding: AppSpacing.screen, child: Text('暂无歌曲'))
                     : Container(
                         margin:
                             const EdgeInsets.symmetric(horizontal: 16, vertical: 4),

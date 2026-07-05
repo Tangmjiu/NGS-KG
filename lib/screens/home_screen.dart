@@ -375,7 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width >= 880;
+
     return Scaffold(
       body: IndexedStack(
         index: _currentTab,

@@ -32,7 +32,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final body = _isLoading
         ? const Center(child: CircularProgressIndicator())
         : ListView(

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
 import '../providers/audio_settings_provider.dart';
 import '../services/equalizer_service.dart';
+import '../utils/responsive.dart';
 
 class AudioEffectsScreen extends StatefulWidget {
   const AudioEffectsScreen({super.key});
@@ -52,7 +53,6 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
   Widget build(BuildContext context) {
     final player = context.read<PlayerProvider>();
     final audioSettings = context.watch<AudioSettingsProvider>();
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final body = ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -178,7 +178,7 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
     );
     return Scaffold(
       appBar: AppBar(title: const Text('音效')),
-      body: isWide
+      body: context.isWide
           ? Center(child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
               child: body,

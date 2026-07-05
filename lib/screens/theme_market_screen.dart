@@ -167,9 +167,9 @@ class _ThemeMarketScreenState extends State<ThemeMarketScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
+            Icon(Icons.cloud_off, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(height: 16),
-            Text(_error!, style: const TextStyle(color: Colors.grey)),
+            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             const SizedBox(height: 16),
             FilledButton.icon(
               icon: const Icon(Icons.refresh),
@@ -186,9 +186,9 @@ class _ThemeMarketScreenState extends State<ThemeMarketScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.storefront_outlined, size: 64, color: Colors.grey),
+            Icon(Icons.storefront_outlined, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(height: 16),
-            const Text('暂无可用主题', style: TextStyle(color: Colors.grey)),
+            Text('暂无可用主题', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             const SizedBox(height: 16),
             FilledButton.icon(
               icon: const Icon(Icons.refresh),
@@ -254,11 +254,11 @@ class _ThemeMarketCard extends StatelessWidget {
                   fit: BoxFit.cover,
                   placeholder: (_, __) => Container(
                     color: cs.surfaceContainerHighest,
-                    child: const Icon(Icons.image_outlined, color: Colors.grey),
+                    child: Icon(Icons.image_outlined, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                   errorWidget: (_, __, ___) => Container(
                     color: cs.surfaceContainerHighest,
-                    child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                    child: Icon(Icons.broken_image_outlined, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ),
               ),
@@ -323,7 +323,7 @@ class _ThemeMarketCard extends StatelessWidget {
                         _StatusChip(
                           label: '已安装',
                           icon: Icons.check_circle,
-                          color: Colors.green,
+                          color: Theme.of(context).colorScheme.primary,
                         )
                       else
                         FilledButton.tonalIcon(

@@ -72,10 +72,10 @@ class PlayerCoverArt extends StatelessWidget {
                                   width: size,
                                   height: size,
                                   fit: BoxFit.cover,
-                                  placeholder: (_, __) => _fallback(size),
-                                  errorWidget: (_, __, ___) => _fallback(size),
+                                  placeholder: (_, __) => _fallback(size, cs),
+                                  errorWidget: (_, __, ___) => _fallback(size, cs),
                                 )
-                              : _fallback(size),
+                              : _fallback(size, cs),
                         ),
                       ),
                       if (showHiRes)
@@ -95,7 +95,7 @@ class PlayerCoverArt extends StatelessWidget {
     );
   }
 
-  Widget _fallback(double size) {
+  Widget _fallback(double size, ColorScheme cs) {
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -106,7 +106,10 @@ class PlayerCoverArt extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Center(
-        child: albumPlaceholderWidget(size: size * 0.25, color: Colors.white24),
+        child: albumPlaceholderWidget(
+          size: size * 0.25,
+          color: cs.onSurface.withValues(alpha: 0.24),
+        ),
       ),
     );
   }

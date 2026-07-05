@@ -6,6 +6,7 @@ import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../theme/theme_assets.dart';
 import '../widgets/song_tile.dart';
+import '../utils/responsive.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
   final String? gcId;
@@ -88,8 +89,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           final desc = pl.description;
           final hasDesc = desc != null && desc.isNotEmpty;
           final songCount = detail.songs.length;
-
-          final isWide = MediaQuery.of(context).size.width >= 880;
 
           Widget mainContent = CustomScrollView(
             slivers: [
@@ -321,7 +320,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             ],
           );
 
-          if (isWide) {
+          if (context.isWide) {
             mainContent = Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 600),

@@ -7,6 +7,7 @@ import '../providers/player_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
+import '../constants/spacing.dart';
 import '../widgets/song_tile.dart';
 
 class AlbumDetailScreen extends StatefulWidget {
@@ -368,7 +369,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: AppSpacing.screen,
               child: Text('添加到歌单 — 共 ${songs.length} 首',
                   style: Theme.of(context).textTheme.titleSmall),
             ),

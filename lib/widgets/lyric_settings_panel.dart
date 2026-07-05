@@ -49,6 +49,7 @@ class _LyricSettingsFormState extends State<_LyricSettingsForm> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,34 +63,40 @@ class _LyricSettingsFormState extends State<_LyricSettingsForm> {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
-                    color: Colors.white,
+                    color: cs.onSurface,
                   )),
               const Spacer(),
               Text('${_fontSize.round()}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: Colors.white60,
+                    color: cs.onSurface.withValues(alpha: 0.6),
                   )),
             ],
           ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Slider(
-            value: _fontSize,
-            min: 12,
-            max: 28,
-            divisions: 16,
-            activeColor: Colors.white,
-            inactiveColor: Colors.white24,
-            onChanged: (v) {
-              setState(() => _fontSize = v);
-              _apply();
-            },
+          child: SliderTheme(
+            data: SliderThemeData(
+              activeTrackColor: cs.primary,
+              inactiveTrackColor: cs.onSurface.withValues(alpha: 0.24),
+              thumbColor: cs.primary,
+              overlayColor: cs.primary.withValues(alpha: 0.12),
+            ),
+            child: Slider(
+              value: _fontSize,
+              min: 12,
+              max: 28,
+              divisions: 16,
+              onChanged: (v) {
+                setState(() => _fontSize = v);
+                _apply();
+              },
+            ),
           ),
         ),
 
-        const Divider(color: Colors.white12, height: 1),
+        Divider(color: cs.onSurface.withValues(alpha: 0.12), height: 1),
 
         // ── 歌词视图文本居中对齐 ──
         Padding(
@@ -101,15 +108,15 @@ class _LyricSettingsFormState extends State<_LyricSettingsForm> {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white,
+                      color: cs.onSurface,
                     )),
               ),
               Switch(
                 value: _centerAlign,
-                activeThumbColor: Colors.white,
-                activeTrackColor: Colors.white38,
-                inactiveThumbColor: Colors.white38,
-                inactiveTrackColor: Colors.white12,
+                activeThumbColor: cs.primary,
+                activeTrackColor: cs.primary.withValues(alpha: 0.38),
+                inactiveThumbColor: cs.onSurface.withValues(alpha: 0.38),
+                inactiveTrackColor: cs.onSurface.withValues(alpha: 0.12),
                 onChanged: (v) {
                   setState(() => _centerAlign = v);
                   _apply();
@@ -119,7 +126,7 @@ class _LyricSettingsFormState extends State<_LyricSettingsForm> {
           ),
         ),
 
-        const Divider(color: Colors.white12, height: 1),
+        Divider(color: cs.onSurface.withValues(alpha: 0.12), height: 1),
 
         // ── 字体粗细 ──
         Padding(
@@ -130,34 +137,40 @@ class _LyricSettingsFormState extends State<_LyricSettingsForm> {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
-                    color: Colors.white,
+                    color: cs.onSurface,
                   )),
               const Spacer(),
               Text(_weightLabel,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: Colors.white60,
+                    color: cs.onSurface.withValues(alpha: 0.6),
                   )),
             ],
           ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Slider(
-            value: _fontWeight,
-            min: 100,
-            max: 900,
-            divisions: 8,
-            activeColor: Colors.white,
-            inactiveColor: Colors.white24,
-            onChanged: (v) {
-              setState(() => _fontWeight = v);
-              _apply();
-            },
+          child: SliderTheme(
+            data: SliderThemeData(
+              activeTrackColor: cs.primary,
+              inactiveTrackColor: cs.onSurface.withValues(alpha: 0.24),
+              thumbColor: cs.primary,
+              overlayColor: cs.primary.withValues(alpha: 0.12),
+            ),
+            child: Slider(
+              value: _fontWeight,
+              min: 100,
+              max: 900,
+              divisions: 8,
+              onChanged: (v) {
+                setState(() => _fontWeight = v);
+                _apply();
+              },
+            ),
           ),
         ),
 
-        const Divider(color: Colors.white12, height: 1),
+        Divider(color: cs.onSurface.withValues(alpha: 0.12), height: 1),
 
         // ── 歌词视图模糊 ──
         Padding(
@@ -169,15 +182,15 @@ class _LyricSettingsFormState extends State<_LyricSettingsForm> {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white,
+                      color: cs.onSurface,
                     )),
               ),
               Switch(
                 value: _blurEffect,
-                activeThumbColor: Colors.white,
-                activeTrackColor: Colors.white38,
-                inactiveThumbColor: Colors.white38,
-                inactiveTrackColor: Colors.white12,
+                activeThumbColor: cs.primary,
+                activeTrackColor: cs.primary.withValues(alpha: 0.38),
+                inactiveThumbColor: cs.onSurface.withValues(alpha: 0.38),
+                inactiveTrackColor: cs.onSurface.withValues(alpha: 0.12),
                 onChanged: (v) {
                   setState(() => _blurEffect = v);
                   _apply();

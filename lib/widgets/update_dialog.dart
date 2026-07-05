@@ -10,7 +10,7 @@ Future<void> showUpdateDialog(BuildContext context, ReleaseInfo release) {
     builder: (ctx) => AlertDialog(
       title: Row(
         children: [
-          const Icon(Icons.system_update, size: 22, color: Colors.green),
+          Icon(Icons.system_update, size: 22, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: 8),
           const Expanded(child: Text('发现新版本')),
         ],
@@ -27,14 +27,14 @@ Future<void> showUpdateDialog(BuildContext context, ReleaseInfo release) {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.15),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     release.tagName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      color: Colors.green,
+                      color: Theme.of(context).colorScheme.primary,
                       fontSize: 15,
                     ),
                   ),

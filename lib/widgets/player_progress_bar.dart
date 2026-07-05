@@ -29,6 +29,7 @@ class PlayerProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -40,26 +41,26 @@ class PlayerProgressBar extends StatelessWidget {
                 width: 36,
                 child: Text(
                   _formatDuration(position),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontFamily: 'monospace',
-                    color: Colors.white60,
+                    color: cs.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: SliderTheme(
-                  data: const SliderThemeData(
+                  data: SliderThemeData(
                     trackHeight: 2,
                     thumbShape:
-                        RoundSliderThumbShape(enabledThumbRadius: 6),
+                        const RoundSliderThumbShape(enabledThumbRadius: 6),
                     overlayShape:
-                        RoundSliderOverlayShape(overlayRadius: 16),
-                    activeTrackColor: Colors.white,
-                    inactiveTrackColor: Colors.white24,
-                    thumbColor: Colors.white,
-                    overlayColor: Color(0x26FFFFFF),
+                        const RoundSliderOverlayShape(overlayRadius: 16),
+                    activeTrackColor: cs.primary,
+                    inactiveTrackColor: cs.onSurface.withValues(alpha: 0.24),
+                    thumbColor: cs.primary,
+                    overlayColor: cs.primary.withValues(alpha: 0.15),
                   ),
                   child: Slider(
                     value: progress.clamp(0.0, 1.0),
@@ -78,10 +79,10 @@ class PlayerProgressBar extends StatelessWidget {
                 child: Text(
                   _formatDuration(duration),
                   textAlign: TextAlign.end,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontFamily: 'monospace',
-                    color: Colors.white60,
+                    color: cs.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
               ),

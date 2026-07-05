@@ -189,11 +189,11 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                 Expanded(
                   child: FilledButton.icon(
                     icon: _testing
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
+                                strokeWidth: 2, color: Theme.of(context).colorScheme.onPrimary),
                           )
                         : const Icon(Icons.wifi_find, size: 18),
                     label: Text(_testing ? '测试中...' : '测试连接'),
@@ -229,8 +229,8 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                 _testResult!,
                 style: TextStyle(
                   color: _testResult!.startsWith('连接成功')
-                      ? Colors.green
-                      : Colors.redAccent,
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.error,
                 ),
               ),
             ),

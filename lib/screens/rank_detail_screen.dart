@@ -5,6 +5,7 @@ import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
+import '../utils/responsive.dart';
 
 class RankDetailScreen extends StatefulWidget {
   final int rankId;
@@ -45,7 +46,6 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final bodyContent = _isLoading
         ? const Center(child: CircularProgressIndicator())
         : _songs == null || _songs!.isEmpty
@@ -96,7 +96,7 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
               )
             : null,
       ),
-      body: isWide
+        body: context.isWide
           ? Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 600),

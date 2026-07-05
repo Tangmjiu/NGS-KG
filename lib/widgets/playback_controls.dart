@@ -129,18 +129,18 @@ class PlaybackControls extends StatelessWidget {
                           hint: Text('当前队列 (${player.playlist.length})',
                               style: Theme.of(context).textTheme.titleSmall),
                           isExpanded: false,
-                          dropdownColor: const Color(0xFF1E1E1E),
+                          dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                           items: [
                             if (player.savedQueueNames.isNotEmpty)
                               ...player.savedQueueNames.where((n) => (player.playlistOfSavedQueue(n)?.isNotEmpty ?? false)).map((name) =>
                                 DropdownMenuItem(
                                   value: 'load_$name',
-                                  child: Text(name, style: const TextStyle(color: Colors.white)),
+                                  child: Text(name, style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
                                 ),
                               ),
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                               value: '__save',
-                              child: Text('+ 保存当前队列', style: TextStyle(color: Colors.white54)),
+                              child: Text('+ 保存当前队列', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                             ),
                           ],
                           onChanged: (v) {
