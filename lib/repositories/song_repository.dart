@@ -195,15 +195,15 @@ class SongRepository extends BaseRepository {
         cover = cover.replaceAll('{size}', '240');
         if (cover.startsWith('//')) cover = 'https:$cover';
       }
-      final timelength = (json['time_length'] as num?)?.toInt() ?? 0;
+      final timelength = SongMapper.tryInt(json['time_length']);
       return Song(
-        id: (json['mixsongid'] as int?) ?? (json['audio_id'] as int?) ?? (json['id'] as int?) ?? 0,
-        mixSongId: (json['mixsongid'] as int?),
+        id: SongMapper.tryInt(json['mixsongid'] ?? json['audio_id'] ?? json['id']),
+        mixSongId: SongMapper.safeInt(json['mixsongid']),
         name: json['ori_audio_name'] as String? ?? '',
         artists: [(json['author_name'] as String? ?? '')],
         albumCoverUrl: cover,
-        albumId: (json['album_id'] as int?) ?? 0,
-        artistId: (json['author_id'] as int?),
+        albumId: SongMapper.tryInt(json['album_id']),
+        artistId: SongMapper.safeInt(json['author_id']),
         duration: timelength > 1000 ? timelength ~/ 1000 : timelength,
         hash: json['hash'] as String?,
       );

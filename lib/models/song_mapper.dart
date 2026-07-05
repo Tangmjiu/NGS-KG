@@ -12,13 +12,13 @@ class SongMapper {
       }
       final fileHash = json['FileHash'] as String?;
       return Song(
-        id: _tryInt(json['Audioid'] ?? json['id']),
+        id: tryInt(json['Audioid'] ?? json['id']),
         name: (json['OriSongName'] ?? json['SongName'] ?? json['name'] ?? '') as String,
         artists: [(json['SingerName'] ?? '') as String],
         albumName: json['AlbumName'] as String?,
         albumCoverUrl: cover,
-        albumId: _tryInt(json['AlbumID']),
-        artistId: _tryInt(json['SingerID']),
+        albumId: tryInt(json['AlbumID']),
+        artistId: tryInt(json['SingerID']),
         duration: (json['Duration'] as int?) ?? 0,
         hash: fileHash,
         qualities: fileHash != null && fileHash.isNotEmpty
@@ -140,17 +140,17 @@ class SongMapper {
       timelen ??= 0;
 
       // ── album_id 回退到 base ──
-      int? albumId = _tryInt(json['album_id']);
+      int? albumId = tryInt(json['album_id']);
       if (albumId == 0 && base != null) {
-        albumId = _tryInt(base['album_id']);
+        albumId = tryInt(base['album_id']);
       }
-      int? artistId = _tryInt(json['author_id']);
+      int? artistId = tryInt(json['author_id']);
       if ((artistId == null || artistId == 0) && base != null) {
-        artistId = _tryInt(base['author_id']);
+        artistId = tryInt(base['author_id']);
       }
 
       return Song(
-        id: _tryInt(json['audio_id'] ?? base?['audio_id'] ?? json['id']),
+        id: tryInt(json['audio_id'] ?? base?['audio_id'] ?? json['id']),
         name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
         artists: [artist],
         albumCoverUrl: cover,
@@ -159,7 +159,7 @@ class SongMapper {
         duration: timelen ~/ 1000,
         hash: hash,
         qualities: q.isNotEmpty ? q : null,
-        fileId: _tryInt(json['fileid']),
+        fileId: tryInt(json['fileid']),
       );
     } catch (e, s) {
       Log.e('song_mapper', 'error', e, s);
@@ -197,12 +197,12 @@ class SongMapper {
         if (deprecated is Map) hash = deprecated['hash'] as String?;
       }
       return Song(
-        id: _tryInt(json['audio_id'] ?? json['album_audio_id'] ?? 0),
+        id: tryInt(json['audio_id'] ?? json['album_audio_id'] ?? 0),
         name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
         artists: [json['author_name'] as String? ?? ''],
         albumCoverUrl: cover,
-        albumId: _tryInt(json['album_id']),
-        artistId: _tryInt(json['author_id']),
+        albumId: tryInt(json['album_id']),
+        artistId: tryInt(json['author_id']),
         duration: _durationFromAudioInfo(json['audio_info']),
         hash: hash,
         qualities: q.isNotEmpty ? q : null,
@@ -280,20 +280,20 @@ class SongMapper {
       }
 
       // ── 时长 ──
-      int duration = _safeInt(json['time_length']) ?? 0;
+      int duration = safeInt(json['time_length']) ?? 0;
       if (duration <= 0) {
-        duration = _safeInt(json['timelength_320']) ?? 0;
+        duration = safeInt(json['timelength_320']) ?? 0;
       }
       if (duration <= 0) {
-        duration = _safeInt(json['timelength']) ?? 0;
+        duration = safeInt(json['timelength']) ?? 0;
         if (duration > 1000) duration = duration ~/ 1000; // 毫秒转秒
       }
 
       // ── ID ──
-      final id = _safeInt(json['mixsongid']) ??
-          _safeInt(json['songid']) ??
-          _safeInt(json['audio_id']) ??
-          _safeInt(json['id']) ??
+      final id = safeInt(json['mixsongid']) ??
+          safeInt(json['songid']) ??
+          safeInt(json['audio_id']) ??
+          safeInt(json['id']) ??
           0;
 
       // ── artistId ──
@@ -301,7 +301,7 @@ class SongMapper {
       final singerInfo = json['singerinfo'] as List<dynamic>?;
       if (singerInfo != null && singerInfo.isNotEmpty) {
         final first = singerInfo.first as Map<String, dynamic>?;
-        artistId = _safeInt(first?['id']);
+        artistId = safeInt(first?['id']);
       }
 
       // ── FM 元数据 ──
@@ -316,10 +316,10 @@ class SongMapper {
         duration: duration,
         hash: hash,
         qualities: q.isNotEmpty ? q : null,
-        albumId: _safeInt(json['album_id']) ?? 0,
-        mixSongId: _safeInt(json['mixsongid']),
+        albumId: safeInt(json['album_id']) ?? 0,
+        mixSongId: safeInt(json['mixsongid']),
         artistId: artistId,
-        fileId: _safeInt(json['scid']),
+        fileId: safeInt(json['scid']),
         recDesc: recInfo?['rec_desc'] as String?,
         language: json['language'] as String?,
         similarDesc: recInfo?['similar_desc'] as String?,
@@ -341,15 +341,18 @@ class SongMapper {
     'high': 'hash_high',
   };
 
-  /// 安全解析 int，兼容 String 和 num 类型
-  static int? _safeInt(dynamic v) {
+  /// 安全解析 int?，兼容 String 和 num 类型
+  /// 返回 null 当值为 null 或无法解析时。
+  static int? safeInt(dynamic v) {
     if (v is int) return v;
     if (v is String) return int.tryParse(v);
     if (v is num) return v.toInt();
     return null;
   }
 
-  static int _tryInt(dynamic v) {
+  /// 安全解析 int，兼容 String 和 num 类型
+  /// 返回 0 当值为 null 或无法解析时。
+  static int tryInt(dynamic v) {
     if (v is int) return v;
     if (v is String) return int.tryParse(v) ?? 0;
     if (v is num) return v.toInt();
