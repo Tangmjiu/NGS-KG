@@ -29,6 +29,33 @@ jobs:
           yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" 2>/dev/null || true
           sdkmanager --list_installed 2>/dev/null | grep "platforms"
 
+      # ═══════════════════════════════════════════════════════════
+      #  Caches — 首次全编，后续增量编译
+      # ═══════════════════════════════════════════════════════════
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pubcache-${{ hashFiles('pubspec.lock') }}
+          restore-keys: pubcache-
+
+      - name: Cache Gradle wrapper
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/wrapper
+          key: gradle-wrapper-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties') }}
+
+      - name: Cache Gradle caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/configuration-cache
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties', 'pubspec.lock') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
       - name: Create assets directories
         run: |
           mkdir -p assets/images
@@ -43,7 +70,7 @@ jobs:
           sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
           sed -i '/maven.*aliyun/d' android/settings.gradle android/build.gradle
 
-      # ── Build debug APK ──
+      # ── Build debug APK (incremental when cache hits) ──
       - name: Build debug APK
         run: flutter build apk --debug --target-platform android-arm64 --android-skip-build-dependency-validation
 
