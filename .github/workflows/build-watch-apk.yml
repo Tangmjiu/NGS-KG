@@ -1,0 +1,55 @@
+name: Build Watch APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [watch]
+  pull_request:
+    branches: [watch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: 'stable'
+
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v2
+
+      - name: Install SDK 36
+        run: |
+          yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" 2>/dev/null || true
+          sdkmanager --list_installed 2>/dev/null | grep "platforms"
+
+      - name: Create assets directories
+        run: |
+          mkdir -p assets/images
+          mkdir -p assets/icons
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # ═══ CI network config: replace China mirrors with global ones ═══
+      - name: Use global Gradle/Maven mirrors for CI
+        run: |
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
+          sed -i '/maven.*aliyun/d' android/settings.gradle android/build.gradle
+
+      # ── Build debug APK ──
+      - name: Build debug APK
+        run: flutter build apk --debug --target-platform android-arm64 --android-skip-build-dependency-validation
+
+      # ── Upload debug APK ──
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NGS-KG-watch-debug-arm64-v8a
+          path: build/app/outputs/flutter-apk/app-debug.apk
