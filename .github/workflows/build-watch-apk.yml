@@ -70,9 +70,9 @@ jobs:
           sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
           sed -i '/maven.*aliyun/d' android/settings.gradle android/build.gradle
 
-      # ── Build debug APK (incremental when cache hits) ──
-      - name: Build debug APK
-        run: flutter build apk --debug --target-platform android-arm64 --android-skip-build-dependency-validation
+      # ── Build watch debug APK (手表版入口) ──
+      - name: Build watch debug APK
+        run: flutter build apk --debug --target lib/main_watch.dart --target-platform android-arm64 --android-skip-build-dependency-validation
 
       # ── Upload debug APK ──
       - name: Upload debug APK
