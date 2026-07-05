@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import 'package:wear_plus/wear_plus.dart';
 
 import '../providers/player_provider.dart';
-import '../providers/theme_provider.dart';
 import '../utils/navigation.dart';
 import 'screens/home_screen.dart';
 import 'screens/player_screen.dart';
@@ -17,6 +16,7 @@ import 'screens/local_music_screen.dart';
 import 'screens/fm_screen.dart';
 import 'widgets/mini_player.dart';
 import 'theme/watch_theme.dart';
+import 'theme/watch_theme_provider.dart';
 
 /// NGS-KG Watch 根组件 — Wear OS 优化的圆屏界面
 class NGSKGWearApp extends StatelessWidget {
@@ -26,16 +26,15 @@ class NGSKGWearApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return WatchShape(
       builder: (context, shape, child) {
-        return Consumer<ThemeProvider>(
+        return Consumer<WatchThemeProvider>(
           builder: (context, themeProvider, _) {
             return MaterialApp(
               navigatorKey: navKey,
               title: 'NGS-KG Watch',
               locale: const Locale('zh', 'CN'),
               debugShowCheckedModeBanner: false,
-              theme: buildWatchTheme(themeProvider.effectiveColor),
-              darkTheme: buildWatchDarkTheme(themeProvider.effectiveColor),
-              themeMode: themeProvider.themeMode,
+              darkTheme: buildWatchTheme(themeProvider.colorSeed),
+              themeMode: ThemeMode.dark,
               home: const WatchHome(),
             );
           },
@@ -91,7 +90,7 @@ class _WatchHomeState extends State<WatchHome> {
 
           // 页面指示点
           Positioned(
-            top: 4,
+            top: isRound ? 28 : 4,
             left: 0,
             right: 0,
             child: _PageIndicator(
@@ -101,10 +100,10 @@ class _WatchHomeState extends State<WatchHome> {
             ),
           ),
 
-          // 底部 MiniPlayer（当播放器不在前台时显示）
-          if (_currentPage != 1)
+          // 底部 MiniPlayer（搜索页和 FM 页隐藏 — 搜索有语音输入，FM 有独立控制）
+          if (_currentPage != 1 && _currentPage != 5)
             Positioned(
-              bottom: isRound ? 8 : 4,
+              bottom: isRound ? 24 : 4,
               left: isRound ? 16 : 8,
               right: isRound ? 16 : 8,
               child: Consumer<PlayerProvider>(

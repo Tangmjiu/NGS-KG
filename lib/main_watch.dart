@@ -14,7 +14,6 @@ import 'providers/auth_provider.dart';
 import 'providers/player_provider.dart';
 import 'providers/playlist_provider.dart';
 import 'providers/liked_songs_provider.dart';
-import 'providers/discover_provider.dart';
 import 'services/api_client.dart';
 import 'services/music_service.dart';
 import 'services/auth_service.dart';
@@ -23,11 +22,11 @@ import 'services/cache_service.dart';
 import 'services/device_service.dart';
 import 'providers/audio_settings_provider.dart';
 import 'providers/local_music_provider.dart';
-import 'providers/theme_provider.dart';
 import 'utils/logger.dart';
 import 'utils/navigation.dart';
 
 import 'watch/app.dart';
+import 'watch/theme/watch_theme_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,7 +79,7 @@ Future<void> main() async {
   final musicService = MusicService();
   final authService = AuthService();
   final audioSettings = AudioSettingsProvider()..init();
-  final themeProvider = ThemeProvider()..init();
+  final watchThemeProvider = WatchThemeProvider()..init();
   final likedSongs = LikedSongsProvider(musicService);
   final authProvider = AuthProvider(authService, likedSongs: likedSongs);
 
@@ -95,7 +94,7 @@ Future<void> main() async {
         Provider<MusicService>.value(value: musicService),
         Provider<AuthService>.value(value: authService),
         ChangeNotifierProvider.value(value: audioSettings),
-        ChangeNotifierProvider.value(value: themeProvider),
+        ChangeNotifierProvider.value(value: watchThemeProvider),
         ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider(create: (_) => PlayerProvider(
           musicService,
@@ -104,7 +103,6 @@ Future<void> main() async {
         )),
         ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
         ChangeNotifierProvider.value(value: likedSongs),
-        ChangeNotifierProvider(create: (_) => DiscoverProvider(musicService)),
         ChangeNotifierProvider(create: (_) => LocalMusicProvider()),
       ],
       child: const NGSKGWearApp(),
