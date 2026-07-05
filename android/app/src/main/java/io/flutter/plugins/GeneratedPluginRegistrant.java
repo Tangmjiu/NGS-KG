@@ -81,6 +81,11 @@ public final class GeneratedPluginRegistrant {
       Log.e(TAG, "Error registering plugin shared_preferences_android, io.flutter.plugins.sharedpreferences.SharedPreferencesPlugin", e);
     }
     try {
+      flutterEngine.getPlugins().add(new com.csdcorp.speech_to_text.SpeechToTextPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin speech_to_text, com.csdcorp.speech_to_text.SpeechToTextPlugin", e);
+    }
+    try {
       flutterEngine.getPlugins().add(new com.tekartik.sqflite.SqflitePlugin());
     } catch (Exception e) {
       Log.e(TAG, "Error registering plugin sqflite_android, com.tekartik.sqflite.SqflitePlugin", e);
@@ -94,6 +99,21 @@ public final class GeneratedPluginRegistrant {
       flutterEngine.getPlugins().add(new dev.fluttercommunity.plus.wakelock.WakelockPlusPlugin());
     } catch (Exception e) {
       Log.e(TAG, "Error registering plugin wakelock_plus, dev.fluttercommunity.plus.wakelock.WakelockPlusPlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new com.pmorales.wear_os_scrollbar.WearOsScrollbarPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin wear_os_scrollbar, com.pmorales.wear_os_scrollbar.WearOsScrollbarPlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new dev.rexios.wear_plus.WearPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin wear_plus, dev.rexios.wear_plus.WearPlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new com.samsung.wearable_rotary.WearableRotaryPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin wearable_rotary, com.samsung.wearable_rotary.WearableRotaryPlugin", e);
     }
   }
 }

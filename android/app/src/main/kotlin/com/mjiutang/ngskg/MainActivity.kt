@@ -10,6 +10,7 @@ import android.content.ServiceConnection
 import android.media.MediaMetadataRetriever
 import android.os.Build
 import android.os.IBinder
+import android.view.MotionEvent
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.BasicMessageChannel
@@ -20,6 +21,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MainActivity : FlutterActivity() {
+    // ─── Wear OS rotary input forwarding ───
+    override fun onGenericMotionEvent(event: MotionEvent?): Boolean {
+        return when {
+            event != null && com.samsung.wearable_rotary.WearableRotaryPlugin.onGenericMotionEvent(event) -> true
+            else -> super.onGenericMotionEvent(event)
+        }
+    }
     companion object {
         // 供 MediaButtonReceiver 访问
         var lastService: PlaybackService? = null

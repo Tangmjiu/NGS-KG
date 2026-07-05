@@ -1,14 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Wear OS 必须声明 -->
+    <uses-feature android:name="android.hardware.type.watch" />
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="29" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
-        android:minSdkVersion="30" />
 
     <!-- Android 13+ 通知权限 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -16,44 +12,59 @@
     <!-- 前台服务（媒体播放） -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- 语音搜索 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- 本地音乐读取 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+
+    <!-- 语音识别查询配置 -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
 
     <application
-        android:label="NGS-KG+"
+        android:label="NGS-KG Watch"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
 
+        <!-- 标记为独立 Wear OS 应用（无需手机 companion） -->
+        <meta-data
+            android:name="com.google.android.wearable.standalone"
+            android:value="true" />
+
         <activity
-            android:name=".MainActivity"
+            android:name="com.mjiutang.ngskg.MainActivity"
             android:exported="true"
+            android:showWhenLocked="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize"
             android:theme="@style/NormalTheme">
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
-            <!-- Android 12+ 启动画面使用动态取色 -->
-            <meta-data
-                android:name="io.flutter.embedding.android.SplashScreenTheme"
-                android:resource="@style/LaunchThemeMonet" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- 前台媒体播放服务（支持 OPPO 流体云 + Android 13+ 媒体控件） -->
+        <!-- 前台媒体播放服务 -->
         <service
-            android:name=".PlaybackService"
+            android:name="com.mjiutang.ngskg.PlaybackService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
 
-        <!-- 媒体按钮广播接收器（通知栏 + 蓝牙/耳机媒体按键） -->
+        <!-- 媒体按钮广播接收器（Wear OS 蓝牙媒体按键） -->
         <receiver
-            android:name=".MediaButtonReceiver"
+            android:name="com.mjiutang.ngskg.MediaButtonReceiver"
             android:exported="true">
             <intent-filter android:priority="1000">
                 <action android:name="com.mjiutang.ngskg.PREV" />
@@ -61,17 +72,6 @@
                 <action android:name="com.mjiutang.ngskg.NEXT" />
                 <action android:name="com.mjiutang.ngskg.STOP" />
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
-            </intent-filter>
-        </receiver>
-
-        <!-- flutter_local_notifications 接收器 -->
-        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
-        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
 

@@ -41,10 +41,10 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.mjiutang.ngskg"
-        minSdkVersion flutter.minSdkVersion
+        applicationId "com.mjiutang.ngskg.wear"
+        minSdkVersion 26
         targetSdk 36
-        versionCode flutterVersionCode.toInteger()
+        versionCode flutterVersionCode.toInteger() * 10 + 1
         versionName flutterVersionName
     }
 
