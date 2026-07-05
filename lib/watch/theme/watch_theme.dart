@@ -1,25 +1,16 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
 //
-// Wear OS 圆屏视觉主题 — 适配小屏圆形的 Material You 主题
+// Wear OS 圆屏深色主题 — 始终 [Brightness.dark]，适合 AMOLED 屏幕
 
 import 'package:flutter/material.dart';
 
-/// 构建手表版浅色主题
+/// 构建手表版深色主题。
+///
+/// - 始终 [Brightness.dark]，适合 Wear OS AMOLED 屏幕
+/// - 大字号、大触控区域适配圆屏
+/// - 使用 [seedColor] 做 Material You 取色
 ThemeData buildWatchTheme(Color seedColor) {
-  return ThemeData(
-    useMaterial3: true,
-    brightness: Brightness.light,
-    colorSchemeSeed: seedColor,
-    // Wear OS 圆屏大字号/大触控区域
-    textTheme: _watchTextTheme(ThemeData.light().textTheme),
-    visualDensity: VisualDensity.compact,
-    materialTapTargetSize: MaterialTapTargetSize.padded,
-  );
-}
-
-/// 构建手表版深色主题（Wear OS 默认深色背景）
-ThemeData buildWatchDarkTheme(Color seedColor) {
   final colorScheme = ColorScheme.fromSeed(
     seedColor: seedColor,
     brightness: Brightness.dark,
