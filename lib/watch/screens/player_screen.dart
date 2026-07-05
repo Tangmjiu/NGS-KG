@@ -138,10 +138,13 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
               final song = player.currentSong;
 
               if (song == null) {
-                return const Center(
+                return Center(
                   child: Text(
                     '暂无播放',
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontSize: 13,
+                    ),
                   ),
                 );
               }
@@ -151,30 +154,24 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
                   // ── Top bar: 返回 + 播放模式 ──
                   _buildTopBar(player),
 
-                  const SizedBox(height: 4),
-
                   // ── 专辑封面（大圆） ──
                   Expanded(
-                    flex: 5,
+                    flex: 3,
                     child: _buildAlbumArt(song),
                   ),
 
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
 
                   // ── 歌名 + 歌手 ──
                   _buildSongInfo(song),
 
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
 
                   // ── 进度条 ──
                   _buildProgressBar(player),
 
-                  const SizedBox(height: 6),
-
                   // ── 控制按钮 ──
                   _buildControls(player),
-
-                  const SizedBox(height: 4),
 
                   // ── 收藏按钮 ──
                   _buildLikeButton(song),
@@ -189,40 +186,30 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
 
   /// 顶部栏：返回按钮 + 歌词/播放模式
   Widget _buildTopBar(PlayerProvider player) {
+    final cs = Theme.of(context).colorScheme;
     return SizedBox(
-      height: 36,
+      height: 32,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // 返回
-          SizedBox(
-            width: 36,
-            height: 36,
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
-              padding: EdgeInsets.zero,
-              color: Colors.grey[400],
-              onPressed: () => Navigator.pop(context),
-            ),
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
+            color: cs.onSurface.withValues(alpha: 0.6),
+            onPressed: () => Navigator.pop(context),
           ),
           // 歌词 + 播放模式
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
-                width: 36,
-                height: 36,
-                child: IconButton(
-                  icon: const Icon(Icons.lyrics_rounded, size: 18),
-                  padding: EdgeInsets.zero,
-                  color: Colors.grey[400],
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const WatchLyricsScreen(),
-                    ),
+              IconButton(
+                icon: const Icon(Icons.lyrics_rounded, size: 18),
+                color: cs.onSurface.withValues(alpha: 0.6),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const WatchLyricsScreen(),
                   ),
-                  splashRadius: 18,
                 ),
               ),
               _PlayModeIcon(mode: player.playMode),
@@ -269,7 +256,7 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
               child: Icon(
                 Icons.music_note_rounded,
                 size: diameter * 0.42,
-                color: Colors.white.withValues(alpha: 0.7),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
           ),
@@ -285,8 +272,8 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
       children: [
         Text(
           song.name,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -298,7 +285,7 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
         Text(
           song.artistDisplay,
           style: TextStyle(
-            color: Colors.grey[400],
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
             fontSize: 12,
           ),
           textAlign: TextAlign.center,
@@ -325,8 +312,8 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 9),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
             activeTrackColor: Theme.of(context).colorScheme.primary,
-            inactiveTrackColor: Colors.grey[800],
-            thumbColor: Colors.white,
+            inactiveTrackColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            thumbColor: Theme.of(context).colorScheme.onSurface,
             overlayColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
           ),
           child: Slider(
@@ -343,11 +330,11 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
             children: [
               Text(
                 _formatDuration(pos),
-                style: TextStyle(color: Colors.grey[500], fontSize: 10),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10),
               ),
               Text(
                 _formatDuration(dur),
-                style: TextStyle(color: Colors.grey[500], fontSize: 10),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10),
               ),
             ],
           ),
@@ -358,46 +345,32 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
 
   /// 控制按钮行：上一首 / 播放暂停 / 下一首
   Widget _buildControls(PlayerProvider player) {
-    return SizedBox(
-      height: 72,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // 上一首 — min 48×48
-          SizedBox(
-            width: 48,
-            height: 48,
-            child: IconButton(
-              icon: const Icon(Icons.skip_previous_rounded, size: 32),
-              color: Colors.white,
-              padding: EdgeInsets.zero,
-              onPressed: () => player.playPrevious(),
-              splashRadius: 24,
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          // 播放/暂停 — min 64×64
-          SizedBox(
-            width: 64,
-            height: 64,
-              child: IconButton(
-                icon: Icon(
-                  player.isPlaying
-                      ? Icons.pause_circle_filled_rounded
-                      : Icons.play_circle_filled_rounded,
-                  size: 56,
-                ),
-                color: Theme.of(context).colorScheme.primary,
-                padding: EdgeInsets.zero,
-                onPressed: () => player.togglePlayPause(),
-                splashRadius: 32,
-              ),
-            ),
-          ],
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // 上一首
+        IconButton(
+          icon: const Icon(Icons.skip_previous_rounded, size: 28),
+          color: cs.onSurface,
+          onPressed: () => player.playPrevious(),
         ),
-      );
+
+        const SizedBox(width: 8),
+
+        // 播放/暂停
+        IconButton(
+          icon: Icon(
+            player.isPlaying
+                ? Icons.pause_circle_filled_rounded
+                : Icons.play_circle_filled_rounded,
+            size: 48,
+          ),
+          color: cs.primary,
+          onPressed: () => player.togglePlayPause(),
+        ),
+      ],
+    );
   }
 
   /// 收藏按钮（底部）
@@ -407,13 +380,15 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
         final isLiked = likedSongs.likedIds.contains(song.id);
 
         return SizedBox(
-          height: 40,
+          height: 28,
           child: Center(
             child: IconButton(
               icon: Icon(
                 isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
                 size: 24,
-                color: isLiked ? Colors.red[400] : Colors.grey,
+                color: isLiked
+                  ? Theme.of(context).colorScheme.error
+                  : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
               ),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
@@ -479,7 +454,8 @@ class _PlayModeIcon extends StatelessWidget {
       message: tooltip,
       child: Padding(
         padding: const EdgeInsets.all(8),
-        child: Icon(icon, size: 20, color: Colors.grey[400]),
+        child: Icon(icon, size: 20,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
       ),
     );
   }
