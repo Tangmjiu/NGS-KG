@@ -861,6 +861,30 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.10.2"
+  speech_to_text:
+    dependency: "direct main"
+    description:
+      name: speech_to_text
+      sha256: "75587f7400f485fdf166beacd471549d98fe5d58e634f708916bb65dec05d6a4"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "7.4.0"
+  speech_to_text_platform_interface:
+    dependency: transitive
+    description:
+      name: speech_to_text_platform_interface
+      sha256: a7e16e02853853ed7534ac2bde9a1c4f39c8879970a7974ac6ff832d4bdaa4b0
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "2.4.0"
+  speech_to_text_windows:
+    dependency: transitive
+    description:
+      name: speech_to_text_windows
+      sha256: "2d1d10565b23262386b453b33656299608dc7a66784453735d6c1318f13f44d7"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "1.0.1"
   sqflite:
     dependency: "direct main"
     description:
@@ -1101,6 +1125,30 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.5.1"
+  wear_os_scrollbar:
+    dependency: "direct main"
+    description:
+      name: wear_os_scrollbar
+      sha256: "9cd50d57372a8e826cd2c99780c94d15fc492a8fe7e228011457be6ee35b66a9"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "0.2.1"
+  wear_plus:
+    dependency: "direct main"
+    description:
+      name: wear_plus
+      sha256: "492caaf15c13d3ea20e5b00f8fb884b412a6ae81ebac7995e47b57d436ad0a1b"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "1.2.5"
+  wearable_rotary:
+    dependency: "direct main"
+    description:
+      name: wearable_rotary
+      sha256: "87f945c348eceb3cd504d75269621f9f14447306e9559b426076370743626018"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "2.0.4"
   web:
     dependency: transitive
     description:

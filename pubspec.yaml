@@ -51,6 +51,12 @@ dependencies:
   flutter_lyric: ^3.0.6
   on_audio_query: ^2.9.0
 
+  # Wear OS
+  wear_plus: ^1.2.5
+  wearable_rotary: ^2.0.0
+  wear_os_scrollbar: ^0.2.1
+  speech_to_text: ^7.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
