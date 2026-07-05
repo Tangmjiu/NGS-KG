@@ -18,9 +18,7 @@ class WatchSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black,
         title: const Text('设置', style: TextStyle(fontSize: 14)),
       ),
       body: RoundSafeArea(

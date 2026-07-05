@@ -35,9 +35,7 @@ class _WatchLoginScreenState extends State<WatchLoginScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black,
         title: const Text('登录', style: TextStyle(fontSize: 14)),
         bottom: TabBar(
           controller: _tabCtrl,
@@ -116,11 +114,12 @@ class _WatchQrLoginState extends State<_WatchQrLogin> {
               Container(
                 width: 120, height: 120,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: theme.colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
-                  child: Icon(Icons.qr_code, size: 80, color: Colors.black),
+                  child: Icon(Icons.qr_code, size: 80,
+                      color: theme.colorScheme.onSurface),
                 ),
               ),
               const SizedBox(height: 16),

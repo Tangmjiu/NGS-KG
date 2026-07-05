@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../../../providers/player_provider.dart';
 import '../widgets/watch_scroll_list.dart';
+import '../widgets/round_safe_area.dart';
 
 /// 手表端歌词屏幕。
 ///
@@ -25,43 +26,45 @@ class WatchLyricsScreen extends StatefulWidget {
 class _WatchLyricsScreenState extends State<WatchLyricsScreen> {
   @override
   Widget build(BuildContext context) {
-    return Consumer<PlayerProvider>(
-      builder: (context, player, _) {
-        final model = player.lyricController.lyricNotifier.value;
-        final lines = model?.lines ?? <LyricLine>[];
-        final activeIdx =
-            player.lyricController.activeIndexNotifiter.value;
+    return RoundSafeArea(
+      child: Consumer<PlayerProvider>(
+        builder: (context, player, _) {
+          final model = player.lyricController.lyricNotifier.value;
+          final lines = model?.lines ?? <LyricLine>[];
+          final activeIdx =
+              player.lyricController.activeIndexNotifiter.value;
 
-        if (lines.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.lyrics_rounded,
-                  size: 32,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.3),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '暂无歌词',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.5),
-                      ),
-                ),
-              ],
-            ),
-          );
-        }
+          if (lines.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.lyrics_rounded,
+                    size: 32,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.3),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '暂无歌词',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.5),
+                        ),
+                  ),
+                ],
+              ),
+            );
+          }
 
-        return _buildLyricList(context, lines, activeIdx);
-      },
+          return _buildLyricList(context, lines, activeIdx);
+        },
+      ),
     );
   }
 

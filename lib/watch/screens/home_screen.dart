@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:wear_plus/wear_plus.dart';
 
 import '../../../providers/player_provider.dart';
 import '../widgets/watch_song_tile.dart';
@@ -67,11 +68,11 @@ class WatchHomeScreen extends StatelessWidget {
               },
             ),
 
-            // ── 3. 快速操作区标题 ──
+              // ── 3. 快速操作区标题 ──
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
-                'Quick Actions',
+                '快捷操作',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
@@ -113,14 +114,14 @@ class _QuickActionGrid extends StatelessWidget {
       runAlignment: WrapAlignment.center,
       children: [
         _QuickActionButton(
-          item: const _ActionItem('Search', Icons.search, null),
+          item: const _ActionItem('搜索', Icons.search, null),
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const WatchSearchScreen()),
           ),
         ),
         _QuickActionButton(
-          item: const _ActionItem('Playlists', Icons.queue_music, null),
+          item: const _ActionItem('歌单', Icons.queue_music, null),
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(
@@ -129,28 +130,28 @@ class _QuickActionGrid extends StatelessWidget {
           ),
         ),
         _QuickActionButton(
-          item: const _ActionItem('Queue', Icons.queue_music, null),
+          item: const _ActionItem('队列', Icons.playlist_play, null),
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const WatchQueueScreen()),
           ),
         ),
         _QuickActionButton(
-          item: const _ActionItem('FM', Icons.radio, null),
+          item: const _ActionItem('电台', Icons.radio, null),
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const WatchFmScreen()),
           ),
         ),
         _QuickActionButton(
-          item: const _ActionItem('Settings', Icons.settings, null),
+          item: const _ActionItem('设置', Icons.settings, null),
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const WatchSettingsScreen()),
           ),
         ),
         _QuickActionButton(
-          item: const _ActionItem('Local', Icons.folder_open, null),
+          item: const _ActionItem('本地', Icons.folder_open, null),
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(
@@ -178,9 +179,10 @@ class _QuickActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isRound = WatchShape.of(context) == WearShape.round;
 
     return SizedBox(
-      width: 88,
+      width: isRound ? 80 : 88,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

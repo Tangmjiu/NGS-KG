@@ -5,11 +5,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:wear_plus/wear_plus.dart';
 
 import '../../models/rank_entry.dart';
 import '../../models/song.dart';
 import '../../providers/player_provider.dart';
 import '../../services/music_service.dart';
+import '../widgets/round_safe_area.dart';
 import '../widgets/watch_song_tile.dart';
 
 /// 手表版排行榜列表
@@ -79,8 +81,8 @@ class _WatchRankListScreenState extends State<WatchRankListScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline, size: 32,
-                  color: theme.colorScheme.error),
+              Icon(Icons.error_outline,
+                  size: 32, color: theme.colorScheme.error),
               const SizedBox(height: 8),
               Text('加载失败', style: theme.textTheme.bodyMedium),
               const SizedBox(height: 4),
@@ -112,7 +114,8 @@ class _WatchRankListScreenState extends State<WatchRankListScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.leaderboard_outlined, size: 40,
+            Icon(Icons.leaderboard_outlined,
+                size: 40,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
             const SizedBox(height: 8),
             Text('暂无排行榜', style: theme.textTheme.bodyMedium),
@@ -121,28 +124,30 @@ class _WatchRankListScreenState extends State<WatchRankListScreen> {
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 12, bottom: 60),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Text(
-              '排行榜',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+    return RoundSafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 12, bottom: 60),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Text(
+                '排行榜',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 4),
-          ...entries.map(
-            (rank) => _RankListTile(
-              rank: rank,
-              onTap: () => _openRankSongs(rank),
+            const SizedBox(height: 4),
+            ...entries.map(
+              (rank) => _RankListTile(
+                rank: rank,
+                onTap: () => _openRankSongs(rank),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -278,8 +283,10 @@ class _RankSongSheetState extends State<_RankSongSheet> {
     final theme = Theme.of(context);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
+    final isRound = WatchShape.of(context) == WearShape.round;
+    final sheetHeight = isRound ? 0.45 : 0.55;
     return Container(
-      height: MediaQuery.of(context).size.height * 0.55,
+      height: MediaQuery.of(context).size.height * sheetHeight,
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -328,8 +335,8 @@ class _RankSongSheetState extends State<_RankSongSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline, size: 32,
-                  color: theme.colorScheme.error),
+              Icon(Icons.error_outline,
+                  size: 32, color: theme.colorScheme.error),
               const SizedBox(height: 8),
               Text('加载失败', style: theme.textTheme.bodyMedium),
               TextButton.icon(
@@ -350,7 +357,8 @@ class _RankSongSheetState extends State<_RankSongSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.music_off_outlined, size: 32,
+            Icon(Icons.music_off_outlined,
+                size: 32,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
             const SizedBox(height: 8),
             Text('暂无歌曲', style: theme.textTheme.bodyMedium),

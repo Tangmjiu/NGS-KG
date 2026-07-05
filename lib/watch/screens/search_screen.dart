@@ -14,6 +14,7 @@ import '../../../services/music_service.dart';
 import '../services/voice_search_service.dart';
 import '../widgets/watch_song_tile.dart';
 import '../widgets/round_safe_area.dart';
+import 'package:wearable_rotary/wearable_rotary.dart';
 
 /// 搜索页面内部状态
 enum _SearchState { initial, listening, searching, results, empty, error }
@@ -35,7 +36,7 @@ class WatchSearchScreen extends StatefulWidget {
 class _WatchSearchScreenState extends State<WatchSearchScreen> {
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
-  final _scrollController = ScrollController();
+  final _scrollController = RotaryScrollController();
   final _voiceService = VoiceSearchService();
 
   List<Song> _results = [];

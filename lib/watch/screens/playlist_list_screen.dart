@@ -11,6 +11,9 @@ import '../../models/song.dart';
 import '../../providers/liked_songs_provider.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/playlist_provider.dart';
+import 'package:wear_plus/wear_plus.dart';
+
+import '../widgets/round_safe_area.dart';
 import '../widgets/watch_song_tile.dart';
 
 /// 手表端歌单 / 收藏列表页面。
@@ -56,9 +59,10 @@ class _WatchPlaylistListScreenState extends State<WatchPlaylistListScreen> {
         final likedCount = likedProv.likedIds.length;
         final playlists = playlistProv.userPlaylists;
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Column(
+        return RoundSafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ─── 收藏歌曲 ───
@@ -87,6 +91,7 @@ class _WatchPlaylistListScreenState extends State<WatchPlaylistListScreen> {
               // 底部留白，避免 MiniPlayer 遮挡
               const SizedBox(height: 60),
             ],
+            ),
           ),
         );
       },
@@ -352,10 +357,11 @@ class _WatchPlaylistListScreenState extends State<WatchPlaylistListScreen> {
     required int songCount,
     required Widget child,
   }) {
+    final isRound = WatchShape.of(ctx) == WearShape.round;
     return DraggableScrollableSheet(
-      initialChildSize: 0.7,
-      minChildSize: 0.4,
-      maxChildSize: 0.92,
+      initialChildSize: isRound ? 0.5 : 0.7,
+      minChildSize: isRound ? 0.3 : 0.4,
+      maxChildSize: isRound ? 0.75 : 0.92,
       expand: false,
       builder: (ctx, scrollController) {
         return Column(
