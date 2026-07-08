@@ -141,6 +141,16 @@ class AuthProvider extends ChangeNotifier {
     return status;
   }
 
+  /// Save user from QR scan (called by watch app after successful polling).
+  Future<void> loginWithQr(User user) async {
+    _user = user;
+    ApiClient.setAuth(user.token ?? '', user.userId?.toString() ?? '');
+    await _saveUser();
+    _isLoading = false;
+    _isLoggingIn = false;
+    notifyListeners();
+  }
+
   void logout() {
     _user = null;
     ApiClient.clearAuth();

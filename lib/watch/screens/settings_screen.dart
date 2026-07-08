@@ -3,6 +3,7 @@
 //
 // Wear OS 手表设置页
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -46,15 +47,103 @@ class _LoginSection extends StatelessWidget {
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
         if (auth.isLoggedIn) {
+          final user = auth.user!;
+          final isVip = user.isVipActive ||
+              (user.vipType != null && user.vipType! > 0);
           return Card(
             color: theme.colorScheme.surfaceContainerHighest,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14)),
-            child: const Column(
+            child: Column(
               children: [
-                ListTile(
-                  leading: Icon(Icons.person, size: 22),
-                  title: Text('已登录', style: TextStyle(fontSize: 13)),
+                // 用户信息头部
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Column(
+                    children: [
+                      // 头像
+                      ClipOval(
+                        child: SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: (user.avatarUrl != null &&
+                                  user.avatarUrl!.isNotEmpty)
+                              ? CachedNetworkImage(
+                                  imageUrl: user.avatarUrl!,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => Container(
+                                    color: theme
+                                        .colorScheme.surfaceContainerHighest,
+                                  ),
+                                  errorWidget: (context, url, error) => Icon(
+                                    Icons.person,
+                                    size: 32,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.person,
+                                  size: 32,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // 昵称
+                      Text(
+                        user.nickname ?? '用户',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      // VIP 状态
+                      if (isVip)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.workspace_premium,
+                                size: 14, color: Colors.amber),
+                            const SizedBox(width: 4),
+                            const Text(
+                              'VIP',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.amber,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Text(
+                          '普通用户',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                // 退出登录按钮
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => auth.logout(),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        foregroundColor: theme.colorScheme.error,
+                        side: BorderSide(
+                          color: theme.colorScheme.error.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: const Text('退出登录',
+                          style: TextStyle(fontSize: 12)),
+                    ),
+                  ),
                 ),
               ],
             ),

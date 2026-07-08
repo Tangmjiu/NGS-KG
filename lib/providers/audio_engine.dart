@@ -11,7 +11,7 @@ import '../services/music_service.dart';
 import '../services/api_exception.dart';
 import '../utils/navigation.dart' as app;
 import '../providers/auth_provider.dart';
-import '../widgets/login_required_dialog.dart';
+import '../utils/login_required_dialog.dart';
 
 class AudioEngine {
   final MusicService _musicService;
@@ -93,7 +93,7 @@ class AudioEngine {
           _hasActivePlayback = false;
           isLoading.value = false;
           error.value = '播放出错，请重试';
-          _showLoginIfUnauth();
+          _tryShowLoginIfUnauth();
         }
       }
     });
@@ -198,7 +198,7 @@ class AudioEngine {
     if (_playAttempts > _maxRetries) {
       isLoading.value = false;
       error.value = '播放失败: 已重试 $_maxRetries 次';
-      _showLoginIfUnauth();
+      _tryShowLoginIfUnauth();
       return;
     }
     try {
@@ -316,27 +316,29 @@ class AudioEngine {
       }
     } catch (e, s) {
       _playAttempts++;
+      isLoading.value = false;
       Log.w('audio_engine', 'play error (attempt $_playAttempts)', e, s);
+
+      // 未登录 → 只弹登录弹窗，不显示错误
+      if (_tryShowLoginIfUnauth()) return;
+
+      // 已登录 → 显示具体错误
       if (e is NoCopyrightException) {
-        isLoading.value = false;
         error.value = '播放失败: $e';
         showErrorDialog(title: '播放失败', errorCode: 'API 3', message: '$e');
         return;
       }
       if (e is NeedLoginException) {
-        isLoading.value = false;
         error.value = '播放失败: $e';
-        showErrorDialog(title: '登录失效', errorCode: 'API 20010', message: '播放需要重新登录', showLogin: true);
+        showErrorDialog(title: '登录失效', errorCode: 'API 20010', message: '播放需要重新登录');
         return;
       }
       if (_playAttempts <= _maxRetries) {
         await play(song, version: version);
         return;
       }
-      isLoading.value = false;
       error.value = '播放失败: $e';
       Log.e('audio_engine', '', e, s);
-      _showLoginIfUnauth();
       return;
     }
     isLoading.value = false;
@@ -556,14 +558,16 @@ class AudioEngine {
     }
   }
 
-  /// 未登录时播放失败 → 弹出登录提醒
-  void _showLoginIfUnauth() {
+  /// 未登录时弹出登录提醒；返回 true 表示已显示登录弹窗
+  bool _tryShowLoginIfUnauth() {
     final ctx = app.navKey.currentContext;
-    if (ctx == null) return;
+    if (ctx == null) return false;
     final auth = ctx.read<AuthProvider>();
     if (!auth.isLoggedIn) {
       showLoginRequiredDialog(ctx);
+      return true;
     }
+    return false;
   }
 
   void dispose() {

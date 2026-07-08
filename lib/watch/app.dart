@@ -78,6 +78,17 @@ class _WatchHomeState extends State<WatchHome> {
 
     return PopScope(
       canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && mounted) {
+          // 系统返回手势 → 翻到上一页
+          if (_currentPage > 0) {
+            _pageController.previousPage(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          }
+        }
+      },
       child: Scaffold(
       body: Stack(
         children: [

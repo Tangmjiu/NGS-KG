@@ -36,7 +36,6 @@ class MainActivity : FlutterActivity() {
     private val CHANNEL_METADATA = "com.mjiutang.ngskg/metadata"
     private val CHANNEL_MEDIA = "com.mjiutang.ngskg/media_session"
     private val CHANNEL_DEVICE = "com.mjiutang.ngskg/device"
-    private val CHANNEL_EQUALIZER = "com.mjiutang.ngskg/equalizer"
 
     private var playbackService: PlaybackService? = null
     private var callbackChannel: BasicMessageChannel<String>? = null
@@ -147,13 +146,6 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
-
-        // 系统均衡器
-        val equalizerChannel = MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            CHANNEL_EQUALIZER
-        )
-        EqualizerHelper.registerWith(equalizerChannel, this)
 
         // 设置回调通道（Native → Flutter）
         callbackChannel = BasicMessageChannel<String>(

@@ -9,7 +9,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.8
   # Network
   dio: ^5.4.0
   cookie_jar: ^4.0.8
@@ -29,7 +28,6 @@ dependencies:
   # Theme
   flex_color_scheme: ^8.0.2
   flutter_colorpicker: ^1.1.0
-  dynamic_color: ^1.7.0
   archive: ^4.0.0
   # Video
   # MV: video_player: ^2.9.2

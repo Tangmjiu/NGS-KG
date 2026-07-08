@@ -45,7 +45,7 @@ class ApiConfig {
 
   Future<String> getMjiutangRoute() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_routeKey) ?? routeCloudflare;
+    return prefs.getString(_routeKey) ?? routeChina;
   }
 
   Future<void> setMjiutangRoute(String route) async {
@@ -69,7 +69,7 @@ class ApiConfig {
       }
     }
 
-    final route = prefs.getString(_routeKey) ?? routeCloudflare;
+    final route = prefs.getString(_routeKey) ?? routeChina;
     _cachedUrl = route == routeCloudflare ? cloudflareUrl : chinaUrl;
     return _cachedUrl;
   }

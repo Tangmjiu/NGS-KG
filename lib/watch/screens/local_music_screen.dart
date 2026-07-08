@@ -52,8 +52,11 @@ class _WatchLocalMusicScreenState extends State<WatchLocalMusicScreen> {
           final isScanning = local.isScanning;
           final currentSong = player.currentSong;
 
-          return SingleChildScrollView(
+          return RefreshIndicator(
+            onRefresh: () => context.read<LocalMusicProvider>().scanMusic(),
+            child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            physics: const AlwaysScrollableScrollPhysics(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -183,7 +186,8 @@ class _WatchLocalMusicScreenState extends State<WatchLocalMusicScreen> {
                 const SizedBox(height: 24),
               ],
             ),
-          );
+          ),
+        );
         },
       ),
     );

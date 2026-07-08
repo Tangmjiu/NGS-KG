@@ -182,10 +182,9 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
       backgroundColor: Colors.black,
       body: RoundSafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Column(
             children: [
-              const SizedBox(height: 8),
               // ── 顶部：私人 FM 标识 ──
               _buildHeader(),
 
@@ -197,7 +196,7 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         _buildSongSection(),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 8),
                         _buildPlayButton(player),
                       ],
                     );
@@ -207,11 +206,12 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
 
               // ── 底部：收藏 + 下一首 ──
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: 2),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     _buildLikeButton(),
+                    const SizedBox(width: 24),
                     _buildNextButton(),
                   ],
                 ),
@@ -225,22 +225,14 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
 
   /// 顶部 FM 标识
   Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(Icons.radio_rounded, size: 14,
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
-        const SizedBox(width: 4),
-        Text(
-          '私人FM',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.5,
-          ),
-        ),
-      ],
+    return Text(
+      '私人FM',
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+        fontSize: 10,
+        fontWeight: FontWeight.w500,
+      ),
+      textAlign: TextAlign.center,
     );
   }
 
@@ -254,7 +246,7 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
           song.name,
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurface,
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
           textAlign: TextAlign.center,
@@ -266,7 +258,7 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
           song.artistDisplay,
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-            fontSize: 13,
+            fontSize: 11,
           ),
           textAlign: TextAlign.center,
           maxLines: 1,
@@ -276,22 +268,22 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
     );
   }
 
-  /// 大型播放 / 暂停按钮（64×64）
+  /// 播放 / 暂停按钮
   Widget _buildPlayButton(PlayerProvider player) {
     return SizedBox(
-      width: 64,
-      height: 64,
+      width: 48,
+      height: 48,
       child: IconButton(
         icon: Icon(
           player.isPlaying
               ? Icons.pause_circle_filled_rounded
               : Icons.play_circle_filled_rounded,
-          size: 56,
+          size: 40,
         ),
         color: Theme.of(context).colorScheme.primary,
         padding: EdgeInsets.zero,
         onPressed: () => player.togglePlayPause(),
-        splashRadius: 32,
+        splashRadius: 24,
       ),
     );
   }
@@ -303,18 +295,18 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
       builder: (context, likedSongs, _) {
         final isLiked = likedSongs.likedIds.contains(song.id);
         return SizedBox(
-          width: 48,
-          height: 48,
+          width: 40,
+          height: 40,
           child: IconButton(
             icon: Icon(
               isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
-              size: 24,
+              size: 20,
               color: isLiked
                   ? Theme.of(context).colorScheme.error
                   : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
             ),
             padding: EdgeInsets.zero,
-            splashRadius: 24,
+            splashRadius: 20,
             onPressed: _toggleLike,
           ),
         );
@@ -325,13 +317,13 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
   /// 下一首按钮
   Widget _buildNextButton() {
     return SizedBox(
-      width: 48,
-      height: 48,
+      width: 40,
+      height: 40,
       child: IconButton(
-        icon: const Icon(Icons.skip_next_rounded, size: 28),
+        icon: const Icon(Icons.skip_next_rounded, size: 24),
         color: Theme.of(context).colorScheme.onSurface,
         padding: EdgeInsets.zero,
-        splashRadius: 24,
+        splashRadius: 20,
         onPressed: _nextTrack,
       ),
     );

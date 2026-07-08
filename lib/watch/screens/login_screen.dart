@@ -3,9 +3,12 @@
 //
 // Wear OS 手表登录页 — 二维码登录（手机扫码）+ 手机验证码登录
 
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/auth_service.dart';
+import '../../utils/logger.dart';
 import '../widgets/round_safe_area.dart';
 
 /// 手表版登录
@@ -67,6 +70,10 @@ class _WatchQrLogin extends StatefulWidget {
 
 class _WatchQrLoginState extends State<_WatchQrLogin> {
   bool _loading = true;
+  String? _error;
+  String? _qrBase64;
+  int _pollStatus = 1; // 1=waiting, 2=confirmed, 4=success, 0=expired
+  bool _loggedIn = false;
 
   @override
   void initState() {
@@ -74,58 +81,149 @@ class _WatchQrLoginState extends State<_WatchQrLogin> {
     _loadQr();
   }
 
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
   Future<void> _loadQr() async {
-    setState(() { _loading = true; });
+    setState(() {
+      _loading = true;
+      _error = null;
+      _qrBase64 = null;
+      _pollStatus = 1;
+    });
     try {
-      // 简单展示：跳转到手机登录方式
-      // 实际 QR 登录需通过 API 获取二维码 URL 并轮询扫码状态
-      await Future.delayed(const Duration(seconds: 1));
+      final authService = context.read<AuthService>();
+      // 1. get key
+      final keyData = await authService.getQrKey();
+      final key = keyData['key'] as String?;
+      if (key == null || key.isEmpty) throw Exception('获取二维码失败');
+      // 2. create QR
+      final qrData = await authService.getQrCreate(key, qrimg: true);
+      _qrBase64 = qrData['qrimg'] as String?;
       if (!mounted) return;
       setState(() => _loading = false);
-    } catch (_) {
+      // 3. start polling
+      _startPolling(key);
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _loading = false);
+      final msg = e.toString();
+      Log.e('WATCH_QR', '二维码生成失败', e);
+      setState(() {
+        _loading = false;
+        _error = msg.length > 60 ? '二维码生成失败，请重试' : msg;
+      });
     }
+  }
+
+  void _startPolling(String key) {
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted || _loggedIn) return false;
+      try {
+        final authService = context.read<AuthService>();
+        final res = await authService.checkQrStatus(key);
+        final (status, user) = AuthService.parseQrResponse(res);
+        if (!mounted) return false;
+        if (status == 4 && user != null) {
+          _loggedIn = true;
+          await context.read<AuthProvider>().loginWithQr(user);
+          if (mounted) Navigator.pop(context);
+          return false;
+        }
+        if (status == 0) {
+          setState(() => _error = '二维码已过期，请重新生成');
+          return false;
+        }
+        if (status == 2) {
+          setState(() => _pollStatus = 2);
+        }
+        return true; // continue polling
+      } catch (_) {
+        if (!mounted) return false;
+        return true; // retry
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
-
-    return RoundSafeArea(
-      child: Center(
+    if (_error != null) {
+      return Center(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.qr_code_scanner, size: 64,
-                color: theme.colorScheme.primary),
+              Icon(Icons.error_outline, size: 40,
+                color: theme.colorScheme.error),
+              const SizedBox(height: 12),
+              Text(_error!, style: theme.textTheme.bodyMedium,
+                textAlign: TextAlign.center),
               const SizedBox(height: 16),
-              Text('请使用手机酷狗App\n扫描二维码登录',
+              ElevatedButton(
+                onPressed: _loadQr,
+                child: const Text('重新生成'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    // Base64 image from API — decode and display
+    Widget qrWidget;
+    if (_qrBase64 != null && _qrBase64!.isNotEmpty) {
+      // 处理可能带 data:image/png;base64, 前缀的 base64
+      String raw = _qrBase64!;
+      if (raw.contains(',')) raw = raw.split(',').last;
+      final bytes = base64Decode(raw);
+      qrWidget = Image.memory(bytes, fit: BoxFit.contain);
+    } else {
+      qrWidget = Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Center(
+          child: Icon(Icons.qr_code, size: 80, color: Colors.black),
+        ),
+      );
+    }
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
+            children: [
+              Text('使用手机酷狗App扫描二维码登录',
                 style: theme.textTheme.bodyMedium,
                 textAlign: TextAlign.center),
-              const SizedBox(height: 24),
-              // 占位 — 实际需集成二维码生成和轮询
-              Container(
-                width: 120, height: 120,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(12),
-                ),
+              const SizedBox(height: 8),
+              Expanded(
                 child: Center(
-                  child: Icon(Icons.qr_code, size: 80,
-                      color: theme.colorScheme.onSurface),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: AspectRatio(
+                        aspectRatio: 1,
+                        child: qrWidget,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 16),
-              Text('暂未接入二维码API\n请使用手机验证码登录',
+              const SizedBox(height: 8),
+              Text(
+                _pollStatus == 2 ? '已扫码，请在手机上确认' : '请使用酷狗App扫码',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
                 textAlign: TextAlign.center),
             ],
           ),

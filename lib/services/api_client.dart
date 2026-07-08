@@ -3,8 +3,12 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../utils/constants.dart';
 import '../utils/error_dialog.dart';
+import '../utils/navigation.dart' as app;
+import '../utils/login_required_dialog.dart';
 import '../utils/logger.dart';
 import 'api_exception.dart';
 import 'api_config.dart';
@@ -184,9 +188,17 @@ class _ErrorDialogInterceptor extends Interceptor {
             apiCode == '20010' ||
             rawErrorCode == 20010 ||
             rawErrorCode == '20010') {
-          showLogin = true;
-          // 清除过期 token，后续请求不再携带
+          // 登录过期 → 清除 token + 弹登录弹窗，不显示错误弹窗
           ApiClient.clearAuth();
+          final ctx = app.navKey.currentContext;
+          if (ctx != null) {
+            final auth = ctx.read<AuthProvider>();
+            if (!auth.isLoggedIn) {
+              showLoginRequiredDialog(ctx);
+            }
+          }
+          handler.next(err);
+          return;
         }
       } else {
         message = rawMsg ?? '请求失败';

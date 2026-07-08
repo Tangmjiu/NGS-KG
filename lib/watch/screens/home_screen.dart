@@ -3,10 +3,12 @@
 //
 // Wear OS 手表主屏幕 — 圆屏适配首页，含问候语、当前播放与快速操作入口
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wear_plus/wear_plus.dart';
 
+import '../../../providers/auth_provider.dart';
 import '../../../providers/player_provider.dart';
 import '../widgets/watch_song_tile.dart';
 import '../widgets/round_safe_area.dart';
@@ -17,6 +19,7 @@ import 'local_music_screen.dart';
 import 'fm_screen.dart';
 import 'settings_screen.dart';
 import 'queue_screen.dart';
+import 'liked_songs_screen.dart';
 
 /// 手表版主屏幕 — 圆屏适配的首页（问候 + 当前播放 + 快速操作入口）
 class WatchHomeScreen extends StatelessWidget {
@@ -27,11 +30,14 @@ class WatchHomeScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return RoundSafeArea(
-      child: SingleChildScrollView(
+      child: RefreshIndicator(
+        onRefresh: () => Future.delayed(const Duration(milliseconds: 500)),
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(
             horizontal: 8,
             vertical: 12,
           ),
+          physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -41,6 +47,72 @@ class WatchHomeScreen extends StatelessWidget {
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
+            ),
+
+            // ── 登录用户信息 ──
+            Consumer<AuthProvider>(
+              builder: (context, auth, _) {
+                if (!auth.isLoggedIn || auth.user == null) {
+                  return const SizedBox.shrink();
+                }
+                final user = auth.user!;
+                final isVip = user.isVipActive ||
+                    (user.vipType != null && user.vipType! > 0);
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 4),
+                  child: Row(
+                    children: [
+                      // 头像
+                      ClipOval(
+                        child: SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: (user.avatarUrl != null &&
+                                  user.avatarUrl!.isNotEmpty)
+                              ? CachedNetworkImage(
+                                  imageUrl: user.avatarUrl!,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => Container(
+                                    color: theme
+                                        .colorScheme.surfaceContainerHighest,
+                                  ),
+                                  errorWidget: (context, url, error) => Icon(
+                                    Icons.person,
+                                    size: 18,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.person,
+                                  size: 18,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      // 昵称
+                      Flexible(
+                        child: Text(
+                          user.nickname ?? '用户',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isVip) ...[
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.workspace_premium,
+                          size: 14,
+                          color: Colors.amber,
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 8),
 
@@ -83,6 +155,7 @@ class WatchHomeScreen extends StatelessWidget {
             const _QuickActionGrid(),
           ],
         ),
+      ),
       ),
     );
   }
@@ -156,6 +229,15 @@ class _QuickActionGrid extends StatelessWidget {
             context,
             MaterialPageRoute(
               builder: (_) => const WatchLocalMusicScreen(),
+            ),
+          ),
+        ),
+        _QuickActionButton(
+          item: const _ActionItem('收藏', Icons.favorite_outline_rounded, null),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const WatchLikedSongsScreen(),
             ),
           ),
         ),

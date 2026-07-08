@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/playlist.dart';
 import '../../models/song.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/liked_songs_provider.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/playlist_provider.dart';
@@ -42,10 +43,15 @@ class _WatchPlaylistListScreenState extends State<WatchPlaylistListScreen> {
   }
 
   /// 初始加载数据
-  void _loadData() {
+  Future<void> _loadData() async {
     if (!mounted) return;
-    context.read<PlaylistProvider>().fetchUserPlaylist(null);
-    context.read<LikedSongsProvider>().load();
+    final auth = context.read<AuthProvider>();
+    if (auth.isLoggedIn && auth.user?.userId != null) {
+      await Future.wait([
+        context.read<PlaylistProvider>().fetchUserPlaylist(auth.user!.userId),
+        context.read<LikedSongsProvider>().load(),
+      ]);
+    }
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -54,47 +60,42 @@ class _WatchPlaylistListScreenState extends State<WatchPlaylistListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<PlaylistProvider, LikedSongsProvider>(
-      builder: (context, playlistProv, likedProv, _) {
-        final likedCount = likedProv.likedIds.length;
-        final playlists = playlistProv.userPlaylists;
+    final playlists = context.watch<PlaylistProvider>().userPlaylists;
 
-        return RoundSafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ─── 收藏歌曲 ───
-              _buildLikedSongsCard(context, likedCount, likedProv),
-              const SizedBox(height: 8),
-
-              // ─── 我的歌单 ───
-              Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 4),
-                child: Text(
-                  '我的歌单',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ),
-
-              // 歌单列表 / 空状态
-              if (playlists.isEmpty)
-                _buildEmptyState(context, '暂无歌单')
-              else
-                ...playlists.map(
-                  (p) => _buildPlaylistItem(context, p, playlistProv),
-                ),
-
-              // 底部留白，避免 MiniPlayer 遮挡
-              const SizedBox(height: 60),
-            ],
+    return RoundSafeArea(
+      child: RefreshIndicator(
+        onRefresh: () => _loadData(),
+        child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ─── 我的歌单 ───
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 4),
+            child: Text(
+              '我的歌单',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
           ),
-        );
-      },
+
+          // 歌单列表 / 空状态
+          if (playlists.isEmpty)
+            _buildEmptyState(context, '暂无歌单')
+          else
+            ...playlists.map(
+              (p) => _buildPlaylistItem(context, p),
+            ),
+
+          // 底部留白，避免 MiniPlayer 遮挡
+          const SizedBox(height: 60),
+        ],
+        ),
+      ),
+      ),
     );
   }
 
@@ -102,63 +103,9 @@ class _WatchPlaylistListScreenState extends State<WatchPlaylistListScreen> {
   // 子组件
   // ─────────────────────────────────────────────────────────────
 
-  /// 收藏歌曲卡片 — 爱心图标 + "收藏歌曲" + 数量
-  Widget _buildLikedSongsCard(
-      BuildContext context, int count, LikedSongsProvider likedProv) {
-    final theme = Theme.of(context);
-
-    return Card(
-      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => _showLikedSongsSheet(context, likedProv),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            children: [
-              // 爱心图标
-              Icon(
-                Icons.favorite,
-                color: theme.colorScheme.primary,
-                size: 28,
-              ),
-              const SizedBox(width: 12),
-              // 标题
-              Expanded(
-                child: Text(
-                  '收藏歌曲',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              // 数量徽章
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '$count',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   /// 歌单项 — 图标 + 歌单名 + 歌曲数
   Widget _buildPlaylistItem(
-      BuildContext context, Playlist playlist, PlaylistProvider provider) {
+      BuildContext context, Playlist playlist) {
     final theme = Theme.of(context);
 
     return Card(
@@ -166,7 +113,7 @@ class _WatchPlaylistListScreenState extends State<WatchPlaylistListScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () => _showPlaylistSheet(context, playlist, provider),
+        onTap: () => _showPlaylistSheet(context, playlist),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
@@ -246,54 +193,9 @@ class _WatchPlaylistListScreenState extends State<WatchPlaylistListScreen> {
   // Bottom Sheet — 歌曲列表
   // ─────────────────────────────────────────────────────────────
 
-  /// 弹出收藏歌曲列表 Bottom Sheet
-  void _showLikedSongsSheet(
-      BuildContext context, LikedSongsProvider likedProv) {
-    final count = likedProv.likedIds.length;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 32, height: 4,
-              decoration: BoxDecoration(
-                color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Icon(Icons.favorite, size: 40,
-              color: Theme.of(ctx).colorScheme.primary),
-            const SizedBox(height: 12),
-            Text('收藏歌曲',
-              style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text('已收藏 $count 首歌曲',
-              style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.6))),
-            if (count == 0) ...[
-              const SizedBox(height: 12),
-              Text('去发现页面收藏喜欢的歌曲吧',
-                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.4))),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
   /// 弹出歌单歌曲列表 Bottom Sheet
-  void _showPlaylistSheet(BuildContext context, Playlist playlist,
-      PlaylistProvider provider) {
+  void _showPlaylistSheet(BuildContext context, Playlist playlist) {
+    final provider = context.read<PlaylistProvider>();
     final player = context.read<PlayerProvider>();
     provider.fetchPlaylistDetail(playlist.id.toString());
 

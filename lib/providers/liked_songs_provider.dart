@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../models/song.dart';
 import '../utils/logger.dart';
 import '../services/music_service.dart';
 import '../services/api_client.dart';
@@ -10,14 +11,17 @@ class LikedSongsProvider extends ChangeNotifier {
   final MusicService _musicService;
   final Set<int> _likedIds = {};
   final Map<int, int> _fileidMap = {};
+  final List<Song> _likedSongs = [];
   bool _loaded = false;
 
   Set<int> get likedIds => _likedIds;
+  List<Song> get likedSongs => _likedSongs;
   bool get isLoaded => _loaded;
 
   void clear() {
     _likedIds.clear();
     _fileidMap.clear();
+    _likedSongs.clear();
     _loaded = false;
     notifyListeners();
   }
@@ -54,6 +58,9 @@ class LikedSongsProvider extends ChangeNotifier {
         _likedIds.add(s.id);
         if (s.fileId != null) _fileidMap[s.id] = s.fileId!;
       }
+      _likedSongs
+        ..clear()
+        ..addAll(songs);
       _loaded = true;
       notifyListeners();
     } catch (e, s) {
@@ -104,6 +111,7 @@ class LikedSongsProvider extends ChangeNotifier {
       }
       _likedIds.remove(song.id);
       _fileidMap.remove(song.id);
+      _likedSongs.removeWhere((s) => s.id == song.id);
       notifyListeners();
       return true;
     } catch (e, s) {

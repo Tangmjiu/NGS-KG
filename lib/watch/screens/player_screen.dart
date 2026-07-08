@@ -7,12 +7,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:wear_plus/wear_plus.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
-import '../../../providers/player_provider.dart';
-import '../../../providers/liked_songs_provider.dart';
+import '../../../constants/quality.dart';
 import '../../../models/song.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../providers/liked_songs_provider.dart';
+import '../../../providers/player_provider.dart';
+import '../../../utils/login_required_dialog.dart';
 import '../widgets/round_safe_area.dart';
-import 'lyrics_screen.dart';
+import 'queue_screen.dart';
 
 /// Wear OS 全屏音乐播放器
 ///
@@ -121,7 +125,7 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
   }
 
   // ═══════════════════════════════════════════════════════
-  //  Active Mode — 全功能播放器
+  //  Active Mode — 全功能播放器（重新设计）
   // ═══════════════════════════════════════════════════════
 
   Widget _buildActiveView() {
@@ -130,134 +134,180 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: RoundSafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 8),
-          child: Consumer<PlayerProvider>(
-            builder: (context, player, _) {
-              final song = player.currentSong;
+      body: GestureDetector(
+        // 下滑返回手势
+        onVerticalDragEnd: (details) {
+          if ((details.primaryVelocity ?? 0) > 800) {
+            Navigator.pop(context);
+          }
+        },
+        child: RoundSafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 8),
+            child: Consumer<PlayerProvider>(
+              builder: (context, player, _) {
+                final song = player.currentSong;
 
-              if (song == null) {
-                return Center(
-                  child: Text(
-                    '暂无播放',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                      fontSize: 13,
+                if (song == null) {
+                  return Center(
+                    child: Text(
+                      '暂无播放',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                        fontSize: 13,
+                      ),
                     ),
+                  );
+                }
+
+                final hasCover =
+                    song.albumCoverUrl != null && song.albumCoverUrl!.isNotEmpty;
+
+                return SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 4),
+                      // ── Top bar: 仅菜单按钮 ──
+                      _buildTopBar(player),
+
+                      // ── 专辑封面（仅当有封面 URL 时显示） ──
+                      if (hasCover) ...[
+                        const SizedBox(height: 4),
+                        _buildAlbumArt(song),
+                      ],
+
+                      // ── 音质标签 ──
+                      const SizedBox(height: 4),
+                      _buildQualityLabel(player),
+
+                      // ── 歌名 + 歌手 ──
+                      const SizedBox(height: 2),
+                      _buildSongInfo(song),
+
+                      const SizedBox(height: 4),
+
+                      // ── 进度条 ──
+                      _buildProgressBar(player),
+
+                      const SizedBox(height: 2),
+
+                      // ── 控制按钮 + 收藏 ──
+                      _buildControls(player, song),
+
+                      const SizedBox(height: 8),
+                    ],
                   ),
                 );
-              }
-
-              return Column(
-                children: [
-                  // ── Top bar: 返回 + 播放模式 ──
-                  _buildTopBar(player),
-
-                  // ── 专辑封面（大圆） ──
-                  Expanded(
-                    flex: 3,
-                    child: _buildAlbumArt(song),
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  // ── 歌名 + 歌手 ──
-                  _buildSongInfo(song),
-
-                  const SizedBox(height: 4),
-
-                  // ── 进度条 ──
-                  _buildProgressBar(player),
-
-                  // ── 控制按钮 ──
-                  _buildControls(player),
-
-                  // ── 收藏按钮 ──
-                  _buildLikeButton(song),
-                ],
-              );
-            },
-        ),
+              },
+            ),
+          ),
         ),
       ),
     );
   }
 
-  /// 顶部栏：返回按钮 + 歌词/播放模式
+  // ═══════════════════════════════════════════════════════
+  //  顶部栏：仅 ⋮ 菜单按钮（返回由下滑手势接管）
+  // ═══════════════════════════════════════════════════════
+
   Widget _buildTopBar(PlayerProvider player) {
     final cs = Theme.of(context).colorScheme;
     return SizedBox(
       height: 32,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // 返回
           IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
+            icon: const Icon(Icons.more_horiz_rounded, size: 20),
             color: cs.onSurface.withValues(alpha: 0.6),
-            onPressed: () => Navigator.pop(context),
-          ),
-          // 歌词 + 播放模式
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.lyrics_rounded, size: 18),
-                color: cs.onSurface.withValues(alpha: 0.6),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const WatchLyricsScreen(),
-                  ),
-                ),
-              ),
-              _PlayModeIcon(mode: player.playMode),
-            ],
+            onPressed: () => _showMenuSheet(player),
           ),
         ],
       ),
     );
   }
 
-  /// 专辑封面：圆形容器 + 渐变色占位 + 音符图标
-  Widget _buildAlbumArt(Song song) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // 限制最大直径，防止圆屏被裁切
-        final maxD = constraints.maxWidth < constraints.maxHeight
-            ? constraints.maxWidth
-            : constraints.maxHeight;
-        final diameter = maxD < 140 ? maxD : 140.0;
+  // ═══════════════════════════════════════════════════════
+  //  菜单 BottomSheet：播放模式 / 倍速 / 播放队列
+  // ═══════════════════════════════════════════════════════
 
-        return Center(
-          child: Container(
-            width: diameter,
-            height: diameter,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  Theme.of(context).colorScheme.primary,
-                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  blurRadius: 14,
-                  offset: const Offset(0, 4),
+  void _showMenuSheet(PlayerProvider player) {
+    final cs = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 播放模式切换
+                ListTile(
+                  leading: Icon(
+                    _playModeIconData(player.playMode),
+                    color: cs.primary,
+                    size: 20,
+                  ),
+                  title: Text(
+                    _playModeLabel(player.playMode),
+                    style: TextStyle(color: cs.onSurface, fontSize: 14),
+                  ),
+                  onTap: () {
+                    player.setPlayMode(_nextPlayMode(player.playMode));
+                    Navigator.pop(ctx);
+                  },
+                  dense: true,
+                ),
+                // 倍速切换
+                ListTile(
+                  leading: Icon(
+                    Icons.speed_rounded,
+                    color: cs.primary,
+                    size: 20,
+                  ),
+                  title: Text(
+                    '倍速 ${player.currentSpeed.toStringAsFixed(1)}x',
+                    style: TextStyle(color: cs.onSurface, fontSize: 14),
+                  ),
+                  onTap: () {
+                    const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+                    final current = player.currentSpeed;
+                    final idx =
+                        speeds.indexWhere((s) => (s - current).abs() < 0.01);
+                    final next = speeds[(idx + 1) % speeds.length];
+                    player.setSpeed(next);
+                    Navigator.pop(ctx);
+                  },
+                  dense: true,
+                ),
+                // 播放队列
+                ListTile(
+                  leading: Icon(
+                    Icons.queue_music_rounded,
+                    color: cs.primary,
+                    size: 20,
+                  ),
+                  title: const Text(
+                    '播放队列',
+                    style: TextStyle(color: Colors.white, fontSize: 14),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WatchQueueScreen(),
+                      ),
+                    );
+                  },
+                  dense: true,
                 ),
               ],
-            ),
-            child: Center(
-              child: Icon(
-                Icons.music_note_rounded,
-                size: diameter * 0.42,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-              ),
             ),
           ),
         );
@@ -265,7 +315,96 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
     );
   }
 
-  /// 歌曲信息：歌名 + 歌手
+  IconData _playModeIconData(PlayMode mode) {
+    switch (mode) {
+      case PlayMode.shuffle:
+        return Icons.shuffle_rounded;
+      case PlayMode.repeatOne:
+        return Icons.repeat_one_on_rounded;
+      case PlayMode.sequential:
+      default:
+        return Icons.repeat_rounded;
+    }
+  }
+
+  String _playModeLabel(PlayMode mode) {
+    switch (mode) {
+      case PlayMode.sequential:
+        return '顺序播放';
+      case PlayMode.shuffle:
+        return '随机播放';
+      case PlayMode.repeatOne:
+        return '单曲循环';
+      default:
+        return '顺序播放';
+    }
+  }
+
+  PlayMode _nextPlayMode(PlayMode current) {
+    switch (current) {
+      case PlayMode.sequential:
+        return PlayMode.shuffle;
+      case PlayMode.shuffle:
+        return PlayMode.repeatOne;
+      case PlayMode.repeatOne:
+        return PlayMode.sequential;
+      default:
+        return PlayMode.sequential;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //  专辑封面：CachedNetworkImage 圆形容器，最大 120px
+  // ═══════════════════════════════════════════════════════
+
+  Widget _buildAlbumArt(Song song) {
+    const diameter = 120.0;
+    return Center(
+      child: SizedBox(
+        width: diameter,
+        height: diameter,
+        child: ClipOval(
+          child: CachedNetworkImage(
+            imageUrl: song.albumCoverUrl!,
+            fit: BoxFit.cover,
+            placeholder: (context, url) =>
+                Container(color: Colors.grey[850]),
+            errorWidget: (context, url, error) => Container(
+              color: Colors.grey[850],
+              child: const Icon(
+                Icons.music_note_rounded,
+                size: 40,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //  音质标签：当前解析到的音质
+  // ═══════════════════════════════════════════════════════
+
+  Widget _buildQualityLabel(PlayerProvider player) {
+    final qualityKey = player.resolvedQuality ??
+        Quality.levels[player.qualityLevel % Quality.levels.length];
+    final label = Quality.label(qualityKey);
+    return Text(
+      '· $label ·',
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+        fontSize: 11,
+      ),
+      textAlign: TextAlign.center,
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //  歌曲信息：歌名 + 歌手
+  // ═══════════════════════════════════════════════════════
+
   Widget _buildSongInfo(Song song) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -296,7 +435,10 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
     );
   }
 
-  /// 进度条：滑块 + 当前位置 / 总时长
+  // ═══════════════════════════════════════════════════════
+  //  进度条：滑块（thumb 放大到 14）+ 时间标签
+  // ═══════════════════════════════════════════════════════
+
   Widget _buildProgressBar(PlayerProvider player) {
     final pos = player.position;
     final dur = player.duration;
@@ -309,8 +451,8 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
             trackHeight: 5,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 9),
-            overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 14),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 24),
             activeTrackColor: Theme.of(context).colorScheme.primary,
             inactiveTrackColor: Theme.of(context).colorScheme.surfaceContainerHighest,
             thumbColor: Theme.of(context).colorScheme.onSurface,
@@ -330,11 +472,17 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
             children: [
               Text(
                 _formatDuration(pos),
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                  fontSize: 10,
+                ),
               ),
               Text(
                 _formatDuration(dur),
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 10),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                  fontSize: 10,
+                ),
               ),
             ],
           ),
@@ -343,71 +491,91 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
     );
   }
 
-  /// 控制按钮行：上一首 / 播放暂停 / 下一首
-  Widget _buildControls(PlayerProvider player) {
+  // ═══════════════════════════════════════════════════════════
+  //  控制按钮行：上一首(28) / 播放暂停(48) / 下一首(28) + 收藏(22)
+  // ═══════════════════════════════════════════════════════════
+
+  Widget _buildControls(PlayerProvider player, Song song) {
     final cs = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // 上一首
-        IconButton(
-          icon: const Icon(Icons.skip_previous_rounded, size: 28),
-          color: cs.onSurface,
-          onPressed: () => player.playPrevious(),
-        ),
-
-        const SizedBox(width: 8),
-
-        // 播放/暂停
-        IconButton(
-          icon: Icon(
-            player.isPlaying
-                ? Icons.pause_circle_filled_rounded
-                : Icons.play_circle_filled_rounded,
-            size: 48,
+    return Center(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 上一首
+          _compactBtn(Icons.skip_previous_rounded, 20, player.playPrevious, cs.onSurface),
+          const SizedBox(width: 4),
+          // 播放/暂停
+          IconButton(
+            icon: Icon(
+              player.isPlaying
+                  ? Icons.pause_circle_filled_rounded
+                  : Icons.play_circle_filled_rounded,
+              size: 36,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            color: cs.primary,
+            onPressed: () => player.togglePlayPause(),
           ),
-          color: cs.primary,
-          onPressed: () => player.togglePlayPause(),
-        ),
-      ],
+          const SizedBox(width: 4),
+          // 下一首
+          _compactBtn(Icons.skip_next_rounded, 20, player.playNext, cs.onSurface),
+          const SizedBox(width: 8),
+          // 收藏
+          Consumer<LikedSongsProvider>(
+            builder: (context, likedSongs, _) {
+              final isLiked = likedSongs.likedIds.contains(song.id);
+              return IconButton(
+                icon: Icon(
+                  isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+                  size: 18,
+                  color: isLiked
+                      ? Theme.of(context).colorScheme.error
+                      : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                splashRadius: 14,
+                onPressed: () async {
+                  // 检查登录状态
+                  final auth = context.read<AuthProvider>();
+                  if (!auth.isLoggedIn) {
+                    final shouldLogin =
+                        await showLoginRequiredDialog(context);
+                    if (!shouldLogin) return;
+                    // 对话框已导航到登录页
+                    return;
+                  }
+                  final songInfo = SongInfo(
+                    id: song.id,
+                    name: song.name,
+                    hash: song.hash ?? '',
+                    albumId: song.albumId,
+                    audioId: 0,
+                  );
+                  await likedSongs.toggle(songInfo);
+                  HapticFeedback.lightImpact();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      ),
     );
   }
 
-  /// 收藏按钮（底部）
-  Widget _buildLikeButton(Song song) {
-    return Consumer<LikedSongsProvider>(
-      builder: (context, likedSongs, _) {
-        final isLiked = likedSongs.likedIds.contains(song.id);
-
-        return SizedBox(
-          height: 28,
-          child: Center(
-            child: IconButton(
-              icon: Icon(
-                isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
-                size: 24,
-                color: isLiked
-                  ? Theme.of(context).colorScheme.error
-                  : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-              splashRadius: 22,
-              onPressed: () async {
-                final songInfo = SongInfo(
-                  id: song.id,
-                  name: song.name,
-                  hash: song.hash ?? '',
-                  albumId: song.albumId,
-                  audioId: 0,
-                );
-                await likedSongs.toggle(songInfo);
-                HapticFeedback.lightImpact();
-              },
-            ),
-          ),
-        );
-      },
+  /// 紧凑型按钮（圆形小屏适配）
+  Widget _compactBtn(IconData icon, double size, VoidCallback? onTap, Color color) {
+    return IconButton(
+      icon: Icon(icon, size: size),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+      splashRadius: 16,
+      color: color,
+      onPressed: onTap,
     );
   }
 
@@ -417,46 +585,5 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
     final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
-  }
-}
-
-// ═══════════════════════════════════════════════════════════
-//  播放模式小图标
-// ═══════════════════════════════════════════════════════════
-
-class _PlayModeIcon extends StatelessWidget {
-  final PlayMode mode;
-
-  const _PlayModeIcon({required this.mode});
-
-  @override
-  Widget build(BuildContext context) {
-    IconData icon;
-    String tooltip;
-
-    switch (mode) {
-      case PlayMode.shuffle:
-        icon = Icons.shuffle_rounded;
-        tooltip = '随机播放';
-        break;
-      case PlayMode.repeatOne:
-        icon = Icons.repeat_one_on_rounded;
-        tooltip = '单曲循环';
-        break;
-      case PlayMode.sequential:
-      default:
-        icon = Icons.repeat_rounded;
-        tooltip = '顺序播放';
-        break;
-    }
-
-    return Tooltip(
-      message: tooltip,
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Icon(icon, size: 20,
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
-      ),
-    );
   }
 }

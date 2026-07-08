@@ -125,8 +125,11 @@ class _WatchRankListScreenState extends State<WatchRankListScreen> {
     }
 
     return RoundSafeArea(
-      child: SingleChildScrollView(
+      child: RefreshIndicator(
+        onRefresh: _loadRanks,
+        child: SingleChildScrollView(
         padding: const EdgeInsets.only(top: 12, bottom: 60),
+        physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -148,6 +151,7 @@ class _WatchRankListScreenState extends State<WatchRankListScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

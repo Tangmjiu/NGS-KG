@@ -22,8 +22,10 @@ class WatchQueueScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RoundSafeArea(
-      child: Consumer<PlayerProvider>(
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: RoundSafeArea(
+        child: Consumer<PlayerProvider>(
         builder: (context, player, _) {
           final playlist = player.playlist;
           final currentIdx = player.currentIndex;
@@ -102,6 +104,7 @@ class WatchQueueScreen extends StatelessWidget {
             ],
           );
         },
+      ),
       ),
     );
   }
