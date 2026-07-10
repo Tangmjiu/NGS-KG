@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/song.dart';
 import '../theme/theme_assets.dart';
+import 'hi_res_badge.dart';
 
 /// Enhanced album cover art widget with glassmorphism shadow and
 /// scroll-driven crossfade for the Apple Music-style player.
 class PlayerCoverArt extends StatelessWidget {
   final Song song;
   final double scrollOffset; // 0.0 = fully visible, 1.0 = lyrics page
+  final bool showHiRes; // 是否显示 Hi-Res 金标
 
   const PlayerCoverArt({
     super.key,
     required this.song,
     required this.scrollOffset,
+    this.showHiRes = false,
   });
 
   @override
@@ -20,7 +23,7 @@ class PlayerCoverArt extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final size = (constraints.maxWidth * 0.65).clamp(200.0, 350.0);
+        final size = (constraints.maxWidth * 0.78).clamp(200.0, 400.0);
 
         return Center(
           child: AnimatedOpacity(
@@ -54,21 +57,34 @@ class PlayerCoverArt extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Semantics(
-                      image: true,
-                      label: '${song.name} 专辑封面',
-                      child: song.albumCoverUrl != null &&
-                              song.albumCoverUrl!.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: song.albumCoverUrl!,
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) => _fallback(size),
-                              errorWidget: (_, __, ___) => _fallback(size),
-                            )
-                          : _fallback(size),
-                    ),
+                  child: Stack(
+                    clipBehavior: Clip.hardEdge,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Semantics(
+                          image: true,
+                          label: '${song.name} 专辑封面',
+                          child: song.albumCoverUrl != null &&
+                                  song.albumCoverUrl!.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: song.albumCoverUrl!,
+                                  width: size,
+                                  height: size,
+                                  fit: BoxFit.cover,
+                                  placeholder: (_, __) => _fallback(size),
+                                  errorWidget: (_, __, ___) => _fallback(size),
+                                )
+                              : _fallback(size),
+                        ),
+                      ),
+                      if (showHiRes)
+                        Positioned(
+                          left: 4,
+                          bottom: 8,
+                          child: HiResBadge(height: 28),
+                        ),
+                    ],
                   ),
                 ),
               ),

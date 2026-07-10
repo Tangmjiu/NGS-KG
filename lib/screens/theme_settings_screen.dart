@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/theme_pack.dart';
 import '../theme/theme_assets.dart';
+import '../routes/app_routes.dart';
 import '../utils/responsive.dart';
 import '../widgets/desktop_route_wrapper.dart';
 
@@ -48,6 +49,24 @@ class ThemeSettingsScreen extends StatelessWidget {
           _MonetSection(tp: tp),
           const Divider(height: 8),
           _ThemeModeSection(tp: tp),
+          const Divider(height: 8),
+          // ── Hi-Res 金标 ──
+          SwitchListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            secondary: const Icon(Icons.verified_outlined),
+            title: const Text('显示 Hi-Res 金标'),
+            subtitle: const Text('播放无损音质时在专辑封面上显示'),
+            value: tp.showHiResBadge,
+            onChanged: (v) => tp.setShowHiResBadge(v),
+          ),
+          const Divider(height: 8),
+          // ── 歌词设置 ──
+          ListTile(
+            leading: const Icon(Icons.lyrics_outlined),
+            title: const Text('歌词设置'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.lyricSettings),
+          ),
           const SizedBox(height: 24),
         ],
       ),

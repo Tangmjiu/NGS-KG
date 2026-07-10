@@ -113,11 +113,16 @@ class MusicService {
   Future<List<Song>> getTopSongs() => song.getTopSongs();
 
   Future<CardSection> getCardSongs(int cardId) => song.getCardSongs(cardId);
+  Future<CardSection> getCardSongsYouth(int cardId, {int? pagesize}) =>
+      song.getCardSongsYouth(cardId, pagesize: pagesize);
 
   Future<List<Song>> getDailyRecommend() => song.getDailyRecommend();
 
   Future<Map<String, dynamic>> searchComplex(String keyword) =>
       song.searchComplex(keyword);
+
+  Future<Map<String, dynamic>?> getKrmAudio(int albumAudioId) =>
+      song.getKrmAudio(albumAudioId);
 
   // ─── Playlist ───
 
@@ -388,16 +393,70 @@ class MusicService {
 
   /// 私人 FM（猜你喜欢）
   ///
-  /// [mode] normal=红心 small=小众
-  /// [songPoolId] 0=Alpha 1=Beta 2=Gamma
-  Future<List<Map<String, dynamic>>> getPersonalFm({String mode = 'normal', int songPoolId = 0}) async {
-    final params = <String, dynamic>{'mode': mode, 'song_pool_id': songPoolId};
+  /// [mode] normal=红心 small=小众 peak=速览
+  /// [songPoolId] 0=Alpha(口味) 1=Beta(风格) 2=Gamma(探索)
+  /// [action] play=正常播放反馈 garbage=不喜欢
+  /// [hash] [songid] 当前歌曲信息（用于反馈闭环）
+  /// [playtime] 已播放秒数
+  /// [isOverplay] 歌曲是否完整播完
+  /// [remainSongcnt] buffer 剩余歌曲数（让服务端决定是否继续推）
+  Future<List<Map<String, dynamic>>> getPersonalFm({
+    String mode = 'normal',
+    int songPoolId = 0,
+    String? hash,
+    int? songid,
+    int? playtime,
+    String? action,
+    int? isOverplay,
+    int? remainSongcnt,
+  }) async {
+    final params = <String, dynamic>{
+      'mode': mode,
+      'song_pool_id': songPoolId,
+    };
+    // 以下参数仅当显式传入时才发送（初始请求不传，后续反馈闭环才传）
+    if (action != null) params['action'] = action;
+    if (isOverplay != null) params['is_overplay'] = isOverplay;
+    if (remainSongcnt != null) params['remain_songcnt'] = remainSongcnt;
+    if (hash != null) params['hash'] = hash;
+    if (songid != null) params['songid'] = songid;
+    if (playtime != null) params['playtime'] = playtime;
+
     // 部分服务器需要 cookie 查询参数
     final cookieStr = await _getCookieString();
     if (cookieStr != null) params['cookie'] = cookieStr;
     final res = await _oneShotGet('/personal/fm', params: params, silent: true);
     if (res['data'] is List) return (res['data'] as List).cast<Map<String, dynamic>>();
     return [];
+  }
+
+  /// 同步播放历史到服务端（MixSongID 版，用于 FM）
+  Future<bool> uploadMixPlayHistory(String mixSongId) async {
+    try {
+      final ot = (DateTime.now().millisecondsSinceEpoch / 1000).round().toString();
+      await _oneShotGet('/playhistory/upload', params: {
+        'mxid': mixSongId,
+        'ot': ot,
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 获取用户听歌历史
+  Future<List<Song>> getUserListenHistory({int type = 0}) async {
+    try {
+      final res = await _oneShotGet('/user/listen', params: {'type': type.toString()});
+      final data = res;
+      final songs = (data['data'] ?? data['list'] ?? []) as List<dynamic>;
+      return songs
+          .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
+          .whereType<Song>()
+          .toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   /// 历史推荐

@@ -102,6 +102,9 @@ class ThemePack {
   // ── 播放器壁纸 ──
   final String? playerBgPath;
 
+  // ── 歌词显示设置覆盖（来自主题包 JSON） ──
+  final Map<String, dynamic>? lyricSettingsOverride;
+
   const ThemePack({
     required this.id,
     required this.name,
@@ -119,6 +122,7 @@ class ThemePack {
     this.components = ThemeComponents.defaults,
     this.assetFiles,
     this.playerBgPath,
+    this.lyricSettingsOverride,
   });
 
   /// 是否有完整 30 色色板
@@ -159,6 +163,8 @@ class ThemePack {
         'lightScheme': _serializeColorScheme(lightScheme!),
       if (darkScheme != null)
         'darkScheme': _serializeColorScheme(darkScheme!),
+      if (lyricSettingsOverride != null)
+        'lyricSettingsOverride': lyricSettingsOverride,
     };
   }
 
@@ -216,6 +222,8 @@ class ThemePack {
           ? _parseColorScheme(
               json['darkScheme'] as Map<String, dynamic>, Brightness.dark)
           : null,
+      lyricSettingsOverride: json['lyricSettingsOverride']
+          as Map<String, dynamic>?,
     );
   }
 

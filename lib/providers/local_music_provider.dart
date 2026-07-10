@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../models/local_song.dart';
 import '../models/song.dart';
 import '../services/local_music_service.dart';
+import '../services/metadata_reader.dart';
 import '../utils/logger.dart';
 
 class LocalMusicProvider extends ChangeNotifier {
@@ -58,6 +59,40 @@ class LocalMusicProvider extends ChangeNotifier {
       _status = '扫描失败';
     }
     _isScanning = false;
+    notifyListeners();
+  }
+
+  /// 按需加载嵌入封面和歌词（非阻塞）。
+  ///
+  /// 当用户点击歌曲或进入播放器时调用，读取完整封面并缓存到磁盘。
+  Future<void> loadDeferredMetadata(LocalSong song) async {
+    final meta = await MetadataReader.readDeferred(song);
+    if (meta == null) return;
+
+    // 原地更新 _songs 中的条目
+    final idx = _songs.indexWhere((s) => s.filePath == song.filePath);
+    if (idx == -1) return;
+
+    // 使用 MMR 返回的数据构建更新后的 LocalSong
+    final coverPath = meta.albumCoverCachePath ??
+        await MetadataReader.cachedCoverPath(song.filePath) ??
+        song.albumCoverPath;
+
+    final updated = LocalSong(
+      title: song.title,
+      artist: song.artist,
+      album: song.album,
+      filePath: song.filePath,
+      size: song.size,
+      duration: meta.durationMs > 0 ? (meta.durationMs / 1000).round() : song.duration,
+      bitrate: meta.bitrate ?? song.bitrate,
+      codec: song.codec,
+      lyrics: meta.lyrics ?? song.lyrics,
+      albumCoverPath: coverPath,
+    );
+
+    _songs[idx] = updated;
+    _applyFilterAndSort();
     notifyListeners();
   }
 
@@ -122,14 +157,15 @@ class LocalMusicProvider extends ChangeNotifier {
 
   static Song localSongToSong(LocalSong s) {
     return Song(
-      id: s.filePath.hashCode,
+      // 负数空间避免与在线歌曲 ID（始终为正）冲突
+      id: -(s.filePath.hashCode),
       name: s.displayName,
       artists: [s.artist ?? '本地音乐'],
       albumName: s.album,
       albumCoverUrl: s.albumCoverPath != null
           ? Uri.file(s.albumCoverPath!).toString()
           : null,
-      coverData: s.albumCoverData,
+      coverData: null, // 改为按需加载（见 loadDeferredMetadata）
       filePath: s.filePath,
       duration: s.duration,
       qualities: _buildQualityMap(s),

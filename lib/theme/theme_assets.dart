@@ -25,6 +25,9 @@ class ThemeAssets {
   static String supportMe = _defSupportMe;
   static String icon = _defIcon;
 
+  // ─── Hi-Res 金标 ───
+  static String hiResBadge = 'assets/images/hi_res_badge.jpg';
+
   // ─── 占位图（主题包可覆盖） ───
   static String albumPlaceholder = '';
   static String playlistPlaceholder = '';
@@ -64,6 +67,7 @@ class ThemeAssets {
     if (files.containsKey('empty_playlist')) emptyPlaylist = files['empty_playlist']!;
     if (files.containsKey('empty_content')) emptyContent = files['empty_content']!;
     if (files.containsKey('load_failed')) loadFailed = files['load_failed']!;
+    if (files.containsKey('hi_res_badge')) hiResBadge = files['hi_res_badge']!;
   }
 
   /// 重置为内置默认资源
@@ -78,6 +82,7 @@ class ThemeAssets {
     playlistPlaceholder = '';
     artistPlaceholder = '';
     playerBg = '';
+    hiResBadge = 'assets/images/hi_res_badge.jpg';
     emptyPlaylist = _defEmptyPlaylist;
     emptyContent = _defEmptyContent;
     loadFailed = _defLoadFailed;

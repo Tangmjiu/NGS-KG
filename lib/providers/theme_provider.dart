@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/logger.dart';
 import '../models/theme_pack.dart';
+import '../models/lyric_settings.dart';
 import '../theme/theme_loader.dart';
 import '../theme/theme_assets.dart';
 import '../services/market_service.dart';
@@ -52,6 +54,8 @@ class ThemeProvider extends ChangeNotifier {
   static const _keyFirstLaunchDate = 'theme_first_launch_date';
   static const _keySupportDismissed = 'theme_support_dismissed';
   static const _keyFlowLight = 'theme_flow_light';
+  static const _keyShowHiResBadge = 'theme_show_hi_res';
+  static const _keyLyricSettings = 'theme_lyric_settings';
 
   static const int supportPopupDays = 14;
   static const int supportPopupMaxLaunches = 10;
@@ -62,6 +66,8 @@ class ThemeProvider extends ChangeNotifier {
   Color _customColor = const Color(0xFF2CA1F4);
   bool _useMonet = false;
   bool _flowLightEnabled = false;
+  bool _showHiResBadge = true;
+  LyricSettings _lyricSettings = LyricSettings.defaults;
 
   final List<ThemePack> _packs = [ngsNagisa, md3Default];
   String _selectedPackId = 'ngs_nagisa';
@@ -87,6 +93,36 @@ class ThemeProvider extends ChangeNotifier {
   Color get customColor => _customColor;
   bool get useMonet => _useMonet;
   bool get flowLightEnabled => _flowLightEnabled;
+  bool get showHiResBadge => _showHiResBadge;
+  LyricSettings get lyricSettings => _lyricSettings;
+
+  /// 应用主题包的歌词设置默认值（用户未手动修改时）
+  void _applyPackLyricSettings() {
+    final pack = currentPack;
+    if (pack.lyricSettingsOverride != null) {
+      _lyricSettings = LyricSettings.fromJson(pack.lyricSettingsOverride!);
+    }
+  }
+
+  /// Hi-Res 金标显示开关
+  Future<void> setShowHiResBadge(bool show) async {
+    _showHiResBadge = show;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyShowHiResBadge, show);
+  }
+
+  /// 更新歌词显示设置并持久化
+  Future<void> setLyricSettings(LyricSettings settings) async {
+    _lyricSettings = settings;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyLyricSettings, jsonEncode(settings.toJson()));
+    } catch (e, s) {
+      Log.e('ThemeProvider', 'persist lyricSettings error', e, s);
+    }
+  }
 
   List<ThemePack> get packs => List.unmodifiable(_packs);
   String get selectedPackId => _selectedPackId;
@@ -137,6 +173,16 @@ class ThemeProvider extends ChangeNotifier {
       _useMonet = prefs.getBool(_keyUseMonet) ?? false;
       _selectedPackId = prefs.getString(_keySelectedPack) ?? 'ngs_nagisa';
       _flowLightEnabled = prefs.getBool(_keyFlowLight) ?? false;
+      _showHiResBadge = prefs.getBool(_keyShowHiResBadge) ?? true;
+
+      // ─── 歌词显示设置 ───
+      final lsStr = prefs.getString(_keyLyricSettings);
+      if (lsStr != null && lsStr.isNotEmpty) {
+        try {
+          final lsJson = jsonDecode(lsStr) as Map<String, dynamic>;
+          _lyricSettings = LyricSettings.fromJson(lsJson);
+        } catch (_) {}
+      }
 
       // ─── 从磁盘加载已安装的主题包 ───
       final installedIds = await ThemeLoader.getImportedThemeIds();

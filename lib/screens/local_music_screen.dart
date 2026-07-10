@@ -350,7 +350,44 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
         if (navProv.connected) {
           return const NavidromeScreen();
         }
-        return const NavidromeLoginScreen();
+        // 未连接时显示引导按钮，点按后以全屏路由打开登录页（自带 Scaffold+AppBar）
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.wifi_find,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+              const SizedBox(height: 12),
+              Text('未连接到 Navidrome 服务器',
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 8),
+              Text('Navidrome 是开源的自托管音乐服务器',
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 20),
+              FilledButton.tonal(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const NavidromeLoginScreen()),
+                  );
+                },
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.link),
+                    SizedBox(width: 8),
+                    Text('连接服务器'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
       },
     );
   }

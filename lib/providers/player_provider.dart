@@ -24,6 +24,19 @@ import 'liked_songs_provider.dart';
 
 export 'playlist_queue.dart' show PlayMode;
 
+/// 独立 FM 队列：进入 FM 前保存的普通队列快照
+class FmQueueSnapshot {
+  final List<Song> songs;
+  final int index;
+  final PlayMode playMode;
+
+  const FmQueueSnapshot({
+    required this.songs,
+    required this.index,
+    required this.playMode,
+  });
+}
+
 class PlayerProvider extends ChangeNotifier
     with SleepTimerMixin, KeepScreenOnMixin {
   final MusicService _musicService;
@@ -39,6 +52,7 @@ class PlayerProvider extends ChangeNotifier
   Duration _duration = Duration.zero;
   String? _error;
   int _qualityLevel = 0;
+  String _effectKey = 'none';
 
   // ─── Dynamic palette & lyric state ───
   ExtractedPalette? _palette;
@@ -48,6 +62,18 @@ class PlayerProvider extends ChangeNotifier
 
   // ─── 歌曲高潮标记 ───
   int? _climaxMs; // 毫秒，当前歌曲的高潮开始时间
+
+  // ─── 私人 FM 隔离状态 ───
+  VoidCallback? _fmDislikeCallback;
+
+  /// FM 播放反馈回调 — 由 DiscoverProvider 传入，定期上报 hash/songid/playtime
+  void Function(Song song, {int playtime})? _fmPlaybackUpdateCallback;
+
+  /// 重入保护：防止 _onComplete / _loadMoreAndContinue 在极短歌曲时被多次调用
+  bool _handlingComplete = false;
+
+  /// 进入 FM 前保存的正常队列快照（exitFmMode 时恢复）
+  FmQueueSnapshot? _fmSavedNormalSnapshot;
 
   int? get climaxMs => _climaxMs;
 
@@ -81,12 +107,24 @@ class PlayerProvider extends ChangeNotifier
   PlayMode get playMode => _queue.playMode;
   int get qualityLevel => _qualityLevel;
 
+  /// 当前播放速度（0.5x ~ 2.0x）
+  double get currentSpeed => _engine.speed;
+
   /// 最终解析到的音质 key（如 'flac', '320'）
   /// 由 AudioEngine 在播放成功后设置
   String? get resolvedQuality => _engine.resolvedQuality;
 
-  /// 当前歌曲的可用音质选项（来自 /privilege/lite）
+  /// 当前歌曲的可用编码音质选项（来自 /privilege/lite）
   List<QualityOption> get qualityOptions => _engine.currentQualityOptions;
+
+  /// 当前歌曲的可用音效选项（来自 /privilege/lite）
+  List<QualityOption> get effectOptions => _engine.currentEffectOptions;
+
+  /// 当前选中的音效 key（'none' 表示无效果）
+  String get effectKey => _effectKey;
+
+  /// 当前音效的显示标签
+  String get effectLabel => Quality.effectLabel(_effectKey);
 
   /// 当前解析音质的显示标签
   String get resolvedQualityLabel {
@@ -99,6 +137,7 @@ class PlayerProvider extends ChangeNotifier
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _queue.isLoadingMore;
   bool get isPlayerScreenVisible => _isPlayerScreenVisible;
+  bool get isFmMode => _queue.type == QueueType.fm;
   Duration get position => _position;
   Duration get duration => _duration;
   String? get error => _error;
@@ -443,21 +482,38 @@ class PlayerProvider extends ChangeNotifier
     final s = song ?? _queue.currentSong;
     if (s == null) return;
     _applyQualityFromSettings();
-    _engine.play(s, version: version ?? _engine.currentVersion);
+    _engine.play(s, version: version ?? _engine.currentVersion, effectKey: _effectKey);
   }
 
   void _onComplete() {
     if (!_engine.isCompleting.value) return;
+    // 重入保护：极短歌曲或异步回调可能触发多次
+    if (_handlingComplete) return;
+    _handlingComplete = true;
     final current = _queue.currentSong;
-    if (current == null) return;
+    if (current == null) {
+      _handlingComplete = false;
+      return;
+    }
+    // FM 模式：上报歌曲播放完成反馈（完整播完）
+    if (_queue.type == QueueType.fm) {
+      _fmPlaybackUpdateCallback?.call(current, playtime: current.duration);
+      debugPrint('[FM] _onComplete: idx=${_queue.currentIndex}/${_queue.playlist.length}'
+          ' hasEndProvider=${_queue.playlistEndProvider != null}'
+          ' song=${current.name}');
+    }
     switch (_queue.playMode) {
       case PlayMode.repeatOne:
         _engine.isCompleting.value = false;
         _engine.seekAndPlay(Duration.zero);
+        _handlingComplete = false;
         return; // 不切歌，无需通知
       case PlayMode.shuffle:
         final idx = _queue.nextIndex();
-        if (idx == null) return;
+        if (idx == null) {
+          _handlingComplete = false;
+          return;
+        }
         _engine.resetForNewSong();
         _queue.playIndex(idx);
         _enginePlayWithQuality(_queue.currentSong ?? current);
@@ -487,6 +543,7 @@ class PlayerProvider extends ChangeNotifier
         }
         break;
     }
+    _handlingComplete = false;
     // 通知 UI 更新歌词、封面等信息
     _lyricController.loadLyricModel(LyricModel(lines: []));
     _climaxMs = null;
@@ -502,8 +559,11 @@ class PlayerProvider extends ChangeNotifier
     _queue.setLoadingMore(true);
     _isLoading = true;
     notifyListeners();
+    debugPrint('[FM] _loadMoreAndContinue: START type=${_queue.type}');
     try {
       final moreSongs = await _queue.playlistEndProvider?.call() ?? [];
+      debugPrint('[FM] _loadMoreAndContinue: got ${moreSongs.length} songs,'
+          ' queueLen=${_queue.playlist.length} curIdx=${_queue.currentIndex}');
       if (moreSongs.isNotEmpty) {
         _queue.append(moreSongs);
         _queue.setLoadingMore(false);
@@ -512,6 +572,7 @@ class PlayerProvider extends ChangeNotifier
         final next = _queue.currentSong;
         if (next != null) {
           _enginePlayWithQuality(next);
+          _handlingComplete = false;
           return;
         }
       }
@@ -520,6 +581,7 @@ class PlayerProvider extends ChangeNotifier
     }
     _queue.setLoadingMore(false);
     _isLoading = false;
+    _handlingComplete = false;
     _updateNotification();
     notifyListeners();
   }
@@ -567,7 +629,7 @@ class PlayerProvider extends ChangeNotifier
     _isPlaying = true; // ← 立即标记，UI 及时响应
     notifyListeners();
     final version = _engine.currentVersion;
-    await _engine.play(current, version: version);
+    await _engine.play(current, version: version, effectKey: _effectKey);
     _updateNotification();
     // Extract palette from album art (supports both network and file:// URIs)
     _extractPaletteFromCover(current);
@@ -576,6 +638,10 @@ class PlayerProvider extends ChangeNotifier
     // Upload play history via new API
     if (current.mixSongId != null) {
       _musicService.uploadMixPlayHistory(current.mixSongId.toString());
+    }
+    // FM 模式：上报歌曲开始播放，让 API 获知当前上下文
+    if (_queue.type == QueueType.fm) {
+      _fmPlaybackUpdateCallback?.call(current, playtime: 0);
     }
     notifyListeners();
   }
@@ -614,6 +680,10 @@ class PlayerProvider extends ChangeNotifier
   }
 
   Future<void> playSong(Song song, {List<Song>? playlist}) async {
+    // 退出 FM 模式（恢复普通队列，下方 setPlaylist 会覆盖为新的播放列表）
+    if (_queue.type == QueueType.fm) {
+      exitFmMode();
+    }
     _queue.playlistEndProvider = null;
     _engine.clearError();
     if (playlist != null) {
@@ -630,6 +700,58 @@ class PlayerProvider extends ChangeNotifier
     }
     // Delegate to playIndex for unified playback logic
     await playIndex(_queue.currentIndex);
+  }
+
+  /// 启动私人 FM 播放列表（独立队列）
+  ///
+  /// 自动保存当前普通队列快照，切换到 FM 独立队列（QueueType.fm）。
+  /// 退出 FM 模式后自动恢复普通队列。
+  void startFmPlaylist(List<Song> songs,
+      {required Future<List<Song>> Function() bufferProvider,
+      VoidCallback? onDislike,
+      void Function(Song song, {int playtime})? onPlaybackUpdate}) {
+    if (songs.isEmpty) return;
+    // 进入 FM 模式前保存当前普通队列快照
+    if (_queue.type != QueueType.fm) {
+      _fmSavedNormalSnapshot = FmQueueSnapshot(
+        songs: List.from(_queue.playlist),
+        index: _queue.currentIndex,
+        playMode: _queue.playMode,
+      );
+    }
+    _queue.setType(QueueType.fm);
+    _fmDislikeCallback = onDislike;
+    _fmPlaybackUpdateCallback = onPlaybackUpdate;
+    _queue.playlistEndProvider = null;
+    _engine.clearError();
+    _queue.setPlaylist(songs, startIndex: 0);
+    _queue.setPlayMode(PlayMode.sequential);
+    _queue.playlistEndProvider = bufferProvider;
+    playIndex(0);
+  }
+
+  /// 退出 FM 模式，恢复之前保存的普通队列快照。
+  ///
+  /// 调用后队列类型恢复为 [QueueType.normal]。
+  /// 如果 [exitFmMode] 后紧接着调用 [playSong] 等设置新播放列表的方法，
+  /// 恢复的快照会被覆盖，这是预期行为。
+  void exitFmMode() {
+    if (_queue.type != QueueType.fm) return;
+    debugPrint('[FM] exitFmMode: restoring saved queue'
+        ' (${_fmSavedNormalSnapshot?.songs.length ?? 0} songs)');
+    _queue.playlistEndProvider = null;
+    _fmDislikeCallback = null;
+    _fmPlaybackUpdateCallback = null;
+    _queue.setType(QueueType.normal);
+    if (_fmSavedNormalSnapshot != null) {
+      _queue.setPlaylist(
+        List.from(_fmSavedNormalSnapshot!.songs),
+        startIndex: _fmSavedNormalSnapshot!.index,
+      );
+      _queue.setPlayMode(_fmSavedNormalSnapshot!.playMode);
+    }
+    _fmSavedNormalSnapshot = null;
+    notifyListeners();
   }
 
   /// 将整张歌单/专辑追加到当前队列末尾。
@@ -656,7 +778,7 @@ class PlayerProvider extends ChangeNotifier
         _engine.resetForNewSong();
         final version = _engine.currentVersion;
         notifyListeners();
-        await _engine.play(song, version: version);
+        await _engine.play(song, version: version, effectKey: _effectKey);
       } else {
         _engine.clearError();
         _isLoading = false;
@@ -680,6 +802,12 @@ class PlayerProvider extends ChangeNotifier
   }
 
   void playPrevious() {
+    // FM 模式：上一曲变成「不喜欢 + 下一首」
+    if (_queue.type == QueueType.fm) {
+      _fmDislikeCallback?.call();
+      playNext();
+      return;
+    }
     if (_queue.playlist.isEmpty) return;
     if (_position.inSeconds > 3) {
       seek(Duration.zero);
@@ -744,8 +872,22 @@ class PlayerProvider extends ChangeNotifier
     }
   }
 
-  /// 获取全部音质列表
-  List<String> getAvailableQualities() => List.unmodifiable(Quality.levels);
+  /// 获取当前歌曲的实际可用音质 key 列表（来自 privilege）
+  /// privilege 无数据时回退到全部 levels
+  List<String> getAvailableQualities() {
+    final opts = _engine.currentQualityOptions;
+    if (opts.isNotEmpty) {
+      return opts.map((o) => o.value).toList();
+    }
+    return List.unmodifiable(Quality.levels);
+  }
+
+  /// 检查某个音质 key 当前是否可用
+  bool isQualityAvailable(String key) {
+    final opts = _engine.currentQualityOptions;
+    if (opts.isEmpty) return true; // 无 privilege 数据时全部可用
+    return opts.any((o) => o.value == key);
+  }
 
   /// 获取当前音质的显示标签（优先使用实际解析到的音质）
   String get currentQualityLabel {
@@ -770,7 +912,7 @@ class PlayerProvider extends ChangeNotifier
 
     // 用 engine 的无缝切换
     final success = await _engine.switchQuality(song, qualityKey,
-        currentPosition: _position);
+        currentPosition: _position, effectKey: _effectKey);
 
     // 切换成功后强制刷新歌词
     if (success) {
@@ -778,6 +920,34 @@ class PlayerProvider extends ChangeNotifier
     }
     notifyListeners();
     return success;
+  }
+
+  /// 设置音效（保持播放进度）
+  Future<bool> setEffect(String effectKey) async {
+    final normalized = Quality.normalizeEffect(effectKey);
+    if (_effectKey == normalized) return true;
+    _effectKey = normalized;
+    notifyListeners();
+
+    // 如果正在播放，用 engine 重新加载带效果/不带效果的 URL
+    if (_isPlaying || _isPlayerScreenVisible) {
+      final song = _queue.currentSong;
+      if (song != null && song.hash != null && song.hash!.isNotEmpty) {
+        await _engine.switchQuality(song,
+            Quality.levels[_qualityLevel % Quality.levels.length],
+            currentPosition: _position,
+            effectKey: _effectKey);
+      }
+    }
+    return true;
+  }
+
+  /// 检查音效当前是否有 privilege 可用
+  bool isEffectAvailable(String key) {
+    if (key == 'none') return true;
+    final opts = _engine.currentEffectOptions;
+    if (opts.isEmpty) return false;
+    return opts.any((o) => o.value == key);
   }
 
   // ──────────────────────────────────────────────────────────────

@@ -167,6 +167,18 @@ class SongRepository extends BaseRepository {
     return const CardSection(recDesc: '', songs: []);
   }
 
+  /// 新版推荐卡片（青年版卡片）
+  Future<CardSection> getCardSongsYouth(int cardId, {int? pagesize}) async {
+    final params = <String, dynamic>{'card_id': cardId};
+    if (pagesize != null) params['pagesize'] = pagesize;
+    final res = await get('/top/card/youth', params: params);
+    final raw = res['data'];
+    if (raw is Map) {
+      return CardSection.fromJson(raw as Map<String, dynamic>);
+    }
+    return const CardSection(recDesc: '', songs: []);
+  }
+
   /// 每日推荐歌曲（对应 MoeKoeMusic /everyday/recommend）
   ///
   /// 返回 data.song_list，每项含 hash/ori_audio_name/sizable_cover/author_name/time_length
@@ -193,6 +205,15 @@ class SongRepository extends BaseRepository {
         hash: json['hash'] as String?,
       );
     }).toList();
+  }
+
+  /// KRM 音频（知识/版权保护音频格式）
+  Future<Map<String, dynamic>?> getKrmAudio(int albumAudioId) async {
+    try {
+      return await get('/krm/audio', params: {'album_audio_id': albumAudioId});
+    } catch (_) {
+      return null;
+    }
   }
 
   /// 综合搜索（对应 MoeKoeMusic /search/complex）

@@ -83,6 +83,7 @@ class ArtistRepository extends BaseRepository {
           albumName: json['album_name'] as String?,
           albumCoverUrl: cover,
           albumId: (json['album_id'] as int?) ?? 0,
+          artistId: (json['author_id'] as int?),
           duration: ((json['timelength'] as int?) ?? 0) ~/ 1000,
           hash: json['hash'] as String?,
         );

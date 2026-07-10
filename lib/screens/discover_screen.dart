@@ -71,6 +71,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             if (provider.error != null)
               _buildErrorState(cs, tt, provider)
             else ...[
+              // ── 私人 FM（置顶） ──
+              const DiscoverPersonalFmRow(),
+              const SizedBox(height: 8),
+
               DiscoverQuickActions(rankList: provider.rankList),
               const SizedBox(height: 16),
 
@@ -93,14 +97,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   onViewAll: () => _showRankList(provider.rankList),
                 ),
                 DiscoverRankRow(ranks: provider.rankList),
-                const SizedBox(height: 8),
-              ],
-
-              if (provider.hasPersonalFm || !provider.loading) ...[
-                DiscoverPersonalFmRow(
-                  songs: provider.personalFmSongs,
-                  onRefresh: () => provider.loadAll(),
-                ),
                 const SizedBox(height: 8),
               ],
 
@@ -272,11 +268,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
               // ── FM ──
               if (provider.hasPersonalFm || !provider.loading) ...[
-                SliverToBoxAdapter(
-                  child: DiscoverPersonalFmRow(
-                    songs: provider.personalFmSongs,
-                    onRefresh: () => provider.loadAll(),
-                  ),
+                const SliverToBoxAdapter(
+                  child: DiscoverPersonalFmRow(),
                 ),
               ],
 

@@ -49,10 +49,24 @@ class PlayerBar extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(song.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+                          Row(
+                            children: [
+                              if (player.isFmMode)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: Icon(Icons.podcasts,
+                                      size: 14,
+                                      color: Theme.of(context).colorScheme.primary),
+                                ),
+                              Flexible(
+                                child: Text(song.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context).textTheme.bodyMedium
+                                        ?.copyWith(fontWeight: FontWeight.w500)),
+                              ),
+                            ],
+                          ),
                           Text(song.artistDisplay,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -71,9 +85,11 @@ class PlayerBar extends StatelessWidget {
                       )
                     else ...[
                       IconButton(
-                        icon: const Icon(Icons.skip_previous, size: 20),
+                        icon: Icon(player.isFmMode
+                            ? Icons.heart_broken_outlined
+                            : Icons.skip_previous, size: 20),
                         onPressed: player.playPrevious,
-                        tooltip: '上一首',
+                        tooltip: player.isFmMode ? '不喜欢' : '上一首',
                         constraints: const BoxConstraints(minWidth: 44),
                       ),
                       IconButton(

@@ -21,6 +21,7 @@ import '../screens/album_detail_screen.dart';
 // MV: import '../screens/mv_player_screen.dart';
 import '../screens/recommended_playlists_screen.dart';
 import '../screens/playlist_category_screen.dart';
+import '../screens/lyric_settings_screen.dart';
 
 class AppRoutes {
   static const String home = '/';
@@ -47,6 +48,7 @@ class AppRoutes {
   // MV: static const String mv = '/mv';
   static const String recommendedPlaylists = '/recommended/playlists';
   static const String playlistCategory = '/playlist/category';
+  static const String lyricSettings = '/lyric/settings';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -152,6 +154,10 @@ class AppRoutes {
             categoryId: categoryId,
             categoryName: categoryName,
           ),
+        );
+      case AppRoutes.lyricSettings:
+        return MaterialPageRoute(
+          builder: (_) => const LyricSettingsScreen(),
         );
       default:
         return _fallback();

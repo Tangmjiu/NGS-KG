@@ -61,11 +61,17 @@ class PlaylistCard extends StatelessWidget {
                                 child: const Text('取消'),
                               ),
                               TextButton(
-                                onPressed: () {
-                                  Navigator.pop(ctx);
-                                  context
+                                onPressed: () async {
+                                  final ok = await context
                                       .read<PlaylistProvider>()
                                       .deletePlaylist(playlist.id);
+                                  if (context.mounted) {
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                          content: Text(ok ? '已删除' : '删除失败')),
+                                    );
+                                  }
                                 },
                                 child: Text('删除',
                                     style: TextStyle(color: cs.error)),
