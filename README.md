@@ -5,7 +5,16 @@
 <h1 align="center">NGS-KG+</h1>
 
 <p align="center">
-  基于酷狗音乐第三方 API 的 Flutter 音乐播放器
+  基于酷狗音乐第三方 API 的 Flutter 音乐播放器（Wear OS 手表版 · Lite）
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Version-1.5.0--preview-blue?style=flat-square" alt="v1.5.0 preview">
+  <img src="https://img.shields.io/badge/Nightcord-v2.0.0-purple?style=flat-square" alt="Nightcord v2.0.0">
+</p>
+
+<p align="center">
+  <sub>代号 **Nightcord** 来源于 QQ 群代号投票——至于为什么选这个，我也不知道。</sub>
 </p>
 
 <p align="center">
@@ -15,10 +24,7 @@
   <a href="#赞助支持">赞助支持</a> ·
   <a href="#交流群组">交流群组</a> ·
   <a href="#API">API</a> ·
-  <a href="#免责声明">免责声明</a> ·
-  <a href="FAQ.md">FAQ</a> ·
-  <a href="https://github.com/Tangmjiu/NGS-KG/blob/android/THEME.md">主题制作</a> ·
-  <a href="https://github.com/Tangmjiu/ngs-kg-themes">主题市场</a>
+  <a href="#免责声明">免责声明</a>
 </p>
 
 > **项目名称释义**
@@ -36,25 +42,32 @@
 - **登录**：手机验证码 / 二维码登录
 - **首页**：每日推荐、新歌速递、6 种推荐卡片、继续播放
 - **发现**：推荐歌单、热门榜单、新碟上架、场景音乐、电台、编辑精选
-- **搜索**：综合 / 单曲 / 歌单 / 专辑 / 歌手 / MV / 歌词 多类型搜索
+- **搜索**：综合 / 单曲 / 歌单 / 专辑 / 歌手 / 歌词 多类型搜索
 - **播放器**：专辑封面、滚动歌词、音质切换、播放列表、后台播放
-- **歌手**：歌手详情、热门单曲、专辑列表、MV
+- **歌手**：歌手详情、热门单曲、专辑列表
 - **专辑**：专辑详情、歌曲列表、专辑简介
-- **歌单**：创建 / 收藏 / 删除歌单（未完善）
-- **音质**：WiFi / 蜂窝 / 下载 三套独立音质设置 + 智能模式(未完善，下载音乐功能暂不可用）
-- **通知**：通知栏控制、专辑封面、当前歌词显示
-- **本地音乐**：扫描设备音频文件并播放(未完善)
-- **云盘**：查看和播放酷狗云盘音乐(未完善)
-- **主题市场**：浏览、下载、应用社区主题（v2.0.0+）
+- **歌单**：创建 / 收藏 / 删除歌单
+- **音质**：WiFi / 蜂窝 / 下载 三套独立音质设置
+- **本地音乐**：扫描设备音频文件并播放
 
-- ![**截图** 如下（v1.0.1）](https://github.com/Tangmjiu/NGS-KG/blob/android/1.png)![](https://github.com/Tangmjiu/NGS-KG/blob/android/2.png)![](https://github.com/Tangmjiu/NGS-KG/blob/android/3.png) ![](https://github.com/Tangmjiu/NGS-KG/blob/android/4.png) ![动态流光模式播放器](https://github.com/Tangmjiu/NGS-KG/blob/android/5.png)！[](https://github.com/Tangmjiu/NGS-KG/blob/android/6.png)
-- 
-- 
+### Wear OS 手表专属
+
+- **圆形屏幕适配**：RoundSafeArea 组件，确保内容不被圆形屏幕裁剪
+- **旋钮支持**：wearable_rotary 包，支持旋转表冠滚动内容
+- **独立运行**：无需手机 companion，可独立安装和使用
+- **语音搜索**：支持语音识别搜索歌曲
+- **紧凑布局**：针对手表小屏幕优化的 UI 布局
+- **始终深色模式**：手表端强制深色主题，适配 AMOLED 屏幕
+
+---
+
 ## 快速开始
 
 ### 环境要求
 
 - Flutter SDK（最新稳定版）
+- Android SDK（API 33+，Wear OS 3.0+）
+- JDK 17+
 
 ### 配置镜像源（国内）
 
@@ -69,9 +82,10 @@ export PUB_HOSTED_URL="https://pub.flutter-io.cn"
 flutter pub get
 ```
 
-### ```
+### 运行
+
 ```bash
-flutter run
+flutter run -d <emulator_id> --target lib/main_watch.dart
 ```
 
 ### API 服务器
@@ -82,10 +96,16 @@ flutter run
 
 ## 构建
 
-### APK
+### Debug 构建
 
 ```bash
-flutter build windows --release
+flutter build apk --debug --target lib/main_watch.dart
+```
+
+### Release 构建
+
+```bash
+flutter build apk --release --target lib/main_watch.dart
 ```
 
 ### GitHub Actions
@@ -107,16 +127,6 @@ https://github.com/Tangmjiu/NGS-KG/actions
 同时，mjiutang 本人倡议社区内自建服务器，以分担 mjiutang 本人的服务器压力。
 
 [![爱发电](https://img.shields.io/badge/爱发电-赞助支持-orange?style=flat-square&logo=githubsponsors)](https://www.ifdian.net/a/mjiutang)
-
-## 技术栈
-
-
-## 交流群组
-
-| 区域 | 群组 |
-|------|------|
-| 中国区交流群 | QQ：933027332 |
-| International group | Telegram：[t.me/mjiutangducks](https://t.me/mjiutangducks) |
 
 ## API
 
