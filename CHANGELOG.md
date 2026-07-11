@@ -1,5 +1,64 @@
 # NGS-KG+ 更新日志
 
+## v1.5.0-preview（2026-07-xx）
+
+### 新增
+
+- **FM 系统重构**：隔离 FM 队列系统，替换「上一首」为「不喜欢」，QueueType 枚举实现队列隔离
+- **FM 播放改进**：缓冲管理、去重、顺序模式、fetchNextFmBatch 主动填充、非破坏性模式切换
+- **FM 反馈循环**：updateFmFeedback 完整实现，修复 deadlock 路径
+- **歌词设置**：字体大小 / 对齐 / 字重 / 模糊度可调
+- **Hi-Res 标识**：设置页开关控制，官方 JPG 标识覆盖在专辑封面上
+- **跨淡入淡出（Crossfade）**：播放切换时自动淡入淡出
+- **系统均衡器**：Android 系统均衡器集成
+- **KRC 歌词翻译/罗马音**：支持翻译 / 罗马音切换显示
+- **多队列系统**：多队列底部 sheet、跳转到当前播放、将队列存为歌单
+- **专辑详情多选**：批量添加到歌单
+- **歌单滑动删除**：歌单详情页滑动删除歌曲 + 收藏歌单 + 评论入口
+- **SongTile 喜欢按钮**：长按菜单（下一首播放 / 添加到歌单 / 查看专辑）
+- **收藏歌单 API**：PlaylistProvider 封装 create/delete/collect 并自动刷新
+- **流光帧率监控**：自动降频 + elapsed 模运算修复三角函数精度丢失
+- **队列持久化**：完整歌单序列化 + palette 缓存 + enqueuePlaylist
+- **调色板突变动画**：AnimatedSwitcher 600ms 淡入淡出过渡
+- **相似歌单 API**：/playlist/similar 端点
+- **新歌单歌曲接口**：/playlist/track/all/new 版本
+- **PreviewConfig 系统**：preview.yaml 开关与运行时加载器，设置页显示 preview 标记
+- **主题市场 UI**：MarketService 配套（Screen/Provider/Loader）
+- **主题资源系统**：空状态插画、emptyStateWidget 组件、全局主题背景
+- **主题包模型扩展**：动效 / 组件 / 字重 / 空状态资源字段
+- **主题构建器**：支持 surface 半透明与形状 / 动效 / 组件覆盖
+
+### 变更
+
+- **UI 重构**：温和版 + 沉浸歌词风格
+- **Provider 层重构**：三处 UI 改为通过 Provider 获取 MusicService，统一访问模式
+- **播放列表 sheet**：支持滑动删除和长按拖拽排序；区分 radio 模式图标
+- **迷你播放栏**：gap 从 8px 增加到 16px，NavigatorObserver 修复设置页/登录页隐藏失效
+- **队列引擎**：修复崩溃 bug 3 项，新增 removeAt/move/insertAt/playNextSong 方法
+- **LikedSongsProvider**：新增 clear() 方法供退出登录时清理缓存
+- **版本管理**：版本号从 PackageInfo 动态读取
+- **CI 调整**：取消 push 自动触发编译，仅手动/PR 触发
+
+### 修复
+
+- **FM UI 问题**：动态流光背景全黑（调色板颜色不足时补充派生色 + 流光未就绪时回退封面）
+- **FM 数据加载**：修复 FM data loading bug，add buffer management
+- **每日推荐 ID**：修复 MixSongID 错误 + 历史上传重试+服务端时间戳
+- **登出清理**：清空 likedSongs 缓存 + 修复 auth 竞态条件
+- **jsonDecode 安全**：处理 null 安全（res.data 为 String?）
+- **Gradle 版本号**：正则缺少 (?m) multiline 标志导致始终回退默认值
+- **数据库路径**：sqflite_common_ffi 降级至 ^2.4.0+3 以兼容 Dart 3.11
+- **MiniPlayer 点击**：通过 navKey 推播放器页面并管理可见性状态
+- **切歌音频**：resetForNewSong 时停掉播放器，避免旧音频继续播放
+
+### 基础设施
+
+- **主题市场迁移**：marketplace/ 目录移至独立仓库 ngs-kg-themes
+- **资源目录注册**：assets/config/ 资源目录
+- **connectivity_plus 自动注册**：插件自动注册
+
+---
+
 ## v1.0.1（2026-06-14）
 
 ### 新增
