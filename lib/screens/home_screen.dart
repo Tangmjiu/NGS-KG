@@ -277,6 +277,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _wasLoggedIn = false;
 
   void _onAuthChanged() {
+    if (!mounted) return;
     final loggedIn = context.read<AuthProvider>().isLoggedIn;
     if (loggedIn && !_wasLoggedIn) {
       _checkLatestListen();
