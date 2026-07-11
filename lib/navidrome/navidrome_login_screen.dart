@@ -112,25 +112,27 @@ class _NavidromeLoginScreenState extends State<NavidromeLoginScreen> {
           child: form,
         ),
       ),
-      desktop: (_) => Scaffold(
-        backgroundColor: cs.surface,
-        body: Center(
+      desktop: (_) => Container(
+        color: Theme.of(context).colorScheme.surface,
+        child: Center(
           child: Card(
             margin: const EdgeInsets.all(24),
-            child: Container(
+            child: SizedBox(
               width: 420,
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                    tooltip: '关闭',
-                  ),
-                  SingleChildScrollView(child: form),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                      tooltip: '关闭',
+                    ),
+                    SingleChildScrollView(child: form),
+                  ],
+                ),
               ),
             ),
           ),
