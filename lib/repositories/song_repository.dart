@@ -196,8 +196,8 @@ class SongRepository extends BaseRepository {
       }
       final timelength = (json['time_length'] as num?)?.toInt() ?? 0;
       return Song(
-        id: (json['mixsongid'] as int?) ?? (json['audio_id'] as int?) ?? (json['id'] as int?) ?? 0,
-        mixSongId: (json['mixsongid'] as int?),
+        id: _safeInt(json['mixsongid']) ?? _safeInt(json['audio_id']) ?? _safeInt(json['id']) ?? 0,
+        mixSongId: _safeInt(json['mixsongid']),
         name: json['ori_audio_name'] as String? ?? '',
         artists: [(json['author_name'] as String? ?? '')],
         albumCoverUrl: cover,
@@ -263,4 +263,17 @@ class SongRepository extends BaseRepository {
       return null;
     }
   }
+}
+
+/// 安全地将 dynamic 值转为 int?，兼容 API 返回 String 的情况
+int? _safeInt(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is double) return value.toInt();
+  if (value is String) {
+    final parsed = int.tryParse(value);
+    if (parsed != null) return parsed;
+    return double.tryParse(value)?.toInt();
+  }
+  return null;
 }

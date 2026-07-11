@@ -138,12 +138,29 @@ class _ErrorDialogInterceptor extends Interceptor {
     return buf.toString();
   }
 
+  /// 是否属于登录/注册相关接口 — 这类接口的错误需要正常展示
+  static bool _isLoginEndpoint(String path) {
+    return path.contains('/user/qr') ||
+        path.contains('/login') ||
+        path.contains('/register/') ||
+        path.contains('/user/login');
+  }
+
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     // 静默标记的请求跳过弹窗
     if (err.requestOptions.extra['silent'] == true) {
       Log.w('ApiClient',
           '静默错误: ${_requestUrl(err.requestOptions)} | ${err.message}');
+      handler.next(err);
+      return;
+    }
+
+    // 未登录状态下，忽略非登录接口的错误（静默记录日志，不弹窗）
+    if (!_isLoginEndpoint(err.requestOptions.path) &&
+        ApiClient._authToken == null) {
+      Log.w('ApiClient',
+          '未登录，忽略: ${_requestUrl(err.requestOptions)} | ${err.message}');
       handler.next(err);
       return;
     }
