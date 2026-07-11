@@ -283,7 +283,7 @@ jobs:
           cat > "$DEB_DIR/usr/share/applications/ngskg-plus.desktop" << EOF
           [Desktop Entry]
           Name=NGS-KG+
-          Exec=/usr/bin/ngskg
+          Exec=/usr/bin/ngskg_plus
           Icon=ngskg
           Type=Application
           Categories=Audio;Music;Player;
@@ -300,13 +300,14 @@ jobs:
           runtime: org.gnome.Platform
           runtime-version: '47'
           sdk: org.gnome.Sdk
-          command: ngskg
+          command: ngskg_plus
           modules:
             - name: ngskg
               buildsystem: simple
               build-commands:
                 - mkdir -p /app/bin
                 - cp -r * /app/bin/
+                - chmod +x /app/bin/ngskg_plus
               sources:
                 - type: dir
                   path: ../build/linux/x64/release/bundle
@@ -353,7 +354,7 @@ jobs:
             cat > "\$pkgdir/usr/share/applications/ngskg-plus.desktop" << DESKTOP
           [Desktop Entry]
           Name=NGS-KG+
-          Exec=/usr/bin/ngskg
+          Exec=/usr/bin/ngskg_plus
           Icon=ngskg
           Type=Application
           Categories=Audio;Music;Player;
