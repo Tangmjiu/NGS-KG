@@ -85,7 +85,7 @@ flutter pub get
 ### 运行
 
 ```bash
-flutter run -d <emulator_id> --target lib/main_watch.dart
+flutter run -d <emulator_id>
 ```
 
 ### API 服务器
@@ -99,13 +99,13 @@ flutter run -d <emulator_id> --target lib/main_watch.dart
 ### Debug 构建
 
 ```bash
-flutter build apk --debug --target lib/main_watch.dart
+flutter build apk --debug
 ```
 
 ### Release 构建
 
 ```bash
-flutter build apk --release --target lib/main_watch.dart
+flutter build apk --release
 ```
 
 ### GitHub Actions
