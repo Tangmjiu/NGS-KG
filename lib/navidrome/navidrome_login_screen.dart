@@ -100,19 +100,39 @@ class _NavidromeLoginScreenState extends State<NavidromeLoginScreen> {
 
     return ResponsiveLayoutBuilder(
       mobile: (_) => Scaffold(
-        appBar: AppBar(title: const Text('连接 Navidrome')),
+        appBar: AppBar(
+          title: const Text('连接 Navidrome'),
+          leading: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: form,
         ),
       ),
-      desktop: (_) => Center(
-        child: Card(
-          margin: const EdgeInsets.all(24),
-          child: Container(
-            width: 420,
-            padding: const EdgeInsets.all(24),
-            child: SingleChildScrollView(child: form),
+      desktop: (_) => Scaffold(
+        backgroundColor: cs.surface,
+        body: Center(
+          child: Card(
+            margin: const EdgeInsets.all(24),
+            child: Container(
+              width: 420,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                    tooltip: '关闭',
+                  ),
+                  SingleChildScrollView(child: form),
+                ],
+              ),
+            ),
           ),
         ),
       ),
