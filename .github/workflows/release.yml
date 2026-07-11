@@ -422,14 +422,53 @@ jobs:
 
             > 代号 **Nightcord** 来源于 QQ 群代号投票——至于为什么选这个，我也不知道。
 
+            本版本为 **v2.0.0 Nightcord** 的预览版，包含大量新功能和改进。
+
+            ## 新增
+
+            - **FM 系统重构**：隔离 FM 队列系统，替换「上一首」为「不喜欢」，QueueType 枚举实现队列隔离
+            - **FM 播放改进**：缓冲管理、去重、顺序模式、主动填充、非破坏性模式切换
+            - **歌词设置**：字体大小 / 对齐 / 字重 / 模糊度可调
+            - **Hi-Res 标识**：设置页开关控制，官方 JPG 标识覆盖在专辑封面上
+            - **跨淡入淡出（Crossfade）**：播放切换时自动淡入淡出
+            - **系统均衡器**：Android 系统均衡器集成
+            - **KRC 歌词翻译/罗马音**：支持翻译 / 罗马音切换显示
+            - **多队列系统**：多队列底部 sheet、跳转到当前播放、将队列存为歌单
+            - **专辑详情多选**：批量添加到歌单
+            - **歌单滑动删除**：歌单详情页滑动删除歌曲 + 收藏歌单 + 评论入口
+            - **SongTile 喜欢按钮**：长按菜单（下一首播放 / 添加到歌单 / 查看专辑）
+            - **收藏歌单 API**：PlaylistProvider 封装 create/delete/collect 并自动刷新
+            - **队列持久化**：完整歌单序列化 + palette 缓存
+            - **PreviewConfig 系统**：preview.yaml 开关与运行时加载器
+            - **主题市场 UI**：浏览、下载、应用社区主题
+            - **主题资源系统**：空状态插画、emptyStateWidget 组件、全局主题背景
+
+            ## 变更
+
+            - **UI 重构**：温和版 + 沉浸歌词风格
+            - **Provider 层重构**：统一 MusicService 访问模式
+            - **播放列表 sheet**：支持滑动删除和长按拖拽排序
+            - **迷你播放栏**：gap 从 8px 增加到 16px
+            - **队列引擎**：新增 removeAt/move/insertAt/playNextSong 方法
+            - **CI 调整**：全平台 Debug + Release 自动构建
+
+            ## 修复
+
+            - **FM UI 问题**：动态流光背景全黑
+            - **FM 数据加载**：修复 FM data loading bug
+            - **每日推荐 ID**：修复 MixSongID 错误
+            - **登出清理**：清空 likedSongs 缓存 + 修复 auth 竞态条件
+            - **MiniPlayer 点击**：通过 navKey 推播放器页面并管理可见性状态
+            - **切歌音频**：resetForNewSong 时停掉播放器，避免旧音频继续播放
+
             ## 下载
 
             ### Android
             | 架构 | 文件 |
             |------|------|
-            | arm64-v8a | `android-arm64-v8a-release.apk` |
-            | armeabi-v7a | `android-armeabi-v7a-release.apk` |
-            | x86_64 | `android-x86_64-release.apk` |
+            | arm64-v8a | `NGS-KG-arm64-v8a-release.apk` |
+            | armeabi-v7a | `NGS-KG-armeabi-v7a-release.apk` |
+            | x86_64 | `NGS-KG-x86_64-release.apk` |
 
             ### Windows
             | 架构 | 文件 |
@@ -439,14 +478,16 @@ jobs:
             ### Linux
             | 格式 | 文件 |
             |------|------|
-            | .deb | `ngskg-plus_*.deb` |
+            | .deb | `ngskg-plus_1.5.0_amd64.deb` |
             | .flatpak | `ngskg-plus.flatpak` |
             | PKGBUILD | `PKGBUILD` |
 
-            ### Watch (Wear OS)
+            ### Watch (Wear OS) — Lite
             | 架构 | 文件 |
             |------|------|
-            | arm64 | `watch-release.apk` |
+            | arm64 | `NGS-KG-watch-release.apk` |
+
+            > Watch 版为精简版，功能较少。需配合 Android 手机使用。
 
             也可在本页底部 Assets 下载。
           files: |
