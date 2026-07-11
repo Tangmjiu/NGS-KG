@@ -46,7 +46,6 @@ class DesktopSidebar extends StatefulWidget {
     _NavItem(icon: Icons.explore_outlined, label: '发现', id: 'discover'),
     _NavItem(icon: Icons.person_outline, label: '我的', id: 'profile'),
     _NavItem(icon: Icons.folder_outlined, label: '本地', id: 'local'),
-    _NavItem(icon: Icons.trending_up, label: '听歌排行', id: 'ranking'),
     _NavItem(icon: Icons.history, label: '最近播放', id: 'recent'),
   ];
 

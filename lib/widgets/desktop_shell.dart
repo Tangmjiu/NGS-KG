@@ -11,7 +11,6 @@ import '../services/api_client.dart';
 import '../models/playlist.dart';
 import '../screens/playlist_detail_screen.dart';
 import '../models/song.dart';
-import '../models/rank_entry.dart';
 import '../models/song_mapper.dart';
 import '../widgets/desktop_sidebar.dart';
 import '../widgets/desktop_song_table.dart';
@@ -59,11 +58,6 @@ class _DesktopShellState extends State<DesktopShell> {
   bool _playlistLoaded = false;
   String? _playlistId;
 
-  // ── Ranking state ──
-
-  List<RankEntry> _rankEntries = [];
-  bool _isLoadingRankEntries = true;
-
   // ── Recent history state ──
 
   List<Song> _historySongs = [];
@@ -97,7 +91,6 @@ class _DesktopShellState extends State<DesktopShell> {
   @override
   void initState() {
     super.initState();
-    _loadRankEntries();
     // Load user playlists for sidebar immediately after auth is ready
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = context.read<AuthProvider>();
@@ -116,27 +109,6 @@ class _DesktopShellState extends State<DesktopShell> {
   // ==========================================================================
   // Data loading
   // ==========================================================================
-
-  Future<void> _loadRankEntries() async {
-    setState(() => _isLoadingRankEntries = true);
-    try {
-      final songs = await _musicService.getUserListenHistory(type: 0);
-      if (mounted) {
-        final entries = songs.asMap().entries.map((e) => RankEntry(
-          id: e.value.hash?.hashCode ?? e.value.id,
-          name: e.value.name,
-          coverUrl: e.value.albumCoverUrl,
-          song: e.value,
-        )).toList();
-        setState(() {
-          _rankEntries = entries;
-          _isLoadingRankEntries = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingRankEntries = false);
-    }
-  }
 
   Future<void> _loadHistory() async {
     if (_historyLoaded || _isLoadingHistory) return;
@@ -217,12 +189,6 @@ class _DesktopShellState extends State<DesktopShell> {
     }
   }
 
-  void _playFromRank(RankEntry rank) {
-    if (rank.song != null) {
-      context.read<PlayerProvider>().playSong(rank.song!);
-    }
-  }
-
   // ==========================================================================
   // Navigation callbacks (wired to DesktopSidebar)
   // ==========================================================================
@@ -236,7 +202,6 @@ class _DesktopShellState extends State<DesktopShell> {
       _searchQuery = '';
     });
     if (id == 'recent') _loadHistory();
-    if (id == 'ranking' && _rankEntries.isEmpty) _loadRankEntries();
   }
 
   void _onPlaylistSelected(Playlist pl) {
@@ -308,9 +273,6 @@ class _DesktopShellState extends State<DesktopShell> {
       case 'local':
         return const LocalMusicScreen();
 
-      case 'ranking':
-        return _buildRankGridView();
-
       case 'recent':
         return _buildRecentHistoryView();
 
@@ -349,91 +311,6 @@ class _DesktopShellState extends State<DesktopShell> {
   // -------------------------------------------------------------------------
   // Ranking – grid
   // -------------------------------------------------------------------------
-
-  Widget _buildRankGridView() {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    if (_isLoadingRankEntries) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_rankEntries.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.trending_up, size: 48, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
-            const SizedBox(height: 8),
-            Text('暂无排行榜', style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
-          ],
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('听歌排行', style: tt.headlineSmall),
-          const SizedBox(height: 16),
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 0.8,
-              ),
-              itemCount: _rankEntries.length,
-              itemBuilder: (_, i) => _buildRankCard(_rankEntries[i]),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRankCard(RankEntry rank) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return Material(
-      color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => _playFromRank(rank),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                child: Container(
-                  width: double.infinity,
-                  color: cs.surfaceContainerHighest,
-                  child: rank.coverUrl != null
-                      ? Image.network(rank.coverUrl!, fit: BoxFit.cover)
-                      : Icon(Icons.trending_up, size: 40, color: cs.onSurfaceVariant),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-              child: Text(
-                rank.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: tt.bodySmall?.copyWith(fontWeight: FontWeight.w500),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   // -------------------------------------------------------------------------
   // Recent history
