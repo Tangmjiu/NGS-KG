@@ -106,17 +106,15 @@ jobs:
 
       - name: Package as .flatpak
         run: |
-          # Get version from pubspec.yaml
           VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1)
-          
-          # Create Flatpak manifest
+
           cat > dist/com.mjiutang.ngskg.yml << EOF
           app-id: com.mjiutang.ngskg
           runtime: org.gnome.Platform
-          runtime-version: '46'
+          runtime-version: '47'
           sdk: org.gnome.Sdk
           command: ngskg
-          
+
           modules:
             - name: ngskg
               buildsystem: simple
@@ -125,8 +123,8 @@ jobs:
                 - cp -r * /app/bin/
               sources:
                 - type: dir
-                  path: build/linux/x64/release/bundle
-          
+                  path: ../build/linux/x64/release/bundle
+
           finish-args:
             - --share=network
             - --share=ipc
@@ -137,15 +135,12 @@ jobs:
             - --talk-name=org.kde.StatusNotifierWatcher
             - --talk-name=org.freedesktop.Notifications
           EOF
-          
-          # Initialize Flatpak
+
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install -y --user flathub org.gnome.Platform//46 || true
-          
-          # Build Flatpak
+          flatpak install -y --user flathub org.gnome.Platform//47 || true
+
           flatpak-builder --user --install-deps-from=flathub --force-clean dist/build dist/com.mjiutang.ngskg.yml
-          
-          # Create Flatpak bundle
+
           flatpak build-bundle dist/repo dist/ngskg-plus.flatpak com.mjiutang.ngskg
 
       # ═══════════════════════════════════════════════════════════

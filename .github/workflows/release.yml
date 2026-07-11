@@ -298,7 +298,7 @@ jobs:
           cat > dist/com.mjiutang.ngskg.yml << EOF
           app-id: com.mjiutang.ngskg
           runtime: org.gnome.Platform
-          runtime-version: '46'
+          runtime-version: '47'
           sdk: org.gnome.Sdk
           command: ngskg
           modules:
@@ -309,7 +309,7 @@ jobs:
                 - cp -r * /app/bin/
               sources:
                 - type: dir
-                  path: build/linux/x64/release/bundle
+                  path: ../build/linux/x64/release/bundle
           finish-args:
             - --share=network
             - --share=ipc
@@ -321,7 +321,7 @@ jobs:
             - --talk-name=org.freedesktop.Notifications
           EOF
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install -y --user flathub org.gnome.Platform//46 || true
+          flatpak install -y --user flathub org.gnome.Platform//47 || true
           flatpak-builder --user --install-deps-from=flathub --force-clean dist/build dist/com.mjiutang.ngskg.yml
           flatpak build-bundle dist/repo dist/ngskg-plus.flatpak com.mjiutang.ngskg
 
