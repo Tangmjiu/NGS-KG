@@ -82,11 +82,11 @@ jobs:
 
       # ── Build watch debug APK ──
       - name: Build watch debug APK
-        run: flutter build apk --debug --target lib/main_watch.dart --target-platform android-arm64 --android-skip-build-dependency-validation
+        run: flutter build apk --debug --target-platform android-arm64 --android-skip-build-dependency-validation
 
       # ── Build watch release APK ──
       - name: Build watch release APK
-        run: flutter build apk --release --target lib/main_watch.dart --target-platform android-arm64
+        run: flutter build apk --release --target-platform android-arm64
 
       # ── Upload artifacts ──
       - name: Upload debug APK
