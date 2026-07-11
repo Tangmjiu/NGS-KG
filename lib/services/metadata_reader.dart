@@ -26,7 +26,7 @@ class MetadataReader {
   /// Reads metadata from [file].  Returns null if reading fails.
   static Future<AudioMetadata?> read(File file) async {
     // Windows: use pure-Dart parser (no MethodChannel available)
-    if (Platform.isWindows) {
+    if (Platform.isWindows || Platform.isLinux) {
       return WindowsMetadataReader.read(file);
     }
 

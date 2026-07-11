@@ -430,35 +430,6 @@ class MusicService {
     return [];
   }
 
-  /// 同步播放历史到服务端（MixSongID 版，用于 FM）
-  Future<bool> uploadMixPlayHistory(String mixSongId) async {
-    try {
-      final ot = (DateTime.now().millisecondsSinceEpoch / 1000).round().toString();
-      await _oneShotGet('/playhistory/upload', params: {
-        'mxid': mixSongId,
-        'ot': ot,
-      });
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// 获取用户听歌历史
-  Future<List<Song>> getUserListenHistory({int type = 0}) async {
-    try {
-      final res = await _oneShotGet('/user/listen', params: {'type': type.toString()});
-      final data = res;
-      final songs = (data['data'] ?? data['list'] ?? []) as List<dynamic>;
-      return songs
-          .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
-          .whereType<Song>()
-          .toList();
-    } catch (e) {
-      return [];
-    }
-  }
-
   /// 历史推荐
   /// API 文档: GET /everyday/history
   /// mode=list 返回历史推荐列表, mode=song 需传 history_name 和 date

@@ -37,7 +37,7 @@ class ThemeSettingsScreen extends StatelessWidget {
 
   Widget _buildBody() {
     return Consumer<ThemeProvider>(
-      builder: (_, tp, __) => ListView(
+      builder: (context, tp, __) => ListView(
         children: [
           const SizedBox(height: 8),
           _PackCarousel(tp: tp),

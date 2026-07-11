@@ -207,6 +207,8 @@ class SongMapper {
         hash: hash,
         qualities: q.isNotEmpty ? q : null,
       );
+    } catch (_) {
+      return null;
     }
   }
 

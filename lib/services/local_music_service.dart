@@ -36,6 +36,13 @@ class LocalMusicService {
         dirs.add(Directory('$userProfile\\Music'));
         dirs.add(Directory('$userProfile\\Downloads'));
       }
+    } else if (Platform.isLinux) {
+      final home = Platform.environment['HOME'];
+      if (home != null) {
+        dirs.add(Directory('$home/Music'));
+        dirs.add(Directory('$home/Downloads'));
+        dirs.add(Directory('$home/音乐'));
+      }
     }
     // App documents
     try {

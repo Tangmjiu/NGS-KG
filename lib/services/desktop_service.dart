@@ -1,89 +1,35 @@
 import 'dart:io' show Platform;
 import 'dart:ui' show Size;
 import 'package:flutter/foundation.dart';
-import 'package:smtc_windows/smtc_windows.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 import '../providers/player_provider.dart';
+import 'linux_mpris_service.dart';
 
-/// 桌面端集成服务：SMTC + 系统托盘 + 窗口管理。
+/// 桌面端集成服务：系统托盘 + 窗口管理 + MPRIS (Linux).
 class DesktopService {
   static final DesktopService _instance = DesktopService._();
   static DesktopService get instance => _instance;
   DesktopService._();
 
-  SMTCWindows? _smtc;
   PlayerProvider? _player;
   bool _initialized = false;
+  final LinuxMprisService _mpris = LinuxMprisService();
 
   Future<void> init(PlayerProvider player) async {
     if (_initialized) return;
     _initialized = true;
     _player = player;
 
-    if (Platform.isWindows) {
-      await _initSmtc(player);
+    if (Platform.isLinux) {
+      await _mpris.init(player);
     }
 
     await _initTray(player);
     await _initWindow();
   }
 
-  // ═══════════════════════════════════════════════
-  //  SMTC
-  // ═══════════════════════════════════════════════
-
-  Future<void> _initSmtc(PlayerProvider player) async {
-    try {
-      await SMTCWindows.initialize();
-
-      _smtc = SMTCWindows(
-        metadata: MusicMetadata(
-          title: player.currentSong?.name ?? '',
-          album: player.currentSong?.albumName ?? '',
-          albumArtist: '',
-          artist: player.currentSong?.artistDisplay ?? '',
-          thumbnail: player.currentSong?.albumCoverUrl ?? '',
-        ),
-        timeline: PlaybackTimeline(
-          startTimeMs: 0,
-          endTimeMs: player.duration.inMilliseconds,
-          positionMs: player.position.inMilliseconds,
-          minSeekTimeMs: 0,
-          maxSeekTimeMs: player.duration.inMilliseconds,
-        ),
-        config: const SMTCConfig(
-          fastForwardEnabled: false,
-          nextEnabled: true,
-          pauseEnabled: true,
-          playEnabled: true,
-          rewindEnabled: false,
-          prevEnabled: true,
-          stopEnabled: true,
-        ),
-      );
-
-      _smtc!.buttonPressStream.listen((event) {
-        switch (event) {
-          case PressedButton.play:
-            if (!player.isPlaying) player.togglePlayPause();
-          case PressedButton.pause:
-            if (player.isPlaying) player.togglePlayPause();
-          case PressedButton.next:
-            player.playNext();
-          case PressedButton.previous:
-            player.playPrevious();
-          case PressedButton.stop:
-            if (player.isPlaying) player.togglePlayPause();
-          default:
-            break;
-        }
-      });
-    } catch (e) {
-      debugPrint('DesktopService: SMTC init failed: $e');
-    }
-  }
-
+  /// 由 PlayerProvider 的 listener 调用，同步状态到 MPRIS 和托盘。
   void sync({
     dynamic song,
     bool? isPlaying,
@@ -91,39 +37,25 @@ class DesktopService {
     int? durationMs,
     String? lyricText,
   }) {
-    if (_smtc == null) return;
-    try {
-      if (song != null) {
-        _smtc!.updateMetadata(MusicMetadata(
-          title: song.name ?? '',
-          album: song.albumName ?? '',
-          albumArtist: '',
-          artist: song.artistDisplay ?? '',
-          thumbnail: song.albumCoverUrl ?? '',
-        ));
-        // 同时更新托盘提示显示当前歌词
-        final tip = lyricText != null && lyricText.isNotEmpty
-            ? '${song.name ?? ''} - ${song.artistDisplay ?? ''}\n$lyricText'
-            : '${song.name ?? ''} - ${song.artistDisplay ?? ''}';
-        try {
-          trayManager.setToolTip(tip);
-        } catch (_) {}
-      }
-      if (isPlaying != null) {
-        _smtc!.setPlaybackStatus(
-            isPlaying ? PlaybackStatus.playing : PlaybackStatus.paused);
-      }
-      if (positionMs != null && durationMs != null && durationMs > 0) {
-        _smtc!.updateTimeline(PlaybackTimeline(
-          startTimeMs: 0,
-          endTimeMs: durationMs,
-          positionMs: positionMs,
-          minSeekTimeMs: 0,
-          maxSeekTimeMs: durationMs,
-        ));
-      }
-    } catch (e) {
-      debugPrint('DesktopService: SMTC sync error: $e');
+    // MPRIS (Linux)
+    if (Platform.isLinux) {
+      _mpris.sync(
+        song: song,
+        isPlaying: isPlaying,
+        positionMs: positionMs,
+        durationMs: durationMs,
+        lyricText: lyricText,
+      );
+    }
+
+    // 托盘提示
+    if (song != null) {
+      final tip = lyricText != null && lyricText.isNotEmpty
+          ? '${song.name ?? ''} - ${song.artistDisplay ?? ''}\n$lyricText'
+          : '${song.name ?? ''} - ${song.artistDisplay ?? ''}';
+      try {
+        trayManager.setToolTip(tip);
+      } catch (_) {}
     }
   }
 
@@ -180,14 +112,14 @@ class DesktopService {
 
   Future<void> _initWindow() async {
     try {
-      // windowManager.ensureInitialized() 已在 main() 中提前调用。
-      // 自定义标题栏由 bitsdojo_window 在 C++ 侧通过 WM_NCHITTEST 实现，
-      // Flutter 侧通过 WindowTitleBarBox + MoveWindow 配合。
-      // 此处不再需要 setTitleBarStyle。
-
       await windowManager.setMinimumSize(const Size(960, 600));
-      // 关闭按钮 → 隐藏到托盘，不退出
       await windowManager.setPreventClose(true);
+      // Linux: 隐藏原生 GTK 标题栏，使用 Flutter 自定义 M3TitleBar
+      try {
+        await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
+      } catch (_) {
+        // setTitleBarStyle 在部分 Linux WM 上可能不支持，静默忽略
+      }
       windowManager.addListener(_CloseToTrayListener(this));
     } catch (e) {
       debugPrint('DesktopService: Window init error: $e');
@@ -207,7 +139,7 @@ class DesktopService {
   }
 
   Future<void> dispose() async {
-    _smtc?.dispose();
+    await _mpris.dispose();
   }
 }
 

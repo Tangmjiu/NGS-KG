@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// Material Design 3 自定义标题栏。
@@ -78,17 +77,21 @@ class _M3TitleBarState extends State<M3TitleBar> with WindowListener {
 
   void _onMinimize() {
     debugPrint('[M3TitleBar] minimize');
-    appWindow.minimize();
+    windowManager.minimize();
   }
 
   void _onMaximizeOrRestore() {
     debugPrint('[M3TitleBar] maximize/restore (current: ${_isMaximized ? "maximized" : "normal"})');
-    appWindow.maximizeOrRestore();
+    if (_isMaximized) {
+      windowManager.unmaximize();
+    } else {
+      windowManager.maximize();
+    }
   }
 
   void _onClose() {
     debugPrint('[M3TitleBar] close');
-    appWindow.close();
+    windowManager.close();
   }
 
   // ── Build ──
@@ -102,8 +105,7 @@ class _M3TitleBarState extends State<M3TitleBar> with WindowListener {
     final effectiveBg = _isFocused ? bg : Color.lerp(bg, cs.outlineVariant, 0.08)!;
     final dragHoverBg = Color.lerp(effectiveBg, cs.surfaceContainerHighest, 0.35)!;
 
-    return WindowTitleBarBox(
-      child: Container(
+    return Container(
         height: widget.height,
         decoration: BoxDecoration(
           color: effectiveBg,
@@ -117,14 +119,11 @@ class _M3TitleBarState extends State<M3TitleBar> with WindowListener {
         child: Row(
           children: [
             // ── 拖拽区域（图标+标题+中间空白）──
-            // MoveWindow 捕获拖拽手势，通过 bitsdojo_window 方法通道
-            // 发起原生窗口拖拽。按钮在 MoveWindow 之外以免被吞事件。
             Expanded(
               child: MouseRegion(
                 onEnter: (_) => setState(() => _isHoveringDragArea = true),
                 onExit: (_) => setState(() => _isHoveringDragArea = false),
-                child: MoveWindow(
-                  child: AnimatedContainer(
+                child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
                     color: _isHoveringDragArea ? dragHoverBg : Colors.transparent,
                     height: double.infinity,
@@ -159,7 +158,6 @@ class _M3TitleBarState extends State<M3TitleBar> with WindowListener {
                         ),
                       ],
                     ),
-                  ),
                 ),
               ),
             ),
@@ -186,7 +184,6 @@ class _M3TitleBarState extends State<M3TitleBar> with WindowListener {
             ),
           ],
         ),
-      ),
     );
   }
 }
