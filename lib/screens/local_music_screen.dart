@@ -370,10 +370,9 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
               const SizedBox(height: 20),
               FilledButton.tonal(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const NavidromeLoginScreen()),
+                  showDialog(
+                    context: context,
+                    builder: (_) => const NavidromeLoginScreen(),
                   );
                 },
                 child: const Row(
