@@ -1,4 +1,4 @@
-name: Build Watch APK
+name: Build Watch APK (Debug + Release)
 
 on:
   workflow_dispatch:
@@ -30,7 +30,7 @@ jobs:
           sdkmanager --list_installed 2>/dev/null | grep "platforms"
 
       # ═══════════════════════════════════════════════════════════
-      #  Caches — 首次全编，后续增量编译
+      #  Caches
       # ═══════════════════════════════════════════════════════════
 
       - name: Cache pub dependencies
@@ -70,13 +70,23 @@ jobs:
           sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
           sed -i '/maven.*aliyun/d' android/settings.gradle android/build.gradle
 
-      # ── Build watch debug APK (手表版入口) ──
+      # ── Build watch debug APK ──
       - name: Build watch debug APK
         run: flutter build apk --debug --target lib/main_watch.dart --target-platform android-arm64 --android-skip-build-dependency-validation
 
-      # ── Upload debug APK ──
+      # ── Build watch release APK ──
+      - name: Build watch release APK
+        run: flutter build apk --release --target lib/main_watch.dart --target-platform android-arm64
+
+      # ── Upload artifacts ──
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: NGS-KG-watch-debug-arm64-v8a
           path: build/app/outputs/flutter-apk/app-debug.apk
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NGS-KG-watch-release-arm64-v8a
+          path: build/app/outputs/flutter-apk/app-release.apk
