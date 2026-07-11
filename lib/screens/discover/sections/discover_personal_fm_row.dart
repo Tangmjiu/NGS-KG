@@ -289,8 +289,10 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                         ),
                         secondChild: ConstrainedBox(
                           constraints: const BoxConstraints(minHeight: 140),
-                          child: _buildPlayingState(
-                              cs, tt, provider, player, currentSong!, buffer),
+                          child: currentSong != null
+                              ? _buildPlayingState(
+                                  cs, tt, provider, player, currentSong!, buffer)
+                              : _buildIdleState(cs, provider, player, hasContent),
                         ),
                       ),
                     ),

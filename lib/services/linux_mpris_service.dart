@@ -411,20 +411,20 @@ class MprisPlayerObject extends DBusObject {
   // ── Metadata helpers ──
 
   DBusDict _buildMetadataDict() {
-    final entries = <DBusValue, DBusValue>{
-      DBusString('mpris:trackid'): DBusObjectPath(_currentTrackId),
-      DBusString('mpris:length'): DBusInt64(_currentLength),
-      DBusString('xesam:title'): DBusString(_currentTitle),
-      DBusString('xesam:album'): DBusString(_currentAlbum),
+    final entries = <String, DBusValue>{
+      'mpris:trackid': DBusObjectPath(_currentTrackId),
+      'mpris:length': DBusInt64(_currentLength),
+      'xesam:title': DBusString(_currentTitle),
+      'xesam:album': DBusString(_currentAlbum),
     };
     if (_currentArtist.isNotEmpty) {
-      entries[DBusString('xesam:artist')] =
+      entries['xesam:artist'] =
           DBusArray(DBusSignature('s'), [DBusString(_currentArtist)]);
     }
     if (_currentArtUrl.isNotEmpty) {
-      entries[DBusString('mpris:artUrl')] = DBusString(_currentArtUrl);
+      entries['mpris:artUrl'] = DBusString(_currentArtUrl);
     }
-    return DBusDict(DBusSignature('s'), DBusSignature('v'), entries);
+    return DBusDict.stringVariant(entries);
   }
 
   void _emitMetadataChanged() {
