@@ -70,15 +70,7 @@ jobs:
           sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
           sed -i '/maven.*aliyun/d' android/settings.gradle android/build.gradle
 
-      # ═══ Signing ═══
-      - name: Create key.properties for signing
-        run: |
-          cat > android/key.properties << EOF
-          storePassword=${{ secrets.STORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=debug.keystore
-          EOF
+      # ═══ Signing (only for release.yml, skip here) ═══
 
       # ── Build debug APK ──
       - name: Build debug APK
