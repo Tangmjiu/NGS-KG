@@ -323,7 +323,7 @@ jobs:
           EOF
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak install -y --user flathub org.gnome.Platform//47 || true
-          flatpak-builder --user --install-deps-from=flathub --force-clean dist/build dist/com.mjiutang.ngskg.yml
+          flatpak-builder --user --install-deps-from=flathub --force-clean --repo=dist/repo dist/build dist/com.mjiutang.ngskg.yml
           flatpak build-bundle dist/repo dist/ngskg-plus.flatpak com.mjiutang.ngskg
 
       # ── Generate PKGBUILD ──
