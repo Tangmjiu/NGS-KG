@@ -94,16 +94,8 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_fmPreloaded) {
-      _fmPreloaded = true;
-      final provider = context.read<DiscoverProvider>();
-      if (provider.personalFmBuffer.isEmpty &&
-          provider.personalFmSongs.isEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          provider.loadAll();
-        });
-      }
-    }
+    // 数据加载由 DiscoverScreen.initState 统一处理，此处只标记预取状态
+    _fmPreloaded = true;
   }
 
   // ─── 循环切换模式（不中断播放，仅刷新后续推荐） ───
