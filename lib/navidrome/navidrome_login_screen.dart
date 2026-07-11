@@ -112,9 +112,9 @@ class _NavidromeLoginScreenState extends State<NavidromeLoginScreen> {
           child: form,
         ),
       ),
-      desktop: (_) => Container(
-        color: Theme.of(context).colorScheme.surface,
-        child: Center(
+      desktop: (_) => Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Center(
           child: Card(
             margin: const EdgeInsets.all(24),
             child: SizedBox(
