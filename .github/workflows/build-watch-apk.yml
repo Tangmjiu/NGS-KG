@@ -70,16 +70,6 @@ jobs:
           sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
           sed -i '/maven.*aliyun/d' android/settings.gradle android/build.gradle
 
-      # ═══ Signing ═══
-      - name: Create key.properties for signing
-        run: |
-          cat > android/key.properties << EOF
-          storePassword=${{ secrets.STORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=debug.keystore
-          EOF
-
       # ── Build watch debug APK ──
       - name: Build watch debug APK
         run: flutter build apk --debug --target-platform android-arm64 --android-skip-build-dependency-validation
