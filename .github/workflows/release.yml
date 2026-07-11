@@ -1,4 +1,4 @@
-name: Build Release APK + GitHub Release
+name: Release NGS-KG+ (All Platforms)
 
 on:
   workflow_dispatch:
@@ -8,9 +8,9 @@ on:
         required: true
         default: 'v1.5.0-preview'
       release_name:
-        description: 'Release name (e.g. NGS-KG+ v1.5.0-preview)'
+        description: 'Release name (e.g. NGS-KG+ v1.5.0-preview Nightcord)'
         required: true
-        default: 'NGS-KG+ v1.5.0-preview'
+        default: 'NGS-KG+ v1.5.0-preview Nightcord'
       prerelease:
         description: 'Is this a pre-release?'
         required: false
@@ -18,46 +18,16 @@ on:
         type: boolean
 
 jobs:
-  build:
+  # ═══════════════════════════════════════════════════════════
+  #  Android Build
+  # ═══════════════════════════════════════════════════════════
+  build-android:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      # ═══ Cache ═══
-
-      - name: Cache Flutter SDK
-        uses: actions/cache@v4
         with:
-          path: /opt/hostedtoolcache/flutter
-          key: flutter-${{ runner.os }}-3.44.0-stable
-          restore-keys: |
-            flutter-${{ runner.os }}-
-
-      - name: Cache Pub dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pub-cache
-            .dart_tool
-          key: pub-${{ runner.os }}-${{ hashFiles('pubspec.yaml', 'pubspec.lock') }}
-          restore-keys: |
-            pub-${{ runner.os }}-
-
-      - name: Cache Android SDK
-        uses: actions/cache@v4
-        with:
-          path: /usr/local/lib/android/sdk
-          key: android-sdk-${{ runner.os }}
-
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: ~/.gradle/caches
-          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+          ref: android
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -68,6 +38,24 @@ jobs:
       - name: Install Android SDK
         uses: android-actions/setup-android@v2
 
+      - name: Install SDK 36
+        run: |
+          yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" 2>/dev/null || true
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pubcache-android-${{ hashFiles('pubspec.lock') }}
+          restore-keys: pubcache-android-
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/caches
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
       - name: Create assets directories
         run: |
           mkdir -p assets/images
@@ -76,35 +64,354 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      # ═══ CI network config: replace China mirrors with global ones ═══
       - name: Use global Gradle/Maven mirrors for CI
         run: |
           sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
           sed -i '/maven.*aliyun/d' android/settings.gradle android/build.gradle
 
-      # ── Build release APK (split-per-abi) ──
-      - name: Build release APK
+      - name: Build release APK (split-per-abi)
         run: flutter build apk --release --split-per-abi
 
-      # ── Build debug APK (split-per-abi) ──
       - name: Build debug APK
-        run: flutter build apk --debug --split-per-abi
+        run: flutter build apk --debug --target-platform android-arm64 --android-skip-build-dependency-validation
 
-      # ── Upload artifacts ──
       - name: Upload release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: NGS-KG-${{ github.event.inputs.tag_name }}-release
+          name: android-release-apks
           path: build/app/outputs/flutter-apk/*-release.apk
 
-      - name: Upload debug APKs
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: NGS-KG-${{ github.event.inputs.tag_name }}-debug
-          path: build/app/outputs/flutter-apk/*-debug.apk
+          name: android-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
 
-      # ── Create GitHub Release ──
-      - name: Create Release
+  # ═══════════════════════════════════════════════════════════
+  #  Windows Build
+  # ═══════════════════════════════════════════════════════════
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: windows-desktop
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install Rust
+        run: rustup default stable
+
+      - name: Ensure assets directories
+        run: |
+          mkdir -Force assets\icons
+          mkdir -Force assets\images
+
+      - name: Copy app icon to assets/icons
+        run: Copy-Item windows\runner\resources\app_icon.ico assets\icons\ -Force
+
+      - name: Create placeholder assets if missing
+        run: |
+          $placeholder = @"
+          <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+            <rect width="100" height="100" fill="#2CA1F4"/>
+            <text x="50" y="65" text-anchor="middle" font-size="40" fill="white">♪</text>
+          </svg>
+          "@
+          $required = @('ban.png', 'codecrash.png', 'loading.png', 'sthiswrong.png', 'supportme.png')
+          foreach ($f in $required) {
+            $p = "assets\images\$f"
+            if (-not (Test-Path $p)) { Set-Content -Path $p -Value $placeholder -Encoding utf8 }
+          }
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Windows release
+        run: flutter build windows --release
+
+      - name: Build Windows debug
+        run: flutter build windows --debug
+
+      - name: Upload release build
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: build\windows\x64\runner\Release
+
+      - name: Upload debug build
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-debug
+          path: build\windows\x64\runner\Debug
+
+  # ═══════════════════════════════════════════════════════════
+  #  Watch Build
+  # ═══════════════════════════════════════════════════════════
+  build-watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: watch
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: 'stable'
+
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v2
+
+      - name: Install SDK 36
+        run: |
+          yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" 2>/dev/null || true
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pubcache-watch-${{ hashFiles('pubspec.lock') }}
+          restore-keys: pubcache-watch-
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/caches
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Create assets directories
+        run: |
+          mkdir -p assets/images
+          mkdir -p assets/icons
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Use global Gradle/Maven mirrors for CI
+        run: |
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
+          sed -i '/maven.*aliyun/d' android/settings.gradle android/build.gradle
+
+      - name: Build watch release APK
+        run: flutter build apk --release --target-platform android-arm64
+
+      - name: Build watch debug APK
+        run: flutter build apk --debug --target-platform android-arm64 --android-skip-build-dependency-validation
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+
+  # ═══════════════════════════════════════════════════════════
+  #  Linux Build + Packaging
+  # ═══════════════════════════════════════════════════════════
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: linux-desktop
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: 'stable'
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev libayatana-appindicator3-dev flatpak flatpak-builder
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pubcache-linux-${{ hashFiles('pubspec.lock') }}
+          restore-keys: pubcache-linux-
+
+      - name: Create assets directories
+        run: |
+          mkdir -p assets/images
+          mkdir -p assets/icons
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Linux release
+        run: flutter build linux --release
+
+      - name: Build Linux debug
+        run: flutter build linux --debug
+
+      # ── Package as .deb ──
+      - name: Package as .deb
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1)
+          DEB_DIR="dist/deb/ngskg-plus_${VERSION}_amd64"
+          mkdir -p "$DEB_DIR/DEBIAN"
+          mkdir -p "$DEB_DIR/usr/bin"
+          mkdir -p "$DEB_DIR/usr/share/applications"
+          mkdir -p "$DEB_DIR/usr/share/icons/hicolor/256x256/apps"
+          cp -r build/linux/x64/release/bundle/* "$DEB_DIR/usr/bin/"
+          cat > "$DEB_DIR/DEBIAN/control" << EOF
+          Package: ngskg-plus
+          Version: $VERSION
+          Architecture: amd64
+          Maintainer: mjiutang <mjiutang@example.com>
+          Description: NGS-KG+ Music Player
+           A Flutter music player based on KuGou third-party API.
+          Depends: libgtk-3-0, libnotify4, libayatana-appindicator3-1, libmpv2
+          EOF
+          cat > "$DEB_DIR/usr/share/applications/ngskg-plus.desktop" << EOF
+          [Desktop Entry]
+          Name=NGS-KG+
+          Exec=/usr/bin/ngskg
+          Icon=ngskg
+          Type=Application
+          Categories=Audio;Music;Player;
+          EOF
+          cp assets/images/icon.png "$DEB_DIR/usr/share/icons/hicolor/256x256/apps/ngskg.png"
+          dpkg-deb --build "$DEB_DIR" "dist/ngskg-plus_${VERSION}_amd64.deb"
+
+      # ── Package as .flatpak ──
+      - name: Package as .flatpak
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1)
+          cat > dist/com.mjiutang.ngskg.yml << EOF
+          app-id: com.mjiutang.ngskg
+          runtime: org.gnome.Platform
+          runtime-version: '46'
+          sdk: org.gnome.Sdk
+          command: ngskg
+          modules:
+            - name: ngskg
+              buildsystem: simple
+              build-commands:
+                - mkdir -p /app/bin
+                - cp -r * /app/bin/
+              sources:
+                - type: dir
+                  path: build/linux/x64/release/bundle
+          finish-args:
+            - --share=network
+            - --share=ipc
+            - --socket=x11
+            - --socket=wayland
+            - --socket=pulseaudio
+            - --device=dri
+            - --talk-name=org.kde.StatusNotifierWatcher
+            - --talk-name=org.freedesktop.Notifications
+          EOF
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install -y --user flathub org.gnome.Platform//46 || true
+          flatpak-builder --user --install-deps-from=flathub --force-clean dist/build dist/com.mjiutang.ngskg.yml
+          flatpak build-bundle dist/repo dist/ngskg-plus.flatpak com.mjiutang.ngskg
+
+      # ── Generate PKGBUILD ──
+      - name: Generate PKGBUILD
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1)
+          cat > dist/PKGBUILD << EOF
+          pkgname=ngskg-plus
+          pkgver=$VERSION
+          pkgrel=1
+          pkgdesc="NGS-KG+ Music Player (Flutter)"
+          arch=('x86_64')
+          url="https://github.com/Tangmjiu/NGS-KG"
+          license=('MIT')
+          depends=('gtk3' 'libayatana-appindicator' 'libnotify' 'mpv')
+          makedepends=('flutter' 'cmake' 'ninja' 'clang')
+          source=("\$url/archive/refs/tags/v\$pkgver.tar.gz")
+          sha256sums=('SKIP')
+          build() {
+            cd "NGS-KG-\$pkgver"
+            flutter build linux --release
+          }
+          package() {
+            cd "NGS-KG-\$pkgver"
+            mkdir -p "\$pkgdir/usr/bin"
+            cp -r build/linux/x64/release/bundle/* "\$pkgdir/usr/bin/"
+            mkdir -p "\$pkgdir/usr/share/applications"
+            cat > "\$pkgdir/usr/share/applications/ngskg-plus.desktop" << DESKTOP
+          [Desktop Entry]
+          Name=NGS-KG+
+          Exec=/usr/bin/ngskg
+          Icon=ngskg
+          Type=Application
+          Categories=Audio;Music;Player;
+          DESKTOP
+            mkdir -p "\$pkgdir/usr/share/icons/hicolor/256x256/apps"
+            cp assets/images/icon.png "\$pkgdir/usr/share/icons/hicolor/256x256/apps/ngskg.png"
+          }
+          EOF
+
+      - name: Upload release build
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-release
+          path: build/linux/x64/release/bundle
+
+      - name: Upload debug build
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-debug
+          path: build/linux/x64/debug/bundle
+
+      - name: Upload .deb package
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: dist/*.deb
+
+      - name: Upload .flatpak bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-flatpak
+          path: dist/*.flatpak
+
+      - name: Upload PKGBUILD
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-pkgbuild
+          path: dist/PKGBUILD
+
+  # ═══════════════════════════════════════════════════════════
+  #  Create GitHub Release
+  # ═══════════════════════════════════════════════════════════
+  release:
+    needs: [build-android, build-windows, build-watch, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List all artifacts
+        run: find artifacts -type f | head -50
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag_name }}
@@ -116,15 +423,38 @@ jobs:
 
             ## 下载
 
+            ### Android
             | 架构 | 文件 |
             |------|------|
-            | arm64-v8a | `NGS-KG-arm64-v8a-release.apk` |
-            | armeabi-v7a | `NGS-KG-armeabi-v7a-release.apk` |
-            | x86_64 | `NGS-KG-x86_64-release.apk` |
+            | arm64-v8a | `android-arm64-v8a-release.apk` |
+            | armeabi-v7a | `android-armeabi-v7a-release.apk` |
+            | x86_64 | `android-x86_64-release.apk` |
+
+            ### Windows
+            | 架构 | 文件 |
+            |------|------|
+            | x64 | `windows-release/` (zip) |
+
+            ### Linux
+            | 格式 | 文件 |
+            |------|------|
+            | .deb | `ngskg-plus_*.deb` |
+            | .flatpak | `ngskg-plus.flatpak` |
+            | PKGBUILD | `PKGBUILD` |
+
+            ### Watch (Wear OS)
+            | 架构 | 文件 |
+            |------|------|
+            | arm64 | `watch-release.apk` |
 
             也可在本页底部 Assets 下载。
           files: |
-            build/app/outputs/flutter-apk/*-release.apk
-            build/app/outputs/flutter-apk/*-debug.apk
+            artifacts/android-release-apks/*
+            artifacts/android-debug-apk/*
+            artifacts/windows-release/**
+            artifacts/linux-deb/*
+            artifacts/linux-flatpak/*
+            artifacts/linux-pkgbuild/*
+            artifacts/watch-release-apk/*
           draft: false
           prerelease: ${{ github.event.inputs.prerelease == 'true' }}
