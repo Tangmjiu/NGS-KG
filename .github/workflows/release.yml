@@ -4,13 +4,18 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release tag (e.g. v1.0.1)'
+        description: 'Release tag (e.g. v1.5.0-preview)'
         required: true
-        default: 'v1.0.1'
+        default: 'v1.5.0-preview'
       release_name:
-        description: 'Release name (e.g. NGS-KG+ v1.0.1)'
+        description: 'Release name (e.g. NGS-KG+ v1.5.0-preview)'
         required: true
-        default: 'NGS-KG+ v1.0.1'
+        default: 'NGS-KG+ v1.5.0-preview'
+      prerelease:
+        description: 'Is this a pre-release?'
+        required: false
+        default: 'true'
+        type: boolean
 
 jobs:
   build:
@@ -105,34 +110,21 @@ jobs:
           tag_name: ${{ github.event.inputs.tag_name }}
           name: ${{ github.event.inputs.release_name }}
           body: |
-            # NGS-KG+ 更新日志
+            # NGS-KG+ ${{ github.event.inputs.tag_name }}
 
-            ## 新增
+            > 代号 **Nightcord** 来源于 QQ 群代号投票——至于为什么选这个，我也不知道。
 
-            - **Apple Music 风格动态流光播放器背景**：HSL 色彩空间 8 色斑流动光效，5s 循环 + 大半径高斯模糊柔光混色
-            - **MD3 设计令牌系统**：AppShape（xs/sm/md/lg/xl/full 圆角体系）、AppMotion（标准/强调/减速/舒缓时长与缓动曲线）、AppBreakpoint（compact/medium/expanded 响应式断点）
-            - **跨平台更新检测器**：通过 GitHub Releases API 检查最新版本，识别 Android ABI（arm64-v8a / armeabi-v7a / x86_64）并下载对应 APK
-            - **音质设置独立子页面**：原 WiFi/蜂窝/下载三套独立音质设置移入独立子页面，设置组按「播放」「音频」「更新」「关于」重新组织
+            ## 下载
 
-            ## 变更
+            | 架构 | 文件 |
+            |------|------|
+            | arm64-v8a | `NGS-KG-arm64-v8a-release.apk` |
+            | armeabi-v7a | `NGS-KG-armeabi-v7a-release.apk` |
+            | x86_64 | `NGS-KG-x86_64-release.apk` |
 
-            - **Android 包名迁移**：`com.kugou.ngskg` → `com.mjiutang.ngskg`
-            - **版本管理统一**：`build.gradle` 从 `pubspec.yaml` 读取版本号，单一源消除漂移
-            - **通知歌词纯文本**：移除通知标题中的「♪」前缀
-            - **后台服务保活**：切换为 `START_STICKY` + 状态持久化，防止进程回收后静音
-            - **MIT 许可证**：项目根目录添加 LICENSE，主要源文件添加 SPDX 头
-            - **CI 提速**：debug 构建仅 arm64-v8a 单架构（~25min → ~12min）
-
-            ## 修复
-
-            - 流光背景颜色区域重叠 → per-blob 独立锚点 + 明度钳制 [0.12, 0.85]
-            - 锁屏歌词切换延迟 → 流光周期从 10s 优化为 5s
-            - 排行榜底部溢出 49px（SafeArea 适配）
-            - 日志详情行溢出 8.5px（itemExtent 64→72）
-            - 发现页集合字面量语法错误（内联变量表达式）
-            - 播放历史 API pagesize 不足导致数据缺失
+            也可在本页底部 Assets 下载。
           files: |
-            build/app/outputs/flutter-apk/*-debug.apk
             build/app/outputs/flutter-apk/*-release.apk
-          draft: true
-          prerelease: false
+            build/app/outputs/flutter-apk/*-debug.apk
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
