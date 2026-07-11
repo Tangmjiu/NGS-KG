@@ -99,7 +99,9 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
       final provider = context.read<DiscoverProvider>();
       if (provider.personalFmBuffer.isEmpty &&
           provider.personalFmSongs.isEmpty) {
-        provider.loadAll();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          provider.loadAll();
+        });
       }
     }
   }

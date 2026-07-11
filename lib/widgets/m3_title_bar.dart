@@ -119,11 +119,16 @@ class _M3TitleBarState extends State<M3TitleBar> with WindowListener {
         child: Row(
           children: [
             // ── 拖拽区域（图标+标题+中间空白）──
+            // 通过 windowManager.startDragging() 实现原生窗口拖拽
             Expanded(
               child: MouseRegion(
                 onEnter: (_) => setState(() => _isHoveringDragArea = true),
                 onExit: (_) => setState(() => _isHoveringDragArea = false),
-                child: AnimatedContainer(
+                child: GestureDetector(
+                  onPanStart: (_) {
+                    windowManager.startDragging();
+                  },
+                  child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
                     color: _isHoveringDragArea ? dragHoverBg : Colors.transparent,
                     height: double.infinity,
@@ -158,6 +163,7 @@ class _M3TitleBarState extends State<M3TitleBar> with WindowListener {
                         ),
                       ],
                     ),
+                  ),
                 ),
               ),
             ),
