@@ -74,7 +74,15 @@ class DiscoverProvider extends ChangeNotifier {
   // ─── 加载 ───
 
   /// 加载全部发现数据（首屏 + 下拉刷新）
+  /// 30 秒内不重复加载，防止导航切换导致连续重载
+  DateTime? _lastLoadAll;
+
   Future<void> loadAll() async {
+    if (_lastLoadAll != null &&
+        DateTime.now().difference(_lastLoadAll!).inSeconds < 30) {
+      return;
+    }
+    _lastLoadAll = DateTime.now();
     _loading = true;
     _error = null;
     notifyListeners();
