@@ -84,18 +84,36 @@ jobs:
           Depends: libgtk-3-0, libnotify4, libayatana-appindicator3-1, libmpv2
           EOF
           
+          # Create postinst script (MIME database + desktop database update)
+          cat > "$DEB_DIR/DEBIAN/postinst" << EOF
+          #!/bin/sh
+          set -e
+          if command -v update-mime-database >/dev/null 2>&1; then
+            update-mime-database /usr/share/mime >/dev/null 2>&1 || true
+          fi
+          if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database >/dev/null 2>&1 || true
+          fi
+          EOF
+          chmod 755 "$DEB_DIR/DEBIAN/postinst"
+          
           # Create desktop file
           cat > "$DEB_DIR/usr/share/applications/ngskg-plus.desktop" << EOF
           [Desktop Entry]
           Name=NGS-KG+
-          Exec=/usr/bin/ngskg_plus
+          Exec=/usr/bin/ngskg_plus %u
           Icon=ngskg
           Type=Application
           Categories=Audio;Music;Player;
+          MimeType=application/x-ngskg-playlist;x-scheme-handler/ngskg;
           EOF
           
           # Copy icon
           cp assets/images/icon.png "$DEB_DIR/usr/share/icons/hicolor/256x256/apps/ngskg.png"
+          
+          # Install MIME XML
+          mkdir -p "$DEB_DIR/usr/share/mime/packages"
+          cp linux/mime/ngskg-plus.xml "$DEB_DIR/usr/share/mime/packages/"
           
           # Build .deb
           dpkg-deb --build "$DEB_DIR" "dist/ngskg-plus_${VERSION}_amd64.deb"
@@ -135,6 +153,23 @@ jobs:
             - --device=dri
             - --talk-name=org.kde.StatusNotifierWatcher
             - --talk-name=org.freedesktop.Notifications
+
+          # Register ngskg:// protocol handler
+          rename-desktop-file: ngskg-plus.desktop
+          desktop-file-name-prefix: NGS-KG+
+          desktop-file-name-suffix: " (Flatpak)"
+          EOF
+
+          # Copy desktop file with MimeType for protocol handler
+          mkdir -p dist/build/files/share/applications
+          cat > dist/build/files/share/applications/ngskg-plus.desktop << EOF
+          [Desktop Entry]
+          Name=NGS-KG+
+          Exec=ngskg_plus %u
+          Icon=ngskg
+          Type=Application
+          Categories=Audio;Music;Player;
+          MimeType=application/x-ngskg-playlist;x-scheme-handler/ngskg;
           EOF
 
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
@@ -183,14 +218,19 @@ jobs:
             cat > "\$pkgdir/usr/share/applications/ngskg-plus.desktop" << DESKTOP
           [Desktop Entry]
           Name=NGS-KG+
-          Exec=/usr/bin/ngskg_plus
+          Exec=/usr/bin/ngskg_plus %u
           Icon=ngskg
           Type=Application
           Categories=Audio;Music;Player;
+          MimeType=application/x-ngskg-playlist;x-scheme-handler/ngskg;
           DESKTOP
             
             mkdir -p "\$pkgdir/usr/share/icons/hicolor/256x256/apps"
             cp assets/images/icon.png "\$pkgdir/usr/share/icons/hicolor/256x256/apps/ngskg.png"
+            
+            # MIME XML
+            mkdir -p "\$pkgdir/usr/share/mime/packages"
+            cp linux/mime/ngskg-plus.xml "\$pkgdir/usr/share/mime/packages/"
           }
           EOF
           
