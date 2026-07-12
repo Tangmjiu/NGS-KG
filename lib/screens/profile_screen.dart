@@ -461,6 +461,7 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
                     final song = _songs[i];
                     return SongTile(
                       song: song,
+                      index: i,
                       onTap: (s) => context
                           .read<PlayerProvider>()
                           .playSong(s, playlist: _songs),

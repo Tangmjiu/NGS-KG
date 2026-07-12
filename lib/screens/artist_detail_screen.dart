@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../widgets/staggered_fade_slide.dart';
 import '../models/song.dart';
 import '../models/album.dart';
 import '../providers/player_provider.dart';
@@ -127,9 +128,13 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
           onPressed: _toggleFollow,
         ),
       ],
-      child: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _buildDesktopContent(),
+      child: StaggeredFadeSlide(
+        index: 0,
+        slideOffset: 12,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _buildDesktopContent(),
+      ),
     );
   }
 
@@ -248,9 +253,13 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
       itemCount: _albums.length,
       itemBuilder: (_, i) {
         final album = _albums[i];
-        return GestureDetector(
-          onTap: () {
-            if (album.id > 0) {
+        return StaggeredFadeSlide(
+          index: i,
+          slideOffset: 8,
+          staggerMs: 20,
+          child: GestureDetector(
+            onTap: () {
+              if (album.id > 0) {
               ShellNavigationScope.navigate(
                 context,
                 routeName: '/album/detail',
@@ -293,12 +302,13 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                     style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
             ],
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
-  Widget _desktopPlaceholder(ColorScheme cs) {
+Widget _desktopPlaceholder(ColorScheme cs) {
     return Container(
       width: 100, height: 100,
       color: cs.surfaceContainerHighest,
@@ -460,6 +470,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
             itemCount: _songs.length,
             itemBuilder: (_, i) => SongTile(
               song: _songs[i],
+              index: i,
               onTap: (s) => context
                   .read<PlayerProvider>()
                   .playSong(s, playlist: _songs),
@@ -487,9 +498,13 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
       itemCount: _albums.length,
       itemBuilder: (_, i) {
         final album = _albums[i];
-        return GestureDetector(
-          onTap: () {
-            if (album.id > 0) {
+        return StaggeredFadeSlide(
+          index: i,
+          slideOffset: 8,
+          staggerMs: 20,
+          child: GestureDetector(
+            onTap: () {
+              if (album.id > 0) {
               ShellNavigationScope.navigate(
                 context,
                 routeName: '/album/detail',
@@ -532,7 +547,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                     style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
             ],
           ),
-        );
+        ));
       },
     );
   }

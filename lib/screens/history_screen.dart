@@ -146,6 +146,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             itemCount: _songs.length,
             itemBuilder: (_, i) => SongTile(
               song: _songs[i],
+              index: i,
               onTap: (s) => context
                   .read<PlayerProvider>()
                   .playSong(s, playlist: _songs),

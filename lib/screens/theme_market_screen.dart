@@ -7,6 +7,7 @@ import '../services/market_service.dart';
 import '../utils/logger.dart';
 import '../utils/responsive.dart';
 import '../widgets/desktop_route_wrapper.dart';
+import '../widgets/staggered_fade_slide.dart';
 
 class ThemeMarketScreen extends StatefulWidget {
   const ThemeMarketScreen({super.key});
@@ -216,10 +217,15 @@ class _ThemeMarketScreenState extends State<ThemeMarketScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         itemCount: _listings.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (_, i) => _ThemeMarketCard(
-          listing: _listings[i],
-          installed: _installedIds.contains(_listings[i].id),
-          onInstall: () => _install(_listings[i]),
+        itemBuilder: (_, i) => StaggeredFadeSlide(
+          index: i,
+          slideOffset: 12,
+          staggerMs: 30,
+          child: _ThemeMarketCard(
+            listing: _listings[i],
+            installed: _installedIds.contains(_listings[i].id),
+            onInstall: () => _install(_listings[i]),
+          ),
         ),
       ),
     );

@@ -1098,7 +1098,7 @@ class _DesktopPlayerBar extends StatelessWidget {
 // Small icon button for player bar controls
 // ============================================================================
 
-class _IconBtn extends StatelessWidget {
+class _IconBtn extends StatefulWidget {
   final IconData icon;
   final double size;
   final String tooltip;
@@ -1114,18 +1114,48 @@ class _IconBtn extends StatelessWidget {
   });
 
   @override
+  State<_IconBtn> createState() => _IconBtnState();
+}
+
+class _IconBtnState extends State<_IconBtn> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return IconButton(
-      icon: Icon(icon, size: size),
-      color: iconColor ?? (onPressed != null
-          ? cs.onSurface
-          : cs.onSurfaceVariant.withValues(alpha: 0.4)),
-      tooltip: tooltip,
-      onPressed: onPressed,
-      splashRadius: 20,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          color: _isHovered
+              ? cs.surfaceContainerHighest.withValues(alpha: 0.6)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: IconButton(
+          icon: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, animation) =>
+                FadeTransition(opacity: animation, child: child),
+            child: Icon(
+              widget.icon,
+              key: ValueKey(widget.icon),
+              size: widget.size,
+            ),
+          ),
+          color: widget.iconColor ?? (widget.onPressed != null
+              ? cs.onSurface
+              : cs.onSurfaceVariant.withValues(alpha: 0.4)),
+          tooltip: widget.tooltip,
+          onPressed: widget.onPressed,
+          splashRadius: 20,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        ),
+      ),
     );
   }
 }

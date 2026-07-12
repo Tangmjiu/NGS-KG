@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../widgets/staggered_fade_slide.dart';
 import '../models/playlist.dart';
 import '../services/music_service.dart';
 import '../utils/responsive.dart';
@@ -138,13 +139,17 @@ class _RecommendedPlaylistsScreenState
                   );
                 }
                 final p = _playlists[index];
-                return GestureDetector(
-                  onTap: () {
-                    ShellNavigationScope.navigate(
-                      context,
-                      routeName: '/playlist/detail',
-                      arguments: {
-                        'gcId': p.globalCollectionId ??
+                return StaggeredFadeSlide(
+                  index: index,
+                  slideOffset: 8,
+                  staggerMs: 20,
+                  child: GestureDetector(
+                    onTap: () {
+                      ShellNavigationScope.navigate(
+                        context,
+                        routeName: '/playlist/detail',
+                        arguments: {
+                          'gcId': p.globalCollectionId ??
                             'collection_3_${p.createUserId}_${p.id}_0',
                         'name': p.name,
                       },
@@ -199,7 +204,7 @@ class _RecommendedPlaylistsScreenState
                       ],
                     ],
                   ),
-                );
+              ));
               },
             );
           },

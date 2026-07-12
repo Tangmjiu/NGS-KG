@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/playlist.dart';
 import '../providers/playlist_provider.dart';
 import '../widgets/create_playlist_dialog.dart';
+import '../widgets/staggered_fade_slide.dart';
 
 /// Navigation item descriptor for the desktop sidebar.
 class _NavItem {
@@ -182,10 +183,13 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
                   itemBuilder: (_, i) {
                     final pl = playlists[i];
                     final isSelected = pl.id == widget.activePlaylistId;
-                    return _PlaylistSidebarTile(
-                      playlist: pl,
-                      isSelected: isSelected,
-                      onTap: () => widget.onPlaylistSelected(pl),
+                    return StaggeredFadeSlide(
+                      index: i,
+                      child: _PlaylistSidebarTile(
+                        playlist: pl,
+                        isSelected: isSelected,
+                        onTap: () => widget.onPlaylistSelected(pl),
+                      ),
                     );
                   },
                 );

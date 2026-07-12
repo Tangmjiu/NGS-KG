@@ -16,6 +16,7 @@ import '../services/device_service.dart';
 import '../utils/logger.dart';
 import '../utils/responsive.dart';
 import '../widgets/desktop_route_wrapper.dart';
+import '../widgets/staggered_fade_slide.dart';
 import 'log_viewer_screen.dart';
 import 'audio_effects_screen.dart';
 import 'audio_quality_screen.dart';
@@ -77,11 +78,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildSettingsContent() {
+    int i = 0;
     return ListView(
       children: [
         // ── 账户 ──
-        const _SectionHeader('账户'),
-        Consumer<AuthProvider>(
+        StaggeredFadeSlide(index: i++, child: const _SectionHeader('账户')),
+        StaggeredFadeSlide(index: i++, child: Consumer<AuthProvider>(
           builder: (_, auth, __) => ListTile(
             title: Text(auth.isLoggedIn ? '退出登录' : '登录'),
             subtitle: Text(auth.isLoggedIn
@@ -102,8 +104,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               }
             },
           ),
-        ),
-        Consumer<AudioSettingsProvider>(
+        )),
+        StaggeredFadeSlide(index: i++, child: Consumer<AudioSettingsProvider>(
           builder: (_, settings, __) => SwitchListTile(
             secondary: const Icon(Icons.history),
             title: const Text('提交听歌历史'),
@@ -111,12 +113,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: settings.uploadHistory,
             onChanged: (v) => settings.setUploadHistory(v),
           ),
-        ),
+        )),
         const Divider(),
 
         // ── API 服务 ──
-        const _SectionHeader('API 服务'),
-        ListTile(
+        StaggeredFadeSlide(index: i++, child: const _SectionHeader('API 服务')),
+        StaggeredFadeSlide(index: i++, child: ListTile(
           leading: const Icon(Icons.dns_outlined),
           title: const Text('API 服务器'),
           subtitle: const Text('选择服务器路线或自定义地址'),
@@ -126,12 +128,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             page: const ApiSettingsScreen(),
             routeBuilder: () => MaterialPageRoute(builder: (_) => const ApiSettingsScreen()),
           ),
-        ),
+        )),
         const Divider(),
 
         // ── 主题 ──
-        const _SectionHeader('主题'),
-        ListTile(
+        StaggeredFadeSlide(index: i++, child: const _SectionHeader('主题')),
+        StaggeredFadeSlide(index: i++, child: ListTile(
           leading: const Icon(Icons.palette_outlined),
           title: const Text('主题设置'),
           subtitle: const Text('主题模式、强调色、动态取色'),
@@ -141,8 +143,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             page: const ThemeSettingsScreen(),
             routeBuilder: () => MaterialPageRoute(builder: (_) => const ThemeSettingsScreen()),
           ),
-        ),
-        ListTile(
+        )),
+        StaggeredFadeSlide(index: i++, child: ListTile(
           leading: const Icon(Icons.storefront_outlined),
           title: const Text('主题市场'),
           subtitle: const Text('发现、下载、应用社区主题'),
@@ -152,8 +154,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             page: const ThemeMarketScreen(),
             routeBuilder: () => MaterialPageRoute(builder: (_) => const ThemeMarketScreen()),
           ),
-        ),
-        Consumer<ThemeProvider>(
+        )),
+        StaggeredFadeSlide(index: i++, child: Consumer<ThemeProvider>(
           builder: (_, tp, __) => SwitchListTile(
             secondary: const Icon(Icons.blur_on),
             title: const Text('动态流光'),
@@ -161,12 +163,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: tp.flowLightEnabled,
             onChanged: (v) => tp.setFlowLightEnabled(v),
           ),
-        ),
+        )),
         const Divider(),
 
         // ── 播放与音质 ──
-        const _SectionHeader('播放与音质'),
-        ListTile(
+        StaggeredFadeSlide(index: i++, child: const _SectionHeader('播放与音质')),
+        StaggeredFadeSlide(index: i++, child: ListTile(
           leading: const Icon(Icons.tune),
           title: const Text('音效'),
           subtitle: const Text('音量、播放速度、均衡器'),
@@ -176,8 +178,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             page: const AudioEffectsScreen(),
             routeBuilder: () => MaterialPageRoute(builder: (_) => const AudioEffectsScreen()),
           ),
-        ),
-        ListTile(
+        )),
+        StaggeredFadeSlide(index: i++, child: ListTile(
           leading: const Icon(Icons.speed),
           title: const Text('音质设置'),
           subtitle: const Text('WiFi/蜂窝/下载音质、智能模式'),
@@ -187,8 +189,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             page: const AudioQualityScreen(),
             routeBuilder: () => MaterialPageRoute(builder: (_) => const AudioQualityScreen()),
           ),
-        ),
-        ListTile(
+        )),
+        StaggeredFadeSlide(index: i++, child: ListTile(
           leading: const Icon(Icons.cleaning_services_outlined),
           title: const Text('清除缓存'),
           subtitle: const Text('清除临时数据和请求缓存'),
@@ -202,12 +204,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
             }
           },
-        ),
+        )),
         const Divider(),
 
         // ── 关于 ──
-        const _SectionHeader('关于'),
-        ListTile(
+        StaggeredFadeSlide(index: i++, child: const _SectionHeader('关于')),
+        StaggeredFadeSlide(index: i++, child: ListTile(
           leading: const Icon(Icons.info_outline),
           title: const Text('关于 NGS-KG+'),
           subtitle: Text('版本 $_appVersion${PreviewConfig.enabled ? ' · preview' : ''} · 开源声明'),
@@ -217,15 +219,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             page: const AboutScreen(),
             routeBuilder: () => MaterialPageRoute(builder: (_) => const AboutScreen()),
           ),
-        ),
-        ListTile(
+        )),
+        StaggeredFadeSlide(index: i++, child: ListTile(
           leading: const Icon(Icons.favorite_outline),
           title: const Text('支持作者'),
           subtitle: const Text('去 GitHub 点个 star 或者赞助'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => showSupportMeDialog(context),
-        ),
-        ListTile(
+        )),
+        StaggeredFadeSlide(index: i++, child: ListTile(
           leading: const Icon(Icons.terminal),
           title: const Text('开发者'),
           subtitle: const Text('调试功能'),
@@ -257,7 +259,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             );
           },
-        ),
+        )),
       ],
     );
   }

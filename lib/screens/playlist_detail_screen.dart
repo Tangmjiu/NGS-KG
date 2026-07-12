@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../widgets/staggered_fade_slide.dart';
 import '../providers/playlist_provider.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
@@ -105,7 +106,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               onPressed: _toggleSelectMode,
             ),
           ],
-          child: _buildDesktopContent(provider),
+          child: StaggeredFadeSlide(
+            index: 0,
+            slideOffset: 12,
+            child: _buildDesktopContent(provider),
+          ),
         );
       },
     );
@@ -378,6 +383,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
                     final tile = SongTile(
                       song: song,
+                      index: index,
                       onTap: (s) => context
                           .read<PlayerProvider>()
                           .playSong(s,

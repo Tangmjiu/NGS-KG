@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/song.dart';
+import '../widgets/staggered_fade_slide.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
@@ -58,7 +59,11 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
   Widget _buildDesktop() {
     return DesktopRouteWrapper(
       title: widget.rankName ?? '排行榜',
-      child: _buildDesktopContent(),
+      child: StaggeredFadeSlide(
+        index: 0,
+        slideOffset: 12,
+        child: _buildDesktopContent(),
+      ),
     );
   }
 

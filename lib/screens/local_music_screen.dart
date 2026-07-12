@@ -7,7 +7,6 @@ import '../navidrome/navidrome_provider.dart';
 import '../navidrome/navidrome_login_screen.dart';
 import '../navidrome/navidrome_screen.dart';
 import '../utils/responsive.dart';
-import '../widgets/desktop_route_wrapper.dart';
 import '../widgets/desktop_song_table.dart';
 import '../widgets/local_cover_art.dart';
 import '../utils/logger.dart';
@@ -78,11 +77,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
         appBar: AppBar(title: const Text('本地音乐')),
         body: content,
       ),
-      desktop: (_) => DesktopRouteWrapper(
-        title: '本地音乐',
-        maxWidth: 1000,
-        child: content,
-      ),
+      desktop: (_) => content,
     );
   }
 

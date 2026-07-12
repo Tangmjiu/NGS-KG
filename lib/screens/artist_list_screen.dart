@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/artist.dart';
 import '../utils/logger.dart';
+import '../widgets/staggered_fade_slide.dart';
 import '../utils/responsive.dart';
 import '../services/music_service.dart';
 import '../widgets/shell_navigation_scope.dart';
@@ -70,18 +71,22 @@ class _ArtistListScreenState extends State<ArtistListScreen> {
                 itemCount: _artists.length,
                 itemBuilder: (_, i) {
                   final artist = _artists[i];
-                  return GestureDetector(
-                    onTap: () => ShellNavigationScope.navigate(
-                      context,
-                      routeName: '/artist/detail',
-                      arguments: {'id': artist.id, 'name': artist.name},
-                      shellPageBuilder: () => ArtistDetailScreen(
-                        artistId: artist.id,
-                        artistName: artist.name,
+                  return StaggeredFadeSlide(
+                    index: i,
+                    slideOffset: 8,
+                    staggerMs: 20,
+                    child: GestureDetector(
+                      onTap: () => ShellNavigationScope.navigate(
+                        context,
+                        routeName: '/artist/detail',
+                        arguments: {'id': artist.id, 'name': artist.name},
+                        shellPageBuilder: () => ArtistDetailScreen(
+                          artistId: artist.id,
+                          artistName: artist.name,
+                        ),
                       ),
-                    ),
-                    child: Column(
-                      children: [
+                      child: Column(
+                        children: [
                         CircleAvatar(
                           radius: 40,
                           backgroundImage: artist.picUrl != null
@@ -98,7 +103,7 @@ class _ArtistListScreenState extends State<ArtistListScreen> {
                             textAlign: TextAlign.center),
                       ],
                     ),
-                  );
+                  ));
                 },
               );
             },

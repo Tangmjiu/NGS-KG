@@ -9,18 +9,20 @@ import '../providers/playlist_provider.dart';
 import '../screens/album_detail_screen.dart';
 import '../services/music_service.dart';
 import '../theme/theme_assets.dart';
+import '../widgets/staggered_fade_slide.dart';
 
 class SongTile extends StatelessWidget {
   final Song song;
   final void Function(Song song)? onTap;
+  final int? index;
 
-  const SongTile({super.key, required this.song, this.onTap});
+  const SongTile({super.key, required this.song, this.onTap, this.index});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    return Semantics(
+    final tile = Semantics(
       button: true,
       child: MergeSemantics(
         child: ListTile(
@@ -121,6 +123,10 @@ class SongTile extends StatelessWidget {
         ),
       ),
     );
+    if (index != null) {
+      return StaggeredFadeSlide(index: index!, child: tile);
+    }
+    return tile;
   }
 
   void _showContextMenu(BuildContext context) {

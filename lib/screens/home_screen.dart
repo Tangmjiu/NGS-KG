@@ -11,6 +11,7 @@ import '../models/song_mapper.dart';
 import '../utils/logger.dart';
 import '../utils/responsive.dart';
 import '../widgets/shell_navigation_scope.dart';
+import '../widgets/staggered_fade_slide.dart';
 import 'search_screen.dart';
 import 'playlist_detail_screen.dart';
 import 'recommended_playlists_screen.dart';
@@ -640,67 +641,74 @@ class _HomeScreenState extends State<HomeScreen> {
     final tt = Theme.of(context).textTheme;
     final player = context.read<PlayerProvider>();
 
-    return InkWell(
-      onTap: () {
-        player.playlistEndProvider = onEnd;
-        player.playSong(song, playlist: allSongs.sublist(index));
-      },
-      hoverColor: cs.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: song.albumCoverUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: song.albumCoverUrl!,
-                      width: 40, height: 40,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) =>
-                          Container(width: 40, height: 40, color: cs.surface),
-                      errorWidget: (_, __, ___) => Container(
-                          width: 40, height: 40,
-                          color: cs.surface,
-                          child: const Icon(Icons.music_note, size: 18)),
-                    )
-                  : Container(
-                      width: 40, height: 40,
-                      color: cs.surface,
-                      child: const Icon(Icons.music_note, size: 18)),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(song.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: tt.bodySmall
-                          ?.copyWith(fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 2),
-                  Text(song.artistDisplay,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
-                ],
+    return StaggeredFadeSlide(
+      index: index,
+      slideOffset: 8,
+      staggerMs: 20,
+      child: PressFeedback(
+        onPressed: () {
+          player.playlistEndProvider = onEnd;
+          player.playSong(song, playlist: allSongs.sublist(index));
+        },
+        child: InkWell(
+          hoverColor: cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: song.albumCoverUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: song.albumCoverUrl!,
+                        width: 40, height: 40,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) =>
+                            Container(width: 40, height: 40, color: cs.surface),
+                        errorWidget: (_, __, ___) => Container(
+                            width: 40, height: 40,
+                            color: cs.surface,
+                            child: const Icon(Icons.music_note, size: 18)),
+                      )
+                    : Container(
+                        width: 40, height: 40,
+                        color: cs.surface,
+                        child: const Icon(Icons.music_note, size: 18)),
               ),
-            ),
-            IconButton(
-              icon: Icon(Icons.play_arrow_rounded, size: 18, color: cs.primary),
-              onPressed: () {
-                player.playlistEndProvider = onEnd;
-                player.playSong(song, playlist: allSongs.sublist(index));
-              },
-              tooltip: '播放',
-            ),
-          ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(song.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.bodySmall
+                            ?.copyWith(fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 2),
+                    Text(song.artistDisplay,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.play_arrow_rounded, size: 18, color: cs.primary),
+                onPressed: () {
+                  player.playlistEndProvider = onEnd;
+                  player.playSong(song, playlist: allSongs.sublist(index));
+                },
+                tooltip: '播放',
+              ),
+            ],
+          ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildContinueBanner(ColorScheme cs, TextTheme tt) {

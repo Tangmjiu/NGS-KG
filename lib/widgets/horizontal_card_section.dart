@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/staggered_fade_slide.dart';
 
 /// 发现页通用横向滚动卡片区块
 ///
@@ -69,11 +70,16 @@ class HorizontalCardSection extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: itemCount,
-            itemBuilder: (context, index) => Padding(
-              padding: EdgeInsets.only(right: index < itemCount - 1 ? gap : 0),
-              child: SizedBox(
-                width: cardWidth,
-                child: itemBuilder(context, index),
+            itemBuilder: (context, index) => StaggeredFadeSlide(
+              index: index,
+              slideOffset: 8,
+              staggerMs: 20,
+              child: Padding(
+                padding: EdgeInsets.only(right: index < itemCount - 1 ? gap : 0),
+                child: SizedBox(
+                  width: cardWidth,
+                  child: itemBuilder(context, index),
+                ),
               ),
             ),
           ),

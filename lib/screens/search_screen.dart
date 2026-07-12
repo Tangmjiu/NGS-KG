@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../widgets/staggered_fade_slide.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/rank_entry.dart';
 import '../models/song.dart';
@@ -469,6 +470,7 @@ class _SearchScreenState extends State<SearchScreen>
       itemCount: _songs.length,
       itemBuilder: (_, i) => SongTile(
         song: _songs[i],
+        index: i,
         onTap: (s) => context
             .read<PlayerProvider>()
             .playSong(s, playlist: _songs),

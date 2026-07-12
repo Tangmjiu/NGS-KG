@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../widgets/staggered_fade_slide.dart';
 import '../models/playlist.dart';
 import '../services/music_service.dart';
 import '../utils/responsive.dart';
@@ -128,8 +129,12 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     final p = _playlists[index];
-    return GestureDetector(
-      onTap: () => _openPlaylist(p),
+    return StaggeredFadeSlide(
+      index: index,
+      slideOffset: 8,
+      staggerMs: 20,
+      child: GestureDetector(
+        onTap: () => _openPlaylist(p),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -168,7 +173,7 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildDesktopItem(BuildContext context, int index) {
@@ -177,8 +182,12 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     final p = _playlists[index];
-    return GestureDetector(
-      onTap: () => _openPlaylist(p),
+    return StaggeredFadeSlide(
+      index: index,
+      slideOffset: 8,
+      staggerMs: 20,
+      child: GestureDetector(
+        onTap: () => _openPlaylist(p),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -222,6 +231,6 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 }
