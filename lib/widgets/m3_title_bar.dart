@@ -122,46 +122,49 @@ class _M3TitleBarState extends State<M3TitleBar> with WindowListener {
       child: Row(
         children: [
           // ── 拖拽区域（图标+标题+中间空白）──
-          // 拖拽手势通过窗口管理器方法通道发起原生窗口拖拽。
+          // DragToMoveArea 使 Linux/macOS 等平台在隐藏原生标题栏后仍可拖拽窗口；
+          // Windows 通过 win32_window.cpp WM_NCHITTEST 返回 HTCAPTION 实现拖拽。
           // 按钮在拖拽区域之外以免被吞事件。
           Expanded(
-            child: MouseRegion(
-              onEnter: (_) => setState(() => _isHoveringDragArea = true),
-              onExit: (_) => setState(() => _isHoveringDragArea = false),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                color: _isHoveringDragArea ? dragHoverBg : Colors.transparent,
-                height: double.infinity,
-                alignment: Alignment.centerLeft,
-                child: Row(
-                  children: [
-                    const SizedBox(width: 12),
-                    SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: Image.asset(
-                          'assets/images/icon.png',
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Icon(
-                            Icons.music_note_rounded,
-                            size: 18,
-                            color: cs.primary,
+            child: DragToMoveArea(
+              child: MouseRegion(
+                onEnter: (_) => setState(() => _isHoveringDragArea = true),
+                onExit: (_) => setState(() => _isHoveringDragArea = false),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  color: _isHoveringDragArea ? dragHoverBg : Colors.transparent,
+                  height: double.infinity,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: Image.asset(
+                            'assets/images/icon.png',
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Icon(
+                              Icons.music_note_rounded,
+                              size: 18,
+                              color: cs.primary,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      widget.title,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: cs.onSurface,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0.3,
-                          ),
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      Text(
+                        widget.title,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: cs.onSurface,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.3,
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
