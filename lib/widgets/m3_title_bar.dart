@@ -83,7 +83,11 @@ class _M3TitleBarState extends State<M3TitleBar> with WindowListener {
   void _onMaximizeOrRestore() {
     debugPrint(
         '[M3TitleBar] maximize/restore (current: ${_isMaximized ? "maximized" : "normal"})');
-    windowManager.maximizeOrRestore();
+    if (_isMaximized) {
+      windowManager.unmaximize();
+    } else {
+      windowManager.maximize();
+    }
   }
 
   void _onClose() {
