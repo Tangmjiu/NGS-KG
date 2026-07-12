@@ -85,7 +85,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
       selectedTranslationColor: const Color(0xFF8A7FA0),
       scrollDuration: const Duration(milliseconds: 400),
       scrollCurve: Curves.easeInOutCubic,
-      scrollDurations: {},
+      // 小距离快滚、大距离平滑：提高滚轮跟手感
+      scrollDurations: {
+        50.0: const Duration(milliseconds: 150),
+        200.0: const Duration(milliseconds: 300),
+      },
       enableSwitchAnimation: true,
       switchEnterDuration: const Duration(milliseconds: 200),
       switchExitDuration: const Duration(milliseconds: 200),
@@ -93,7 +97,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       switchExitCurve: Curves.easeOut,
       selectionAutoResumeMode: SelectionAutoResumeMode.selecting,
       selectionAutoResumeDuration: const Duration(milliseconds: 500),
-      activeAutoResumeDuration: const Duration(milliseconds: 3000),
+      // 8s 后才自动恢复跟随，给足阅读时间（Apple Music 风格）
+      activeAutoResumeDuration: const Duration(seconds: 8),
 
       // 上下渐隐范围：仅 blurEffect 开启时生效
       fadeRange: ls.blurEffect
@@ -124,6 +129,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   // ─── Drag state (progress bar) ───
   bool _isDraggingProgress = false;
   double _dragProgressValue = 0.0;
+
+  // ─── Focus node for mouse wheel capture on desktop ───
+  final FocusNode _lyricsFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -196,6 +204,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
+    _lyricsFocusNode.dispose();
     _pageController.removeListener(_onPageScroll);
     _pageController.dispose();
     try {
@@ -833,10 +842,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
       );
     } else {
-      lyricsContent = LyricView(
-        key: ValueKey('lyrics_${_selectedLyricLang}_${_lastLoadedHash ?? _lastLoadedSongId}'),
-        controller: player.lyricController,
-        style: _buildLyricStyle(),
+      lyricsContent = Focus(
+        focusNode: _lyricsFocusNode,
+        child: MouseRegion(
+          onEnter: (_) => _lyricsFocusNode.requestFocus(),
+          child: LyricView(
+            key: ValueKey('lyrics_${_selectedLyricLang}_${_lastLoadedHash ?? _lastLoadedSongId}'),
+            controller: player.lyricController,
+            style: _buildLyricStyle(),
+          ),
+        ),
       );
     }
 
@@ -871,13 +886,61 @@ class _PlayerScreenState extends State<PlayerScreen> {
       children: [
         const SizedBox(height: 4),
 
-        // Lyrics area
+        // Lyrics area (with optional "back to current" overlay)
         Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: lyricsWidget,
+              child: Stack(
+                children: [
+                  lyricsWidget,
+                  // "回到当前行"按钮 — 只在用户手动滚动后显示
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: ValueListenableBuilder<bool>(
+                      valueListenable: player.lyricController.isSelectingNotifier,
+                      builder: (_, isSelecting, __) {
+                        if (!isSelecting) return const SizedBox.shrink();
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: GestureDetector(
+                              onTap: () => player.lyricController.stopSelection(),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.3)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.vertical_align_top,
+                                        size: 16, color: Colors.white),
+                                    SizedBox(width: 6),
+                                    Text('回到当前行',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        )),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

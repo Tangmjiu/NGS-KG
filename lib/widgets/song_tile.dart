@@ -88,12 +88,24 @@ class SongTile extends StatelessWidget {
                 onSelected: (value) {
                   if (value == 'queue') {
                     context.read<PlayerProvider>().addToQueue(song);
+                  } else if (value == 'next') {
+                    context.read<PlayerProvider>().playNextSong(song);
+                  } else if (value == 'playlist') {
+                    _addToPlaylist(context);
                   }
                 },
                 itemBuilder: (_) => [
                   const PopupMenuItem(
+                    value: 'next',
+                    child: Text('下一首播放', style: TextStyle(fontSize: 13)),
+                  ),
+                  const PopupMenuItem(
                     value: 'queue',
                     child: Text('添加到队列', style: TextStyle(fontSize: 13)),
+                  ),
+                  const PopupMenuItem(
+                    value: 'playlist',
+                    child: Text('添加到歌单', style: TextStyle(fontSize: 13)),
                   ),
                 ],
               ),
@@ -203,7 +215,7 @@ class SongTile extends StatelessWidget {
                     onTap: () async {
                       Navigator.pop(ctx);
                       final data = (song.hash?.isNotEmpty ?? false)
-                          ? '${song.name}|${song.hash}|${song.albumId}|${song.id}'
+                          ? '${song.name}|${song.hash}|${song.albumId}|${song.mixSongId ?? song.id}'
                           : song.name;
                       try {
                         await MusicService().addTracksToPlaylist(pl.id, data);

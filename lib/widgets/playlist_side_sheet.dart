@@ -453,7 +453,7 @@ class _PlaylistSideSheet extends StatelessWidget {
                 if (playlistId != null && context.mounted) {
                   for (final s in songs) {
                     final trackData = (s.hash?.isNotEmpty ?? false)
-                        ? '${s.name}|${s.hash}|${s.albumId}|${s.id}'
+                        ? '${s.name}|${s.hash}|${s.albumId}|${s.mixSongId ?? s.id}'
                         : s.name;
                     await MusicService().addTracksToPlaylist(playlistId, trackData);
                   }

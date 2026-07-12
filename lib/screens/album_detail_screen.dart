@@ -505,7 +505,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                         for (final s in songs) {
                           final data =
                               (s.hash?.isNotEmpty ?? false)
-                                  ? '${s.name}|${s.hash}|${s.albumId}|${s.id}'
+                                  ? '${s.name}|${s.hash}|${s.albumId}|${s.mixSongId ?? s.id}'
                                   : s.name;
                           await MusicService()
                               .addTracksToPlaylist(pl.id, data);

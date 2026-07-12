@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart' show PointerScrollEvent;
 import 'package:provider/provider.dart';
 import 'local_cover_art.dart';
 import 'package:flutter_lyric/flutter_lyric.dart';
@@ -62,17 +63,21 @@ final _desktopLyricStyle = LyricStyle(
   activeHighlightExtraFadeWidth: 24,
   selectedColor: Color(0xFFCDCDCD),
   selectedTranslationColor: Color(0xFF999999),
-  scrollDuration: const Duration(milliseconds: 400),
-  scrollCurve: Curves.easeInOutCubic,
-  scrollDurations: {},
-  enableSwitchAnimation: true,
-  switchEnterDuration: const Duration(milliseconds: 200),
-  switchExitDuration: const Duration(milliseconds: 200),
-  switchEnterCurve: Curves.easeIn,
-  switchExitCurve: Curves.easeOut,
-  selectionAutoResumeMode: SelectionAutoResumeMode.selecting,
-  selectionAutoResumeDuration: const Duration(milliseconds: 500),
-  activeAutoResumeDuration: const Duration(milliseconds: 3000),
+      scrollDuration: const Duration(milliseconds: 400),
+      scrollCurve: Curves.easeInOutCubic,
+      scrollDurations: {
+        50.0: const Duration(milliseconds: 150),
+        200.0: const Duration(milliseconds: 300),
+      },
+      enableSwitchAnimation: true,
+      switchEnterDuration: const Duration(milliseconds: 200),
+      switchExitDuration: const Duration(milliseconds: 200),
+      switchEnterCurve: Curves.easeIn,
+      switchExitCurve: Curves.easeOut,
+      selectionAutoResumeMode: SelectionAutoResumeMode.selecting,
+      selectionAutoResumeDuration: const Duration(milliseconds: 500),
+      // 8s 自动恢复跟随（Apple Music 风格）
+      activeAutoResumeDuration: const Duration(seconds: 8),
 );
 
 /// 桌面全宽沉浸播放器（双栏：左封面 + 右歌词）。
@@ -91,6 +96,9 @@ class _PlayerDesktopViewState extends State<PlayerDesktopView> {
   bool _isDragging = false;
   double _dragValue = 0.0;
   bool _showLyrics = true;
+
+  // ── Focus node for mouse wheel capture on desktop ──
+  final FocusNode _lyricsFocusNode = FocusNode();
 
   // ── Lyrics state ──
   final MusicService _musicService = MusicService();
@@ -113,6 +121,7 @@ class _PlayerDesktopViewState extends State<PlayerDesktopView> {
 
   @override
   void dispose() {
+    _lyricsFocusNode.dispose();
     try {
       context.read<PlayerProvider>().removeListener(_onPlayerTick);
     } catch (_) {}
@@ -661,11 +670,86 @@ class _PlayerDesktopViewState extends State<PlayerDesktopView> {
       );
     }
 
-    return LyricView(
-      key: ValueKey('desktop_lyrics_${player.currentSong?.hash ?? player.currentSong?.id}'),
-      controller: player.lyricController,
-      style: _desktopLyricStyle,
+    return Stack(
+      children: [
+        Focus(
+          focusNode: _lyricsFocusNode,
+          child: MouseRegion(
+            onEnter: (_) => _lyricsFocusNode.requestFocus(),
+            child: Listener(
+              onPointerSignal: (event) {
+                if (event is PointerScrollEvent) {
+                  _onLyricsMouseWheel(event, player);
+                }
+              },
+              child: LyricView(
+                key: ValueKey('desktop_lyrics_${player.currentSong?.hash ?? player.currentSong?.id}'),
+                controller: player.lyricController,
+                style: _desktopLyricStyle,
+              ),
+            ),
+          ),
+        ),
+        // "回到当前行"按钮 — 用户手动滚动后显示
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: ValueListenableBuilder<bool>(
+            valueListenable: player.lyricController.isSelectingNotifier,
+            builder: (_, isSelecting, __) {
+              if (!isSelecting) return const SizedBox.shrink();
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: GestureDetector(
+                    onTap: () => player.lyricController.stopSelection(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.vertical_align_top,
+                              size: 16, color: Colors.white),
+                          SizedBox(width: 6),
+                          Text('回到当前行',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              )),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
+  }
+
+  /// 鼠标滚轮滚动歌词（每格 ≈ 2 行）
+  void _onLyricsMouseWheel(PointerScrollEvent event, PlayerProvider player) {
+    const double linesPerNotch = 2.0;
+    final dir = event.scrollDelta.dy > 0 ? 1 : -1;
+    final lineStep = (event.scrollDelta.dy.abs() / 120 * linesPerNotch).round().clamp(1, 10);
+    final model = player.lyricController.lyricNotifier.value;
+    if (model == null || model.lines.isEmpty) return;
+    final currentIdx = player.lyricController.activeIndexNotifiter.value;
+    final targetIdx = (currentIdx + dir * lineStep).clamp(0, model.lines.length - 1);
+    if (targetIdx == currentIdx) return;
+    final newPos = model.lines[targetIdx].start;
+    player.lyricController.setProgress(newPos);
   }
 }
 

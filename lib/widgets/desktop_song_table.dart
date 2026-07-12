@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
+import '../providers/playlist_provider.dart';
 import '../providers/liked_songs_provider.dart';
+import '../services/music_service.dart';
 import 'local_cover_art.dart';
 
 /// A table-style song list with column headers, hover effects,
@@ -175,6 +177,69 @@ class _SongTableRowState extends State<_SongTableRow> {
         );
   }
 
+  void _addToPlaylist(BuildContext context) {
+    final playlists = context.read<PlaylistProvider>().userPlaylists;
+    if (playlists.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('暂无歌单，请先创建')),
+      );
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('添加到歌单',
+                  style: Theme.of(context).textTheme.titleSmall),
+            ),
+            Divider(
+                height: 1,
+                color: Theme.of(context).colorScheme.outlineVariant),
+            SizedBox(
+              height: (playlists.length * 56.0).clamp(80.0, 320.0),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: playlists.length,
+                itemBuilder: (_, i) {
+                  final pl = playlists[i];
+                  return ListTile(
+                    leading: const Icon(Icons.playlist_play),
+                    title: Text(pl.name),
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      final song = widget.song;
+                      final data = (song.hash?.isNotEmpty ?? false)
+                          ? '${song.name}|${song.hash}|${song.albumId}|${song.mixSongId ?? song.id}'
+                          : song.name;
+                      try {
+                        await MusicService().addTracksToPlaylist(pl.id, data);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('已添加到歌单')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('添加失败: $e')),
+                          );
+                        }
+                      }
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   String _formatDuration(int ms) {
     if (ms <= 0) return '0:00';
     final totalSec = (ms / 1000).round().clamp(0, 359999);
@@ -310,12 +375,24 @@ class _SongTableRowState extends State<_SongTableRow> {
                       onSelected: (value) {
                         if (value == 'queue') {
                           context.read<PlayerProvider>().addToQueue(widget.song);
+                        } else if (value == 'next') {
+                          context.read<PlayerProvider>().playNextSong(widget.song);
+                        } else if (value == 'playlist') {
+                          _addToPlaylist(context);
                         }
                       },
                       itemBuilder: (_) => [
                         const PopupMenuItem(
+                          value: 'next',
+                          child: Text('下一首播放', style: TextStyle(fontSize: 13)),
+                        ),
+                        const PopupMenuItem(
                           value: 'queue',
                           child: Text('添加到队列', style: TextStyle(fontSize: 13)),
+                        ),
+                        const PopupMenuItem(
+                          value: 'playlist',
+                          child: Text('添加到歌单', style: TextStyle(fontSize: 13)),
                         ),
                       ],
                     ),
