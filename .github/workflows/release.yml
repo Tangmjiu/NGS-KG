@@ -441,74 +441,138 @@ jobs:
 
             > 代号 **Nightcord** 来源于 QQ 群代号投票——至于为什么选这个，我也不知道。
 
-            本版本为 **v2.0.0 Nightcord** 的预览版，包含大量新功能和改进。
+            本版本为 **v1.5.0-preview (Nightcord v2.0.0)** 的预览版，现在覆盖 **Android / Windows / Linux / Watch (Wear OS)** 四大平台。
 
-            ## 新增
+            ---
+
+            ## ✨ 通用新增
 
             - **FM 系统重构**：隔离 FM 队列系统，替换「上一首」为「不喜欢」，QueueType 枚举实现队列隔离
-            - **FM 播放改进**：缓冲管理、去重、顺序模式、主动填充、非破坏性模式切换
+            - **FM 播放改进**：缓冲管理、去重、顺序模式、fetchNextFmBatch 主动填充、非破坏性模式切换
+            - **FM 反馈循环**：updateFmFeedback 完整实现，修复 deadlock 路径
             - **歌词设置**：字体大小 / 对齐 / 字重 / 模糊度可调
             - **Hi-Res 标识**：设置页开关控制，官方 JPG 标识覆盖在专辑封面上
             - **跨淡入淡出（Crossfade）**：播放切换时自动淡入淡出
-            - **系统均衡器**：Android 系统均衡器集成
             - **KRC 歌词翻译/罗马音**：支持翻译 / 罗马音切换显示
             - **多队列系统**：多队列底部 sheet、跳转到当前播放、将队列存为歌单
             - **专辑详情多选**：批量添加到歌单
             - **歌单滑动删除**：歌单详情页滑动删除歌曲 + 收藏歌单 + 评论入口
             - **SongTile 喜欢按钮**：长按菜单（下一首播放 / 添加到歌单 / 查看专辑）
             - **收藏歌单 API**：PlaylistProvider 封装 create/delete/collect 并自动刷新
-            - **队列持久化**：完整歌单序列化 + palette 缓存
+            - **队列持久化**：完整歌单序列化 + palette 缓存 + enqueuePlaylist
             - **PreviewConfig 系统**：preview.yaml 开关与运行时加载器
             - **主题市场 UI**：浏览、下载、应用社区主题
             - **主题资源系统**：空状态插画、emptyStateWidget 组件、全局主题背景
+            - **调色板突变动画**：AnimatedSwitcher 600ms 淡入淡出过渡
+            - **相似歌单 API**：/playlist/similar 端点
+            - **Navidrome 集成**：支持 Navidrome 服务器连接与音乐浏览
 
-            ## 变更
+            ---
 
-            - **UI 重构**：温和版 + 沉浸歌词风格
-            - **Provider 层重构**：统一 MusicService 访问模式
-            - **播放列表 sheet**：支持滑动删除和长按拖拽排序
-            - **迷你播放栏**：gap 从 8px 增加到 16px
-            - **队列引擎**：新增 removeAt/move/insertAt/playNextSong 方法
-            - **CI 调整**：全平台 Debug + Release 自动构建
+            ## 📱 Android
 
-            ## 修复
+            ### 新增
+            - **系统均衡器**：Android 系统均衡器集成
+            - **Material You 动态取色**：flex_color_scheme + dynamic_color
+            - **流光帧率监控**：自动降频 + elapsed 模运算修复三角函数精度丢失
+            - **通知栏歌词**：Media3 系统媒体控件显示当前歌词行
+            - **后台播放服务**：START_STICKY + 持久化播放状态
+            - **本地音乐扫描**：扫描设备音频文件并播放
 
-            - **FM UI 问题**：动态流光背景全黑
-            - **FM 数据加载**：修复 FM data loading bug
-            - **每日推荐 ID**：修复 MixSongID 错误
-            - **登出清理**：清空 likedSongs 缓存 + 修复 auth 竞态条件
-            - **MiniPlayer 点击**：通过 navKey 推播放器页面并管理可见性状态
-            - **切歌音频**：resetForNewSong 时停掉播放器，避免旧音频继续播放
-
-            ## 下载
-
-            ### Android
+            ### 构建
             | 架构 | 文件 |
             |------|------|
             | arm64-v8a | `NGS-KG-arm64-v8a-release.apk` |
             | armeabi-v7a | `NGS-KG-armeabi-v7a-release.apk` |
             | x86_64 | `NGS-KG-x86_64-release.apk` |
 
-            ### Windows
+            ---
+
+            ## 🖥️ Windows
+
+            ### 新增
+            - **SMTC 集成**：System Media Transport Controls，系统媒体控件
+            - **系统托盘**：最小化到托盘，托盘图标显示歌词，托盘菜单控制播放
+            - **自定义标题栏**：MD3 风格窗口控制按钮，支持窗口拖动
+            - **桌面外壳（DesktopShell）**：自定义侧边栏导航 + 桌面专属 UI
+            - **桌面歌曲表格**：列表/网格双模式切换
+            - **单实例运行**：确保只有一个应用实例
+            - **响应式布局**：适配不同屏幕尺寸
+
+            ### 构建
             | 架构 | 文件 |
             |------|------|
-            | x64 | `ngskg-windows-release/` (zip) |
+            | x64 | `ngskg-windows-release/` (bundle) |
 
-            ### Linux
+            ---
+
+            ## 🐧 Linux
+
+            ### 新增
+            - **MPRIS D-Bus 集成**：系统媒体控制（播放/暂停/上一首/下一首），正确设置元数据
+            - **窗口管理**：window_manager 实现窗口拖拽、最小化、最大化、关闭
+            - **系统托盘**：托盘图标 + 菜单控制（libayatana-appindicator）
+            - **桌面外壳（DesktopShell）**：侧边栏导航 + 桌面风格 UI
+            - **桌面歌曲表格**：列表/网格双模式切换
+
+            ### 打包格式
             | 格式 | 文件 |
             |------|------|
             | .deb | `ngskg-plus_1.5.0_amd64.deb` |
             | .flatpak | `ngskg-plus.flatpak` |
-            | PKGBUILD | `PKGBUILD` |
+            | PKGBUILD (AUR) | `PKGBUILD` |
 
-            ### Watch (Wear OS) — Lite
+            ---
+
+            ## ⌚ Watch (Wear OS)
+
+            > 基于 Android 分支移植，针对圆形屏幕和手表交互优化。支持独立运行（Standalone）。
+
+            ### 新增
+            - **圆形屏幕适配**：RoundSafeArea 组件
+            - **旋钮支持**：wearable_rotary，旋转表冠滚动内容
+            - **独立运行模式**：无需手机 companion（com.google.android.wearable.standalone = true）
+            - **语音搜索**：支持语音识别搜索歌曲
+            - **紧凑布局**：针对手表小屏幕优化
+            - **始终深色模式**：适配 AMOLED 屏幕
+            - **FM 支持**：手表端 FM 播放功能
+
+            ### 构建
             | 架构 | 文件 |
             |------|------|
             | arm64 | `NGS-KG-watch-release-arm64-v8a.apk` |
 
-            > Watch 版为精简版，功能较少。需配合 Android 手机使用。
+            ---
 
-            也可在本页底部 Assets 下载。
+            ## 🔄 变更
+
+            - **UI 重构**：温和版 + 沉浸歌词风格
+            - **Provider 层重构**：统一 MusicService 访问模式，消除兼容层
+            - **播放列表 sheet**：支持滑动删除和长按拖拽排序
+            - **迷你播放栏**：gap 从 8px 增加到 16px
+            - **队列引擎**：新增 removeAt/move/insertAt/playNextSong 方法
+            - **LikedSongsProvider**：新增 clear() 方法供退出登录时清理缓存
+            - **版本管理**：版本号从 PackageInfo 动态读取
+            - **CI 调整**：全平台 Debug + Release 手动触发自动构建
+
+            ## 🐛 修复
+
+            - **FM UI 问题**：动态流光背景全黑（调色板颜色不足时补充派生色）
+            - **FM 数据加载**：修复 data loading bug，增加 buffer management
+            - **FM 无限重载**：停止发现页 FM 无限重载循环
+            - **每日推荐 ID**：修复 MixSongID 错误
+            - **登出清理**：清空 likedSongs 缓存 + 修复 auth 竞态条件
+            - **jsonDecode 安全**：处理 null 安全（res.data 为 String?）
+            - **MiniPlayer 点击**：通过 navKey 推播放器页面并管理可见性状态
+            - **切歌音频**：resetForNewSong 时停掉播放器，避免旧音频继续播放
+            - **Gradle 版本号**：正则缺少 (?m) multiline 标志修复
+            - **数据库路径**：sqflite_common_ffi 降级以兼容 Dart 3.11
+
+            ---
+
+            ### 下载说明
+
+            所有构建产物可在本页底部 **Assets** 面板下载。每个平台按分支独立构建，选择对应文件即可。
           files: |
             artifacts/NGS-KG-release-apks/*
             artifacts/NGS-KG-debug-arm64-v8a/*
