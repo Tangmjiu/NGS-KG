@@ -152,12 +152,7 @@ class DesktopService implements TrayListener {
   void onTrayIconMouseUp() {}
 
   @override
-  void onTrayIconRightMouseDown() {
-    // Windows: 原生不会自动弹出菜单，需要手动触发
-    if (Platform.isWindows) {
-      trayManager.popUpContextMenu();
-    }
-  }
+  void onTrayIconRightMouseDown() {}
 
   @override
   void onTrayIconRightMouseUp() {}
