@@ -34,6 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showContinueBanner = false;
   final Map<int, List<Song>> _cardSongs = {};
   final Map<int, String> _cardNames = {};
+  int? _hoveredPlaylistIndex;
 
   /// 3行/列 缩略图列表，水平滑动
   Widget _buildSongList(List<Song> songs, String title,
@@ -389,17 +390,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Consumer<PlaylistProvider>(
       builder: (_, provider, __) {
-        return RefreshIndicator(
-          onRefresh: () async {
-            await provider.fetchTopPlaylists();
-            await _loadRecommended();
-          },
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-            children: [
-              // ── Welcome text ──
-              Text('首页', style: tt.headlineLarge?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          children: [
+            // ── Welcome text ──
+            Text('首页', style: tt.headlineLarge),
+            const SizedBox(height: 24),
 
               // ── Continue listening ──
               if (_showContinueBanner && _latestListen != null)
@@ -431,55 +427,69 @@ class _HomeScreenState extends State<HomeScreen> {
                       final pl = provider.topPlaylists[i];
                       return Padding(
                         padding: const EdgeInsets.only(right: 16),
-                        child: GestureDetector(
-                          onTap: () {
-                            ShellNavigationScope.navigate(
-                              context,
-                              routeName: '/playlist/detail',
-                              arguments: {
-                                'gcId': pl.globalCollectionId ??
-                                    'collection_3_${pl.createUserId}_${pl.id}_0',
-                                'name': pl.name,
+                        child: MouseRegion(
+                          onEnter: (_) => setState(() => _hoveredPlaylistIndex = i),
+                          onExit: (_) => setState(() => _hoveredPlaylistIndex = null),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                            decoration: BoxDecoration(
+                              color: _hoveredPlaylistIndex == i
+                                  ? cs.surfaceContainerHighest.withValues(alpha: 0.5)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: GestureDetector(
+                              onTap: () {
+                                ShellNavigationScope.navigate(
+                                  context,
+                                  routeName: '/playlist/detail',
+                                  arguments: {
+                                    'gcId': pl.globalCollectionId ??
+                                        'collection_3_${pl.createUserId}_${pl.id}_0',
+                                    'name': pl.name,
+                                  },
+                                  shellPageBuilder: () => PlaylistDetailScreen(
+                                    gcId: pl.globalCollectionId ??
+                                        'collection_3_${pl.createUserId}_${pl.id}_0',
+                                    playlistName: pl.name,
+                                  ),
+                                );
                               },
-                              shellPageBuilder: () => PlaylistDetailScreen(
-                                gcId: pl.globalCollectionId ??
-                                    'collection_3_${pl.createUserId}_${pl.id}_0',
-                                playlistName: pl.name,
-                              ),
-                            );
-                          },
-                          child: SizedBox(
-                            width: 180,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: pl.coverUrl != null
-                                      ? CachedNetworkImage(
-                                          imageUrl: pl.coverUrl!,
-                                          width: 180,
-                                          height: 180,
-                                          fit: BoxFit.cover,
-                                          placeholder: (_, __) => Container(
-                                              color: cs.surfaceContainerHighest,
-                                              width: 180, height: 180),
-                                          errorWidget: (_, __, ___) => Container(
+                              child: SizedBox(
+                                width: 180,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: pl.coverUrl != null
+                                          ? CachedNetworkImage(
+                                              imageUrl: pl.coverUrl!,
+                                              width: 180,
+                                              height: 180,
+                                              fit: BoxFit.cover,
+                                              placeholder: (_, __) => Container(
+                                                  color: cs.surfaceContainerHighest,
+                                                  width: 180, height: 180),
+                                              errorWidget: (_, __, ___) => Container(
+                                                  color: cs.surfaceContainerHighest,
+                                                  width: 180, height: 180,
+                                                  child: const Icon(Icons.playlist_play)),
+                                            )
+                                          : Container(
                                               color: cs.surfaceContainerHighest,
                                               width: 180, height: 180,
                                               child: const Icon(Icons.playlist_play)),
-                                        )
-                                      : Container(
-                                          color: cs.surfaceContainerHighest,
-                                          width: 180, height: 180,
-                                          child: const Icon(Icons.playlist_play)),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(pl.name,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+                                  ],
                                 ),
-                                const SizedBox(height: 8),
-                                Text(pl.name,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
-                              ],
+                              ),
                             ),
                           ),
                         ),
@@ -509,8 +519,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 32),
             ],
-          ),
-        );
+          );
       },
     );
   }
@@ -522,83 +531,175 @@ class _HomeScreenState extends State<HomeScreen> {
     final cs = Theme.of(context).colorScheme;
     final player = context.read<PlayerProvider>();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(title, style: tt.titleLarge),
-        ),
-        Container(
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
+    final displaySongs = songs.take(8).toList();
+    final rowCount = (displaySongs.length + 1) ~/ 2;
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOut,
+      builder: (_, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 16 * (1 - value)),
+            child: child,
           ),
-          child: Column(
-            children: List.generate(songs.length.clamp(0, 8), (i) {
-              final song = songs[i];
-              final isLast = i == songs.length - 1 || i == 7;
-              return InkWell(
-                borderRadius: isLast ? const BorderRadius.vertical(bottom: Radius.circular(12)) : null,
-                onTap: () {
-                  player.playlistEndProvider = onEnd;
-                  player.playSong(song, playlist: songs.sublist(i));
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Row(
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Title row with "播放全部" ──
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Text(title, style: tt.titleLarge),
+                const Spacer(),
+                FilledButton.tonalIcon(
+                  onPressed: displaySongs.isEmpty
+                      ? null
+                      : () {
+                          player.playlistEndProvider = onEnd;
+                          player.playSong(displaySongs.first, playlist: songs);
+                        },
+                  icon: const Icon(Icons.play_arrow, size: 18),
+                  label: const Text('播放全部'),
+                ),
+              ],
+            ),
+          ),
+          // ── 2-column grid ──
+          Container(
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              children: List.generate(rowCount, (rowIdx) {
+                final leftIdx = rowIdx * 2;
+                final rightIdx = rowIdx * 2 + 1;
+                final hasRight = rightIdx < displaySongs.length;
+
+                return TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: Duration(milliseconds: 250 + rowIdx * 60),
+                  curve: Curves.easeOut,
+                  builder: (_, value, child) {
+                    return Opacity(
+                      opacity: value,
+                      child: Transform.translate(
+                        offset: Offset(0, 8 * (1 - value)),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: Column(
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: song.albumCoverUrl != null
-                            ? CachedNetworkImage(
-                                imageUrl: song.albumCoverUrl!,
-                                width: 44, height: 44,
-                                fit: BoxFit.cover,
-                                placeholder: (_, __) => Container(width: 44, height: 44, color: cs.surface),
-                                errorWidget: (_, __, ___) => Container(width: 44, height: 44, color: cs.surface, child: const Icon(Icons.music_note, size: 20)),
-                              )
-                            : Container(width: 44, height: 44, color: cs.surface, child: const Icon(Icons.music_note, size: 20)),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(song.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
-                            const SizedBox(height: 2),
-                            Text(song.artistDisplay,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                          ],
-                        ),
-                      ),
-                      SizedBox(
-                        width: 36, height: 36,
-                        child: IconButton(
-                          icon: Icon(Icons.play_arrow_rounded, size: 20, color: cs.primary),
-                          onPressed: () {
-                            player.playlistEndProvider = onEnd;
-                            player.playSong(song, playlist: songs.sublist(i));
-                          },
-                          padding: EdgeInsets.zero,
-                          tooltip: '播放',
-                        ),
+                      if (rowIdx > 0)
+                        Divider(height: 1, indent: 12, endIndent: 12,
+                            color: cs.outlineVariant.withValues(alpha: 0.2)),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildSongGridItem(
+                                displaySongs[leftIdx], leftIdx, displaySongs,
+                                onEnd: onEnd),
+                          ),
+                          if (hasRight)
+                            Container(
+                              width: 1,
+                              height: 56,
+                              color: cs.outlineVariant.withValues(alpha: 0.2),
+                            ),
+                          if (hasRight)
+                            Expanded(
+                              child: _buildSongGridItem(
+                                  displaySongs[rightIdx], rightIdx, displaySongs,
+                                  onEnd: onEnd),
+                            ),
+                        ],
                       ),
                     ],
                   ),
-                ),
-              );
-            }),
+                );
+              }),
+            ),
           ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSongGridItem(Song song, int index, List<Song> allSongs,
+      {Future<List<Song>> Function()? onEnd}) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final player = context.read<PlayerProvider>();
+
+    return InkWell(
+      onTap: () {
+        player.playlistEndProvider = onEnd;
+        player.playSong(song, playlist: allSongs.sublist(index));
+      },
+      hoverColor: cs.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: song.albumCoverUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: song.albumCoverUrl!,
+                      width: 40, height: 40,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) =>
+                          Container(width: 40, height: 40, color: cs.surface),
+                      errorWidget: (_, __, ___) => Container(
+                          width: 40, height: 40,
+                          color: cs.surface,
+                          child: const Icon(Icons.music_note, size: 18)),
+                    )
+                  : Container(
+                      width: 40, height: 40,
+                      color: cs.surface,
+                      child: const Icon(Icons.music_note, size: 18)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(song.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.bodySmall
+                          ?.copyWith(fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 2),
+                  Text(song.artistDisplay,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.play_arrow_rounded, size: 18, color: cs.primary),
+              onPressed: () {
+                player.playlistEndProvider = onEnd;
+                player.playSong(song, playlist: allSongs.sublist(index));
+              },
+              tooltip: '播放',
+            ),
+          ],
         ),
-        const SizedBox(height: 20),
-      ],
+      ),
     );
   }
 

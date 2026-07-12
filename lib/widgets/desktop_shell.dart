@@ -404,77 +404,80 @@ class _DesktopShellState extends State<DesktopShell> {
 
   /// 构建主体内容区域（player 全屏模式或普通桌面模式）。
   Widget _buildContentArea() {
-    if (_mode == _ContentMode.player) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        switchInCurve: Curves.easeInOut,
-        switchOutCurve: Curves.easeInOut,
-        transitionBuilder: (child, animation) {
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 0.05),
-              end: Offset.zero,
-            ).animate(animation),
-            child: child,
-          );
-        },
-        child: PlayerDesktopView(
-          key: const ValueKey('player_view'),
-          onClose: () => setState(() => _mode = _ContentMode.nav),
-        ),
-      );
-    }
-
+    final isPlayer = _mode == _ContentMode.player;
     final cs = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      body: Column(
-        children: [
-          // ── Main content: sidebar + content area ──
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                DesktopSidebar(
-                  activeNavId: _currentNavId,
-                  activePlaylistId: _playlistLoaded && _playlistId != null
-                      ? int.tryParse(_playlistId!)
-                      : null,
-                  onNavSelected: _onNavSelected,
-                  onPlaylistSelected: _onPlaylistSelected,
-                  onSearchChanged: _onSearchChanged,
-                  searchQuery: _searchQuery,
-                ),
-                // ── Content area (with shell-level page stack) ──
-                Expanded(
-                  child: ShellNavigationScope(
-                    openInShell: _openInShell,
-                    pop: _popFromShell,
-                    canPop: _canPopInShell,
-                    navigateToSidebar: _onNavSelected,
-                    openPlayer: _openPlayer,
-                    // Switch between base content and detail page
-                    child: _detailStack.isEmpty
-                        ? _buildContent()
-                        : _detailStack.last,
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      transitionBuilder: (child, animation) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.06),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOut,
+          )),
+          child: child,
+        );
+      },
+      child: isPlayer
+          ? PlayerDesktopView(
+              key: const ValueKey('player_view'),
+              onClose: () => setState(() => _mode = _ContentMode.nav),
+            )
+          : Scaffold(
+              key: const ValueKey('normal_content'),
+              backgroundColor: cs.surface,
+              body: Column(
+                children: [
+                  // ── Main content: sidebar + content area ──
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        DesktopSidebar(
+                          activeNavId: _currentNavId,
+                          activePlaylistId: _playlistLoaded && _playlistId != null
+                              ? int.tryParse(_playlistId!)
+                              : null,
+                          onNavSelected: _onNavSelected,
+                          onPlaylistSelected: _onPlaylistSelected,
+                          onSearchChanged: _onSearchChanged,
+                          searchQuery: _searchQuery,
+                        ),
+                        // ── Content area (with shell-level page stack) ──
+                        Expanded(
+                          child: ShellNavigationScope(
+                            openInShell: _openInShell,
+                            pop: _popFromShell,
+                            canPop: _canPopInShell,
+                            navigateToSidebar: _onNavSelected,
+                            openPlayer: _openPlayer,
+                            // Switch between base content and detail page
+                            child: _detailStack.isEmpty
+                                ? _buildContent()
+                                : _detailStack.last,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
 
-          // ── Bottom player bar ──
-          _DesktopPlayerBar(
-            volume: _playerVolume,
-            onVolumeChanged: (v) {
-              setState(() => _playerVolume = v);
-              context.read<PlayerProvider>().setVolume(v);
-            },
-            onOpenPlayer: _openPlayer,
-          ),
-        ],
-      ),
+                  // ── Bottom player bar ──
+                  _DesktopPlayerBar(
+                    volume: _playerVolume,
+                    onVolumeChanged: (v) {
+                      setState(() => _playerVolume = v);
+                      context.read<PlayerProvider>().setVolume(v);
+                    },
+                    onOpenPlayer: _openPlayer,
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }

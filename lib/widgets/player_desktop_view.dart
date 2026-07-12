@@ -393,17 +393,24 @@ class _PlayerDesktopViewState extends State<PlayerDesktopView> {
   Widget _buildLeftPane(Song song, PlayerProvider player) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(32, 0, 8, 0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _buildAlbumArt(song, 240),
-          const SizedBox(height: 12),
-          _buildSongTitle(song),
-          const SizedBox(height: 16),
-          _buildSeekSlider(player),
-          const SizedBox(height: 8),
-          _buildPlayControls(player),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final coverSize = min(constraints.maxWidth * 0.7, 420.0);
+          return SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Center(child: _buildAlbumArt(song, coverSize)),
+                const SizedBox(height: 12),
+                _buildSongTitle(song),
+                const SizedBox(height: 16),
+                _buildSeekSlider(player),
+                const SizedBox(height: 8),
+                _buildPlayControls(player),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

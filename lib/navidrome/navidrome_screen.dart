@@ -31,22 +31,34 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
   Widget build(BuildContext context) {
     return Consumer<NavidromeProvider>(
       builder: (context, prov, _) {
-        return Column(
-          children: [
-            // Search bar
-            _buildSearchBar(prov),
-            // Breadcrumb
-            if (!_isSearching) _buildBreadcrumb(prov),
-            // Loading indicator
-            if (prov.isLoading)
-              const Expanded(
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_isSearching)
-              Expanded(child: _buildSearchResults(prov))
-            else
-              Expanded(child: _buildCurrentLevel(prov)),
-          ],
+        return TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.0, end: 1.0),
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOut,
+          builder: (_, value, child) => Opacity(
+            opacity: value,
+            child: Transform.translate(
+              offset: Offset(0, 12 * (1 - value)),
+              child: child,
+            ),
+          ),
+          child: Column(
+            children: [
+              // Search bar
+              _buildSearchBar(prov),
+              // Breadcrumb
+              if (!_isSearching) _buildBreadcrumb(prov),
+              // Loading indicator
+              if (prov.isLoading)
+                const Expanded(
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_isSearching)
+                Expanded(child: _buildSearchResults(prov))
+              else
+                Expanded(child: _buildCurrentLevel(prov)),
+            ],
+          ),
         );
       },
     );

@@ -167,8 +167,43 @@ class _SongTableRow extends StatefulWidget {
   State<_SongTableRow> createState() => _SongTableRowState();
 }
 
-class _SongTableRowState extends State<_SongTableRow> {
+class _SongTableRowState extends State<_SongTableRow>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    _pulseAnimation = Tween(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+    if (widget.isCurrent) {
+      _pulseController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_SongTableRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isCurrent && !oldWidget.isCurrent) {
+      _pulseController.repeat(reverse: true);
+    } else if (!widget.isCurrent && oldWidget.isCurrent) {
+      _pulseController.stop();
+      _pulseController.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   void _playSong(BuildContext context) {
     context.read<PlayerProvider>().playSong(
@@ -256,12 +291,25 @@ class _SongTableRowState extends State<_SongTableRow> {
     final likedProvider = context.watch<LikedSongsProvider>();
     final liked = likedProvider.likedIds.contains(widget.song.id);
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onDoubleTap: widget.isSelecting ? null : () => _playSong(context),
-        child: Container(
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 200 + widget.index * 25),
+      curve: Curves.easeOut,
+      builder: (_, value, child) {
+        return Opacity(
+          opacity: value.clamp(0.0, 1.0),
+          child: Transform.translate(
+            offset: Offset(0, 10 * (1.0 - value.clamp(0.0, 1.0))),
+            child: child,
+          ),
+        );
+      },
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onDoubleTap: widget.isSelecting ? null : () => _playSong(context),
+          child: Container(
           height: 56,
           padding: EdgeInsets.only(
             left: widget.isSelecting ? 8 : 20,
@@ -295,13 +343,24 @@ class _SongTableRowState extends State<_SongTableRow> {
                   width: 32,
                   child: _isHovered
                       ? Icon(Icons.play_arrow_rounded, size: 18, color: cs.primary)
-                      : Text(
-                          '${widget.index + 1}',
-                          style: tt.bodySmall?.copyWith(
-                            color: widget.isCurrent ? cs.primary : cs.onSurfaceVariant,
-                            fontWeight: widget.isCurrent ? FontWeight.w600 : FontWeight.normal,
-                          ),
-                        ),
+                      : widget.isCurrent
+                          ? AnimatedBuilder(
+                              animation: _pulseAnimation,
+                              builder: (_, child) => Text(
+                                '${widget.index + 1}',
+                                style: tt.bodySmall?.copyWith(
+                                  color: cs.primary.withValues(alpha: _pulseAnimation.value),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            )
+                          : Text(
+                              '${widget.index + 1}',
+                              style: tt.bodySmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                                fontWeight: FontWeight.normal,
+                              ),
+                            ),
                 ),
 
               // ── Cover + title & artist ──
@@ -414,6 +473,7 @@ class _SongTableRowState extends State<_SongTableRow> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

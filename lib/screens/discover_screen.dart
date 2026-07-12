@@ -52,94 +52,195 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    return RefreshIndicator(
-      onRefresh: () => provider.loadAll(),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-        children: [
-          // ── Title ──
-          Text('发现',
-              style: tt.headlineLarge?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+      children: [
+        // ── Title ──
+        Text('发现', style: tt.headlineLarge),
+        const SizedBox(height: 24),
 
-          if (provider.loading)
-            const SizedBox(
-              height: 200,
-              child: Center(child: CircularProgressIndicator()),
-            )
+        if (provider.loading)
+          const SizedBox(
+            height: 200,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else ...[
+          if (provider.error != null)
+            _buildErrorState(cs, tt, provider)
           else ...[
-            if (provider.error != null)
-              _buildErrorState(cs, tt, provider)
-            else ...[
-              // ── 私人 FM（置顶） ──
-              const DiscoverPersonalFmRow(),
-              const SizedBox(height: 8),
+            // ── 私人 FM（置顶） ──
+            const DiscoverPersonalFmRow(),
+            const SizedBox(height: 8),
 
-              DiscoverQuickActions(rankList: provider.rankList),
-              const SizedBox(height: 16),
+            DiscoverQuickActions(rankList: provider.rankList),
+            const SizedBox(height: 16),
 
-              if (provider.hasPlaylists) ...[
-                DiscoverSectionHeader(
-                  title: '推荐歌单',
-                  onViewAll: () => ShellNavigationScope.navigate(
-                    context,
-                    routeName: '/recommended/playlists',
-                    shellPageBuilder: () => const RecommendedPlaylistsScreen(),
+            if (provider.hasPlaylists)
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeOut,
+                builder: (_, value, child) => Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, 16 * (1 - value)),
+                    child: child,
                   ),
                 ),
-                DiscoverPlaylistRow(playlists: provider.topPlaylists),
-                const SizedBox(height: 8),
-              ],
-
-              if (provider.hasRanks) ...[
-                DiscoverSectionHeader(
-                  title: '热门榜单',
-                  onViewAll: () => _showRankList(provider.rankList),
+                child: Column(
+                  children: [
+                    DiscoverSectionHeader(
+                      title: '推荐歌单',
+                      onViewAll: () => ShellNavigationScope.navigate(
+                        context,
+                        routeName: '/recommended/playlists',
+                        shellPageBuilder: () => const RecommendedPlaylistsScreen(),
+                      ),
+                    ),
+                    DiscoverPlaylistRow(playlists: provider.topPlaylists),
+                    const SizedBox(height: 8),
+                  ],
                 ),
-                DiscoverRankRow(ranks: provider.rankList),
-                const SizedBox(height: 8),
-              ],
+              ),
 
-              if (provider.hasTopSongs) ...[
-                const DiscoverSectionHeader(title: '新歌速递'),
-                DiscoverSongRow(songs: provider.topSongs),
-                const SizedBox(height: 8),
-              ],
-
-              if (provider.hasTopAlbums) ...[
-                const DiscoverSectionHeader(title: '新碟上架'),
-                DiscoverAlbumRow(albums: provider.topAlbums),
-                const SizedBox(height: 8),
-              ],
-
-              if (provider.hasScenes) ...[
-                const DiscoverSectionHeader(title: '场景音乐'),
-                DiscoverSceneRow(scenes: provider.sceneCategories),
-                const SizedBox(height: 8),
-              ],
-
-              if (provider.hasIp) ...[
-                const DiscoverSectionHeader(title: '编辑精选'),
-                DiscoverIpRow(ipList: provider.ipList),
-                const SizedBox(height: 8),
-              ],
-
-              if (provider.hasFm) ...[
-                DiscoverSectionHeader(
-                  title: '电台推荐',
-                  onViewAll: () => ShellNavigationScope.navigate(
-                    context,
-                    routeName: '/fm',
-                    shellPageBuilder: () => const FmScreen(),
+            if (provider.hasRanks)
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 380),
+                curve: Curves.easeOut,
+                builder: (_, value, child) => Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, 16 * (1 - value)),
+                    child: child,
                   ),
                 ),
-                DiscoverFmRow(fmList: provider.fmList),
-              ],
-            ],
+                child: Column(
+                  children: [
+                    DiscoverSectionHeader(
+                      title: '热门榜单',
+                      onViewAll: () => _showRankList(provider.rankList),
+                    ),
+                    DiscoverRankRow(ranks: provider.rankList),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+
+            if (provider.hasTopSongs)
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 410),
+                curve: Curves.easeOut,
+                builder: (_, value, child) => Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, 16 * (1 - value)),
+                    child: child,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const DiscoverSectionHeader(title: '新歌速递'),
+                    DiscoverSongRow(songs: provider.topSongs),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+
+            if (provider.hasTopAlbums)
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 440),
+                curve: Curves.easeOut,
+                builder: (_, value, child) => Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, 16 * (1 - value)),
+                    child: child,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const DiscoverSectionHeader(title: '新碟上架'),
+                    DiscoverAlbumRow(albums: provider.topAlbums),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+
+            if (provider.hasScenes)
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 470),
+                curve: Curves.easeOut,
+                builder: (_, value, child) => Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, 16 * (1 - value)),
+                    child: child,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const DiscoverSectionHeader(title: '场景音乐'),
+                    DiscoverSceneRow(scenes: provider.sceneCategories),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+
+            if (provider.hasIp)
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 500),
+                curve: Curves.easeOut,
+                builder: (_, value, child) => Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, 16 * (1 - value)),
+                    child: child,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const DiscoverSectionHeader(title: '编辑精选'),
+                    DiscoverIpRow(ipList: provider.ipList),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+
+            if (provider.hasFm)
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 530),
+                curve: Curves.easeOut,
+                builder: (_, value, child) => Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, 16 * (1 - value)),
+                    child: child,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    DiscoverSectionHeader(
+                      title: '电台推荐',
+                      onViewAll: () => ShellNavigationScope.navigate(
+                        context,
+                        routeName: '/fm',
+                        shellPageBuilder: () => const FmScreen(),
+                      ),
+                    ),
+                    DiscoverFmRow(fmList: provider.fmList),
+                  ],
+                ),
+              ),
           ],
-          const SizedBox(height: 32),
         ],
-      ),
+        const SizedBox(height: 32),
+      ],
     );
   }
 

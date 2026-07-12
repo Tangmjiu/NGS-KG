@@ -199,7 +199,7 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
 }
 
 /// Single navigation tile in the sidebar.
-class _SidebarNavTile extends StatelessWidget {
+class _SidebarNavTile extends StatefulWidget {
   final IconData icon;
   final String label;
   final bool isSelected;
@@ -213,32 +213,56 @@ class _SidebarNavTile extends StatelessWidget {
   });
 
   @override
+  State<_SidebarNavTile> createState() => _SidebarNavTileState();
+}
+
+class _SidebarNavTileState extends State<_SidebarNavTile> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: isSelected ? cs.secondaryContainer.withValues(alpha: 0.4) : Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          height: 40,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: isSelected ? cs.primary : cs.onSurfaceVariant,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          color: widget.isSelected
+              ? cs.secondaryContainer.withValues(alpha: 0.4)
+              : _isHovered
+                  ? cs.surfaceContainerHighest
+                  : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: widget.onTap,
+            child: Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Icon(
+                    widget.icon,
+                    size: 20,
+                    color: widget.isSelected ? cs.primary : cs.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    widget.label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.normal,
+                      color: widget.isSelected ? cs.primary : cs.onSurface,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  color: isSelected ? cs.primary : cs.onSurface,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -247,7 +271,7 @@ class _SidebarNavTile extends StatelessWidget {
 }
 
 /// Single playlist tile in the sidebar.
-class _PlaylistSidebarTile extends StatelessWidget {
+class _PlaylistSidebarTile extends StatefulWidget {
   final Playlist playlist;
   final bool isSelected;
   final VoidCallback onTap;
@@ -259,44 +283,68 @@ class _PlaylistSidebarTile extends StatelessWidget {
   });
 
   @override
+  State<_PlaylistSidebarTile> createState() => _PlaylistSidebarTileState();
+}
+
+class _PlaylistSidebarTileState extends State<_PlaylistSidebarTile> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: isSelected ? cs.secondaryContainer.withValues(alpha: 0.4) : Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          height: 36,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              Icon(
-                Icons.playlist_play,
-                size: 18,
-                color: isSelected ? cs.primary : cs.onSurfaceVariant,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  playlist.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                    color: isSelected ? cs.primary : cs.onSurface,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          color: widget.isSelected
+              ? cs.secondaryContainer.withValues(alpha: 0.4)
+              : _isHovered
+                  ? cs.surfaceContainerHighest
+                  : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: widget.onTap,
+            child: Container(
+              height: 36,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.playlist_play,
+                    size: 18,
+                    color: widget.isSelected ? cs.primary : cs.onSurfaceVariant,
                   ),
-                ),
-              ),
-              if (playlist.trackCount > 0)
-                Padding(
-                  padding: const EdgeInsets.only(left: 4),
-                  child: Text(
-                    '${playlist.trackCount}',
-                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      widget.playlist.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.normal,
+                        color: widget.isSelected ? cs.primary : cs.onSurface,
+                      ),
+                    ),
                   ),
-                ),
-            ],
+                  if (widget.playlist.trackCount > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Text(
+                        '${widget.playlist.trackCount}',
+                        style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

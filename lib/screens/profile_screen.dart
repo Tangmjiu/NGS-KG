@@ -107,16 +107,24 @@ class _ProfileScreenState extends State<ProfileScreen>
   Widget _buildDesktop() {
     return Consumer2<AuthProvider, PlaylistProvider>(
       builder: (_, auth, playlistProv, __) {
-        return RefreshIndicator(
-          onRefresh: _refresh,
+        return TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.0, end: 1.0),
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOut,
+          builder: (_, value, child) => Opacity(
+            opacity: value,
+            child: Transform.translate(
+              offset: Offset(0, 16 * (1 - value)),
+              child: child,
+            ),
+          ),
           child: ListView(
             controller: _scrollCtrl,
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
             children: [
               Row(
                 children: [
-                  Text('我的', style: Theme.of(context).textTheme.headlineLarge
-                      ?.copyWith(fontWeight: FontWeight.bold)),
+                  Text('我的', style: Theme.of(context).textTheme.headlineLarge),
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.refresh),
@@ -125,7 +133,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
