@@ -7,7 +7,9 @@ import 'package:window_manager/window_manager.dart';
 import '../providers/player_provider.dart';
 
 /// 桌面端集成服务：SMTC + 系统托盘 + 窗口管理。
-class DesktopService {
+///
+/// 实现 [TrayListener] 以响应 GNOME 顶栏托盘图标的点击事件。
+class DesktopService implements TrayListener {
   static final DesktopService _instance = DesktopService._();
   static DesktopService get instance => _instance;
   DesktopService._();
@@ -66,6 +68,7 @@ class DesktopService {
       );
       await trayManager.setToolTip('NGS-KG+');
       await _updateTrayMenu(player.isPlaying);
+      trayManager.addListener(this);
     } catch (e) {
       debugPrint('DesktopService: Tray init failed: $e');
     }
@@ -106,11 +109,6 @@ class DesktopService {
 
   Future<void> _initWindow() async {
     try {
-      // windowManager.ensureInitialized() 已在 main() 中提前调用。
-      // 自定义标题栏由 bitsdojo_window 在 C++ 侧通过 WM_NCHITTEST 实现，
-      // Flutter 侧通过 WindowTitleBarBox + MoveWindow 配合。
-      // 此处不再需要 setTitleBarStyle。
-
       await windowManager.setMinimumSize(const Size(960, 600));
       // 关闭按钮 → 隐藏到托盘，不退出
       await windowManager.setPreventClose(true);
@@ -129,6 +127,39 @@ class DesktopService {
   Future<void> setCloseToTray(bool enabled) async {
     try {
       await windowManager.setPreventClose(enabled);
+    } catch (_) {}
+  }
+
+  // ── TrayListener ──
+  // GNOME AppIndicator 扩展将托盘图标显示在顶栏。
+  // 左键 → 切换窗口显示/隐藏；右键 → 弹出上下文菜单（由 setContextMenu 处理）。
+
+  @override
+  void onTrayIconMouseDown() {
+    _toggleWindowVisibility();
+  }
+
+  @override
+  void onTrayIconMouseUp() {}
+
+  @override
+  void onTrayIconRightMouseDown() {}
+
+  @override
+  void onTrayIconRightMouseUp() {}
+
+  @override
+  void onTrayMenuItemClick(MenuItem menuItem) {}
+
+  void _toggleWindowVisibility() async {
+    try {
+      final visible = await windowManager.isVisible();
+      if (visible) {
+        await windowManager.hide();
+      } else {
+        await windowManager.show();
+        await windowManager.focus();
+      }
     } catch (_) {}
   }
 

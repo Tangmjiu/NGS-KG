@@ -3,12 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/liked_songs_provider.dart';
 import '../providers/playlist_provider.dart';
+import '../constants/quality.dart';
 import 'app_overlays.dart';
 import 'shell_navigation_scope.dart';
 import '../services/music_service.dart';
 import '../services/api_client.dart';
 import '../models/playlist.dart';
+import '../screens/album_detail_screen.dart' show AlbumDetailScreen;
+import '../screens/artist_detail_screen.dart' show ArtistDetailScreen;
 import '../screens/playlist_detail_screen.dart';
 import '../models/song.dart';
 import '../models/song_mapper.dart';
@@ -16,6 +20,10 @@ import '../widgets/desktop_sidebar.dart';
 import '../widgets/desktop_song_table.dart';
 import '../widgets/m3_title_bar.dart';
 import '../widgets/player_desktop_view.dart';
+import '../widgets/lyric_settings_panel.dart';
+import '../widgets/playlist_side_sheet.dart';
+import '../widgets/login_required_dialog.dart';
+import '../screens/login_screen.dart';
 import 'local_cover_art.dart';
 import '../screens/home_screen.dart';
 import '../screens/discover_screen.dart';
@@ -678,15 +686,75 @@ class _DesktopPlayerBar extends StatelessWidget {
                         ),
                       ),
 
-                      // ── Right: Volume + time ──
+                      // ── Right: Favorite · More · Playlist · Time · Volume ──
                       Expanded(
-                        flex: 2,
+                        flex: 3,
                         child: LayoutBuilder(
                           builder: (_, constraints) {
-                            final narrow = constraints.maxWidth < 200;
+                            final narrow = constraints.maxWidth < 300;
                             return Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
+                                // Favorite
+                                if (hasSong)
+                                  Consumer<LikedSongsProvider>(
+                                    builder: (_, lp, __) {
+                                      final liked = lp.likedIds.contains(song.id);
+                                      return _IconBtn(
+                                        icon: liked ? Icons.favorite : Icons.favorite_border,
+                                        size: 18,
+                                        iconColor: liked ? Colors.redAccent : null,
+                                        tooltip: liked ? '取消收藏' : '收藏',
+                                        onPressed: () async {
+                                          final auth = context.read<AuthProvider>();
+                                          if (!auth.isLoggedIn) {
+                                            final goLogin = await showLoginRequiredDialog(context);
+                                            if (goLogin && context.mounted) {
+                                              ShellNavigationScope.navigate(
+                                                context,
+                                                routeName: '/login',
+                                                shellPageBuilder: () => const LoginScreen(),
+                                              );
+                                            }
+                                            return;
+                                          }
+                                          lp.toggle(SongInfo(
+                                            id: song.id,
+                                            name: song.name,
+                                            hash: song.hash ?? '',
+                                            albumId: song.albumId,
+                                            audioId: song.id,
+                                          ));
+                                        },
+                                      );
+                                    },
+                                  )
+                                else
+                                  const SizedBox(width: 36),
+
+                                // More options (MD3 Dialog with chips)
+                                if (hasSong)
+                                  _IconBtn(
+                                    icon: Icons.more_horiz,
+                                    size: 20,
+                                    tooltip: '更多',
+                                    onPressed: () => _showBarMoreDialog(context, player, song),
+                                  )
+                                else
+                                  const SizedBox(width: 36),
+
+                                // Playlist
+                                _IconBtn(
+                                  icon: Icons.playlist_play,
+                                  size: 20,
+                                  tooltip: '播放列表',
+                                  onPressed: hasSong
+                                      ? () => showPlaylistSideSheet(context)
+                                      : null,
+                                ),
+
+                                const SizedBox(width: 4),
+
                                 // Time display (hide on very narrow)
                                 if (hasSong && !narrow)
                                   Flexible(
@@ -750,6 +818,280 @@ class _DesktopPlayerBar extends StatelessWidget {
     );
   }
 
+  // ── Bar "更多" MD3 Dialog ──
+
+  void _showBarMoreDialog(BuildContext ctx, PlayerProvider player, Song? song) {
+    final cs = Theme.of(ctx).colorScheme;
+    final tt = Theme.of(ctx).textTheme;
+    final currentQ = Quality.levels[player.qualityLevel % Quality.levels.length];
+    final availableQualities = player.getAvailableQualities();
+
+    String qualitySubtitle(String key) {
+      switch (key) {
+        case '128': return '128kbps';
+        case '320': return '320kbps';
+        case 'high':
+        case 'flac': return 'FLAC';
+        default: return '';
+      }
+    }
+
+    showDialog(
+      context: ctx,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        backgroundColor: cs.surfaceContainerHighest,
+        contentPadding: const EdgeInsets.fromLTRB(20, 20, 24, 8),
+        content: SizedBox(
+          width: 380,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('更多操作', style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600, color: cs.onSurface)),
+                const SizedBox(height: 16),
+
+                // ── 倍速 ──
+                Text('倍速', style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant, letterSpacing: 0.5)),
+                const SizedBox(height: 8),
+                _buildChipRow(cs, player.currentSpeed.toStringAsFixed(1),
+                    ['0.5x', '0.75x', '1.0x', '1.25x', '1.5x', '2.0x'],
+                    (label) {
+                  final speed = double.tryParse(label.replaceAll('x', '')) ?? 1.0;
+                  player.setSpeed(speed);
+                  Navigator.pop(dialogCtx);
+                }, null, null),
+                const SizedBox(height: 12),
+
+                // ── 音质 ──
+                Text('音质', style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant, letterSpacing: 0.5)),
+                const SizedBox(height: 8),
+                _buildChipRow(
+                  cs, Quality.label(currentQ),
+                  Quality.levels.map((k) => Quality.label(k)).toList(),
+                  (label) {
+                    final idx = Quality.labels.values.toList().indexOf(label);
+                    if (idx >= 0) player.setQuality(Quality.levels[idx]);
+                    Navigator.pop(dialogCtx);
+                  },
+                  (label) {
+                    final idx = Quality.labels.values.toList().indexOf(label);
+                    if (idx >= 0) return player.isQualityAvailable(Quality.levels[idx]);
+                    return true;
+                  },
+                  (label) {
+                    final idx = Quality.labels.values.toList().indexOf(label);
+                    if (idx >= 0) return qualitySubtitle(Quality.levels[idx]);
+                    return '';
+                  },
+                ),
+                if (availableQualities.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '当前歌曲最高支持: ${Quality.label(availableQualities.last)}',
+                      style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+
+                // ── 音效 ──
+                Text('音效', style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant, letterSpacing: 0.5)),
+                const SizedBox(height: 8),
+                _buildChipRow(cs, Quality.effectLabel(player.effectKey),
+                    ['关闭', ...Quality.effects.map((k) => Quality.effectLabel(k))],
+                    (label) {
+                  if (label == '关闭') {
+                    player.setEffect('none');
+                  } else {
+                    final effectLabels = Quality.effects.map((k) => Quality.effectLabel(k)).toList();
+                    final idx = effectLabels.indexOf(label);
+                    if (idx >= 0) player.setEffect(Quality.effects[idx]);
+                  }
+                  Navigator.pop(dialogCtx);
+                }, null, null),
+                const SizedBox(height: 12),
+
+                Divider(height: 1, color: cs.outlineVariant),
+                const SizedBox(height: 4),
+
+                // ── 操作列表 ──
+                _buildActionTile(cs, Icons.timer_outlined, '定时关闭',
+                    subtitle: player.sleepTimerRemaining != null
+                        ? '剩余 ${player.sleepTimerRemaining!.inMinutes} 分钟'
+                        : null,
+                    onTap: () {
+                  Navigator.pop(dialogCtx);
+                  _showBarSleepTimer(ctx, player);
+                }),
+                _buildActionTile(cs, Icons.lyrics_outlined, '歌词设置', onTap: () {
+                  Navigator.pop(dialogCtx);
+                  showDialog(
+                    context: ctx,
+                    builder: (_) => AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                      backgroundColor: cs.surfaceContainerHighest,
+                      contentPadding: EdgeInsets.zero,
+                      content: const SizedBox(width: 360, child: LyricSettingsPanel()),
+                    ),
+                  );
+                }),
+                if (song != null && song.albumId > 0)
+                  _buildActionTile(cs, Icons.album, '查看专辑', onTap: () {
+                    Navigator.pop(dialogCtx);
+                    ShellNavigationScope.navigate(
+                      ctx,
+                      routeName: '/album/detail',
+                      arguments: {'id': song.albumId, 'name': song.albumName},
+                      shellPageBuilder: () => AlbumDetailScreen(
+                        albumId: song.albumId,
+                        albumName: song.albumName,
+                      ),
+                    );
+                  }),
+                if (song != null && song.artistId != null && song.artistId! > 0)
+                  _buildActionTile(cs, Icons.person, '查看歌手：${song.artistDisplay}', onTap: () {
+                    Navigator.pop(dialogCtx);
+                    ShellNavigationScope.navigate(
+                      ctx,
+                      routeName: '/artist/detail',
+                      arguments: {
+                        'id': song.artistId,
+                        'name': song.artists.isNotEmpty ? song.artists.first : '',
+                      },
+                      shellPageBuilder: () => ArtistDetailScreen(
+                        artistId: song.artistId!,
+                        artistName: song.artists.isNotEmpty ? song.artists.first : '',
+                      ),
+                    );
+                  }),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChipRow(
+    ColorScheme cs,
+    String current,
+    List<String> labels,
+    void Function(String) onTap,
+    bool Function(String)? isAvailable,
+    String Function(String)? subtitle,
+  ) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: labels.map((label) {
+        final selected = label == current;
+        final available = isAvailable?.call(label) ?? true;
+        return Tooltip(
+          message: !available ? '当前歌曲不支持' : '',
+          child: InkWell(
+            onTap: available ? () => onTap(label) : null,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: selected
+                    ? cs.primaryContainer
+                    : (available ? cs.surfaceContainerHighest : cs.surfaceContainerHighest.withValues(alpha: 0.5)),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: selected ? Colors.transparent : (available ? cs.outlineVariant : cs.outlineVariant.withValues(alpha: 0.3)),
+                  width: 1,
+                ),
+              ),
+              child: Text(label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                    color: selected
+                        ? cs.onPrimaryContainer
+                        : (available ? cs.onSurfaceVariant : cs.onSurfaceVariant.withValues(alpha: 0.35)),
+                  )),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildActionTile(ColorScheme cs, IconData icon, String text,
+      {String? subtitle, VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: cs.onSurfaceVariant),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(text,
+                  style: TextStyle(fontSize: 14, color: cs.onSurface)),
+            ),
+            if (subtitle != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Text(subtitle,
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+              ),
+            Icon(Icons.chevron_right, size: 18, color: cs.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showBarSleepTimer(BuildContext ctx, PlayerProvider player) {
+    final cs = Theme.of(ctx).colorScheme;
+    if (player.sleepTimerRemaining != null) {
+      showDialog(
+        context: ctx,
+        builder: (c) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          backgroundColor: cs.surfaceContainerHighest,
+          title: Text('定时关闭', style: TextStyle(color: cs.onSurface)),
+          content: Text('剩余 ${player.sleepTimerRemaining!.inMinutes} 分钟',
+              style: TextStyle(color: cs.onSurfaceVariant)),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c), child: Text('继续', style: TextStyle(color: cs.onSurface))),
+            TextButton(
+              onPressed: () { player.cancelSleepTimer(); Navigator.pop(c); },
+              child: const Text('关闭定时', style: TextStyle(color: Colors.redAccent)),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    showDialog(
+      context: ctx,
+      builder: (c) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        backgroundColor: cs.surfaceContainerHighest,
+        title: Text('定时关闭', style: TextStyle(color: cs.onSurface)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(title: Text('15 分钟', style: TextStyle(color: cs.onSurface)),
+                onTap: () { player.setSleepTimer(const Duration(minutes: 15)); Navigator.pop(c); }),
+            ListTile(title: Text('30 分钟', style: TextStyle(color: cs.onSurface)),
+                onTap: () { player.setSleepTimer(const Duration(minutes: 30)); Navigator.pop(c); }),
+            ListTile(title: Text('45 分钟', style: TextStyle(color: cs.onSurface)),
+                onTap: () { player.setSleepTimer(const Duration(minutes: 45)); Navigator.pop(c); }),
+            ListTile(title: Text('60 分钟', style: TextStyle(color: cs.onSurface)),
+                onTap: () { player.setSleepTimer(const Duration(minutes: 60)); Navigator.pop(c); }),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ============================================================================
@@ -761,12 +1103,14 @@ class _IconBtn extends StatelessWidget {
   final double size;
   final String tooltip;
   final VoidCallback? onPressed;
+  final Color? iconColor;
 
   const _IconBtn({
     required this.icon,
     required this.size,
     required this.tooltip,
     this.onPressed,
+    this.iconColor,
   });
 
   @override
@@ -774,7 +1118,9 @@ class _IconBtn extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return IconButton(
       icon: Icon(icon, size: size),
-      color: onPressed != null ? cs.onSurface : cs.onSurfaceVariant.withValues(alpha: 0.4),
+      color: iconColor ?? (onPressed != null
+          ? cs.onSurface
+          : cs.onSurfaceVariant.withValues(alpha: 0.4)),
       tooltip: tooltip,
       onPressed: onPressed,
       splashRadius: 20,
