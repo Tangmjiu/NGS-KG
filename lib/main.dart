@@ -43,10 +43,13 @@ Future<void> main() async {
     FlutterSkillBinding.ensureInitialized();
   }
 
-  // Windows 桌面端：窗口管理器必须在 runApp 前初始化，
+  // 桌面端：窗口管理器必须在 runApp 前初始化，
   // 否则 M3TitleBar 在 initState 中访问 windowManager 会因
   // 方法通道未注册而静默失败。
   await windowManager.ensureInitialized();
+  // 隐藏原生标题栏（Linux GtkHeaderBar / Windows WS_CAPTION），
+  // 由 Flutter 侧 M3TitleBar 统一渲染。
+  await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
 
 
 
