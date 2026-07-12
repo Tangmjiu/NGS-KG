@@ -44,15 +44,20 @@ class DesktopService implements TrayListener {
     int? durationMs,
     String? lyricText,
   }) {
-    // Linux/macOS: 更新顶栏标题（app_indicator_set_label）
-    if (!Platform.isWindows && song != null) {
-      final name = song.name ?? '';
-      final artist = song.artistDisplay ?? '';
-      final title = artist.isNotEmpty ? '$name - $artist' : name;
-      try {
-        trayManager.setTitle(title);
-      } catch (_) {}
-    }
+    if (song == null) return;
+    final name = song.name ?? '';
+    final artist = song.artistDisplay ?? '';
+    final display = artist.isNotEmpty ? '$name - $artist' : name;
+
+    try {
+      if (Platform.isWindows) {
+        // Windows: Shell_NotifyIcon NIF_TIP — 鼠标悬停 tooltip
+        trayManager.setToolTip(display);
+      } else {
+        // Linux/macOS: app_indicator_set_label — GNOME 顶栏文字
+        trayManager.setTitle(display);
+      }
+    } catch (_) {}
   }
 
   // ═══════════════════════════════════════════════
