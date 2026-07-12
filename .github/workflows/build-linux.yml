@@ -2,10 +2,6 @@ name: Build Linux (Debug + Release + Packages)
 
 on:
   workflow_dispatch:
-  push:
-    branches: [linux-desktop]
-  pull_request:
-    branches: [linux-desktop]
 
 jobs:
   build:
