@@ -74,15 +74,7 @@ class DiscoverProvider extends ChangeNotifier {
   // ─── 加载 ───
 
   /// 加载全部发现数据（首屏 + 下拉刷新）
-  /// 30 秒内不重复加载，防止导航切换导致连续重载
-  DateTime? _lastLoadAll;
-
   Future<void> loadAll() async {
-    if (_lastLoadAll != null &&
-        DateTime.now().difference(_lastLoadAll!).inSeconds < 30) {
-      return;
-    }
-    _lastLoadAll = DateTime.now();
     _loading = true;
     _error = null;
     notifyListeners();
@@ -341,11 +333,10 @@ class DiscoverProvider extends ChangeNotifier {
     };
   }
 
-  /// 启动私人 FM 播放
+  /// 启动私人 FM 播放（始终清空缓冲并重新获取，确保切换 mode/pool 后立即生效）
   Future<void> startFmPlayback(PlayerProvider player) async {
-    if (_personalFmBuffer.isEmpty) {
-      await _refillFmBuffer();
-    }
+    _personalFmBuffer.clear();
+    await _refillFmBuffer();
     if (_personalFmBuffer.isNotEmpty) {
       final initialSongs = _personalFmBuffer.take(10).toList();
       _personalFmBuffer.removeRange(0, initialSongs.length);

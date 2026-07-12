@@ -426,7 +426,12 @@ class MusicService {
     final cookieStr = await _getCookieString();
     if (cookieStr != null) params['cookie'] = cookieStr;
     final res = await _oneShotGet('/personal/fm', params: params, silent: true);
-    if (res['data'] is List) return (res['data'] as List).cast<Map<String, dynamic>>();
+    final data = res['data'];
+    if (data is List) return data.cast<Map<String, dynamic>>();
+    if (data is Map) {
+      final list = data['song_list'] as List<dynamic>?;
+      if (list != null) return list.cast<Map<String, dynamic>>();
+    }
     return [];
   }
 

@@ -94,18 +94,24 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // 数据加载由 DiscoverScreen.initState 统一处理，此处只标记预取状态
-    _fmPreloaded = true;
+    if (!_fmPreloaded) {
+      _fmPreloaded = true;
+      final provider = context.read<DiscoverProvider>();
+      if (provider.personalFmBuffer.isEmpty &&
+          provider.personalFmSongs.isEmpty) {
+        provider.loadAll();
+      }
+    }
   }
 
-  // ─── 循环切换模式（不中断播放，仅刷新后续推荐） ───
+  // ─── 循环切换模式（立即重新加载新模式下的推荐歌曲） ───
   void _cycleMode(DiscoverProvider provider) {
     if (_fmLoading) return;
     final currentIndex = _modeValues.indexOf(provider.fmMode);
     final nextIndex = (currentIndex + 1) % _modeValues.length;
     provider.setFmMode(_modeValues[nextIndex]);
     if (provider.isFmActive) {
-      provider.refreshFmBuffer();
+      _startFm(provider, context.read<PlayerProvider>());
     }
   }
 
@@ -609,9 +615,9 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
 
   void _onPoolChanged(DiscoverProvider provider, int poolId) {
     provider.setFmPoolId(poolId);
-    // 新算法池不会中断当前播放，仅刷新后续推荐缓冲
+    // 切换算法池立即重新加载推荐歌曲
     if (provider.isFmActive) {
-      provider.refreshFmBuffer();
+      _startFm(provider, context.read<PlayerProvider>());
     }
   }
 
