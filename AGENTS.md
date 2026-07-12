@@ -112,6 +112,7 @@ Do not re-enable without explicit user request and dependency audit.
 
 - Branch naming: `linux-desktop` (primary for Linux), `android` (for mobile), `windows-desktop` (for Windows).
 - Commit messages: Conventional Commits (`feat/fix/docs/refactor/chore`).
+- **Platform discipline**: Each branch corresponds to exactly one platform. Cross-platform changes MUST be committed **per-platform on the matching branch** — never bundle changes for multiple platforms into a single commit/branch.
 - CI triggers: PR to `android` builds debug APK; push to `windows-desktop` builds Windows; release workflow is manual with tag input.
 - License: MIT — source files have SPDX headers.
 
