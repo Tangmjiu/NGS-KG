@@ -136,8 +136,8 @@ jobs:
                 - mkdir -p /app/bin
                 - cp -r * /app/bin/
                 - chmod +x /app/bin/ngskg_plus
+                - mkdir -p /app/share/applications
                 - |
-                  mkdir -p /app/share/applications
                   cat > /app/share/applications/com.mjiutang.ngskg.desktop << 'DESKTOP'
                   [Desktop Entry]
                   Name=NGS-KG+
