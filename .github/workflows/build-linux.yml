@@ -118,62 +118,57 @@ jobs:
       #  Package: .flatpak
       # ═══════════════════════════════════════════════════════════
 
+      - name: Prepare desktop file for flatpak
+        run: |
+          mkdir -p build/linux/x64/release/bundle/share/applications
+          cat > build/linux/x64/release/bundle/share/applications/ngskg-plus.desktop <<- DESKTOP
+          	[Desktop Entry]
+          	Name=NGS-KG+
+          	Exec=ngskg_plus %u
+          	Icon=ngskg
+          	Type=Application
+          	Categories=Audio;Music;Player;
+          	MimeType=application/x-ngskg-playlist;x-scheme-handler/ngskg;
+          DESKTOP
+
       - name: Package as .flatpak
         run: |
-          VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1')
-
-          # Write desktop file into bundle so flatpak-builder source includes it
-          mkdir -p build/linux/x64/release/bundle/share/applications
-          cat > build/linux/x64/release/bundle/share/applications/ngskg-plus.desktop << DESKTOPEOF
-          [Desktop Entry]
-          Name=NGS-KG+
-          Exec=ngskg_plus %u
-          Icon=ngskg
-          Type=Application
-          Categories=Audio;Music;Player;
-          MimeType=application/x-ngskg-playlist;x-scheme-handler/ngskg;
-          DESKTOPEOF
-
-          cat > dist/com.mjiutang.ngskg.yml << EOF
-          app-id: com.mjiutang.ngskg
-          runtime: org.gnome.Platform
-          runtime-version: '47'
-          sdk: org.gnome.Sdk
-          command: ngskg_plus
-
-          modules:
-            - name: ngskg
-              buildsystem: simple
-              build-commands:
-                - mkdir -p /app/bin
-                - cp -r * /app/bin/
-                - chmod +x /app/bin/ngskg_plus
-                - mkdir -p /app/share/applications
-                - cp /app/bin/share/applications/ngskg-plus.desktop /app/share/applications/
-              sources:
-                - type: dir
-                  path: ../build/linux/x64/release/bundle
-
-          finish-args:
-            - --share=network
-            - --share=ipc
-            - --socket=x11
-            - --socket=wayland
-            - --socket=pulseaudio
-            - --device=dri
-            - --talk-name=org.kde.StatusNotifierWatcher
-            - --talk-name=org.freedesktop.Notifications
-
-          rename-desktop-file: ngskg-plus.desktop
-          desktop-file-name-prefix: NGS-KG+
-          desktop-file-name-suffix: " (Flatpak)"
-          EOF
-
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak install -y --user flathub org.gnome.Platform//47 || true
 
-          flatpak-builder --user --install-deps-from=flathub --force-clean --repo=dist/repo dist/build dist/com.mjiutang.ngskg.yml
+          cat > dist/com.mjiutang.ngskg.yml <<- YAML
+          	app-id: com.mjiutang.ngskg
+          	runtime: org.gnome.Platform
+          	runtime-version: "47"
+          	sdk: org.gnome.Sdk
+          	command: ngskg_plus
+          	rename-desktop-file: ngskg-plus.desktop
+          	desktop-file-name-prefix: NGS-KG+
+          	desktop-file-name-suffix: " (Flatpak)"
+          	modules:
+          	  - name: ngskg
+          	    buildsystem: simple
+          	    build-commands:
+          	      - mkdir -p /app/bin
+          	      - cp -r * /app/bin/
+          	      - chmod +x /app/bin/ngskg_plus
+          	      - mkdir -p /app/share/applications
+          	      - cp /app/bin/share/applications/ngskg-plus.desktop /app/share/applications/
+          	    sources:
+          	      - type: dir
+          	        path: ../build/linux/x64/release/bundle
+          	finish-args:
+          	  - --share=network
+          	  - --share=ipc
+          	  - --socket=x11
+          	  - --socket=wayland
+          	  - --socket=pulseaudio
+          	  - --device=dri
+          	  - --talk-name=org.kde.StatusNotifierWatcher
+          	  - --talk-name=org.freedesktop.Notifications
+          YAML
 
+          flatpak-builder --user --install-deps-from=flathub --force-clean --repo=dist/repo dist/build dist/com.mjiutang.ngskg.yml
           flatpak build-bundle dist/repo dist/ngskg-plus.flatpak com.mjiutang.ngskg
 
       # ═══════════════════════════════════════════════════════════
