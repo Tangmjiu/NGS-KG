@@ -69,26 +69,53 @@ jobs:
           sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
           sed -i '/maven.*aliyun/d' android/settings.gradle android/build.gradle
 
-      - name: Build release APK (split-per-abi)
+      # ── Build debug APK (split-per-abi) ──
+      - name: Build debug APK
+        run: flutter build apk --debug --split-per-abi --android-skip-build-dependency-validation
+
+      # ── Build release APK (split-per-abi) ──
+      - name: Build release APK
         run: flutter build apk --release --split-per-abi
 
-      - name: Build debug APK
-        run: flutter build apk --debug --target-platform android-arm64 --android-skip-build-dependency-validation
-
-      - name: Upload release APKs
+      # ── Upload each architecture separately ──
+      - name: Upload debug APK (arm64-v8a)
         uses: actions/upload-artifact@v4
         with:
-          name: android-release-apks
-          path: build/app/outputs/flutter-apk/*-release.apk
+          name: android-debug-arm64-v8a
+          path: build/app/outputs/flutter-apk/app-debug-arm64-v8a.apk
 
-      - name: Upload debug APK
+      - name: Upload debug APK (armeabi-v7a)
         uses: actions/upload-artifact@v4
         with:
-          name: android-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: android-debug-armeabi-v7a
+          path: build/app/outputs/flutter-apk/app-debug-armeabi-v7a.apk
+
+      - name: Upload debug APK (x86_64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-x86_64
+          path: build/app/outputs/flutter-apk/app-debug-x86_64.apk
+
+      - name: Upload release APK (arm64-v8a)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-arm64-v8a
+          path: build/app/outputs/flutter-apk/app-release-arm64-v8a.apk
+
+      - name: Upload release APK (armeabi-v7a)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-armeabi-v7a
+          path: build/app/outputs/flutter-apk/app-release-armeabi-v7a.apk
+
+      - name: Upload release APK (x86_64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-x86_64
+          path: build/app/outputs/flutter-apk/app-release-x86_64.apk
 
   # ═══════════════════════════════════════════════════════════
-  #  Windows Build
+  #  Windows Build (x64 + arm64, ZIP + MSIX)
   # ═══════════════════════════════════════════════════════════
   build-windows:
     runs-on: windows-latest
@@ -104,7 +131,12 @@ jobs:
           channel: 'stable'
 
       - name: Install Rust
-        run: rustup default stable
+        run: |
+          rustup default stable
+          rustup target add aarch64-pc-windows-msvc
+
+      - name: Install msix_cli
+        run: cargo install msix_cli
 
       - name: Ensure assets directories
         run: |
@@ -119,7 +151,7 @@ jobs:
           $placeholder = @"
           <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
             <rect width="100" height="100" fill="#2CA1F4"/>
-            <text x="50" y="65" text-anchor="middle" font-size="40" fill="white">♪</text>
+            <text x="50" "65" text-anchor="middle" font-size="40" fill="white">♪</text>
           </svg>
           "@
           $required = @('ban.png', 'codecrash.png', 'loading.png', 'sthiswrong.png', 'supportme.png')
@@ -131,23 +163,77 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Build Windows release
-        run: flutter build windows --release
-
-      - name: Build Windows debug
+      # ── x64 Build ──
+      - name: Build Windows x64 debug
         run: flutter build windows --debug
 
-      - name: Upload release build
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-release
-          path: build\windows\x64\runner\Release
+      - name: Build Windows x64 release
+        run: flutter build windows --release
 
-      - name: Upload debug build
+      # ── arm64 Build ──
+      - name: Build Windows arm64 debug
+        run: flutter build windows --debug --target-platform windows-arm64
+
+      - name: Build Windows arm64 release
+        run: flutter build windows --release --target-platform windows-arm64
+
+      # ── Package x64 as ZIP ──
+      - name: ZIP x64 debug
+        run: Compress-Archive -Path build\windows\x64\runner\Debug\* -DestinationPath dist\ngskg-plus-windows-x64-debug.zip
+
+      - name: ZIP x64 release
+        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath dist\ngskg-plus-windows-x64-release.zip
+
+      # ── Package arm64 as ZIP ──
+      - name: ZIP arm64 debug
+        run: Compress-Archive -Path build\windows\arm64\runner\Debug\* -DestinationPath dist\ngskg-plus-windows-arm64-debug.zip
+
+      - name: ZIP arm64 release
+        run: Compress-Archive -Path build\windows\arm64\runner\Release\* -DestinationPath dist\ngskg-plus-windows-arm64-release.zip
+
+      # ── Generate MSIX ──
+      - name: Generate x64 MSIX
+        run: msix build --version 1.5.0.0 --display-name "NGS-KG+" --publisher "CN=mjiutang" --output dist\ngskg-plus-windows-x64.msix
+
+      - name: Generate arm64 MSIX
+        run: msix build --version 1.5.0.0 --display-name "NGS-KG+" --publisher "CN=mjiutang" --output dist\ngskg-plus-windows-arm64.msix
+
+      # ── Upload artifacts ──
+      - name: Upload x64 debug ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: windows-debug
-          path: build\windows\x64\runner\Debug
+          name: windows-x64-debug-zip
+          path: dist\ngskg-plus-windows-x64-debug.zip
+
+      - name: Upload x64 release ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-release-zip
+          path: dist\ngskg-plus-windows-x64-release.zip
+
+      - name: Upload x64 release MSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-release-msix
+          path: dist\ngskg-plus-windows-x64.msix
+
+      - name: Upload arm64 debug ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-arm64-debug-zip
+          path: dist\ngskg-plus-windows-arm64-debug.zip
+
+      - name: Upload arm64 release ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-arm64-release-zip
+          path: dist\ngskg-plus-windows-arm64-release.zip
+
+      - name: Upload arm64 release MSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-arm64-release-msix
+          path: dist\ngskg-plus-windows-arm64.msix
 
   # ═══════════════════════════════════════════════════════════
   #  Watch Build
@@ -294,7 +380,6 @@ jobs:
       # ── Package as .flatpak ──
       - name: Package as .flatpak
         run: |
-          VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1)
           cat > dist/com.mjiutang.ngskg.yml << EOF
           app-id: com.mjiutang.ngskg
           runtime: org.gnome.Platform
@@ -410,7 +495,7 @@ jobs:
           path: artifacts
 
       - name: List all artifacts
-        run: find artifacts -type f | head -50
+        run: find artifacts -type f | sort
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -418,82 +503,74 @@ jobs:
           tag_name: ${{ github.event.inputs.tag_name }}
           name: ${{ github.event.inputs.release_name }}
           body: |
-            # NGS-KG+ ${{ github.event.inputs.tag_name }}
+            ## v1.5.0-preview (Nightcord 2.0.0 预览版)
 
-            > 代号 **Nightcord** 来源于 QQ 群代号投票——至于为什么选这个，我也不知道。
+            这是 NGS-KG+ 首个全平台预览版，包含 Windows、Linux、Android 和 Android Watch 四个平台。作为 Nightcord 2.0.0 的预览版本（代号来源于 QQ 群投票，至于为什么选这个，我们也不知道）。从 v1.0.1 以来累计了大量功能开发和重构。
 
-            本版本为 **v2.0.0 Nightcord** 的预览版，包含大量新功能和改进。
+            ### 本版本是什么
 
-            ## 新增
+            - 播放引擎从 just_audio 换成了 media_kit，底层能力更强
+            - 桌面端 UI 全面重写：新的侧边栏导航、DesktopShell、MD3 动效和主题系统
+            - 新增播放队列管理、歌词增强、歌单收藏与多选操作
+            - 集成了 Navidrome 服务端支持
+            - Windows 端做了系统托盘、文件关联、协议处理器、SMTC 等桌面集成
+            - Linux 端从 Android 分支移植了播放功能，修复了大量桌面适配问题
+            - Android Watch 端新增搜索、播放器、设置页面
 
-            - **FM 系统重构**：隔离 FM 队列系统，替换「上一首」为「不喜欢」，QueueType 枚举实现队列隔离
-            - **FM 播放改进**：缓冲管理、去重、顺序模式、主动填充、非破坏性模式切换
-            - **歌词设置**：字体大小 / 对齐 / 字重 / 模糊度可调
-            - **Hi-Res 标识**：设置页开关控制，官方 JPG 标识覆盖在专辑封面上
-            - **跨淡入淡出（Crossfade）**：播放切换时自动淡入淡出
-            - **系统均衡器**：Android 系统均衡器集成
-            - **KRC 歌词翻译/罗马音**：支持翻译 / 罗马音切换显示
-            - **多队列系统**：多队列底部 sheet、跳转到当前播放、将队列存为歌单
-            - **专辑详情多选**：批量添加到歌单
-            - **歌单滑动删除**：歌单详情页滑动删除歌曲 + 收藏歌单 + 评论入口
-            - **SongTile 喜欢按钮**：长按菜单（下一首播放 / 添加到歌单 / 查看专辑）
-            - **收藏歌单 API**：PlaylistProvider 封装 create/delete/collect 并自动刷新
-            - **队列持久化**：完整歌单序列化 + palette 缓存
-            - **PreviewConfig 系统**：preview.yaml 开关与运行时加载器
-            - **主题市场 UI**：浏览、下载、应用社区主题
-            - **主题资源系统**：空状态插画、emptyStateWidget 组件、全局主题背景
+            ### 构建产物
 
-            ## 变更
-
-            - **UI 重构**：温和版 + 沉浸歌词风格
-            - **Provider 层重构**：统一 MusicService 访问模式
-            - **播放列表 sheet**：支持滑动删除和长按拖拽排序
-            - **迷你播放栏**：gap 从 8px 增加到 16px
-            - **队列引擎**：新增 removeAt/move/insertAt/playNextSong 方法
-            - **CI 调整**：全平台 Debug + Release 自动构建
-
-            ## 修复
-
-            - **FM UI 问题**：动态流光背景全黑
-            - **FM 数据加载**：修复 FM data loading bug
-            - **每日推荐 ID**：修复 MixSongID 错误
-            - **登出清理**：清空 likedSongs 缓存 + 修复 auth 竞态条件
-            - **MiniPlayer 点击**：通过 navKey 推播放器页面并管理可见性状态
-            - **切歌音频**：resetForNewSong 时停掉播放器，避免旧音频继续播放
-
-            ## 下载
-
-            ### Android
+            #### Android
             | 架构 | 文件 |
             |------|------|
             | arm64-v8a | `NGS-KG-arm64-v8a-release.apk` |
             | armeabi-v7a | `NGS-KG-armeabi-v7a-release.apk` |
             | x86_64 | `NGS-KG-x86_64-release.apk` |
 
-            ### Windows
+            #### Windows
             | 架构 | 文件 |
             |------|------|
-            | x64 | `windows-release/` (zip) |
+            | x64 | `ngskg-plus-windows-x64-debug.zip` / `ngskg-plus-windows-x64-release.zip` / `ngskg-plus-windows-x64.msix` |
+            | arm64 | `ngskg-plus-windows-arm64-debug.zip` / `ngskg-plus-windows-arm64-release.zip` / `ngskg-plus-windows-arm64.msix` |
 
-            ### Linux
+            #### Linux
             | 格式 | 文件 |
             |------|------|
             | .deb | `ngskg-plus_1.5.0_amd64.deb` |
             | .flatpak | `ngskg-plus.flatpak` |
             | PKGBUILD | `PKGBUILD` |
 
-            ### Watch (Wear OS) — Lite
+            > **Arch Linux 用户**：AUR 暂停注册，请使用 Release 中的 PKGBUILD 本地构建：
+            > ```bash
+            > git clone https://github.com/Tangmjiu/NGS-KG.git --branch linux-desktop
+            > cd NGS-KG
+            > makepkg -si
+            > ```
+
+            #### Android Watch (Wear OS) — Lite
             | 架构 | 文件 |
             |------|------|
             | arm64 | `NGS-KG-watch-release.apk` |
 
             > Watch 版为精简版，功能较少。需配合 Android 手机使用。
 
-            也可在本页底部 Assets 下载。
+            ### 已知问题
+
+            - 部分功能运行会有异常
           files: |
-            artifacts/android-release-apks/*
-            artifacts/android-debug-apk/*
-            artifacts/windows-release/**
+            artifacts/android-debug-arm64-v8a/*
+            artifacts/android-debug-armeabi-v7a/*
+            artifacts/android-debug-x86_64/*
+            artifacts/android-release-arm64-v8a/*
+            artifacts/android-release-armeabi-v7a/*
+            artifacts/android-release-x86_64/*
+            artifacts/windows-x64-debug-zip/*
+            artifacts/windows-x64-release-zip/*
+            artifacts/windows-x64-release-msix/*
+            artifacts/windows-arm64-debug-zip/*
+            artifacts/windows-arm64-release-zip/*
+            artifacts/windows-arm64-release-msix/*
+            artifacts/linux-release/**
+            artifacts/linux-debug/**
             artifacts/linux-deb/*
             artifacts/linux-flatpak/*
             artifacts/linux-pkgbuild/*
