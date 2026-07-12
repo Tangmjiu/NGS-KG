@@ -39,3 +39,8 @@ gradle-user-home/
 *.keystore
 # 本地 API 文档参考
 APIDOCS/
+
+# Linux desktop
+linux/flutter/ephemeral/
+
+linux/runner/flutter/

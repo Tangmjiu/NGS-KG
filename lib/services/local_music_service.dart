@@ -29,7 +29,7 @@ class LocalMusicService {
       dirs.add(Directory('/storage/emulated/0/music'));
       dirs.add(Directory('/storage/emulated/0/Music'));
     }
-    // Windows paths
+    // Windows / Linux paths
     if (Platform.isWindows) {
       final userProfile = Platform.environment['USERPROFILE'];
       if (userProfile != null && userProfile.isNotEmpty) {

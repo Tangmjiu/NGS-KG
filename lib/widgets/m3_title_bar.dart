@@ -81,12 +81,9 @@ class _M3TitleBarState extends State<M3TitleBar> with WindowListener {
   }
 
   void _onMaximizeOrRestore() {
-    debugPrint('[M3TitleBar] maximize/restore (current: ${_isMaximized ? "maximized" : "normal"})');
-    if (_isMaximized) {
-      windowManager.unmaximize();
-    } else {
-      windowManager.maximize();
-    }
+    debugPrint(
+        '[M3TitleBar] maximize/restore (current: ${_isMaximized ? "maximized" : "normal"})');
+    windowManager.maximizeOrRestore();
   }
 
   void _onClose() {
@@ -102,94 +99,92 @@ class _M3TitleBarState extends State<M3TitleBar> with WindowListener {
 
     // 标题栏背景色：聚焦时用 surface，失焦时略微变暗
     final bg = widget.backgroundColor ?? cs.surface;
-    final effectiveBg = _isFocused ? bg : Color.lerp(bg, cs.outlineVariant, 0.08)!;
-    final dragHoverBg = Color.lerp(effectiveBg, cs.surfaceContainerHighest, 0.35)!;
+    final effectiveBg =
+        _isFocused ? bg : Color.lerp(bg, cs.outlineVariant, 0.08)!;
+    final dragHoverBg =
+        Color.lerp(effectiveBg, cs.surfaceContainerHighest, 0.35)!;
 
     return Container(
-        height: widget.height,
-        decoration: BoxDecoration(
-          color: effectiveBg,
-          border: Border(
-            bottom: BorderSide(
-              color: cs.outlineVariant.withValues(alpha: 0.5),
-              width: 0.5,
-            ),
+      height: widget.height,
+      decoration: BoxDecoration(
+        color: effectiveBg,
+        border: Border(
+          bottom: BorderSide(
+            color: cs.outlineVariant.withValues(alpha: 0.5),
+            width: 0.5,
           ),
         ),
-        child: Row(
-          children: [
-            // ── 拖拽区域（图标+标题+中间空白）──
-            // 通过 windowManager.startDragging() 实现原生窗口拖拽
-            Expanded(
-              child: MouseRegion(
-                onEnter: (_) => setState(() => _isHoveringDragArea = true),
-                onExit: (_) => setState(() => _isHoveringDragArea = false),
-                child: GestureDetector(
-                  onPanStart: (_) {
-                    windowManager.startDragging();
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    color: _isHoveringDragArea ? dragHoverBg : Colors.transparent,
-                    height: double.infinity,
-                    alignment: Alignment.centerLeft,
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 12),
-                        SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: Image.asset(
-                              'assets/images/icon.png',
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Icon(
-                                Icons.music_note_rounded,
-                                size: 18,
-                                color: cs.primary,
-                              ),
-                            ),
+      ),
+      child: Row(
+        children: [
+          // ── 拖拽区域（图标+标题+中间空白）──
+          // 拖拽手势通过窗口管理器方法通道发起原生窗口拖拽。
+          // 按钮在拖拽区域之外以免被吞事件。
+          Expanded(
+            child: MouseRegion(
+              onEnter: (_) => setState(() => _isHoveringDragArea = true),
+              onExit: (_) => setState(() => _isHoveringDragArea = false),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                color: _isHoveringDragArea ? dragHoverBg : Colors.transparent,
+                height: double.infinity,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  children: [
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.asset(
+                          'assets/images/icon.png',
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Icon(
+                            Icons.music_note_rounded,
+                            size: 18,
+                            color: cs.primary,
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Text(
-                          widget.title,
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                color: cs.onSurface,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0.3,
-                              ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    Text(
+                      widget.title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: cs.onSurface,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.3,
+                          ),
+                    ),
+                  ],
                 ),
               ),
             ),
+          ),
 
-            // ── 右侧：MD3 风格窗口控制按钮 ──
-            _CaptionButton(
-              icon: Icons.horizontal_rule_rounded,
-              tooltip: '最小化',
-              onPressed: _onMinimize,
-            ),
-            _CaptionButton(
-              icon: _isMaximized
-                  ? Icons.filter_none_rounded
-                  : Icons.crop_square_rounded,
-              tooltip: _isMaximized ? '还原' : '最大化',
-              onPressed: _onMaximizeOrRestore,
-              isMaximizeButton: true,
-            ),
-            _CaptionButton(
-              icon: Icons.close_rounded,
-              tooltip: '关闭',
-              onPressed: _onClose,
-              isCloseButton: true,
-            ),
-          ],
-        ),
+          // ── 右侧：MD3 风格窗口控制按钮 ──
+          _CaptionButton(
+            icon: Icons.horizontal_rule_rounded,
+            tooltip: '最小化',
+            onPressed: _onMinimize,
+          ),
+          _CaptionButton(
+            icon: _isMaximized
+                ? Icons.filter_none_rounded
+                : Icons.crop_square_rounded,
+            tooltip: _isMaximized ? '还原' : '最大化',
+            onPressed: _onMaximizeOrRestore,
+            isMaximizeButton: true,
+          ),
+          _CaptionButton(
+            icon: Icons.close_rounded,
+            tooltip: '关闭',
+            onPressed: _onClose,
+            isCloseButton: true,
+          ),
+        ],
+      ),
     );
   }
 }

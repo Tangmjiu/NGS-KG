@@ -52,7 +52,6 @@ dependencies:
   # Desktop (Linux) — uses media_kit (mpv) for full format support including FLAC
   just_audio_media_kit: ^2.1.0
   media_kit_libs_linux: ^1.0.9
-  dbus: ^0.7.14
   sqflite_common_ffi: ^2.4.0+3
   # smtc_windows: ^1.1.0     # Linux: MPRIS TBD
   tray_manager: ^0.5.2
