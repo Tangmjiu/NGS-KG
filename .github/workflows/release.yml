@@ -135,9 +135,6 @@ jobs:
           rustup default stable
           rustup target add aarch64-pc-windows-msvc
 
-      - name: Install msix_cli
-        run: cargo install msix_cli
-
       - name: Ensure assets directories
         run: |
           mkdir -Force assets\icons
@@ -193,10 +190,10 @@ jobs:
 
       # ── Generate MSIX ──
       - name: Generate x64 MSIX
-        run: msix build --version 1.5.0.0 --display-name "NGS-KG+" --publisher "CN=mjiutang" --output dist\ngskg-plus-windows-x64.msix
+        run: dart run msix:create --version 1.5.0.0
 
       - name: Generate arm64 MSIX
-        run: msix build --version 1.5.0.0 --display-name "NGS-KG+" --publisher "CN=mjiutang" --output dist\ngskg-plus-windows-arm64.msix
+        run: dart run msix:create --version 1.5.0.0 --architecture arm64
 
       # ── Upload artifacts ──
       - name: Upload x64 debug ZIP
@@ -215,7 +212,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-x64-release-msix
-          path: dist\ngskg-plus-windows-x64.msix
+          path: build\windows\x64\runner\Release\msix\*.msix
 
       - name: Upload arm64 debug ZIP
         uses: actions/upload-artifact@v4
@@ -233,7 +230,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-arm64-release-msix
-          path: dist\ngskg-plus-windows-arm64.msix
+          path: build\windows\arm64\runner\Release\msix\*.msix
 
   # ═══════════════════════════════════════════════════════════
   #  Watch Build
