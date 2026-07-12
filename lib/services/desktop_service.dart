@@ -44,13 +44,13 @@ class DesktopService implements TrayListener {
     int? durationMs,
     String? lyricText,
   }) {
-    // Linux: SMTC 部分已注释（MPRIS TBD），仅保留托盘提示更新
-    if (song != null) {
-      final tip = lyricText != null && lyricText.isNotEmpty
-          ? '${song.name ?? ''} - ${song.artistDisplay ?? ''}\n$lyricText'
-          : '${song.name ?? ''} - ${song.artistDisplay ?? ''}';
+    // Linux/macOS: 更新顶栏标题（app_indicator_set_label）
+    if (!Platform.isWindows && song != null) {
+      final name = song.name ?? '';
+      final artist = song.artistDisplay ?? '';
+      final title = artist.isNotEmpty ? '$name - $artist' : name;
       try {
-        trayManager.setToolTip(tip);
+        trayManager.setTitle(title);
       } catch (_) {}
     }
   }
@@ -66,7 +66,11 @@ class DesktopService implements TrayListener {
             ? 'assets/icons/app_icon.ico'
             : 'assets/images/icon.png',
       );
-      await trayManager.setToolTip('NGS-KG+');
+      // setTitle → Linux: app_indicator_set_label (GNOME 顶栏文字)
+      //           macOS: 状态栏标题; Windows: 无效果
+      if (!Platform.isWindows) {
+        await trayManager.setTitle('NGS-KG+');
+      }
       await _updateTrayMenu(player.isPlaying);
       trayManager.addListener(this);
     } catch (e) {
