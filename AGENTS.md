@@ -1,10 +1,13 @@
 # NGS-KG+ — Agent Guide
 
+### 所有思考和回答必须使用简体中文 ###
+### ALL THINKING AND RESPONSES MUST BE IN SIMPLIFIED CHINESE ###
+
 ## Project identity
 
 - **NGS-KG+** (ngskg_plus): Flutter music player based on KuGou third-party API.
 - **State management**: Provider. **Networking**: Dio + CookieJar. **Audio**: just_audio.
-- **Target**: Android (primary) + Windows desktop (developing).
+- **Target**: Linux desktop (primary).
 - **Version**: `pubspec.yaml` is the single source; CI reads it too.
 - **Package name**: `com.mjiutang.ngskg` (migrated from `com.kugou.ngskg`).
 
@@ -61,13 +64,13 @@
 - Custom fonts: bundled HarmonyOS Sans (Regular 400, Medium 500, Bold 700, Light 300).
 - `ThemeAssets` in `lib/theme/theme_assets.dart` provides player background image path with `ImageFilter.blur`.
 
-## Windows desktop specifics
+## Linux desktop specifics
 
 - `windowManager.ensureInitialized()` must be called **before** `runApp()` (comment in `main.dart` line 45).
-- `sqfliteFfiInit()` required for SQLite on Windows.
-- `DesktopService` handles SMTC (System Media Transport Controls), tray, and window management.
-- Desktop build: `flutter build windows --debug`. Rust toolchain required (`smtc_windows` dependency).
-- CI builds Windows on `windows-desktop` branch.
+- `DesktopService` handles window management; MPRIS D-Bus integration for system media controls.
+- Desktop build: `flutter build linux --debug` / `flutter build linux --release`.
+- Flatpak packaging via `flutpak`; `.deb` via `flutter_distributor`; AUR `ngskg-plus-bin`.
+- CI builds Linux on `linux-desktop` branch.
 
 ## Lint & analysis
 
@@ -89,9 +92,8 @@ flutter pub get            # install deps (run after any pubspec change)
 flutter analyze            # static analysis
 dart format lib/           # formatting
 flutter test               # run tests (model + lyrics tests pass)
-flutter build apk --debug  # debug APK (CI: only arm64-v8a)
-flutter build apk --release --split-per-abi  # release APK
-flutter build windows --debug                 # Windows desktop
+flutter build linux --debug  # debug Linux build
+flutter build linux --release  # release Linux build
 ```
 
 CI uses Flutter **3.41.0 stable** (pinned in GitHub Actions).
@@ -108,7 +110,7 @@ Do not re-enable without explicit user request and dependency audit.
 
 ## Git workflow
 
-- Branch naming: `android` (primary), `windows-desktop` (for desktop work).
+- Branch naming: `linux-desktop` (primary for Linux), `android` (for mobile), `windows-desktop` (for Windows).
 - Commit messages: Conventional Commits (`feat/fix/docs/refactor/chore`).
 - CI triggers: PR to `android` builds debug APK; push to `windows-desktop` builds Windows; release workflow is manual with tag input.
 - License: MIT — source files have SPDX headers.
