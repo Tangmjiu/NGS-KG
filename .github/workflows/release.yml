@@ -131,9 +131,7 @@ jobs:
           channel: 'stable'
 
       - name: Install Rust
-        run: |
-          rustup default stable
-          rustup target add aarch64-pc-windows-msvc
+        run: rustup default stable
 
       - name: Ensure assets directories
         run: |
@@ -167,33 +165,16 @@ jobs:
       - name: Build Windows x64 release
         run: flutter build windows --release
 
-      # ── arm64 Build ──
-      - name: Build Windows arm64 debug
-        run: flutter build windows --debug --target-platform windows-arm64
-
-      - name: Build Windows arm64 release
-        run: flutter build windows --release --target-platform windows-arm64
-
-      # ── Package x64 as ZIP ──
+      # ── Package as ZIP ──
       - name: ZIP x64 debug
         run: Compress-Archive -Path build\windows\x64\runner\Debug\* -DestinationPath dist\ngskg-plus-windows-x64-debug.zip
 
       - name: ZIP x64 release
         run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath dist\ngskg-plus-windows-x64-release.zip
 
-      # ── Package arm64 as ZIP ──
-      - name: ZIP arm64 debug
-        run: Compress-Archive -Path build\windows\arm64\runner\Debug\* -DestinationPath dist\ngskg-plus-windows-arm64-debug.zip
-
-      - name: ZIP arm64 release
-        run: Compress-Archive -Path build\windows\arm64\runner\Release\* -DestinationPath dist\ngskg-plus-windows-arm64-release.zip
-
       # ── Generate MSIX ──
       - name: Generate x64 MSIX
         run: dart run msix:create --version 1.5.0.0
-
-      - name: Generate arm64 MSIX
-        run: dart run msix:create --version 1.5.0.0 --architecture arm64
 
       # ── Upload artifacts ──
       - name: Upload x64 debug ZIP
@@ -213,24 +194,6 @@ jobs:
         with:
           name: windows-x64-release-msix
           path: build\windows\x64\runner\Release\msix\*.msix
-
-      - name: Upload arm64 debug ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-arm64-debug-zip
-          path: dist\ngskg-plus-windows-arm64-debug.zip
-
-      - name: Upload arm64 release ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-arm64-release-zip
-          path: dist\ngskg-plus-windows-arm64-release.zip
-
-      - name: Upload arm64 release MSIX
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-arm64-release-msix
-          path: build\windows\arm64\runner\Release\msix\*.msix
 
   # ═══════════════════════════════════════════════════════════
   #  Watch Build
@@ -527,7 +490,6 @@ jobs:
             | 架构 | 文件 |
             |------|------|
             | x64 | `ngskg-plus-windows-x64-debug.zip` / `ngskg-plus-windows-x64-release.zip` / `ngskg-plus-windows-x64.msix` |
-            | arm64 | `ngskg-plus-windows-arm64-debug.zip` / `ngskg-plus-windows-arm64-release.zip` / `ngskg-plus-windows-arm64.msix` |
 
             #### Linux
             | 格式 | 文件 |
@@ -563,9 +525,6 @@ jobs:
             artifacts/windows-x64-debug-zip/*
             artifacts/windows-x64-release-zip/*
             artifacts/windows-x64-release-msix/*
-            artifacts/windows-arm64-debug-zip/*
-            artifacts/windows-arm64-release-zip/*
-            artifacts/windows-arm64-release-msix/*
             artifacts/linux-release/**
             artifacts/linux-debug/**
             artifacts/linux-deb/*
