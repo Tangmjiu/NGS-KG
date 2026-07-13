@@ -82,37 +82,37 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-debug-arm64-v8a
-          path: build/app/outputs/flutter-apk/app-debug-arm64-v8a.apk
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
 
       - name: Upload debug APK (armeabi-v7a)
         uses: actions/upload-artifact@v4
         with:
           name: android-debug-armeabi-v7a
-          path: build/app/outputs/flutter-apk/app-debug-armeabi-v7a.apk
+          path: build/app/outputs/flutter-apk/app-armeabi-v7a-debug.apk
 
       - name: Upload debug APK (x86_64)
         uses: actions/upload-artifact@v4
         with:
           name: android-debug-x86_64
-          path: build/app/outputs/flutter-apk/app-debug-x86_64.apk
+          path: build/app/outputs/flutter-apk/app-x86_64-debug.apk
 
       - name: Upload release APK (arm64-v8a)
         uses: actions/upload-artifact@v4
         with:
           name: android-release-arm64-v8a
-          path: build/app/outputs/flutter-apk/app-release-arm64-v8a.apk
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 
       - name: Upload release APK (armeabi-v7a)
         uses: actions/upload-artifact@v4
         with:
           name: android-release-armeabi-v7a
-          path: build/app/outputs/flutter-apk/app-release-armeabi-v7a.apk
+          path: build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
 
       - name: Upload release APK (x86_64)
         uses: actions/upload-artifact@v4
         with:
           name: android-release-x86_64
-          path: build/app/outputs/flutter-apk/app-release-x86_64.apk
+          path: build/app/outputs/flutter-apk/app-x86_64-release.apk
 
   # ═══════════════════════════════════════════════════════════
   #  Windows Build (x64 + arm64, ZIP + MSIX)
@@ -165,7 +165,9 @@ jobs:
       - name: Build Windows x64 release
         run: flutter build windows --release
 
-      # ── Package as ZIP ──
+      - name: Create dist directory
+        run: mkdir -Force dist
+
       - name: ZIP x64 debug
         run: Compress-Archive -Path build\windows\x64\runner\Debug\* -DestinationPath dist\ngskg-plus-windows-x64-debug.zip
 
