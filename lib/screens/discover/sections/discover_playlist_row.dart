@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../utils/theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../models/playlist.dart';
 
@@ -20,7 +21,8 @@ class DiscoverPlaylistRow extends StatelessWidget {
         itemCount: playlists.length,
         itemBuilder: (_, i) {
           final pl = playlists[i];
-          return GestureDetector(
+          return M3PressScale(
+            child: GestureDetector(
             onTap: () {
               Navigator.pushNamed(context, '/playlist/detail', arguments: {
                 'gcId': pl.globalCollectionId ??
@@ -35,7 +37,7 @@ class DiscoverPlaylistRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: AppShape.md,
                     child: pl.coverUrl != null
                         ? CachedNetworkImage(
                             imageUrl: pl.coverUrl!,
@@ -56,10 +58,11 @@ class DiscoverPlaylistRow extends StatelessWidget {
                     pl.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13),
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
               ),
+            ),
             ),
           );
         },

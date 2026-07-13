@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/album.dart';
@@ -145,7 +146,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                     child: Row(
                       children: [
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: AppShape.sm,
                           child: img.isNotEmpty
                               ? CachedNetworkImage(
                                   imageUrl: img.replaceAll('{size}', '240'),
@@ -289,11 +290,14 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                       onTap: () => _toggleSelection(index),
                     );
                   }
-                  return SongTile(
-                    song: song,
-                    onTap: (s) => context
-                        .read<PlayerProvider>()
-                        .playSong(s, playlist: _songs),
+                  return M3StaggeredFadeIn(
+                    index: index,
+                    child: SongTile(
+                      song: song,
+                      onTap: (s) => context
+                          .read<PlayerProvider>()
+                          .playSong(s, playlist: _songs),
+                    ),
                   );
                 },
                 childCount: _songs.length,
@@ -361,7 +365,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
       return;
     }
 
-    showModalBottomSheet(
+    showM3ModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(

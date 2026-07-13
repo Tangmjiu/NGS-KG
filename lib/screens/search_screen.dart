@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/rank_entry.dart';
@@ -175,7 +176,7 @@ class _SearchScreenState extends State<SearchScreen>
           height: 40,
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(25),
+            borderRadius: AppShape.full,
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: TextField(
@@ -325,7 +326,7 @@ class _SearchScreenState extends State<SearchScreen>
                       child: Column(
                         children: [
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: AppShape.sm,
                             child: img.isNotEmpty
                                 ? CachedNetworkImage(
                                     imageUrl: img.replaceAll('{size}', '240'),
@@ -418,11 +419,14 @@ class _SearchScreenState extends State<SearchScreen>
     }
     return ListView.builder(
       itemCount: _songs.length,
-      itemBuilder: (_, i) => SongTile(
-        song: _songs[i],
-        onTap: (s) => context
-            .read<PlayerProvider>()
-            .playSong(s, playlist: _songs),
+      itemBuilder: (_, i) => M3StaggeredFadeIn(
+        index: i,
+        child: SongTile(
+          song: _songs[i],
+          onTap: (s) => context
+              .read<PlayerProvider>()
+              .playSong(s, playlist: _songs),
+        ),
       ),
     );
   }
@@ -441,7 +445,7 @@ class _SearchScreenState extends State<SearchScreen>
         return ListTile(
           leading: img.isNotEmpty
               ? ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: AppShape.xs,
                   child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
                       width: 48, height: 48, fit: BoxFit.cover),
                 )
@@ -490,7 +494,7 @@ class _SearchScreenState extends State<SearchScreen>
         return ListTile(
           leading: img.isNotEmpty
               ? ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: AppShape.xs,
                   child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
                       width: 48, height: 48, fit: BoxFit.cover),
                 )
@@ -526,7 +530,7 @@ class _SearchScreenState extends State<SearchScreen>
         return ListTile(
           leading: img.isNotEmpty
               ? ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: AppShape.xl,
                   child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
                       width: 48, height: 48, fit: BoxFit.cover),
                 )

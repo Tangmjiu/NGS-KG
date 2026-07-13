@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../../utils/theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../../../models/song.dart';
@@ -140,7 +141,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AppShape.lg,
         ),
         child: Stack(
           children: [
@@ -215,12 +216,11 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                               horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: cs.tertiaryContainer,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: AppShape.sm,
                           ),
                           child: Text(
                             '播放中',
-                            style: TextStyle(
-                              fontSize: 10,
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               fontWeight: FontWeight.w600,
                               color: cs.onTertiaryContainer,
                             ),
@@ -240,7 +240,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                           child: InkWell(
                             onTap: () =>
                                 _onPoolChanged(provider, _poolValues[i]),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: AppShape.sm,
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
                               padding: const EdgeInsets.symmetric(
@@ -249,12 +249,11 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                                 color: selected
                                     ? cs.secondaryContainer
                                     : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: AppShape.sm,
                               ),
                               child: Text(
                                 _poolLabels[i],
-                                style: TextStyle(
-                                  fontSize: 10,
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                   fontWeight: selected
                                       ? FontWeight.w600
                                       : FontWeight.normal,
@@ -312,7 +311,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
       children: [
         Text(
           '根据你的听歌口味智能推荐',
-          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
         ),
         const SizedBox(height: 16),
         if (hasContent)
@@ -328,7 +327,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                 return Padding(
                   padding: const EdgeInsets.only(right: 10),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: AppShape.md,
                     child: song.albumCoverUrl != null
                         ? CachedNetworkImage(
                             imageUrl: song.albumCoverUrl!,
@@ -365,7 +364,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
               padding:
                   const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: AppShape.lg,
               ),
             ),
           ),
@@ -407,7 +406,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
           currentSong.artistDisplay,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
         ),
         if (currentSong.recDesc != null &&
             currentSong.recDesc!.isNotEmpty) ...[
@@ -416,8 +415,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
             currentSong.recDesc!,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 12,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: cs.primary,
               fontWeight: FontWeight.w500,
             ),
@@ -504,7 +502,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
             margin: const EdgeInsets.symmetric(horizontal: 2.5),
             decoration: BoxDecoration(
               color: cs.primary.withValues(alpha: isPlaying ? 0.8 : 0.25),
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: AppShape.xs,
             ),
           );
         }),
@@ -536,8 +534,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
         Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.25)),
         const SizedBox(height: 8),
         Text('即将播放',
-            style: TextStyle(
-                fontSize: 11,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: cs.onSurfaceVariant)),
         const SizedBox(height: 8),
@@ -557,7 +554,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                   children: [
                     // 黑胶唱片（MD3: hover scale via Transform + InkWell）
                     InkWell(
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: AppShape.xl,
                       onTap: () {},
                       child: Container(
                         width: 44,

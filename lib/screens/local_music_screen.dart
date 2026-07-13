@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -129,8 +130,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                         color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 const SizedBox(height: 8),
                 Text('请添加包含音乐文件的文件夹',
-                    style: TextStyle(
-                        fontSize: 13,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 const SizedBox(height: 20),
                 FilledButton.tonal(
@@ -169,18 +169,20 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                       context.watch<PlayerProvider>().currentSong?.id;
                   final isPlaying = song.id == currentSongId;
 
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
-                      backgroundImage: song.coverImageProvider,
-                    ),
-                    title: Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    subtitle: Text(
-                      '${song.artists.join(", ")}${song.albumName != null ? " · ${song.albumName}" : ""}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                  return M3StaggeredFadeIn(
+                    index: i,
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor:
+                            Theme.of(context).colorScheme.surfaceContainerHighest,
+                        backgroundImage: song.coverImageProvider,
+                      ),
+                      title: Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: Text(
+                        '${song.artists.join(", ")}${song.albumName != null ? " · ${song.albumName}" : ""}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurfaceVariant),
                     ),
                     trailing: isPlaying
@@ -198,6 +200,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                       final playlist = prov.toSongList();
                       context.read<PlayerProvider>().playSong(song, playlist: playlist);
                     },
+                    ),
                   );
                 },
               ),
@@ -241,7 +244,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                       )
                     : null,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: AppShape.sm,
                   borderSide: BorderSide.none,
                 ),
                 filled: true,
@@ -334,7 +337,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
     if (!mounted) return;
     final cs = Theme.of(context).colorScheme;
 
-    showDialog(
+    showM3Dialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('扫描文件夹'),
@@ -351,7 +354,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                     leading: Icon(Icons.folder, size: 20,
                         color: cs.onSurfaceVariant),
                     title: Text(dirs[i],
-                        style: const TextStyle(fontSize: 13)),
+                        style: Theme.of(context).textTheme.bodyMedium),
                     trailing: IconButton(
                       icon: Icon(Icons.remove_circle_outline, size: 18,
                           color: cs.error),
@@ -410,8 +413,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                       color: Theme.of(context).colorScheme.onSurfaceVariant)),
               const SizedBox(height: 8),
               Text('Navidrome 是开源的自托管音乐服务器',
-                  style: TextStyle(
-                      fontSize: 13,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant)),
               const SizedBox(height: 20),
               FilledButton.tonal(

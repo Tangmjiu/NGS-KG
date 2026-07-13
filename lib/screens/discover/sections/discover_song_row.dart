@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../utils/theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../../../models/song.dart';
@@ -29,7 +30,8 @@ class DiscoverSongRow extends StatelessWidget {
         itemCount: songs.length,
         itemBuilder: (_, i) {
           final song = songs[i];
-          return GestureDetector(
+          return M3PressScale(
+            child: GestureDetector(
             onTap: () => _playFrom(context, i),
             child: Container(
               width: 120,
@@ -38,7 +40,7 @@ class DiscoverSongRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: AppShape.md,
                     child: song.albumCoverUrl != null
                         ? CachedNetworkImage(
                             imageUrl: song.albumCoverUrl!,
@@ -71,8 +73,8 @@ class DiscoverSongRow extends StatelessWidget {
                     song.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w500),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -80,10 +82,11 @@ class DiscoverSongRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style:
-                        TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                        Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
                   ),
                 ],
               ),
+            ),
             ),
           );
         },

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 
 /// Three-button player controls: previous, play/pause, next.
 /// Mode toggle and playlist button have been moved to the bottom icon bar.
@@ -37,7 +38,7 @@ class PlayerControlsBar extends StatelessWidget {
         // -- Play / Pause --
         InkWell(
           onTap: onPlayPause,
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: AppShape.xl,
           customBorder: const CircleBorder(),
           child: Container(
             width: 64,
@@ -47,9 +48,9 @@ class PlayerControlsBar extends StatelessWidget {
               color: Colors.white,
             ),
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              switchInCurve: Curves.easeInOut,
-              switchOutCurve: Curves.easeInOut,
+              duration: AppMotion.dShort4,
+              switchInCurve: AppMotion.emphasized,
+              switchOutCurve: AppMotion.emphasized,
               child: _buildPlayPauseChild(),
             ),
           ),

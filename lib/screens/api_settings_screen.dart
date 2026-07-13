@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import '../services/api_config.dart';
 import '../services/api_client.dart';
 
@@ -128,9 +129,9 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                 children: [
                   RadioListTile<String>(
                     title: const Text('Cloudflare（海外路线）'),
-                    subtitle: const Text(
+                    subtitle: Text(
                       'https://kugouapi.mjiutang.top\n中国大陆延迟较高，部分地区无法访问',
-                      style: TextStyle(fontSize: 12),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                     value: ApiConfig.routeCloudflare,
                     groupValue: _route,
@@ -138,9 +139,9 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                   ),
                   RadioListTile<String>(
                     title: const Text('中国内地'),
-                    subtitle: const Text(
+                    subtitle: Text(
                       '不带域名可能不稳定',
-                      style: TextStyle(fontSize: 12),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                     value: ApiConfig.routeChina,
                     groupValue: _route,
@@ -161,7 +162,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                 decoration: InputDecoration(
                   hintText: 'http://your-server:port',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppShape.sm,
                   ),
                   suffixIcon: _urlCtrl.text.isNotEmpty
                       ? IconButton(

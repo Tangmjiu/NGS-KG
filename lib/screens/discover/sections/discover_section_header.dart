@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../utils/theme.dart';
 
 /// 发现页区块标题行 — "标题" + 可选 "查看更多"
 class DiscoverSectionHeader extends StatelessWidget {
@@ -33,7 +34,7 @@ class DiscoverSectionHeader extends StatelessWidget {
             const SizedBox(width: 8),
             InkWell(
               onTap: onViewAll,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppShape.sm,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 child: Text(

@@ -5,6 +5,7 @@ import '../../../models/rank_entry.dart';
 import '../../../providers/player_provider.dart';
 import '../../../services/music_service.dart';
 import '../../../utils/logger.dart';
+import '../../../utils/theme.dart';
 
 /// 快捷操作入口 — 4 个渐变色卡片
 ///
@@ -103,10 +104,11 @@ class _GradientCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = DiscoverConstants.actionGradients[index];
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
+    return M3PressScale(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppShape.full,
+        child: Container(
         width: 90,
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
         decoration: BoxDecoration(
@@ -115,7 +117,7 @@ class _GradientCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: AppShape.full,
           boxShadow: [
             BoxShadow(
               color: colors.last.withValues(alpha: 0.4),
@@ -130,9 +132,8 @@ class _GradientCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               action.label,
-              style: const TextStyle(
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: Colors.white,
-                fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
               textAlign: TextAlign.center,
@@ -140,6 +141,7 @@ class _GradientCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

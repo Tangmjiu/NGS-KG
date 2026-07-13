@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:path_provider/path_provider.dart';
 import '../utils/logger.dart';
 
@@ -149,13 +150,13 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                     height: 32,
                     child: TextField(
                       controller: _filterTag,
-                      style: const TextStyle(fontSize: 12),
+                      style: Theme.of(context).textTheme.bodySmall,
                       decoration: InputDecoration(
                         hintText: '搜索 tag...',
                         contentPadding:
                             const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: AppShape.xs,
                           borderSide: BorderSide.none,
                         ),
                         filled: true,
@@ -213,7 +214,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
           color: selected ? _levelColor(level) : Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: AppShape.xs,
           border: Border.all(
             color: selected ? Colors.transparent : Colors.grey,
             width: 0.5,
@@ -221,8 +222,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 11,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
             fontWeight: selected ? FontWeight.bold : FontWeight.normal,
             color: selected ? Colors.black : null,
           ),
@@ -244,28 +244,28 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             Row(
               children: [
                 Text(e.level, style: TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.bold,
                   color: _levelColor(e.level),
                 )),
                 const SizedBox(width: 4),
-                Text(_fmtTime(e.time), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                Text(_fmtTime(e.time), style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.grey)),
                 const SizedBox(width: 4),
             Flexible(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 3),
                 decoration: BoxDecoration(
                   color: bg,
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: AppShape.xs,
                 ),
-                child: Text(e.tag, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
+                child: Text(e.tag, style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
               ),
             ),
               ],
             ),
             const SizedBox(height: 2),
-            Text(e.message, style: const TextStyle(fontSize: 11), maxLines: 2, overflow: TextOverflow.ellipsis),
+            Text(e.message, style: Theme.of(context).textTheme.labelSmall, maxLines: 2, overflow: TextOverflow.ellipsis),
             if (e.error != null)
-              Text('${e.error}', style: TextStyle(fontSize: 10, color: Colors.red.shade300), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text('${e.error}', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.red.shade300), maxLines: 1, overflow: TextOverflow.ellipsis),
           ],
         ),
       );
@@ -275,15 +275,15 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       child: Row(
         children: [
             Text(e.level, style: TextStyle(
-              fontSize: 11, fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.bold,
               color: _levelColor(e.level),
             )),
             const SizedBox(width: 4),
-            Text('${_fmtTime(e.time)}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            Text('${_fmtTime(e.time)}', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.grey)),
             const SizedBox(width: 4),
-            Flexible(child: Text('[${e.tag}]', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+            Flexible(child: Text('[${e.tag}]', style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
             const SizedBox(width: 4),
-            Expanded(child: Text(e.message, style: const TextStyle(fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis)),
+            Expanded(child: Text(e.message, style: Theme.of(context).textTheme.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis)),
         ],
       ),
     );

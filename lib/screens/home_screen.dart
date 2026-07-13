@@ -9,6 +9,7 @@ import '../models/latest_listen_info.dart';
 import '../services/music_service.dart';
 import '../models/song_mapper.dart';
 import '../utils/logger.dart';
+import '../utils/theme.dart';
 import 'discover_screen.dart';
 import 'profile_screen.dart';
 import 'search_screen.dart';
@@ -62,23 +63,25 @@ class _HomeScreenState extends State<HomeScreen> {
             itemCount: chunks.length,
             itemBuilder: (_, i) {
               final chunk = chunks[i];
-              return Container(
-                width: 190,
-                margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Column(
-                  children: List.generate(chunk.length, (j) {
-                    final song = chunk[j];
-                    final flatIdx = i * 3 + j;
+              return M3StaggeredFadeIn(
+                index: i,
+                child: Container(
+                  width: 190,
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: AppShape.md,
+                  ),
+                  child: Column(
+                    children: List.generate(chunk.length, (j) {
+                      final song = chunk[j];
+                      final flatIdx = i * 3 + j;
                     return Expanded(
                       child: InkWell(
                         borderRadius: (j == 0)
-                            ? const BorderRadius.vertical(top: Radius.circular(10))
+                            ? const BorderRadius.vertical(top: Radius.circular(12))
                             : (j == chunk.length - 1)
-                                ? const BorderRadius.vertical(bottom: Radius.circular(10))
+                                ? const BorderRadius.vertical(bottom: Radius.circular(12))
                                 : null,
                         onTap: () {
                           player.playlistEndProvider = onEnd;
@@ -89,7 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Row(
                             children: [
                               ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: AppShape.xs,
                                 child: song.albumCoverUrl != null
                                     ? CachedNetworkImage(
                                         imageUrl: song.albumCoverUrl!,
@@ -123,12 +126,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                     Text(song.name,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontSize: 13)),
+                                        style: Theme.of(context).textTheme.bodyMedium),
                                     Text(song.artistDisplay,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                            fontSize: 11,
+                                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                             color: cs.onSurfaceVariant)),
                                   ],
                                 ),
@@ -140,6 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   }),
                 ),
+              ),
               );
             },
           ),
@@ -168,7 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
             height: 24,
             decoration: BoxDecoration(
               color: cs.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: AppShape.xs,
             ),
           ),
         ),
@@ -184,7 +187,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 margin: const EdgeInsets.only(right: 8),
                 decoration: BoxDecoration(
                   color: cs.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: AppShape.md,
                 ),
                 child: Column(
                   children: List.generate(3, (j) {
@@ -197,7 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             height: 36,
                             decoration: BoxDecoration(
                               color: cs.surface,
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: AppShape.xs,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -211,7 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   decoration: BoxDecoration(
                                     color: cs.onSurfaceVariant
                                         .withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(2),
+                                    borderRadius: AppShape.xs,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -221,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   decoration: BoxDecoration(
                                     color: cs.onSurfaceVariant
                                         .withValues(alpha: 0.10),
-                                    borderRadius: BorderRadius.circular(2),
+                                    borderRadius: AppShape.xs,
                                   ),
                                 ),
                               ],
@@ -377,13 +380,22 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 880;
     return Scaffold(
-      body: IndexedStack(
-        index: _currentTab,
-        children: [
-          _buildHome(),
-          const DiscoverScreen(),
-          const ProfileScreen(),
-        ],
+      body: AnimatedSwitcher(
+        duration: AppMotion.dMedium2,
+        switchInCurve: AppMotion.emphasizedDecelerate,
+        switchOutCurve: AppMotion.emphasizedAccelerate,
+        transitionBuilder: (child, animation) {
+          return M3FadeThroughTransition(animation: animation, child: child);
+        },
+        child: IndexedStack(
+          key: ValueKey(_currentTab),
+          index: _currentTab,
+          children: [
+            _buildHome(),
+            const DiscoverScreen(),
+            const ProfileScreen(),
+          ],
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentTab,
@@ -446,7 +458,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               margin: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
                                 color: cs.primaryContainer,
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: AppShape.sm,
                               ),
                               child: ListTile(
                                 leading: const Icon(Icons.play_circle_outline),
@@ -500,14 +512,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                 itemCount: provider.topPlaylists.length,
                                 itemBuilder: (_, i) {
                                   final pl = provider.topPlaylists[i];
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        Navigator.pushNamed(
-                                            context, '/playlist/detail',
-                                            arguments: {
-                                              'gcId': pl.globalCollectionId ??
+                                  return M3StaggeredFadeIn(
+                                    index: i,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          Navigator.pushNamed(
+                                              context, '/playlist/detail',
+                                              arguments: {
+                                                'gcId': pl.globalCollectionId ??
                                                   'collection_3_${pl.createUserId}_${pl.id}_0',
                                               'name': pl.name,
                                             });
@@ -519,8 +533,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               CrossAxisAlignment.start,
                                           children: [
                                             ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
+                                              borderRadius: AppShape.sm,
                                               child: pl.coverUrl != null
                                                   ? CachedNetworkImage(
                                                       imageUrl: pl.coverUrl!,
@@ -560,6 +573,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                       ),
                                     ),
+                                  ),
                                   );
                                 },
                               ),
@@ -651,10 +665,10 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
           Expanded(
             child: Material(
               color: cs.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: AppShape.full,
               clipBehavior: Clip.antiAlias,
               child: InkWell(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: AppShape.full,
                 onTap: () {
                   Navigator.push(
                     context,
@@ -667,12 +681,18 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
                             end: Offset.zero,
                           ).animate(CurvedAnimation(
                             parent: animation,
-                            curve: Curves.easeOutCubic,
+                            curve: AppMotion.emphasizedDecelerate,
                           )),
-                          child: child,
+                          child: FadeTransition(
+                            opacity: CurvedAnimation(
+                              parent: animation,
+                              curve: AppMotion.emphasizedDecelerate,
+                            ),
+                            child: child,
+                          ),
                         );
                       },
-                      transitionDuration: const Duration(milliseconds: 300),
+                      transitionDuration: AppMotion.dMedium2,
                     ),
                   );
                 },

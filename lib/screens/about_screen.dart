@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/theme_assets.dart';
@@ -57,7 +58,7 @@ class _AboutScreenState extends State<AboutScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: AppShape.full,
                   child: Image.asset(
                     ThemeAssets.icon,
                     width: 80,
@@ -67,7 +68,7 @@ class _AboutScreenState extends State<AboutScreen> {
                       height: 80,
                       decoration: BoxDecoration(
                         color: cs.primaryContainer,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: AppShape.full,
                       ),
                       child:
                           Icon(Icons.music_note, size: 40, color: cs.primary),
@@ -129,7 +130,7 @@ class _AboutScreenState extends State<AboutScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: AppShape.md,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -139,7 +140,6 @@ class _AboutScreenState extends State<AboutScreen> {
                   text: TextSpan(
                     style: tt.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
-                      fontSize: 11,
                     ),
                     children: [
                       const TextSpan(text: 'Copyright © 2025-2026 '),
@@ -153,7 +153,6 @@ class _AboutScreenState extends State<AboutScreen> {
                           child: Text(
                             'mjiutang',
                             style: TextStyle(
-                              fontSize: 11,
                               color: cs.primary,
                               decoration: TextDecoration.underline,
                             ),
@@ -170,7 +169,6 @@ class _AboutScreenState extends State<AboutScreen> {
                   textAlign: TextAlign.center,
                   style: tt.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
-                    fontSize: 11,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -179,7 +177,6 @@ class _AboutScreenState extends State<AboutScreen> {
                   textAlign: TextAlign.center,
                   style: tt.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
-                    fontSize: 11,
                   ),
                 ),
               ],

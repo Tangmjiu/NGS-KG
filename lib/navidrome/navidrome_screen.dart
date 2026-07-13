@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
@@ -74,7 +75,7 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
                 )
               : null,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: AppShape.sm,
             borderSide: BorderSide.none,
           ),
           filled: true,
@@ -144,8 +145,7 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
       onTap: onTap,
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 13,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
           fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
           color: isActive ? cs.primary : cs.onSurface,
           decoration: onTap != null ? TextDecoration.underline : null,
@@ -298,7 +298,7 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
             song.artistDisplay,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
           ),
           trailing: isCurrent
               ? Icon(Icons.volume_up, size: 18, color: cs.primary)
@@ -366,7 +366,7 @@ class _ArtistTile extends StatelessWidget {
           maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         '${artist.albumCount} 张专辑 · ${artist.songCount} 首歌曲',
-        style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
       ),
       trailing:
           Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),

@@ -73,7 +73,7 @@ class _MobileMiniPlayer extends StatelessWidget {
         final tt = Theme.of(context).textTheme;
 
         return Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
           child: GestureDetector(
             onTap: () {
               player.setPlayerScreenVisible(true);
@@ -119,9 +119,8 @@ class _MobileMiniPlayer extends StatelessWidget {
                       ),
                     ),
                   Padding(
-                    padding: EdgeInsets.only(
-                      left: 8, right: 12, top: 6,
-                      bottom: MediaQuery.of(context).padding.bottom + 4,
+                    padding: const EdgeInsets.only(
+                      left: 8, right: 12, top: 4, bottom: 6,
                     ),
                     child: Row(
                       children: [
@@ -159,7 +158,7 @@ class _MobileMiniPlayer extends StatelessWidget {
                           _mobileBtn(Icons.skip_previous, player.playPrevious, cs),
                           const SizedBox(width: 4),
                           Container(
-                            width: 40, height: 40,
+                            width: 36, height: 36,
                             decoration: BoxDecoration(
                               color: cs.primary, shape: BoxShape.circle,
                             ),
@@ -192,7 +191,7 @@ class _MobileMiniPlayer extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(6),
       child: SizedBox(
-        width: 44, height: 44,
+        width: 38, height: 38,
         child: song.albumCoverUrl != null && song.albumCoverUrl!.isNotEmpty
             ? CachedNetworkImage(
                 imageUrl: song.albumCoverUrl!,
@@ -212,7 +211,7 @@ class _MobileMiniPlayer extends StatelessWidget {
 
   Widget _mobileBtn(IconData icon, VoidCallback? onTap, ColorScheme cs) {
     return SizedBox(
-      width: 36, height: 36,
+      width: 32, height: 32,
       child: IconButton(
         icon: Icon(icon, size: 22, color: cs.onSurfaceVariant),
         onPressed: onTap,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/user.dart';
@@ -151,7 +152,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         color: _vipInfo?.badgeType.$2 == true
                             ? const Color(0xFFFFD700)
                             : cs.primary,
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: AppShape.xs,
                       ),
                       child: Text(
                         _vipText(user),
@@ -294,20 +295,26 @@ class _ProfileScreenState extends State<ProfileScreen>
               TextButton.icon(
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('新建'),
-                onPressed: () => showDialog(
+                onPressed: () => showM3Dialog(
                     context: context,
                     builder: (_) => const CreatePlaylistDialog()),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          ...personal.map((pl) => PlaylistCard(playlist: pl)),
+          ...personal.asMap().entries.map((e) => M3StaggeredFadeIn(
+            index: e.key,
+            child: PlaylistCard(playlist: e.value),
+          )),
         ],
         if (collected.isNotEmpty) ...[
           const SizedBox(height: 16),
           Text('收藏的歌单', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
-          ...collected.map((pl) => PlaylistCard(playlist: pl)),
+          ...collected.asMap().entries.map((e) => M3StaggeredFadeIn(
+            index: e.key,
+            child: PlaylistCard(playlist: e.value),
+          )),
         ],
       ],
     );

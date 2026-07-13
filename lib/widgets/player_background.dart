@@ -8,6 +8,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../theme/theme_assets.dart';
+import '../utils/theme.dart';
 
 /// Apple Music-style dynamic player background.
 ///
@@ -128,8 +129,8 @@ class _PlayerBackgroundState extends State<PlayerBackground>
       children: [
         // Layer 1: Base color with animated transitions
         AnimatedContainer(
-          duration: const Duration(milliseconds: 800),
-          curve: Curves.easeInOut,
+          duration: AppMotion.dLong2,
+          curve: AppMotion.emphasized,
           color: widget.paletteColor ?? Colors.black,
         ),
 
@@ -181,9 +182,9 @@ class _PlayerBackgroundState extends State<PlayerBackground>
             child: IgnorePointer(
               child: RepaintBoundary(
                 child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 600),
-                  switchInCurve: Curves.easeIn,
-                  switchOutCurve: Curves.easeOut,
+                  duration: AppMotion.dMedium3,
+                  switchInCurve: AppMotion.emphasizedDecelerate,
+                  switchOutCurve: AppMotion.emphasizedAccelerate,
                   transitionBuilder: (child, animation) =>
                       FadeTransition(opacity: animation, child: child),
                   child: AnimatedBuilder(

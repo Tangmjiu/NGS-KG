@@ -4,6 +4,7 @@ import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../theme/theme_assets.dart';
+import '../utils/theme.dart';
 import '../services/music_service.dart';
 
 class PlaybackControls extends StatelessWidget {
@@ -42,9 +43,9 @@ class PlaybackControls extends StatelessWidget {
                     heroTag: 'playPause',
                     onPressed: player.togglePlayPause,
                     child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      switchInCurve: Curves.fastOutSlowIn,
-                      switchOutCurve: Curves.fastOutSlowIn,
+                      duration: AppMotion.dShort4,
+                      switchInCurve: AppMotion.emphasizedDecelerate,
+                      switchOutCurve: AppMotion.emphasizedAccelerate,
                       transitionBuilder: (child, animation) {
                         return ScaleTransition(scale: animation, child: child);
                       },
@@ -102,7 +103,7 @@ class PlaybackControls extends StatelessWidget {
 
   static void showPlaylistStatic(BuildContext context, PlayerProvider player) {
     final cs = Theme.of(context).colorScheme;
-    showModalBottomSheet(
+    showM3ModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(
@@ -226,8 +227,7 @@ class PlaybackControls extends StatelessWidget {
                                       : Colors.transparent,
                                   child: Text(
                                     '${i + 1}',
-                                    style: TextStyle(
-                                      fontSize: 12,
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                       color: i == player.currentIndex
                                           ? cs.onPrimaryContainer
                                           : cs.onSurfaceVariant,
@@ -243,8 +243,8 @@ class PlaybackControls extends StatelessWidget {
                             s.artistDisplay,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                fontSize: 11, color: cs.onSurfaceVariant),
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: cs.onSurfaceVariant),
                           ),
                           selected: i == player.currentIndex,
                           selectedTileColor:
@@ -311,7 +311,7 @@ class PlaybackControls extends StatelessWidget {
   static void _showAddToPlaylist(BuildContext context, PlayerProvider player) {
     final song = player.currentSong;
     if (song == null) return;
-    showModalBottomSheet(
+    showM3ModalBottomSheet(
       context: context,
       builder: (_) => SafeArea(
         child: Consumer<PlaylistProvider>(
@@ -377,7 +377,7 @@ class PlaybackControls extends StatelessWidget {
   }
 
   static void _confirmClear(BuildContext context, PlayerProvider player) {
-    showDialog(
+    showM3Dialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('确认清空'),
@@ -399,7 +399,7 @@ class PlaybackControls extends StatelessWidget {
 
   static void _showSaveQueueDialog(BuildContext context, PlayerProvider player, void Function(void Function()) setSheetState) {
     final nameCtrl = TextEditingController();
-    showDialog(
+    showM3Dialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('保存队列'),
@@ -438,7 +438,7 @@ class PlaybackControls extends StatelessWidget {
     final songs = player.playlist;
     if (songs.isEmpty) return;
     final nameCtrl = TextEditingController();
-    showDialog(
+    showM3Dialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('将队列存为歌单'),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/song.dart';
 import '../theme/theme_assets.dart';
+import '../utils/theme.dart';
 import 'hi_res_badge.dart';
 
 /// Enhanced album cover art widget with glassmorphism shadow and
@@ -27,7 +28,8 @@ class PlayerCoverArt extends StatelessWidget {
 
         return Center(
           child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 200),
+            duration: AppMotion.dShort4,
+            curve: AppMotion.emphasized,
             opacity: (1.0 - scrollOffset * 2.0).clamp(0.0, 1.0),
             child: Transform.scale(
               scale: 1.0 - scrollOffset * 0.2,
@@ -37,7 +39,7 @@ class PlayerCoverArt extends StatelessWidget {
                   width: size,
                   height: size,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: AppShape.md,
                     border: Border.all(
                       color: cs.onSurface.withValues(alpha: 0.15),
                       width: 1,
@@ -61,7 +63,7 @@ class PlayerCoverArt extends StatelessWidget {
                     clipBehavior: Clip.hardEdge,
                     children: [
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: AppShape.md,
                         child: Semantics(
                           image: true,
                           label: '${song.name} 专辑封面',
@@ -103,7 +105,7 @@ class PlayerCoverArt extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [Color(0xFF2A2D28), Color(0xFF121212)],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppShape.md,
       ),
       child: Center(
         child: albumPlaceholderWidget(size: size * 0.25, color: Colors.white24),

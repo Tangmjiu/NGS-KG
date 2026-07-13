@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/playlist.dart';
 import '../providers/playlist_provider.dart';
 import '../theme/theme_assets.dart';
+import '../utils/theme.dart';
 
 class PlaylistCard extends StatelessWidget {
   final Playlist playlist;
@@ -18,9 +19,10 @@ class PlaylistCard extends StatelessWidget {
       button: true,
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () {
+        child: M3PressScale(
+          child: InkWell(
+            borderRadius: AppShape.md,
+            onTap: () {
             Navigator.pushNamed(context, '/playlist/detail', arguments: {
               'gcId': playlist.globalCollectionId ??
                   'collection_3_${playlist.createUserId}_${playlist.id}_0',
@@ -28,7 +30,7 @@ class PlaylistCard extends StatelessWidget {
             });
           },
           onLongPress: () {
-            showModalBottomSheet(
+            showM3ModalBottomSheet(
               context: context,
               builder: (_) => SafeArea(
                 child: Column(
@@ -39,7 +41,7 @@ class PlaylistCard extends StatelessWidget {
                       title: Text('删除歌单', style: TextStyle(color: cs.error)),
                       onTap: () {
                         Navigator.pop(context);
-                        showDialog(
+                        showM3Dialog(
                           context: context,
                           builder: (ctx) => AlertDialog(
                             title: const Text('确认删除'),
@@ -80,7 +82,7 @@ class PlaylistCard extends StatelessWidget {
             child: Row(
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: AppShape.sm,
                   child: playlist.coverUrl != null
                       ? CachedNetworkImage(
                           imageUrl: playlist.coverUrl!,
@@ -121,12 +123,13 @@ class PlaylistCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+                 Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
+               ],
+             ),
+           ),
+         ),
+        ),  // M3PressScale
+       ),
+     );
+   }
 }

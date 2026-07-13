@@ -28,7 +28,7 @@ class LocalCoverArt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageSize = size ?? 48;
-    final radius = borderRadius ?? 4;
+    final radius = borderRadius ?? 8;
     final effectiveKey = ValueKey('cover_${url ?? ''}_${imageSize}_$radius');
 
     return SizedBox(

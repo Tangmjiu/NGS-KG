@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import '../providers/discover_provider.dart';
 import 'discover/sections/discover_quick_actions.dart';
@@ -200,7 +201,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   void _showRankList(List rankList) {
-    showModalBottomSheet(
+    showM3ModalBottomSheet(
       context: context,
       builder: (_) {
         // SafeArea 底部内边距不计入可用高度，否则内容溢出
@@ -226,7 +227,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   final r = rankList[i];
                   return ListTile(
                     leading: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: AppShape.sm,
                       child: r.coverUrl != null
                           ? Image.network(r.coverUrl!,
                               width: 48,

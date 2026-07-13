@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/playlist_provider.dart';
@@ -244,11 +245,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           .playSong(s,
                               playlist: detail.songs),
                     );
-                    return Dismissible(
+                    final dismissible = Dismissible(
                       key: ValueKey('pl_song_${song.id}'),
                       direction: DismissDirection.endToStart,
                       confirmDismiss: (_) async {
-                        return await showDialog<bool>(
+                        return await showM3Dialog<bool>(
                           context: context,
                           builder: (ctx) => AlertDialog(
                             title: const Text('移除'),
@@ -312,6 +313,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       ),
                       child: tile,
                     );
+                    return M3StaggeredFadeIn(index: index, child: dismissible);
                   },
                   childCount: detail.songs.length,
                 ),
@@ -407,7 +409,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       return;
     }
 
-    showModalBottomSheet(
+    showM3ModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(
@@ -475,7 +477,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     final songs =
         _selectedIndices.map((i) => detail.songs[i]).toList();
 
-    showDialog(
+    showM3Dialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('删除'),

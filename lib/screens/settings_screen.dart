@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../utils/preview_config.dart';
@@ -176,7 +177,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: const Text('调试功能'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
-              showDialog(
+              showM3Dialog(
                 context: context,
                 builder: (ctx) => AlertDialog(
                   title: const Text('警告'),

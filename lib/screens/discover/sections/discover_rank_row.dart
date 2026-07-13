@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../utils/theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../models/rank_entry.dart';
 
@@ -20,7 +21,8 @@ class DiscoverRankRow extends StatelessWidget {
         itemCount: ranks.length,
         itemBuilder: (_, i) {
           final rank = ranks[i];
-          return GestureDetector(
+          return M3PressScale(
+            child: GestureDetector(
             onTap: () => Navigator.pushNamed(context, '/rank/detail',
                 arguments: {'id': rank.id, 'name': rank.name}),
             child: Container(
@@ -29,7 +31,7 @@ class DiscoverRankRow extends StatelessWidget {
               child: Column(
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: AppShape.md,
                     child: rank.coverUrl != null
                         ? CachedNetworkImage(
                             imageUrl: rank.coverUrl!,
@@ -50,10 +52,11 @@ class DiscoverRankRow extends StatelessWidget {
                     rank.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12),
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
+            ),
             ),
           );
         },

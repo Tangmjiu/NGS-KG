@@ -4,6 +4,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:flutter_lyric/core/lyric_model.dart';
 import 'package:provider/provider.dart';
@@ -204,7 +205,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   // ─── Speech bubble helper for �?menu items �?shows a bottom sheet ──
 
   void _showSleepTimerSheet() {
-    showModalBottomSheet(
+    showM3ModalBottomSheet(
       context: context,
       backgroundColor: Colors.grey[900],
       shape: const RoundedRectangleBorder(
@@ -238,7 +239,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   void _showLyricSettingsSheet() {
-    showModalBottomSheet(
+    showM3ModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1E1E1E),
       shape: const RoundedRectangleBorder(
@@ -252,7 +253,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   void _showMoreSheet() {
     const spds = [1.0, 0.5, 0.75, 1.25, 1.5, 2.0];
-    showModalBottomSheet(
+    showM3ModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1E1E1E),
       shape: const RoundedRectangleBorder(
@@ -282,7 +283,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                               ...spds.map((s) => Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 3),
                                 child: InkWell(
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: AppShape.xs,
                                   onTap: () => p.setSpeed(s),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -290,11 +291,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                       color: s == p.currentSpeed
                                           ? Colors.white.withValues(alpha: 0.15)
                                           : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(4),
+                                      borderRadius: AppShape.xs,
                                     ),
                                     child: Text('${s}x',
-                                        style: TextStyle(
-                                          fontSize: 13,
+                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                           color: s == p.currentSpeed ? Colors.white : Colors.white38,
                                           fontWeight: s == p.currentSpeed ? FontWeight.w600 : FontWeight.normal,
                                         )),
@@ -359,7 +359,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(p.currentQualityLabel,
-                                style: const TextStyle(fontSize: 12, color: Colors.white38)),
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white38)),
                             const SizedBox(width: 4),
                             const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
                           ],
@@ -379,7 +379,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(p.effectLabel,
-                                style: const TextStyle(fontSize: 12, color: Colors.white38)),
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white38)),
                             const SizedBox(width: 4),
                             const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
                         ],),
@@ -401,7 +401,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   void _showEffectSheet() {
     final player = context.read<PlayerProvider>();
-    showModalBottomSheet(
+    showM3ModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1E1E1E),
       shape: const RoundedRectangleBorder(
@@ -434,8 +434,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     ),
                     title: const Text('关闭',
                         style: TextStyle(color: Colors.white)),
-                    subtitle: const Text('不使用音效',
-                        style: TextStyle(fontSize: 12, color: Colors.white38)),
+                    subtitle: Text('不使用音效',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white38)),
                     onTap: () {
                       p.setEffect('none');
                       Navigator.pop(ctx);
@@ -464,7 +464,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           )),
                       subtitle: !isAvailable
                           ? Text('当前歌曲不支持',
-                              style: const TextStyle(fontSize: 12, color: Colors.white24))
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white24))
                           : null,
                       enabled: isAvailable,
                       onTap: isAvailable
@@ -489,7 +489,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final selectedKey =
         Quality.levels[player.qualityLevel % Quality.levels.length];
     final availableQualities = player.getAvailableQualities();
-    showModalBottomSheet(
+    showM3ModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1E1E1E),
       shape: const RoundedRectangleBorder(
@@ -533,15 +533,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       children: [
                         Text(
                           _qualitySubtitle(key),
-                          style: TextStyle(
-                              fontSize: 12,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: isAvailable ? Colors.white38 : Colors.white10),
                         ),
                         if (!isAvailable) ...[
                           const SizedBox(width: 8),
                           Text('当前歌曲不支持',
-                              style: TextStyle(
-                                  fontSize: 11,
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                   color: Colors.white24)),
                         ],
                         if (isAvailable && !availableQualities.contains(key)) ...[
@@ -550,11 +548,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(3),
+                              borderRadius: AppShape.xs,
                             ),
                             child: Text('降级可用',
-                                style: TextStyle(
-                                    fontSize: 10,
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                     color: Colors.white24)),
                           ),
                         ],
@@ -575,7 +572,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
                       '当前歌曲最高支持: ${Quality.label(availableQualities.last)}',
-                      style: const TextStyle(fontSize: 12, color: Colors.white24),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white24),
                     ),
                   ),
                 ],
@@ -873,7 +870,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: AppShape.md,
               child: lyricsWidget,
             ),
           ),
@@ -902,21 +899,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: AppShape.xs,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('词',
-                      style: TextStyle(
-                          fontSize: 11,
+                  Text('词',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: Colors.white54,
                           height: 1.2)),
                   const SizedBox(width: 4),
                   Text(source,
-                      style: const TextStyle(
-                          fontSize: 10,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: Colors.white38,
                           height: 1.2)),
                 ],
@@ -947,15 +942,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: AppShape.xs,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       _showTranslation ? '翻译' : '歌词',
-                      style: const TextStyle(
-                        fontSize: 11,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: Colors.white54,
                       ),
                     ),
@@ -1118,8 +1112,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         // Quality text
         Text(
           qualityLabel,
-          style: const TextStyle(
-            fontSize: 13,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w500,
             color: Colors.white60,
             letterSpacing: 1.2,
@@ -1288,7 +1281,7 @@ class _IconBarItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: AppShape.sm,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Icon(icon, size: 22, color: iconColor ?? Colors.white60),

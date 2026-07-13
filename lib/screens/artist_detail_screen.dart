@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/song.dart';
@@ -182,7 +183,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
           child: Row(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: AppShape.sm,
                 child: avatar != null
                     ? CachedNetworkImage(
                         imageUrl: avatar.replaceAll('{size}', '240'),
@@ -294,7 +295,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
             children: [
               Expanded(
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: AppShape.sm,
                   child: album.coverUrl != null
                       ? CachedNetworkImage(
                           imageUrl: album.coverUrl!,
@@ -362,7 +363,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
   // MV:           children: [
   // MV:             Expanded(
   // MV:               child: ClipRRect(
-  // MV:                 borderRadius: BorderRadius.circular(8),
+  // MV:                 borderRadius: AppShape.sm,
   // MV:                 child: Stack(
   // MV:                   fit: StackFit.expand,
   // MV:                   children: [

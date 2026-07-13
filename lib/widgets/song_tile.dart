@@ -7,6 +7,7 @@ import '../providers/player_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../services/music_service.dart';
 import '../theme/theme_assets.dart';
+import '../utils/theme.dart';
 
 class SongTile extends StatelessWidget {
   final Song song;
@@ -23,7 +24,7 @@ class SongTile extends StatelessWidget {
       child: MergeSemantics(
         child: ListTile(
           leading: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: AppShape.sm,
             child: song.albumCoverUrl != null
                 ? CachedNetworkImage(
                     imageUrl: song.albumCoverUrl!,
@@ -59,23 +60,26 @@ class SongTile extends StatelessWidget {
               Consumer<LikedSongsProvider>(
                 builder: (_, lp, __) {
                   final liked = lp.likedIds.contains(song.id);
-                  return IconButton(
-                    icon: Icon(
-                      liked ? Icons.favorite : Icons.favorite_border,
-                      size: 20,
+                  return M3BounceFeedback(
+                    trigger: liked,
+                    child: IconButton(
+                      icon: Icon(
+                        liked ? Icons.favorite : Icons.favorite_border,
+                        size: 20,
+                      ),
+                      color: liked ? Colors.red : cs.onSurfaceVariant,
+                      tooltip: liked ? '取消喜欢' : '喜欢',
+                      onPressed: () async {
+                        final info = SongInfo(
+                          id: song.id,
+                          name: song.name,
+                          hash: song.hash ?? '',
+                          albumId: song.albumId,
+                          audioId: song.id,
+                        );
+                        await lp.toggle(info);
+                      },
                     ),
-                    color: liked ? Colors.red : cs.onSurfaceVariant,
-                    tooltip: liked ? '取消喜欢' : '喜欢',
-                    onPressed: () async {
-                      final info = SongInfo(
-                        id: song.id,
-                        name: song.name,
-                        hash: song.hash ?? '',
-                        albumId: song.albumId,
-                        audioId: song.id,
-                      );
-                      await lp.toggle(info);
-                    },
                   );
                 },
               ),
@@ -94,7 +98,7 @@ class SongTile extends StatelessWidget {
   }
 
   void _showContextMenu(BuildContext context) {
-    showModalBottomSheet(
+    showM3ModalBottomSheet(
       context: context,
       builder: (_) => SafeArea(
         child: Column(
@@ -178,7 +182,7 @@ class SongTile extends StatelessWidget {
       );
       return;
     }
-    showModalBottomSheet(
+    showM3ModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(
