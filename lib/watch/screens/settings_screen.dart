@@ -243,7 +243,7 @@ class _AboutSection extends StatelessWidget {
         borderRadius: BorderRadius.circular(14)),
       child: const ListTile(
         leading: Icon(Icons.info_outline, size: 22),
-        title: Text('NGS-KG Watch', style: TextStyle(fontSize: 13)),
+        title: Text('NGS-KG+ Watch', style: TextStyle(fontSize: 13)),
         subtitle: Text('v1.5.0 | Wear OS', style: TextStyle(fontSize: 11)),
       ),
     );

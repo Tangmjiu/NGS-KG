@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 //
 // Watch OS entry point — Wear OS 手表版 Flutter 入口
-// Build: flutter build apk --target lib/main_watch.dart
+// Build: flutter build apk --debug  (或 --release)
 
 import 'dart:async';
 import 'dart:ui';

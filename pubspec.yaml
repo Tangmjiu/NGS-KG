@@ -55,6 +55,10 @@ dependencies:
   wear_os_scrollbar: ^0.2.1
   speech_to_text: ^7.3.0
 
+  # Animation (MD3 motion)
+  flutter_animate: ^4.5.0
+  animations: ^2.0.11
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

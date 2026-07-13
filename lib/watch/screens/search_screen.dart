@@ -52,11 +52,12 @@ class _WatchSearchScreenState extends State<WatchSearchScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.removeListener(_onSearchTextChanged);
     _searchController.dispose();
     _focusNode.dispose();
     _scrollController.dispose();
-    _debounceTimer?.cancel();
+    _voiceService.stop();
     super.dispose();
   }
 
@@ -181,65 +182,68 @@ class _WatchSearchScreenState extends State<WatchSearchScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return RoundSafeArea(
-      child: Column(
-        children: [
-          // ── 搜索输入框 ──
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            child: TextField(
-              controller: _searchController,
-              focusNode: _focusNode,
-              textInputAction: TextInputAction.search,
-              style: theme.textTheme.bodyMedium,
-              decoration: InputDecoration(
-                hintText: '搜索音乐',
-                hintStyle: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.4),
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      body: RoundSafeArea(
+        child: Column(
+          children: [
+            // ── 搜索输入框 ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+              child: TextField(
+                controller: _searchController,
+                focusNode: _focusNode,
+                textInputAction: TextInputAction.search,
+                style: theme.textTheme.bodyMedium,
+                decoration: InputDecoration(
+                  hintText: '搜索音乐',
+                  hintStyle: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.4),
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    size: 18,
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? GestureDetector(
+                          onTap: () {
+                            _searchController.clear();
+                            _focusNode.unfocus();
+                          },
+                          child: Icon(
+                            Icons.clear,
+                            size: 16,
+                            color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: colorScheme.surfaceContainerHighest,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                 ),
-                prefixIcon: Icon(
-                  Icons.search,
-                  size: 18,
-                  color: colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? GestureDetector(
-                        onTap: () {
-                          _searchController.clear();
-                          _focusNode.unfocus();
-                        },
-                        child: Icon(
-                          Icons.clear,
-                          size: 16,
-                          color: colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
-                      )
-                    : null,
-                filled: true,
-                fillColor: colorScheme.surfaceContainerHighest,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
+                onSubmitted: (value) {
+                  _debounceTimer?.cancel();
+                  _performSearch(value);
+                },
               ),
-              onSubmitted: (value) {
-                _debounceTimer?.cancel();
-                _performSearch(value);
-              },
             ),
-          ),
 
-          // ── 内容区 ──
-          Expanded(
-            child: _buildContent(theme, colorScheme),
-          ),
+            // ── 内容区 ──
+            Expanded(
+              child: _buildContent(theme, colorScheme),
+            ),
           ],
         ),
-      );
+      ),
+    );
   }
 
   /// 根据当前状态构建内容区域

@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../models/song.dart';
 import '../../../models/song_mapper.dart';
@@ -13,6 +14,7 @@ import '../../../providers/player_provider.dart';
 import '../../../providers/liked_songs_provider.dart';
 import '../../../services/music_service.dart';
 import '../../../utils/logger.dart';
+import '../utils/watch_motion.dart';
 import '../widgets/round_safe_area.dart';
 
 /// 手表版私人 FM 电台屏幕
@@ -28,8 +30,6 @@ class WatchFmScreen extends StatefulWidget {
 }
 
 class _WatchFmScreenState extends State<WatchFmScreen> {
-  List<Song> _fmSongs = [];
-  int _currentIndex = 0;
   bool _isLoading = true;
   String? _error;
 
@@ -61,14 +61,15 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
       if (!mounted) return;
 
       setState(() {
-        _fmSongs = songs;
-        _currentIndex = 0;
         _isLoading = false;
       });
 
-      // 自动播放第一首
+      // 进入 FM 模式并自动播放第一首
       if (songs.isNotEmpty) {
-        _playCurrent();
+        context.read<PlayerProvider>().startFmPlaylist(
+              songs,
+              bufferProvider: _fetchMoreFm,
+            );
       }
     } catch (e, s) {
       if (!mounted) return;
@@ -80,33 +81,26 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
     }
   }
 
-  /// 加载更多 FM 推荐（当列表到达末尾时调用）
-  Future<void> _loadMoreFmSongs() async {
+  /// 加载更多 FM 推荐（供 PlayerProvider 的 playlistEndProvider 回调使用）
+  Future<List<Song>> _fetchMoreFm() async {
     try {
-      final lastSong = _fmSongs.isNotEmpty ? _fmSongs.last : null;
+      final player = context.read<PlayerProvider>();
+      final playlist = player.playlist;
+      final lastSong = playlist.isNotEmpty ? playlist.last : null;
       final musicService = context.read<MusicService>();
       final raw = await musicService.getPersonalFm(
         hash: lastSong?.hash,
         songid: lastSong?.mixSongId ?? lastSong?.id,
         action: 'play',
       );
-      final songs = raw
+      return raw
           .map((e) => SongMapper.fromFmJson(e))
           .whereType<Song>()
           .toList();
-
-      if (!mounted) return;
-
-      setState(() {
-        final prevLen = _fmSongs.length;
-        _fmSongs.addAll(songs);
-        if (_currentIndex >= prevLen - 1) {
-          _currentIndex = prevLen;
-        }
-      });
     } catch (e, s) {
-      if (!mounted) return;
-      Log.e('WatchFmScreen', 'load more error', e, s);
+      if (!mounted) return [];
+      Log.e('WatchFmScreen', 'fetch more error', e, s);
+      return [];
     }
   }
 
@@ -114,36 +108,15 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
   //  播放操作
   // ═══════════════════════════════════════════════════════════
 
-  /// 播放当前索引的 FM 歌曲
-  void _playCurrent() {
-    if (_fmSongs.isEmpty) return;
-    final song = _fmSongs[_currentIndex];
-    context.read<PlayerProvider>().playSong(song, playlist: _fmSongs);
-  }
-
-  /// 切换到下一首
+  /// 切换到下一首（委托给 PlayerProvider，FM 模式下自动续播）
   void _nextTrack() {
-    if (_fmSongs.isEmpty) return;
-
-    if (_currentIndex + 1 < _fmSongs.length) {
-      setState(() => _currentIndex++);
-      _playCurrent();
-    } else {
-      // 列表耗尽，先加载再切歌
-      _loadMoreFmSongs().then((_) {
-        if (!mounted) return;
-        if (_currentIndex + 1 < _fmSongs.length) {
-          setState(() => _currentIndex++);
-          _playCurrent();
-        }
-      });
-    }
+    context.read<PlayerProvider>().playNext();
   }
 
   /// 切换当前歌曲的收藏状态
   void _toggleLike() {
-    if (_fmSongs.isEmpty) return;
-    final song = _fmSongs[_currentIndex];
+    final song = context.read<PlayerProvider>().currentSong;
+    if (song == null) return;
     final likedSongs = context.read<LikedSongsProvider>();
     final songInfo = SongInfo(
       id: song.id,
@@ -169,8 +142,17 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
       );
     }
 
-    if (_error != null || _fmSongs.isEmpty) {
+    if (_error != null) {
       return _buildErrorOrEmpty();
+    }
+
+    // 等待 FM 队列加载到 PlayerProvider
+    final player = context.read<PlayerProvider>();
+    if (player.playlist.isEmpty) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
     return _buildMainView();
@@ -192,10 +174,25 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
               Expanded(
                 child: Consumer<PlayerProvider>(
                   builder: (context, player, _) {
+                    final song = player.currentSong;
+                    if (song == null) {
+                      return Center(
+                        child: Text(
+                          '暂无播放',
+                          style: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.5),
+                            fontSize: 12,
+                          ),
+                        ),
+                      );
+                    }
                     return Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _buildSongSection(),
+                        _buildSongSection(song),
                         const SizedBox(height: 8),
                         _buildPlayButton(player),
                       ],
@@ -236,10 +233,9 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
     );
   }
 
-  /// 歌曲信息区域：歌名 + 歌手
-  Widget _buildSongSection() {
-    final song = _fmSongs[_currentIndex];
+  Widget _buildSongSection(Song song) {
     return Column(
+      key: ValueKey(song.id),
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
@@ -265,34 +261,50 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
           overflow: TextOverflow.ellipsis,
         ),
       ],
+    )
+    .animate()
+    .fadeIn(duration: WatchMotion.durMedium2, curve: WatchMotion.curveDecelerate)
+    .slideY(
+      begin: 0.1,
+      duration: WatchMotion.durMedium2,
+      curve: WatchMotion.curveDecelerate,
     );
   }
 
-  /// 播放 / 暂停按钮
   Widget _buildPlayButton(PlayerProvider player) {
     return SizedBox(
       width: 48,
       height: 48,
-      child: IconButton(
-        icon: Icon(
-          player.isPlaying
-              ? Icons.pause_circle_filled_rounded
-              : Icons.play_circle_filled_rounded,
-          size: 40,
+      child: AnimatedSwitcher(
+        duration: WatchMotion.durMedium1,
+        transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+        child: IconButton(
+          key: ValueKey(player.isPlaying),
+          icon: Icon(
+            player.isPlaying
+                ? Icons.pause_circle_filled_rounded
+                : Icons.play_circle_filled_rounded,
+            size: 40,
+          ),
+          color: Theme.of(context).colorScheme.primary,
+          padding: EdgeInsets.zero,
+          onPressed: () {
+            WatchMotion.confirm();
+            player.togglePlayPause();
+          },
+          splashRadius: 24,
         ),
-        color: Theme.of(context).colorScheme.primary,
-        padding: EdgeInsets.zero,
-        onPressed: () => player.togglePlayPause(),
-        splashRadius: 24,
       ),
     );
   }
 
-  /// 收藏按钮（心形）
   Widget _buildLikeButton() {
-    final song = _fmSongs[_currentIndex];
-    return Consumer<LikedSongsProvider>(
-      builder: (context, likedSongs, _) {
+    return Consumer2<PlayerProvider, LikedSongsProvider>(
+      builder: (context, player, likedSongs, _) {
+        final song = player.currentSong;
+        if (song == null) {
+          return const SizedBox(width: 40, height: 40);
+        }
         final isLiked = likedSongs.likedIds.contains(song.id);
         return SizedBox(
           width: 40,
@@ -308,13 +320,19 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
             padding: EdgeInsets.zero,
             splashRadius: 20,
             onPressed: _toggleLike,
+          )
+          .animate(target: isLiked ? 1 : 0, value: isLiked ? 1 : 0)
+          .scale(
+            begin: const Offset(1.0, 1.0),
+            end: const Offset(1.3, 1.3),
+            duration: WatchMotion.durShort4,
+            curve: WatchMotion.curveEmphasized,
           ),
         );
       },
     );
   }
 
-  /// 下一首按钮
   Widget _buildNextButton() {
     return SizedBox(
       width: 40,
@@ -324,7 +342,10 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
         color: Theme.of(context).colorScheme.onSurface,
         padding: EdgeInsets.zero,
         splashRadius: 20,
-        onPressed: _nextTrack,
+        onPressed: () {
+          WatchMotion.tap();
+          _nextTrack();
+        },
       ),
     );
   }

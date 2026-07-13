@@ -49,11 +49,12 @@ class VoiceSearchService {
           result = val.recognizedWords;
         }
       },
-      listenFor: listenFor,
-      pauseFor: pauseFor,
       listenOptions: stt.SpeechListenOptions(
         listenMode: stt.ListenMode.search, // 搜索模式
         onDevice: true,                    // 仅本地识别（API 31+）
+        autoPunctuation: false,
+        listenFor: listenFor,
+        pauseFor: pauseFor,
       ),
     );
 

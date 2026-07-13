@@ -5,11 +5,14 @@
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:wear_plus/wear_plus.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../providers/auth_provider.dart';
 import '../../../providers/player_provider.dart';
+import '../utils/watch_motion.dart';
 import '../widgets/watch_song_tile.dart';
 import '../widgets/round_safe_area.dart';
 import 'player_screen.dart';
@@ -30,9 +33,7 @@ class WatchHomeScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return RoundSafeArea(
-      child: RefreshIndicator(
-        onRefresh: () => Future.delayed(const Duration(milliseconds: 500)),
-        child: SingleChildScrollView(
+      child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(
             horizontal: 8,
             vertical: 12,
@@ -43,7 +44,7 @@ class WatchHomeScreen extends StatelessWidget {
           children: [
             // ── 1. 问候标题 ──
             Text(
-              'NGS-KG Watch',
+              'NGS-KG+ Watch',
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -125,16 +126,26 @@ class WatchHomeScreen extends StatelessWidget {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const WatchPlayerScreen(),
-                      ),
-                    ),
+                    onTap: () {
+                      WatchMotion.tap();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const WatchPlayerScreen(),
+                        ),
+                      );
+                    },
                     child: WatchSongTile.fromSong(
                       song: song,
                       isPlaying: player.isPlaying,
-                    ),
+                    ).animate(key: ValueKey(song.id)).fadeIn(
+                          duration: WatchMotion.durMedium2,
+                          curve: WatchMotion.curveDecelerate,
+                        ).slideY(
+                          begin: 0.15,
+                          duration: WatchMotion.durMedium2,
+                          curve: WatchMotion.curveDecelerate,
+                        ),
                   ),
                 );
               },
@@ -155,7 +166,6 @@ class WatchHomeScreen extends StatelessWidget {
             const _QuickActionGrid(),
           ],
         ),
-      ),
       ),
     );
   }
@@ -248,7 +258,7 @@ class _QuickActionGrid extends StatelessWidget {
 }
 
 /// 单个圆形快速操作按钮 + 标签
-class _QuickActionButton extends StatelessWidget {
+class _QuickActionButton extends StatefulWidget {
   final _ActionItem item;
   final VoidCallback onTap;
 
@@ -256,6 +266,17 @@ class _QuickActionButton extends StatelessWidget {
     required this.item,
     required this.onTap,
   });
+
+  @override
+  State<_QuickActionButton> createState() => _QuickActionButtonState();
+}
+
+class _QuickActionButtonState extends State<_QuickActionButton> {
+  bool _pressed = false;
+
+  void _handleTapDown(TapDownDetails _) => setState(() => _pressed = true);
+  void _handleTapUp(TapUpDetails _) => setState(() => _pressed = false);
+  void _handleTapCancel() => setState(() => _pressed = false);
 
   @override
   Widget build(BuildContext context) {
@@ -268,30 +289,37 @@ class _QuickActionButton extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 圆形图标按钮
-          Material(
-            color: colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(28),
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(28),
-              customBorder: const CircleBorder(),
-              child: Container(
-                width: 56,
-                height: 56,
-                alignment: Alignment.center,
-                child: Icon(
-                  item.icon,
-                  size: 26,
-                  color: colorScheme.onSurface,
+          GestureDetector(
+            onTapDown: _handleTapDown,
+            onTapUp: _handleTapUp,
+            onTapCancel: _handleTapCancel,
+            onTap: () {
+              WatchMotion.tap();
+              widget.onTap();
+            },
+            child: AnimatedScale(
+              scale: _pressed ? 0.88 : 1.0,
+              duration: WatchMotion.durShort2,
+              curve: WatchMotion.curveEmphasized,
+              child: Material(
+                color: colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(28),
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  alignment: Alignment.center,
+                  child: Icon(
+                    widget.item.icon,
+                    size: 26,
+                    color: colorScheme.onSurface,
+                  ),
                 ),
               ),
             ),
           ),
           const SizedBox(height: 4),
-          // 标签文字
           Text(
-            item.label,
+            widget.item.label,
             style: theme.textTheme.labelSmall?.copyWith(
               color: colorScheme.onSurface.withValues(alpha: 0.8),
             ),

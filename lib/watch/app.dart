@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wear_plus/wear_plus.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../providers/player_provider.dart';
 import '../utils/navigation.dart';
@@ -14,11 +15,12 @@ import 'screens/playlist_list_screen.dart';
 import 'screens/rank_list_screen.dart';
 import 'screens/local_music_screen.dart';
 import 'screens/fm_screen.dart';
+import 'utils/watch_motion.dart';
 import 'widgets/mini_player.dart';
 import 'theme/watch_theme.dart';
 import 'theme/watch_theme_provider.dart';
 
-/// NGS-KG Watch 根组件 — Wear OS 优化的圆屏界面
+/// NGS-KG+ Watch 根组件 — Wear OS 优化的圆屏界面
 class NGSKGWearApp extends StatelessWidget {
   const NGSKGWearApp({super.key});
 
@@ -30,7 +32,7 @@ class NGSKGWearApp extends StatelessWidget {
           builder: (context, themeProvider, _) {
             return MaterialApp(
               navigatorKey: navKey,
-              title: 'NGS-KG Watch',
+              title: 'NGS-KG+ Watch',
               locale: const Locale('zh', 'CN'),
               debugShowCheckedModeBanner: false,
               darkTheme: buildWatchTheme(themeProvider.colorSeed),
@@ -80,11 +82,10 @@ class _WatchHomeState extends State<WatchHome> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && mounted) {
-          // 系统返回手势 → 翻到上一页
           if (_currentPage > 0) {
             _pageController.previousPage(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
+              duration: WatchMotion.durMedium2,
+              curve: WatchMotion.curveStandard,
             );
           }
         }
@@ -92,16 +93,14 @@ class _WatchHomeState extends State<WatchHome> {
       child: Scaffold(
       body: Stack(
         children: [
-          // 主页面 — 左右滑动切换
           PageView(
             controller: _pageController,
             onPageChanged: (i) => setState(() => _currentPage = i),
             children: _pages,
           ),
 
-          // 页面指示点
           Positioned(
-            top: isRound ? 28 : 4,
+            top: isRound ? 22 : 4,
             left: 0,
             right: 0,
             child: _PageIndicator(
@@ -111,25 +110,35 @@ class _WatchHomeState extends State<WatchHome> {
             ),
           ),
 
-          // 底部 MiniPlayer（搜索页和 FM 页隐藏 — 搜索有语音输入，FM 有独立控制）
           if (_currentPage != 1 && _currentPage != 5)
             Positioned(
-              bottom: isRound ? 24 : 4,
-              left: isRound ? 16 : 8,
-              right: isRound ? 16 : 8,
+              bottom: isRound ? 16 : 4,
+              left: isRound ? 70 : 8,
+              right: isRound ? 70 : 8,
               child: Consumer<PlayerProvider>(
                 builder: (context, player, _) {
                   if (player.currentSong == null) return const SizedBox.shrink();
                   return GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const WatchPlayerScreen()),
-                    ),
-                    child: const WatchMiniPlayer(),
+                    onTap: () {
+                      WatchMotion.tap();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const WatchPlayerScreen()),
+                      );
+                    },
+                    child: const WatchMiniPlayer()
+                        .animate()
+                        .fadeIn(duration: WatchMotion.durMedium2, curve: WatchMotion.curveDecelerate)
+                        .slideY(
+                          begin: 0.3,
+                          end: 0,
+                          duration: WatchMotion.durMedium2,
+                          curve: WatchMotion.curveEmphasized,
+                        ),
                   );
                 },
+              ),
             ),
-          ),
         ],
       ),
     ),
@@ -154,12 +163,15 @@ class _PageIndicator extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: List.generate(count, (i) {
-          return Container(
-            width: i == current ? 10 : 5,
+          final isActive = i == current;
+          return AnimatedContainer(
+            duration: WatchMotion.durShort4,
+            curve: WatchMotion.curveEmphasized,
+            width: isActive ? 10 : 5,
             height: 3,
             margin: const EdgeInsets.symmetric(horizontal: 2),
             decoration: BoxDecoration(
-              color: i == current
+              color: isActive
                   ? Theme.of(context).colorScheme.primary
                   : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(1.5),

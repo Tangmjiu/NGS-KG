@@ -28,7 +28,7 @@
     </queries>
 
     <application
-        android:label="NGS-KG Watch"
+        android:label="NGS-KG+ Watch"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">

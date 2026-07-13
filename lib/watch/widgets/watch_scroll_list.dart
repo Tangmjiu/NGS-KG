@@ -3,6 +3,8 @@
 //
 // Wear OS 圆屏可滚动列表 — 适配圆形屏幕的通用列表组件
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:wear_plus/wear_plus.dart';
 import 'package:wearable_rotary/wearable_rotary.dart';
@@ -47,12 +49,12 @@ class WatchScrollList extends StatefulWidget {
 class _WatchScrollListState extends State<WatchScrollList> {
   late final ScrollController _controller;
   bool _isUserScrolling = false;
+  Timer? _userScrollResetTimer;
 
   @override
   void initState() {
     super.initState();
     _controller = widget.controller ?? RotaryScrollController();
-    _controller.addListener(_onScroll);
   }
 
   @override
@@ -69,16 +71,18 @@ class _WatchScrollListState extends State<WatchScrollList> {
 
   @override
   void dispose() {
-    _controller.removeListener(_onScroll);
+    _userScrollResetTimer?.cancel();
     if (widget.controller == null) _controller.dispose();
     super.dispose();
   }
 
-  void _onScroll() {
-    // 检测用户手动滚动：如果控制器有客户区，记录用户正在操作
-    if (_controller.hasClients && _controller.position.isScrollingNotifier.value) {
-      _isUserScrolling = true;
-    }
+  void _onUserScroll() {
+    _isUserScrolling = true;
+    _userScrollResetTimer?.cancel();
+    // 用户停止滚动 3 秒后恢复自动同步
+    _userScrollResetTimer = Timer(const Duration(seconds: 3), () {
+      _isUserScrolling = false;
+    });
   }
 
   void _scrollToIndex(int index) {
@@ -98,11 +102,19 @@ class _WatchScrollListState extends State<WatchScrollList> {
     final isRound = WatchShape.of(context) == WearShape.round;
     final hp = isRound ? widget.horizontalPadding + 4 : widget.horizontalPadding;
 
-    return ListView.builder(
-      controller: _controller,
-      padding: EdgeInsets.fromLTRB(hp, 4, hp, widget.bottomPadding),
-      itemCount: widget.itemCount,
-      itemBuilder: widget.itemBuilder,
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notif) {
+        if (notif is UserScrollNotification) {
+          _onUserScroll();
+        }
+        return false;
+      },
+      child: ListView.builder(
+        controller: _controller,
+        padding: EdgeInsets.fromLTRB(hp, 4, hp, widget.bottomPadding),
+        itemCount: widget.itemCount,
+        itemBuilder: widget.itemBuilder,
+      ),
     );
   }
 }

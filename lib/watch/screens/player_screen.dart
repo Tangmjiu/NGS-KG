@@ -3,11 +3,14 @@
 //
 // Wear OS 圆屏全屏播放器 — 支持环境模式 (Ambient Mode)
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:wear_plus/wear_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../constants/quality.dart';
 import '../../../models/song.dart';
@@ -15,7 +18,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/liked_songs_provider.dart';
 import '../../../providers/player_provider.dart';
 import '../../../utils/login_required_dialog.dart';
-import '../widgets/round_safe_area.dart';
+import '../utils/watch_motion.dart';
 import 'queue_screen.dart';
 
 /// Wear OS 全屏音乐播放器
@@ -33,28 +36,31 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
   // ── Ambient 模式下每秒钟更新一次进度文本 ──
   /// Active 模式下 UI 由 PlayerProvider 的 position 驱动，
   /// Ambient 模式下使用局部定时器避免唤醒主线程。
+  Timer? _ambientTimer;
+  bool _isAmbient = false;
 
   @override
   void initState() {
     super.initState();
-    // Ambient 模式下每秒刷新进度显示
-    _startAmbientTimer();
+    // 每秒检查：仅在 ambient 模式下 setState 刷新进度显示
+    _ambientTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || !_isAmbient) return;
+      setState(() {});
+    });
   }
 
-  void _startAmbientTimer() {
-    Future.delayed(const Duration(seconds: 1), () {
-      if (!mounted) return;
-      setState(() {});
-      _startAmbientTimer();
-    });
+  @override
+  void dispose() {
+    _ambientTimer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AmbientMode(
       builder: (context, mode, child) {
-        final isAmbient = mode == WearMode.ambient;
-        if (isAmbient) {
+        _isAmbient = mode == WearMode.ambient;
+        if (_isAmbient) {
           return _buildAmbientView();
         }
         return _buildActiveView();
@@ -130,7 +136,8 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
 
   Widget _buildActiveView() {
     final isRound = WatchShape.of(context) == WearShape.round;
-    final hPad = isRound ? 20.0 : 12.0;
+    final hPad = isRound ? 24.0 : 12.0;
+    final vPad = isRound ? 6.0 : 8.0;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -141,10 +148,9 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
             Navigator.pop(context);
           }
         },
-        child: RoundSafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 8),
-            child: Consumer<PlayerProvider>(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(hPad, vPad, hPad, vPad),
+          child: Consumer<PlayerProvider>(
               builder: (context, player, _) {
                 final song = player.currentSong;
 
@@ -202,7 +208,6 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
             ),
           ),
         ),
-      ),
     );
   }
 
@@ -242,38 +247,27 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
       builder: (ctx) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 // 播放模式切换
-                ListTile(
-                  leading: Icon(
-                    _playModeIconData(player.playMode),
-                    color: cs.primary,
-                    size: 20,
-                  ),
-                  title: Text(
-                    _playModeLabel(player.playMode),
-                    style: TextStyle(color: cs.onSurface, fontSize: 14),
-                  ),
+                _menuButton(
+                  ctx,
+                  cs,
+                  icon: _playModeIconData(player.playMode),
+                  label: _playModeLabel(player.playMode),
                   onTap: () {
                     player.setPlayMode(_nextPlayMode(player.playMode));
                     Navigator.pop(ctx);
                   },
-                  dense: true,
                 ),
                 // 倍速切换
-                ListTile(
-                  leading: Icon(
-                    Icons.speed_rounded,
-                    color: cs.primary,
-                    size: 20,
-                  ),
-                  title: Text(
-                    '倍速 ${player.currentSpeed.toStringAsFixed(1)}x',
-                    style: TextStyle(color: cs.onSurface, fontSize: 14),
-                  ),
+                _menuButton(
+                  ctx,
+                  cs,
+                  icon: Icons.speed_rounded,
+                  label: '${player.currentSpeed.toStringAsFixed(1)}x',
                   onTap: () {
                     const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
                     final current = player.currentSpeed;
@@ -283,19 +277,13 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
                     player.setSpeed(next);
                     Navigator.pop(ctx);
                   },
-                  dense: true,
                 ),
                 // 播放队列
-                ListTile(
-                  leading: Icon(
-                    Icons.queue_music_rounded,
-                    color: cs.primary,
-                    size: 20,
-                  ),
-                  title: const Text(
-                    '播放队列',
-                    style: TextStyle(color: Colors.white, fontSize: 14),
-                  ),
+                _menuButton(
+                  ctx,
+                  cs,
+                  icon: Icons.queue_music_rounded,
+                  label: '队列',
                   onTap: () {
                     Navigator.pop(ctx);
                     Navigator.push(
@@ -305,13 +293,42 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
                       ),
                     );
                   },
-                  dense: true,
                 ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  /// 菜单按钮 — 竖排图标+标签，适配圆屏 BottomSheet 紧凑空间
+  Widget _menuButton(
+    BuildContext ctx,
+    ColorScheme cs, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 64,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 24, color: cs.primary),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(color: cs.onSurface, fontSize: 10),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -358,7 +375,8 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
   // ═══════════════════════════════════════════════════════
 
   Widget _buildAlbumArt(Song song) {
-    const diameter = 120.0;
+    final isRound = WatchShape.of(context) == WearShape.round;
+    final diameter = isRound ? 96.0 : 120.0;
     return Center(
       child: SizedBox(
         width: diameter,
@@ -379,6 +397,14 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
             ),
           ),
         ),
+      )
+      .animate(key: ValueKey(song.id))
+      .fadeIn(duration: WatchMotion.durMedium4, curve: WatchMotion.curveDecelerate)
+      .scale(
+        begin: const Offset(0.85, 0.85),
+        end: const Offset(1.0, 1.0),
+        duration: WatchMotion.durMedium4,
+        curve: WatchMotion.curveEmphasized,
       ),
     );
   }
@@ -503,27 +529,40 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
         child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 上一首
-          _compactBtn(Icons.skip_previous_rounded, 20, player.playPrevious, cs.onSurface),
+          _compactBtn(Icons.skip_previous_rounded, 20, () {
+            WatchMotion.tap();
+            player.playPrevious();
+          }, cs.onSurface),
           const SizedBox(width: 4),
-          // 播放/暂停
-          IconButton(
-            icon: Icon(
-              player.isPlaying
-                  ? Icons.pause_circle_filled_rounded
-                  : Icons.play_circle_filled_rounded,
-              size: 36,
+          AnimatedSwitcher(
+            duration: WatchMotion.durMedium1,
+            transitionBuilder: (child, anim) => ScaleTransition(
+              scale: anim,
+              child: child,
             ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-            color: cs.primary,
-            onPressed: () => player.togglePlayPause(),
+            child: IconButton(
+              key: ValueKey(player.isPlaying),
+              icon: Icon(
+                player.isPlaying
+                    ? Icons.pause_circle_filled_rounded
+                    : Icons.play_circle_filled_rounded,
+                size: 36,
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              color: cs.primary,
+              onPressed: () {
+                WatchMotion.confirm();
+                player.togglePlayPause();
+              },
+            ),
           ),
           const SizedBox(width: 4),
-          // 下一首
-          _compactBtn(Icons.skip_next_rounded, 20, player.playNext, cs.onSurface),
+          _compactBtn(Icons.skip_next_rounded, 20, () {
+            WatchMotion.tap();
+            player.playNext();
+          }, cs.onSurface),
           const SizedBox(width: 8),
-          // 收藏
           Consumer<LikedSongsProvider>(
             builder: (context, likedSongs, _) {
               final isLiked = likedSongs.likedIds.contains(song.id);
@@ -539,13 +578,11 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
                 constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
                 splashRadius: 14,
                 onPressed: () async {
-                  // 检查登录状态
                   final auth = context.read<AuthProvider>();
                   if (!auth.isLoggedIn) {
                     final shouldLogin =
                         await showLoginRequiredDialog(context);
                     if (!shouldLogin) return;
-                    // 对话框已导航到登录页
                     return;
                   }
                   final songInfo = SongInfo(
@@ -556,8 +593,18 @@ class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
                     audioId: 0,
                   );
                   await likedSongs.toggle(songInfo);
-                  HapticFeedback.lightImpact();
+                  WatchMotion.confirm();
                 },
+              )
+              .animate(
+                target: isLiked ? 1 : 0,
+                value: isLiked ? 1 : 0,
+              )
+              .scale(
+                begin: const Offset(1.0, 1.0),
+                end: const Offset(1.3, 1.3),
+                duration: WatchMotion.durShort4,
+                curve: WatchMotion.curveEmphasized,
               );
             },
           ),

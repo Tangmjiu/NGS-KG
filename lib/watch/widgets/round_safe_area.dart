@@ -9,13 +9,26 @@ import 'package:wear_plus/wear_plus.dart';
 
 /// 圆屏安全区域 — 自动处理圆屏裁切 + 系统状态栏
 ///
-/// 在圆形屏幕上添加足够的 padding 使内容保持在可见圆内，
+/// 在圆形屏幕上添加 padding 使内容保持在可见圆内，
 /// 同时包含系统状态栏/导航栏的 insets（替代 SafeArea）。
-/// 圆屏 padding 基于内接正方形计算：边距 = (D - D/√2)/2
+///
+/// 圆屏 padding 策略（非均匀）：
+/// - 水平：基于内接正方形计算，边距 = D × 0.146（480px 屏 ≈ 70px），
+///   因为圆边在左右两侧裁切最严重。
+/// - 垂直：仅取系统 chin inset 与 12px 较大值，因为圆屏顶部/底部
+///   弧度较缓和，纵向可视高度接近完整直径，均匀 70px 会浪费约 140px
+///   纵向空间导致内容拥挤。
 class RoundSafeArea extends StatelessWidget {
   final Widget child;
 
-  const RoundSafeArea({super.key, required this.child});
+  /// 可选的额外垂直 padding（用于需要更多上下留白的场景）
+  final double extraVerticalPadding;
+
+  const RoundSafeArea({
+    super.key,
+    required this.child,
+    this.extraVerticalPadding = 0,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -33,17 +46,19 @@ class RoundSafeArea extends StatelessWidget {
       );
     }
 
-    // 圆屏：取系统 inset 和圆屏 inset 的较大值
-    final roundInset = size.shortestSide * 0.145;
-    final padding = EdgeInsets.fromLTRB(
-      roundInset > systemPadding.left ? roundInset : systemPadding.left,
-      roundInset > systemPadding.top ? roundInset : systemPadding.top,
-      roundInset > systemPadding.right ? roundInset : systemPadding.right,
-      roundInset > systemPadding.bottom ? roundInset : systemPadding.bottom,
-    );
+    // 圆屏：水平用内接正方形边距，垂直仅避让系统 chin
+    final horizontalInset = size.shortestSide * 0.146;
+    final verticalInset =
+        (systemPadding.top > systemPadding.bottom ? systemPadding.top : systemPadding.bottom)
+            .clamp(12.0, double.infinity) + extraVerticalPadding;
 
     return Padding(
-      padding: padding,
+      padding: EdgeInsets.fromLTRB(
+        horizontalInset > systemPadding.left ? horizontalInset : systemPadding.left,
+        verticalInset > systemPadding.top ? verticalInset : systemPadding.top,
+        horizontalInset > systemPadding.right ? horizontalInset : systemPadding.right,
+        verticalInset > systemPadding.bottom ? verticalInset : systemPadding.bottom,
+      ),
       child: child,
     );
   }

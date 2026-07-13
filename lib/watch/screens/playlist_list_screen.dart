@@ -197,7 +197,7 @@ class _WatchPlaylistListScreenState extends State<WatchPlaylistListScreen> {
   void _showPlaylistSheet(BuildContext context, Playlist playlist) {
     final provider = context.read<PlaylistProvider>();
     final player = context.read<PlayerProvider>();
-    provider.fetchPlaylistDetail(playlist.id.toString());
+    final future = provider.fetchPlaylistDetail(playlist.id.toString());
 
     showModalBottomSheet(
       context: context,
@@ -206,47 +206,77 @@ class _WatchPlaylistListScreenState extends State<WatchPlaylistListScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        final detail = provider.currentPlaylist;
-        final songs = detail?.songs ?? <Song>[];
+        return FutureBuilder<void>(
+          future: future,
+          builder: (ctx, snapshot) {
+            // ── 加载中 ──
+            if (snapshot.connectionState != ConnectionState.done) {
+              return _buildSheetLoading(ctx);
+            }
 
-        // ── 加载/空状态 ──
-        if (songs.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.all(32),
-            child: Center(
-              child: Text(
-                '暂无歌曲',
-                style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.5)),
-              ),
-            ),
-          );
-        }
+            final detail = provider.currentPlaylist;
+            final songs = detail?.songs ?? <Song>[];
 
-        // ── 歌曲列表 ──
-        return _buildSongSheetContent(
-          ctx,
-          title: playlist.name,
-          icon: Icons.queue_music_rounded,
-          iconColor: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.7),
-          songCount: songs.length,
-          child: ListView.builder(
-            itemCount: songs.length,
-            itemBuilder: (ctx, index) {
-              final song = songs[index];
-              final isPlaying = player.currentSong?.id == song.id;
-              return WatchSongTile.fromSong(
-                song: song,
-                isPlaying: isPlaying,
-                onTap: () {
-                  Navigator.pop(ctx);
-                  context.read<PlayerProvider>().playSong(song, playlist: songs);
+            // ── 空 / 错误状态 ──
+            if (songs.isEmpty) {
+              return _buildSheetEmpty(ctx);
+            }
+
+            // ── 歌曲列表 ──
+            return _buildSongSheetContent(
+              ctx,
+              title: playlist.name,
+              icon: Icons.queue_music_rounded,
+              iconColor: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.7),
+              songCount: songs.length,
+              child: ListView.builder(
+                itemCount: songs.length,
+                itemBuilder: (ctx, index) {
+                  final song = songs[index];
+                  final isPlaying = player.currentSong?.id == song.id;
+                  return WatchSongTile.fromSong(
+                    song: song,
+                    isPlaying: isPlaying,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      context.read<PlayerProvider>().playSong(song, playlist: songs);
+                    },
+                  );
                 },
-              );
-            },
-          ),
+              ),
+            );
+          },
         );
       },
+    );
+  }
+
+  /// Bottom Sheet 加载态
+  Widget _buildSheetLoading(BuildContext ctx) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Center(
+        child: CircularProgressIndicator(
+          color: Theme.of(ctx).colorScheme.primary,
+        ),
+      ),
+    );
+  }
+
+  /// Bottom Sheet 空状态
+  Widget _buildSheetEmpty(BuildContext ctx) {
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Center(
+        child: Text(
+          '暂无歌曲',
+          style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(ctx)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.5)),
+        ),
+      ),
     );
   }
 

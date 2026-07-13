@@ -20,43 +20,47 @@ class _WatchLoginDialog extends StatelessWidget {
     return AlertDialog(
       backgroundColor: cs.surfaceContainerHigh,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
       ),
-      contentPadding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.account_circle_rounded, size: 40, color: cs.primary),
-          const SizedBox(height: 12),
-          Text(
-            '请登录',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: cs.onSurface,
+      contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.account_circle_rounded, size: 32, color: cs.primary),
+            const SizedBox(height: 8),
+            Text(
+              '请登录',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface,
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '该功能需要登录后才能使用',
-            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-            textAlign: TextAlign.center,
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              '该功能需要登录后才能使用',
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
-      actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       actions: [
         SizedBox(
           width: double.infinity,
           child: OutlinedButton(
             onPressed: () => Navigator.pop(context, false),
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 10),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
               ),
             ),
-            child: const Text('知道了', style: TextStyle(fontSize: 14)),
+            child: const Text('知道了', style: TextStyle(fontSize: 12)),
           ),
         ),
         const SizedBox(height: 4),
@@ -73,12 +77,12 @@ class _WatchLoginDialog extends StatelessWidget {
               );
             },
             style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 10),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
               ),
             ),
-            child: const Text('登录', style: TextStyle(fontSize: 14)),
+            child: const Text('登录', style: TextStyle(fontSize: 12)),
           ),
         ),
       ],

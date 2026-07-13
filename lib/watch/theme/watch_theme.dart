@@ -4,12 +4,10 @@
 // Wear OS 圆屏深色主题 — 始终 [Brightness.dark]，适合 AMOLED 屏幕
 
 import 'package:flutter/material.dart';
+import 'package:animations/animations.dart';
 
-/// 构建手表版深色主题。
-///
-/// - 始终 [Brightness.dark]，适合 Wear OS AMOLED 屏幕
-/// - 大字号、大触控区域适配圆屏
-/// - 使用 [seedColor] 做 Material You 取色
+import '../utils/watch_motion.dart';
+
 ThemeData buildWatchTheme(Color seedColor) {
   final colorScheme = ColorScheme.fromSeed(
     seedColor: seedColor,
@@ -24,7 +22,7 @@ ThemeData buildWatchTheme(Color seedColor) {
     textTheme: _watchTextTheme(ThemeData.dark().textTheme),
     visualDensity: VisualDensity.compact,
     materialTapTargetSize: MaterialTapTargetSize.padded,
-    // 圆屏列表样式
+    splashFactory: InkSparkle.splashFactory,
     listTileTheme: ListTileThemeData(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -32,9 +30,41 @@ ThemeData buildWatchTheme(Color seedColor) {
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       dense: true,
     ),
-    // 按钮放大 — 适应手指触控
+    cardTheme: CardThemeData(
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      color: colorScheme.surfaceContainerHighest,
+    ),
+    dialogTheme: DialogThemeData(
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(28),
+      ),
+      backgroundColor: colorScheme.surfaceContainerHigh,
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+    ),
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: OpenUpwardsPageTransitionsBuilder(),
+      },
+    ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
         minimumSize: const Size(48, 48),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
