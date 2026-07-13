@@ -411,17 +411,27 @@ jobs:
           }
           EOF
 
+      - name: ZIP Linux release bundle
+        run: |
+          cd build/linux/x64/release/bundle
+          tar czf ../../../../../dist/ngskg-plus-linux-x64-release.tar.gz .
+
+      - name: ZIP Linux debug bundle
+        run: |
+          cd build/linux/x64/debug/bundle
+          tar czf ../../../../../dist/ngskg-plus-linux-x64-debug.tar.gz .
+
       - name: Upload release build
         uses: actions/upload-artifact@v4
         with:
           name: linux-release
-          path: build/linux/x64/release/bundle
+          path: dist/ngskg-plus-linux-x64-release.tar.gz
 
       - name: Upload debug build
         uses: actions/upload-artifact@v4
         with:
           name: linux-debug
-          path: build/linux/x64/debug/bundle
+          path: dist/ngskg-plus-linux-x64-debug.tar.gz
 
       - name: Upload .deb package
         uses: actions/upload-artifact@v4
@@ -527,8 +537,8 @@ jobs:
             artifacts/windows-x64-debug-zip/*
             artifacts/windows-x64-release-zip/*
             artifacts/windows-x64-release-msix/*
-            artifacts/linux-release/**
-            artifacts/linux-debug/**
+            artifacts/linux-release/*
+            artifacts/linux-debug/*
             artifacts/linux-deb/*
             artifacts/linux-flatpak/*
             artifacts/linux-pkgbuild/*
