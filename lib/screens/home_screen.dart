@@ -380,23 +380,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width >= 880;
+
+    // 局部注入对 MiniBar 出现时的 MediaQuery padding.bottom 避让。
+    // 在这里仅包裹 body 而不包裹整个 Scaffold，防止 Scaffold 将 bottomNavigationBar 抬高导致与 MiniBar 重叠。
+    final player = context.watch<PlayerProvider>();
+    final song = player.currentSong;
+    final showMini = song != null && !player.isPlayerScreenVisible;
+
+    final mq = MediaQuery.of(context);
+    final childMediaQuery = showMini
+        ? mq.copyWith(
+            padding: mq.padding.copyWith(
+              bottom: mq.padding.bottom + 76.0,
+            ),
+            viewPadding: mq.viewPadding.copyWith(
+              bottom: mq.viewPadding.bottom + 76.0,
+            ),
+          )
+        : mq;
+
     return Scaffold(
-      body: AnimatedSwitcher(
-        duration: AppMotion.dMedium2,
-        switchInCurve: AppMotion.emphasizedDecelerate,
-        switchOutCurve: AppMotion.emphasizedAccelerate,
-        transitionBuilder: (child, animation) {
-          return M3FadeThroughTransition(animation: animation, child: child);
-        },
-        child: IndexedStack(
-          key: ValueKey(_currentTab),
-          index: _currentTab,
-          children: [
-            _buildHome(),
-            const DiscoverScreen(),
-            const ProfileScreen(),
-          ],
+      body: MediaQuery(
+        data: childMediaQuery,
+        child: AnimatedSwitcher(
+          duration: AppMotion.dMedium2,
+          switchInCurve: AppMotion.emphasizedDecelerate,
+          switchOutCurve: AppMotion.emphasizedAccelerate,
+          transitionBuilder: (child, animation) {
+            return M3FadeThroughTransition(animation: animation, child: child);
+          },
+          child: IndexedStack(
+            key: ValueKey(_currentTab),
+            index: _currentTab,
+            children: [
+              _buildHome(),
+              const DiscoverScreen(),
+              const ProfileScreen(),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: NavigationBar(

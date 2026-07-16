@@ -62,9 +62,9 @@ class _AppShellState extends State<AppShell> {
         }
 
         // 注入包含 MiniBar 高度的自适应 MediaQuery 避让区域：
-        // 当 MiniBar 显示时，使主界面的 padding.bottom 自适应加上整个 MiniBar 的物理高度（64.0 + 12.0 边距 = 76.0dp），
-        // 这样全站所有的 ListView 或可滚动内容在滑到底部时，会自动留出足够的空当，完美露在胶囊上方，永不被遮挡！
-        final double extraPadding = showMini ? 76.0 : 0.0;
+        // 仅在非首页（二级子页面，即无底部 NavigationBar）且 MiniBar 显示时，使主界面的 padding.bottom 追加 MiniBar 物理高（76.0dp）。
+        // 首页 Tab 页面内的避让将在 HomeScreen 级别的 body 内部局部注入，以防止全局污染导致 Scaffold 将底部 NavigationBar 错误抬高并与 MiniBar 重叠。
+        final double extraPadding = (showMini && !isHome) ? 76.0 : 0.0;
         final childMediaQuery = mq.copyWith(
           padding: mq.padding.copyWith(
             bottom: mq.padding.bottom + extraPadding,
