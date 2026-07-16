@@ -54,30 +54,21 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
             child: M3PressScale(
               child: GestureDetector(
                 onTap: () => _openPlayerScreen(context, player),
-                child: Container(
-                  height: 64.0,
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest.withValues(alpha: 0.96),
-                    borderRadius: AppShape.full,
-                    border: Border.all(
-                      color: cs.outlineVariant.withValues(alpha: 0.5),
-                      width: 1,
+                child: Material(
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.96),
+                  borderRadius: AppShape.full,
+                  clipBehavior: Clip.antiAlias,
+                  elevation: 4,
+                  shadowColor: cs.shadow.withValues(alpha: 0.12),
+                  child: Container(
+                    height: 64.0,
+                    decoration: BoxDecoration(
+                      borderRadius: AppShape.full,
+                      border: Border.all(
+                        color: cs.outlineVariant.withValues(alpha: 0.5),
+                        width: 1,
+                      ),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: cs.shadow.withValues(alpha: 0.12),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                      BoxShadow(
-                        color: cs.primary.withValues(alpha: 0.05),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: AppShape.full,
                     child: Stack(
                       children: [
                         // 底部嵌入式极细进度条
