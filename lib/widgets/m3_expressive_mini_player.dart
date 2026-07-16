@@ -33,24 +33,10 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          child: Dismissible(
-            key: ValueKey('mini_player_${song.hash ?? song.id}'),
-            direction: DismissDirection.horizontal,
-            confirmDismiss: (direction) async {
-              if (direction == DismissDirection.endToStart) {
-                player.playNext();
-              } else if (direction == DismissDirection.startToEnd) {
-                player.playPrevious();
-              }
-              // 不真正移除控件，由切歌后自动刷新 UI 承接
-              return false;
-            },
-            background: _buildSwipeIndicator(
-                cs, Icons.skip_previous_rounded, '上一首', Alignment.centerLeft),
-            secondaryBackground: _buildSwipeIndicator(
-                cs, Icons.skip_next_rounded, '下一首', Alignment.centerRight),
+        return Material(
+          color: Colors.transparent,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             child: M3PressScale(
               child: GestureDetector(
                 onTap: () => _openPlayerScreen(context, player),
@@ -69,97 +55,114 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
                         width: 1,
                       ),
                     ),
-                    child: Stack(
-                      children: [
-                        // 底部嵌入式极细进度条
-                        if (player.duration.inMilliseconds > 0)
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            child: LinearProgressIndicator(
-                              value: player.progress.isFinite
-                                  ? player.progress.clamp(0.0, 1.0)
-                                  : 0.0,
-                              backgroundColor: Colors.transparent,
-                              color: cs.primary,
-                              minHeight: 3,
-                            ),
-                          ),
-
-                        // 主交互排版区
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-                          child: Row(
-                            children: [
-                              // 专辑封面（含安全过渡与 Hero 动效）
-                              Hero(
-                                tag: 'album_art_${song.hash ?? song.id}',
-                                flightShuttleBuilder: _safeFlightShuttle,
-                                child: _buildCoverArt(song, cs, player.isLoading),
+                    child: Dismissible(
+                      key: ValueKey('mini_player_${song.hash ?? song.id}'),
+                      direction: DismissDirection.horizontal,
+                      confirmDismiss: (direction) async {
+                        if (direction == DismissDirection.endToStart) {
+                          player.playNext();
+                        } else if (direction == DismissDirection.startToEnd) {
+                          player.playPrevious();
+                        }
+                        // 不真正移除控件，由切歌后自动刷新 UI 承接
+                        return false;
+                      },
+                      background: _buildSwipeIndicator(
+                          cs, Icons.skip_previous_rounded, '上一首', Alignment.centerLeft),
+                      secondaryBackground: _buildSwipeIndicator(
+                          cs, Icons.skip_next_rounded, '下一首', Alignment.centerRight),
+                      child: Stack(
+                        children: [
+                          // 底部嵌入式极细进度条
+                          if (player.duration.inMilliseconds > 0)
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: LinearProgressIndicator(
+                                value: player.progress.isFinite
+                                    ? player.progress.clamp(0.0, 1.0)
+                                    : 0.0,
+                                backgroundColor: Colors.transparent,
+                                color: cs.primary,
+                                minHeight: 3,
                               ),
-                              const SizedBox(width: 10),
+                            ),
 
-                              // 歌曲信息排版（运用 FittedBox.scaleDown 彻底消灭各种大字号与行高带来的 Bottom/Right Overflowed）
-                              Expanded(
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        song.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: tt.bodyMedium?.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                          color: cs.onSurface,
-                                          letterSpacing: -0.2,
-                                          height: 1.2,
+                          // 主交互排版区
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                            child: Row(
+                              children: [
+                                // 专辑封面（含安全过渡与 Hero 动效）
+                                Hero(
+                                  tag: 'album_art_${song.hash ?? song.id}',
+                                  flightShuttleBuilder: _safeFlightShuttle,
+                                  child: _buildCoverArt(song, cs, player.isLoading),
+                                ),
+                                const SizedBox(width: 10),
+
+                                // 歌曲信息排版（运用 FittedBox.scaleDown 彻底消灭各种大字号与行高带来的 Bottom/Right Overflowed）
+                                Expanded(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          song.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: tt.bodyMedium?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: cs.onSurface,
+                                            letterSpacing: -0.2,
+                                            height: 1.2,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 1),
-                                      Text(
-                                        song.artistDisplay,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: tt.labelSmall?.copyWith(
-                                          color: cs.onSurfaceVariant,
-                                          height: 1.15,
+                                        const SizedBox(height: 1),
+                                        Text(
+                                          song.artistDisplay,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: tt.labelSmall?.copyWith(
+                                            color: cs.onSurfaceVariant,
+                                            height: 1.15,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 4),
+                                const SizedBox(width: 4),
 
-                              // 媒体控制按钮组
-                              _buildControlButton(
-                                icon: Icons.skip_previous_rounded,
-                                tooltip: '上一首',
-                                cs: cs,
-                                onTap: player.playPrevious,
-                              ),
-                              const SizedBox(width: 2),
+                                // 媒体控制按钮组
+                                _buildControlButton(
+                                  icon: Icons.skip_previous_rounded,
+                                  tooltip: '上一首',
+                                  cs: cs,
+                                  onTap: player.playPrevious,
+                                ),
+                                const SizedBox(width: 2),
 
-                              // 主播放/暂停响应态圆形按钮
-                              _buildPlayPauseButton(player, cs),
-                              const SizedBox(width: 2),
+                                // 主播放/暂停响应态圆形按钮
+                                _buildPlayPauseButton(player, cs),
+                                const SizedBox(width: 2),
 
-                              _buildControlButton(
-                                icon: Icons.skip_next_rounded,
-                                tooltip: '下一首',
-                                cs: cs,
-                                onTap: player.playNext,
-                              ),
-                            ],
+                                _buildControlButton(
+                                  icon: Icons.skip_next_rounded,
+                                  tooltip: '下一首',
+                                  cs: cs,
+                                  onTap: player.playNext,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -189,29 +192,45 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
   /// 滑动切歌时的底部提示背景
   Widget _buildSwipeIndicator(
       ColorScheme cs, IconData icon, String label, Alignment alignment) {
+    final isLeft = alignment == Alignment.centerLeft;
     return Container(
       height: 64.0,
-      decoration: BoxDecoration(
-        color: cs.secondaryContainer.withValues(alpha: 0.8),
-        borderRadius: AppShape.full,
-      ),
+      color: cs.secondaryContainer.withValues(alpha: 0.88),
       alignment: alignment,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.only(
+        left: isLeft ? 24 : 12,
+        right: isLeft ? 12 : 24,
+      ),
       child: FittedBox(
         fit: BoxFit.scaleDown,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: cs.onSecondaryContainer),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: cs.onSecondaryContainer,
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
+            if (isLeft) ...[
+              Icon(icon, color: cs.onSecondaryContainer, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: cs.onSecondaryContainer,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  letterSpacing: 0.5,
+                ),
               ),
-            ),
+            ] else ...[
+              Text(
+                label,
+                style: TextStyle(
+                  color: cs.onSecondaryContainer,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(icon, color: cs.onSecondaryContainer, size: 22),
+            ]
           ],
         ),
       ),
