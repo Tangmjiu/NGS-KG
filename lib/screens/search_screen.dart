@@ -280,13 +280,18 @@ class _SearchScreenState extends State<SearchScreen>
     if (_suggestions.isNotEmpty) {
       return ListView.builder(
         itemCount: _suggestions.length,
-        itemBuilder: (_, i) => ListTile(
-          leading: const Icon(Icons.search, size: 20),
-          title: Text(_suggestions[i]),
-          onTap: () {
-            _searchCtrl.text = _suggestions[i];
-            _doSearch(_suggestions[i]);
-          },
+        itemBuilder: (_, i) => M3StaggeredFadeIn(
+          index: i,
+          child: M3PressScale(
+            child: ListTile(
+              leading: const Icon(Icons.search, size: 20),
+              title: Text(_suggestions[i]),
+              onTap: () {
+                _searchCtrl.text = _suggestions[i];
+                _doSearch(_suggestions[i]);
+              },
+            ),
+          ),
         ),
       );
     }
@@ -313,14 +318,17 @@ class _SearchScreenState extends State<SearchScreen>
                   final rank = _ranks[i];
                   final name = rank.name;
                   final img = rank.coverUrl ?? rank.bannerUrl ?? '';
-                  return GestureDetector(
-                    onTap: () {
-                      if (rank.id > 0) {
-                        Navigator.pushNamed(context, '/rank/detail',
-                            arguments: {'id': rank.id, 'name': name});
-                      }
-                    },
-                    child: Container(
+                  return M3StaggeredFadeIn(
+                    index: i,
+                    child: M3PressScale(
+                      child: GestureDetector(
+                        onTap: () {
+                          if (rank.id > 0) {
+                            Navigator.pushNamed(context, '/rank/detail',
+                                arguments: {'id': rank.id, 'name': name});
+                          }
+                        },
+                        child: Container(
                       width: 80,
                       margin: const EdgeInsets.only(right: 8),
                       child: Column(
@@ -352,8 +360,10 @@ class _SearchScreenState extends State<SearchScreen>
                         ],
                       ),
                     ),
-                  );
-                },
+                  ),
+                ),
+              );
+            },
               ),
             ),
           ],
@@ -364,27 +374,32 @@ class _SearchScreenState extends State<SearchScreen>
           ),
           ...List.generate(_hotSearch.length, (i) {
             final item = _hotSearch[i];
-            return ListTile(
-              leading: SizedBox(
-                width: 28,
-                child: Text('${i + 1}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: i < 3
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.outline,
-                    )),
+            return M3StaggeredFadeIn(
+              index: i,
+              child: M3PressScale(
+                child: ListTile(
+                  leading: SizedBox(
+                    width: 28,
+                    child: Text('${i + 1}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: i < 3
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.outline,
+                        )),
+                  ),
+                  title: Text(item.text),
+                  subtitle: item.reason.isNotEmpty && item.reason != item.text
+                      ? Text(item.reason,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant))
+                      : null,
+                  onTap: () {
+                    _searchCtrl.text = item.text;
+                    _doSearch(item.text);
+                  },
+                ),
               ),
-              title: Text(item.text),
-              subtitle: item.reason.isNotEmpty && item.reason != item.text
-                  ? Text(item.reason,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant))
-                  : null,
-              onTap: () {
-                _searchCtrl.text = item.text;
-                _doSearch(item.text);
-              },
             );
           }),
         ],
@@ -442,39 +457,44 @@ class _SearchScreenState extends State<SearchScreen>
         final name = p['specialname'] as String? ?? p['name'] as String? ?? '';
         final img = p['imgurl'] as String? ?? p['img'] as String? ?? '';
         final count = p['songcount'] as int? ?? 0;
-        return ListTile(
-          leading: img.isNotEmpty
-              ? ClipRRect(
-                  borderRadius: AppShape.xs,
-                  child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
-                      width: 48, height: 48, fit: BoxFit.cover),
-                )
-              : Container(
-                  width: 48, height: 48,
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: const Icon(Icons.queue_music),
-                ),
-          title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: Text('$count首歌'),
-          onTap: () {
-            final gcId = p['global_collection_id'] as String?
-                ?? p['globalCollectionId'] as String?
-                ?? p['parent_global_collection_id'] as String?
-                ?? p['gid'] as String?
-                ?? (() {
-                  final listId = p['id'] ?? p['specialid'];
-                  final userId = p['list_create_userid'] ?? p['userid']
-                      ?? ApiClient.userId;
-                  if (listId != null && userId != null) {
-                    return 'collection_3_${userId}_${listId}_0';
-                  }
-                  return listId?.toString();
-                })();
-            if (gcId != null) {
-              Navigator.pushNamed(context, '/playlist/detail',
-                  arguments: {'gcId': gcId, 'name': name});
-            }
-          },
+        return M3StaggeredFadeIn(
+          index: i,
+          child: M3PressScale(
+            child: ListTile(
+              leading: img.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: AppShape.xs,
+                      child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
+                          width: 48, height: 48, fit: BoxFit.cover),
+                    )
+                  : Container(
+                      width: 48, height: 48,
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      child: const Icon(Icons.queue_music),
+                    ),
+              title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: Text('$count首歌'),
+              onTap: () {
+                final gcId = p['global_collection_id'] as String?
+                    ?? p['globalCollectionId'] as String?
+                    ?? p['parent_global_collection_id'] as String?
+                    ?? p['gid'] as String?
+                    ?? (() {
+                      final listId = p['id'] ?? p['specialid'];
+                      final userId = p['list_create_userid'] ?? p['userid']
+                          ?? ApiClient.userId;
+                      if (listId != null && userId != null) {
+                        return 'collection_3_${userId}_${listId}_0';
+                      }
+                      return listId?.toString();
+                    })();
+                if (gcId != null) {
+                  Navigator.pushNamed(context, '/playlist/detail',
+                      arguments: {'gcId': gcId, 'name': name});
+                }
+              },
+            ),
+          ),
         );
       },
     );
@@ -491,27 +511,32 @@ class _SearchScreenState extends State<SearchScreen>
         final name = a['albumname'] as String? ?? '';
         final img = a['imgurl'] as String? ?? a['img'] as String? ?? '';
         final artist = a['singer'] as String? ?? a['singername'] as String? ?? a['artist'] as String? ?? '';
-        return ListTile(
-          leading: img.isNotEmpty
-              ? ClipRRect(
-                  borderRadius: AppShape.xs,
-                  child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
-                      width: 48, height: 48, fit: BoxFit.cover),
-                )
-              : Container(
-                  width: 48, height: 48,
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: const Icon(Icons.album),
-                ),
-          title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
-          onTap: () {
-            final id = a['albumid'];
-            final albumId = id is int ? id : (id is String ? int.tryParse(id) : null) ?? a['id'] as int?;
-            if (albumId != null) {
-              Navigator.pushNamed(context, '/album/detail', arguments: {'id': albumId});
-            }
-          },
+        return M3StaggeredFadeIn(
+          index: i,
+          child: M3PressScale(
+            child: ListTile(
+              leading: img.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: AppShape.xs,
+                      child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
+                          width: 48, height: 48, fit: BoxFit.cover),
+                    )
+                  : Container(
+                      width: 48, height: 48,
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      child: const Icon(Icons.album),
+                    ),
+              title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
+              onTap: () {
+                final id = a['albumid'];
+                final albumId = id is int ? id : (id is String ? int.tryParse(id) : null) ?? a['id'] as int?;
+                if (albumId != null) {
+                  Navigator.pushNamed(context, '/album/detail', arguments: {'id': albumId});
+                }
+              },
+            ),
+          ),
         );
       },
     );
@@ -527,28 +552,33 @@ class _SearchScreenState extends State<SearchScreen>
         final a = _artists[i];
         final name = a['AuthorName'] as String? ?? a['singername'] as String? ?? a['name'] as String? ?? '';
         final img = a['Avatar'] as String? ?? a['imgurl'] as String? ?? a['img'] as String? ?? '';
-        return ListTile(
-          leading: img.isNotEmpty
-              ? ClipRRect(
-                  borderRadius: AppShape.xl,
-                  child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
-                      width: 48, height: 48, fit: BoxFit.cover),
-                )
-              : Container(
-                  width: 48, height: 48,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.person),
-                ),
-          title: Text(name),
-          onTap: () {
-            final id = a['AuthorId'] as int? ?? a['singermid'] as int? ?? a['id'] as int?;
-            if (id != null) {
-              Navigator.pushNamed(context, '/artist/detail', arguments: {'id': id});
-            }
-          },
+        return M3StaggeredFadeIn(
+          index: i,
+          child: M3PressScale(
+            child: ListTile(
+              leading: img.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: AppShape.xl,
+                      child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
+                          width: 48, height: 48, fit: BoxFit.cover),
+                    )
+                  : Container(
+                      width: 48, height: 48,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.person),
+                    ),
+              title: Text(name),
+              onTap: () {
+                final id = a['AuthorId'] as int? ?? a['singermid'] as int? ?? a['id'] as int?;
+                if (id != null) {
+                  Navigator.pushNamed(context, '/artist/detail', arguments: {'id': id});
+                }
+              },
+            ),
+          ),
         );
       },
     );
@@ -601,25 +631,30 @@ class _SearchScreenState extends State<SearchScreen>
         final songName = l['SongName'] as String? ?? l['songname'] as String? ?? '';
         final artist = l['SingerName'] as String? ?? l['singername'] as String? ?? '';
         final content = l['Lyric'] as String? ?? l['lyric'] as String? ?? l['content'] as String? ?? '';
-        return ListTile(
-          title: Text(songName, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
-              Text(content,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-            ],
+        return M3StaggeredFadeIn(
+          index: i,
+          child: M3PressScale(
+            child: ListTile(
+              title: Text(songName, maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(content,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                ],
+              ),
+              isThreeLine: true,
+              onTap: () {
+                final song = SongMapper.fromKugouJson(l);
+                if (song != null) {
+                  context.read<PlayerProvider>().playSong(song);
+                }
+              },
+            ),
           ),
-          isThreeLine: true,
-          onTap: () {
-            final song = SongMapper.fromKugouJson(l);
-            if (song != null) {
-              context.read<PlayerProvider>().playSong(song);
-            }
-          },
         );
       },
     );

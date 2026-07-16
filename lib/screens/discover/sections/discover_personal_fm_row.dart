@@ -105,14 +105,14 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
     }
   }
 
-  // ─── 循环切换模式（不中断播放，仅刷新后续推荐） ───
-  void _cycleMode(DiscoverProvider provider) {
+  // ─── 循环切换模式（立即生效，替换当前播放队列） ───
+  void _cycleMode(DiscoverProvider provider, PlayerProvider player) {
     if (_fmLoading) return;
     final currentIndex = _modeValues.indexOf(provider.fmMode);
     final nextIndex = (currentIndex + 1) % _modeValues.length;
     provider.setFmMode(_modeValues[nextIndex]);
     if (provider.isFmActive) {
-      provider.refreshFmBuffer();
+      provider.switchFmPlayback(player);
     }
   }
 
@@ -182,7 +182,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                       Icon(Icons.podcasts, size: 22, color: cs.primary),
                       const SizedBox(width: 8),
                       GestureDetector(
-                        onTap: () => _cycleMode(provider),
+                        onTap: () => _cycleMode(provider, player),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -238,8 +238,8 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                         return Padding(
                           padding: const EdgeInsets.only(right: 6),
                           child: InkWell(
-                            onTap: () =>
-                                _onPoolChanged(provider, _poolValues[i]),
+                            onTap: () => _onPoolChanged(
+                                provider, player, _poolValues[i]),
                             borderRadius: AppShape.sm,
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
@@ -608,11 +608,12 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
 
   // ── 交互 ──
 
-  void _onPoolChanged(DiscoverProvider provider, int poolId) {
+  void _onPoolChanged(
+      DiscoverProvider provider, PlayerProvider player, int poolId) {
     provider.setFmPoolId(poolId);
-    // 新算法池不会中断当前播放，仅刷新后续推荐缓冲
     if (provider.isFmActive) {
-      provider.refreshFmBuffer();
+      // 立即切换算法池，替换整个播放队列
+      provider.switchFmPlayback(player);
     }
   }
 

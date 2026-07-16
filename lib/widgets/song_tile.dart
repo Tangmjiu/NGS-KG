@@ -21,8 +21,9 @@ class SongTile extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     return Semantics(
       button: true,
-      child: MergeSemantics(
-        child: ListTile(
+      child: M3PressScale(
+        child: MergeSemantics(
+          child: ListTile(
           leading: ClipRRect(
             borderRadius: AppShape.sm,
             child: song.albumCoverUrl != null
@@ -67,7 +68,7 @@ class SongTile extends StatelessWidget {
                         liked ? Icons.favorite : Icons.favorite_border,
                         size: 20,
                       ),
-                      color: liked ? Colors.red : cs.onSurfaceVariant,
+                      color: liked ? cs.error : cs.onSurfaceVariant,
                       tooltip: liked ? '取消喜欢' : '喜欢',
                       onPressed: () async {
                         final info = SongInfo(
@@ -94,7 +95,8 @@ class SongTile extends StatelessWidget {
           onLongPress: () => _showContextMenu(context),
         ),
       ),
-    );
+    ),
+  );
   }
 
   void _showContextMenu(BuildContext context) {
@@ -167,10 +169,12 @@ class SongTile extends StatelessWidget {
       {required IconData icon,
       required String label,
       required VoidCallback onTap}) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(label),
-      onTap: onTap,
+    return M3PressScale(
+      child: ListTile(
+        leading: Icon(icon),
+        title: Text(label),
+        onTap: onTap,
+      ),
     );
   }
 
@@ -202,29 +206,34 @@ class SongTile extends StatelessWidget {
                 itemCount: playlists.length,
                 itemBuilder: (_, i) {
                   final pl = playlists[i];
-                  return ListTile(
-                    leading: const Icon(Icons.playlist_play),
-                    title: Text(pl.name),
-                    onTap: () async {
-                      Navigator.pop(ctx);
-                      final data = (song.hash?.isNotEmpty ?? false)
-                          ? '${song.name}|${song.hash}|${song.albumId}|${song.id}'
-                          : song.name;
-                      try {
-                        await MusicService().addTracksToPlaylist(pl.id, data);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('已添加到歌单')),
-                          );
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('添加失败: $e')),
-                          );
-                        }
-                      }
-                    },
+                  return M3StaggeredFadeIn(
+                    index: i,
+                    child: M3PressScale(
+                      child: ListTile(
+                        leading: const Icon(Icons.playlist_play),
+                        title: Text(pl.name),
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          final data = (song.hash?.isNotEmpty ?? false)
+                              ? '${song.name}|${song.hash}|${song.albumId}|${song.id}'
+                              : song.name;
+                          try {
+                            await MusicService().addTracksToPlaylist(pl.id, data);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('已添加到歌单')),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('添加失败: $e')),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ),
                   );
                 },
               ),

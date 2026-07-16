@@ -201,7 +201,8 @@ class DiscoverProvider extends ChangeNotifier {
   void setFmMode(String mode) {
     if (mode == _fmMode) return;
     _fmMode = mode;
-    // 不清理 buffer，不退出 FM 状态 — 下次 _refillFmBuffer 会使用新模式
+    // FM 未启动时清空旧 buffer，确保 startFmPlayback 会用新模式重新取歌
+    if (!_isFmActive) _personalFmBuffer.clear();
     notifyListeners();
   }
 
@@ -209,7 +210,8 @@ class DiscoverProvider extends ChangeNotifier {
   void setFmPoolId(int poolId) {
     if (poolId == _fmPoolId) return;
     _fmPoolId = poolId;
-    // 不清理 buffer，不退出 FM 状态 — 下次 _refillFmBuffer 会使用新算法池
+    // FM 未启动时清空旧 buffer，确保 startFmPlayback 会用新算法池重新取歌
+    if (!_isFmActive) _personalFmBuffer.clear();
     notifyListeners();
   }
 
@@ -280,6 +282,25 @@ class DiscoverProvider extends ChangeNotifier {
   /// 跳过阈值检查，确保新参数立即生效
   Future<void> refreshFmBuffer() async {
     await _refillFmBuffer();
+  }
+
+  /// 替换缓冲池（切换模式/算法池时清空旧缓冲，立即获取新推荐）
+  Future<void> replaceFmBuffer() async {
+    _personalFmBuffer.clear();
+    await _refillFmBuffer();
+  }
+
+  /// 切换 FM 模式/算法池（立即生效，替换当前播放队列）
+  ///
+  /// 1. 清空旧 buffer → 2. 用新参数补货 → 3. 取前 10 首替换播放器队列
+  Future<void> switchFmPlayback(PlayerProvider player) async {
+    _personalFmBuffer.clear();
+    await _refillFmBuffer();
+    if (_personalFmBuffer.isNotEmpty) {
+      final songs = _personalFmBuffer.take(10).toList();
+      _personalFmBuffer.removeRange(0, songs.length);
+      player.replaceFmPlaylist(songs, bufferProvider: fetchNextFmBatch);
+    }
   }
 
   /// 三级 key 去重：hash > mixSongId > id（id==0 不参与去重，因 fromFmJson 回退到 0）

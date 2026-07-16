@@ -190,16 +190,18 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                   color: cs.onSurfaceVariant)),
                           const Spacer(),
                           if (!_isSelecting)
-                            FilledButton.tonalIcon(
-                              onPressed: () {
-                                context
-                                    .read<PlayerProvider>()
-                                    .playSong(detail.songs.first,
-                                        playlist: detail.songs);
-                              },
-                              icon: const Icon(
-                                  Icons.play_arrow, size: 18),
-                              label: const Text('播放全部'),
+                            M3PressScale(
+                              child: FilledButton.tonalIcon(
+                                onPressed: () {
+                                  context
+                                      .read<PlayerProvider>()
+                                      .playSong(detail.songs.first,
+                                          playlist: detail.songs);
+                                },
+                                icon: const Icon(
+                                    Icons.play_arrow, size: 18),
+                                label: const Text('播放全部'),
+                              ),
                             ),
                         ],
                       ),
@@ -222,19 +224,24 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     if (_isSelecting) {
                       final selected =
                           _selectedIndices.contains(index);
-                      return ListTile(
-                        leading: Checkbox(
-                          value: selected,
-                          onChanged: (_) =>
-                              _toggleSelection(index),
+                      return M3StaggeredFadeIn(
+                        index: index,
+                        child: M3PressScale(
+                          child: ListTile(
+                            leading: Checkbox(
+                              value: selected,
+                              onChanged: (_) =>
+                                  _toggleSelection(index),
+                            ),
+                            title: Text(song.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                            subtitle: Text(song.artistDisplay,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                            onTap: () => _toggleSelection(index),
+                          ),
                         ),
-                        title: Text(song.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                        subtitle: Text(song.artistDisplay,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                        onTap: () => _toggleSelection(index),
                       );
                     }
 

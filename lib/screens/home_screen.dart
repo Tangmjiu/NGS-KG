@@ -77,17 +77,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       final song = chunk[j];
                       final flatIdx = i * 3 + j;
                     return Expanded(
-                      child: InkWell(
-                        borderRadius: (j == 0)
-                            ? const BorderRadius.vertical(top: Radius.circular(12))
-                            : (j == chunk.length - 1)
-                                ? const BorderRadius.vertical(bottom: Radius.circular(12))
-                                : null,
-                        onTap: () {
-                          player.playlistEndProvider = onEnd;
-                          player.playSong(song, playlist: songs.sublist(flatIdx));
-                        },
-                        child: Padding(
+                      child: M3PressScale(
+                        child: InkWell(
+                          borderRadius: (j == 0)
+                              ? const BorderRadius.vertical(top: Radius.circular(12))
+                              : (j == chunk.length - 1)
+                                  ? const BorderRadius.vertical(bottom: Radius.circular(12))
+                                  : null,
+                          onTap: () {
+                            player.playlistEndProvider = onEnd;
+                            player.playSong(song, playlist: songs.sublist(flatIdx));
+                          },
+                          child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: Row(
                             children: [
@@ -139,7 +140,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       ),
-                    );
+                    ),
+                  );
                   }),
                 ),
               ),
@@ -516,9 +518,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                     index: i,
                                     child: Padding(
                                       padding: const EdgeInsets.only(right: 8),
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          Navigator.pushNamed(
+                                      child: M3PressScale(
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            Navigator.pushNamed(
                                               context, '/playlist/detail',
                                               arguments: {
                                                 'gcId': pl.globalCollectionId ??
@@ -573,6 +576,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                       ),
                                     ),
+                                  ),
                                   ),
                                   );
                                 },
@@ -663,10 +667,11 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
         children: [
           const SizedBox(width: 16),
           Expanded(
-            child: Material(
-              color: cs.surfaceContainerHigh,
-              borderRadius: AppShape.full,
-              clipBehavior: Clip.antiAlias,
+            child: M3PressScale(
+              child: Material(
+                color: cs.surfaceContainerHigh,
+                borderRadius: AppShape.full,
+                clipBehavior: Clip.antiAlias,
               child: InkWell(
                 borderRadius: AppShape.full,
                 onTap: () {
@@ -712,14 +717,17 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+        ),
+        const SizedBox(width: 8),
           if (isLoggedIn && avatarUrl != null && avatarUrl!.isNotEmpty)
-            GestureDetector(
-              onTap: () => Navigator.pushNamed(context, '/user/profile'),
-              child: CircleAvatar(
-                radius: 18,
-                backgroundImage: CachedNetworkImageProvider(avatarUrl!),
-                onBackgroundImageError: (_, __) {},
+            M3PressScale(
+              child: GestureDetector(
+                onTap: () => Navigator.pushNamed(context, '/user/profile'),
+                child: CircleAvatar(
+                  radius: 18,
+                  backgroundImage: CachedNetworkImageProvider(avatarUrl!),
+                  onBackgroundImageError: (_, __) {},
+                ),
               ),
             )
           else

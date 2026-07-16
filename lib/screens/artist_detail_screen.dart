@@ -118,13 +118,16 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                     background: _buildHeaderBackground(cs, tt),
                   ),
                   actions: [
-                    IconButton(
-                      icon: Icon(
-                        _isFollowing ? Icons.favorite : Icons.favorite_border,
-                        color: _isFollowing ? Colors.red : null,
+                    M3BounceFeedback(
+                      trigger: _isFollowing,
+                      child: IconButton(
+                        icon: Icon(
+                          _isFollowing ? Icons.favorite : Icons.favorite_border,
+                          color: _isFollowing ? cs.error : null,
+                        ),
+                        tooltip: _isFollowing ? '取消关注' : '关注',
+                        onPressed: _toggleFollow,
                       ),
-                      tooltip: _isFollowing ? '取消关注' : '关注',
-                      onPressed: _toggleFollow,
                     ),
                   ],
                   bottom: TabBar(
@@ -241,12 +244,14 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                   style: tt.bodySmall
                       ?.copyWith(color: cs.onSurfaceVariant)),
               const Spacer(),
-              FilledButton.tonalIcon(
-                onPressed: () => context
-                    .read<PlayerProvider>()
-                    .playSong(_songs.first, playlist: _songs),
-                icon: const Icon(Icons.play_arrow, size: 18),
-                label: const Text('播放全部'),
+              M3PressScale(
+                child: FilledButton.tonalIcon(
+                  onPressed: () => context
+                      .read<PlayerProvider>()
+                      .playSong(_songs.first, playlist: _songs),
+                  icon: const Icon(Icons.play_arrow, size: 18),
+                  label: const Text('播放全部'),
+                ),
               ),
             ],
           ),
@@ -254,11 +259,14 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
         Expanded(
           child: ListView.builder(
             itemCount: _songs.length,
-            itemBuilder: (_, i) => SongTile(
-              song: _songs[i],
-              onTap: (s) => context
-                  .read<PlayerProvider>()
-                  .playSong(s, playlist: _songs),
+            itemBuilder: (_, i) => M3StaggeredFadeIn(
+              index: i,
+              child: SongTile(
+                song: _songs[i],
+                onTap: (s) => context
+                    .read<PlayerProvider>()
+                    .playSong(s, playlist: _songs),
+              ),
             ),
           ),
         ),
@@ -283,14 +291,17 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
       itemCount: _albums.length,
       itemBuilder: (_, i) {
         final album = _albums[i];
-        return GestureDetector(
-          onTap: () {
-            if (album.id > 0) {
-              Navigator.pushNamed(context, '/album/detail',
-                  arguments: {'id': album.id, 'name': album.name});
-            }
-          },
-          child: Column(
+        return M3StaggeredFadeIn(
+          index: i,
+          child: M3PressScale(
+            child: GestureDetector(
+              onTap: () {
+                if (album.id > 0) {
+                  Navigator.pushNamed(context, '/album/detail',
+                      arguments: {'id': album.id, 'name': album.name});
+                }
+              },
+              child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
@@ -316,15 +327,17 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: tt.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-              if (album.songCount != null && album.songCount! > 0)
-                Text('${album.songCount} 首',
-                    style: tt.labelSmall
-                        ?.copyWith(color: cs.onSurfaceVariant)),
-            ],
+                if (album.songCount != null && album.songCount! > 0)
+                  Text('${album.songCount} 首',
+                      style: tt.labelSmall
+                          ?.copyWith(color: cs.onSurfaceVariant)),
+              ],
+            ),
           ),
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
   }
 
   // ─── MV Tab ───

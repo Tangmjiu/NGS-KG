@@ -749,6 +749,19 @@ class PlayerProvider extends ChangeNotifier
     notifyListeners();
   }
 
+  /// 替换 FM 播放列表（用于切换模式/算法池时立即更新播放内容）
+  /// 不保存/恢复队列快照，保留现有 FM 回调。前一首歌到下一首的过渡动画由调用方处理。
+  void replaceFmPlaylist(List<Song> songs,
+      {required Future<List<Song>> Function() bufferProvider}) {
+    if (songs.isEmpty) return;
+    _queue.playlistEndProvider = null; // 防止切换过程中触发加载
+    _engine.clearError();
+    _queue.setPlaylist(songs, startIndex: 0);
+    _queue.setPlayMode(PlayMode.sequential);
+    _queue.playlistEndProvider = bufferProvider;
+    playIndex(0);
+  }
+
   /// 将整张歌单/专辑追加到当前队列末尾。
   /// 不改变当前播放，新歌曲按顺序加到最后。
   void enqueuePlaylist(List<Song> songs) {

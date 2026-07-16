@@ -35,29 +35,62 @@ class _AppShellState extends State<AppShell> {
   // ══════════════════════════════════════════════�?
 
   Widget _mobileShell() {
-    return Stack(
-      children: [
-        widget.child ?? const SizedBox.shrink(),
-        // MiniPlayer �?覆盖在底部导航栏上方
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: kBottomNavigationBarHeight +
-              MediaQuery.of(context).padding.bottom,
-          child: const _MobileMiniPlayer(),
-        ),
-        const _ContinuePlayOverlay(),
-        const _SupportPopupHandler(),
-        const _UpdateCheckHandler(),
-        const _LoginPromptOverlay(),
-      ],
+    return ValueListenableBuilder<String?>(
+      valueListenable: app.AppRouteObserver.instance.currentRouteNotifier,
+      builder: (context, currentRoute, _) {
+        final player = context.watch<PlayerProvider>();
+        final song = player.currentSong;
+        final showMini = song != null && !player.isPlayerScreenVisible;
+
+        final mq = MediaQuery.of(context);
+        // MiniPlayer height is roughly 58.0dp (progress indicator + row layout + paddings)
+        final extraPadding = showMini ? 58.0 : 0.0;
+
+        // Dynamically override the bottom padding of the MediaQuery passed down to the Navigator
+        // so that scroll views (ListView, GridView) automatically reserve space to avoid occlusion.
+        final modifiedMediaQuery = mq.copyWith(
+          padding: mq.padding.copyWith(
+            bottom: mq.padding.bottom + extraPadding,
+          ),
+        );
+
+        // Detect if we are on the home screen (which hosts the M3 NavigationBar)
+        final isHome = currentRoute == null || currentRoute == '/' || currentRoute == '';
+
+        final double miniPlayerBottom;
+        if (isHome) {
+          // Stay stacked above the main tab's NavigationBar
+          miniPlayerBottom = kBottomNavigationBarHeight + mq.padding.bottom;
+        } else {
+          // Drop to the very bottom in sub-screens where the NavigationBar is hidden
+          miniPlayerBottom = mq.padding.bottom;
+        }
+
+        return Stack(
+          children: [
+            // Inject modified safe area constraints to all children inside the Navigator
+            MediaQuery(
+              data: modifiedMediaQuery,
+              child: widget.child ?? const SizedBox.shrink(),
+            ),
+            // Render MiniPlayer only when applicable, positioned adaptively
+            if (showMini)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: miniPlayerBottom,
+                child: const _MobileMiniPlayer(),
+              ),
+            const _ContinuePlayOverlay(),
+            const _SupportPopupHandler(),
+            const _UpdateCheckHandler(),
+            const _LoginPromptOverlay(),
+          ],
+        );
+      },
     );
   }
 }
-
-// ══════════════════════════════════════════════�?
-//  移动�?MiniPlayer �?精简版（移除 BackdropFilter 避免 Windows 渲染崩溃�?
-// ══════════════════════════════════════════════�?
 
 class _MobileMiniPlayer extends StatelessWidget {
   const _MobileMiniPlayer();

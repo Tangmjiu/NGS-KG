@@ -245,13 +245,13 @@ ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack, {bool hasGloba
     textTheme: _buildTextTheme(colorScheme, pack.fontFamily),
 
     // ── Page Transitions (M3 Motion) ──
-    // 所有平台使用统一的 M3 转场，避免 Android/iOS 差异
+    // 所有平台使用统一 of M3 转场，避免 Android/iOS 差异
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: {
         // 手机平台: drill-down 导航使用 Shared Z-Axis (前进/后退感)
-        TargetPlatform.android: _SharedZAxisTransitionBuilder(),
-        TargetPlatform.iOS: _SharedZAxisTransitionBuilder(),
-        TargetPlatform.fuchsia: _SharedZAxisTransitionBuilder(),
+        TargetPlatform.android: M3SharedZAxisTransitionBuilder(),
+        TargetPlatform.iOS: M3SharedZAxisTransitionBuilder(),
+        TargetPlatform.fuchsia: M3SharedZAxisTransitionBuilder(),
         // 桌面平台: 使用 Fade (简洁无方向感)
         TargetPlatform.linux: _FadeTransitionBuilder(),
         TargetPlatform.macOS: _FadeTransitionBuilder(),
@@ -372,8 +372,8 @@ TextTheme _buildTextTheme(ColorScheme cs, String? fontFamily) {
 ///
 /// 新页面从 z 轴方向淡入并放大，旧页面淡出并缩小。
 /// Duration: 300ms (Medium2), Easing: Emphasized Decelerate (进入) / Accelerate (离开)
-class _SharedZAxisTransitionBuilder extends PageTransitionsBuilder {
-  const _SharedZAxisTransitionBuilder();
+class M3SharedZAxisTransitionBuilder extends PageTransitionsBuilder {
+  const M3SharedZAxisTransitionBuilder();
 
   @override
   Widget buildTransitions<T>(

@@ -226,6 +226,7 @@ class NGSKGApp extends StatelessWidget {
           darkTheme: themeProvider.buildDarkTheme(context, dynamicScheme: darkDynamic),
           themeMode: themeProvider.themeMode,
           initialRoute: AppRoutes.home,
+          navigatorObservers: [AppRouteObserver.instance],
           onGenerateRoute: (settings) {
             if (settings.name == AppRoutes.settings) {
               return MaterialPageRoute(
