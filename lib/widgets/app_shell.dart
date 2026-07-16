@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../utils/navigation.dart' as app;
 import '../providers/player_provider.dart';
 import '../providers/auth_provider.dart';
@@ -9,7 +8,6 @@ import '../providers/theme_provider.dart';
 import '../models/song.dart';
 import '../services/api_client.dart';
 import '../services/update_checker.dart';
-import '../screens/player_screen.dart';
 import '../widgets/support_me_dialog.dart';
 import '../widgets/update_dialog.dart';
 import '../utils/theme.dart';
@@ -42,7 +40,13 @@ class _AppShellState extends State<AppShell> {
       builder: (context, currentRoute, _) {
         final player = context.watch<PlayerProvider>();
         final song = player.currentSong;
-        final showMini = song != null && !player.isPlayerScreenVisible;
+
+        // 判定 Minibar 出现条件：
+        // 1. 当前有播放歌曲；
+        // 2. 且全屏播放界面不处于显示状态；
+        // 3. 且非核心专注/引导页面（如登录页 '/login'）
+        final isHiddenRoute = currentRoute == '/login';
+        final showMini = song != null && !player.isPlayerScreenVisible && !isHiddenRoute;
 
         final mq = MediaQuery.of(context);
         final isHome = currentRoute == null || currentRoute == '/' || currentRoute == '';
@@ -57,11 +61,23 @@ class _AppShellState extends State<AppShell> {
           miniPlayerBottom = mq.padding.bottom > 0 ? mq.padding.bottom + 8.0 : 12.0;
         }
 
+        // 注入包含 MiniBar 高度的自适应 MediaQuery 避让区域：
+        // 当 MiniBar 显示时，使主界面的 padding.bottom 自适应加上整个 MiniBar 的物理高度（64.0 + 12.0 边距 = 76.0dp），
+        // 这样全站所有的 ListView 或可滚动内容在滑到底部时，会自动留出足够的空当，完美露在胶囊上方，永不被遮挡！
+        final double extraPadding = showMini ? 76.0 : 0.0;
+        final childMediaQuery = mq.copyWith(
+          padding: mq.padding.copyWith(
+            bottom: mq.padding.bottom + extraPadding,
+          ),
+          viewPadding: mq.viewPadding.copyWith(
+            bottom: mq.viewPadding.bottom + extraPadding,
+          ),
+        );
+
         return Stack(
           children: [
-            // 传递原生真实、纯净的 MediaQuery，绝不污染 padding.bottom 以免 NavigationBar 和 SafeArea 产生假间隙与 Bottom Overflowed
             MediaQuery(
-              data: mq,
+              data: childMediaQuery,
               child: widget.child ?? const SizedBox.shrink(),
             ),
             // Render M3ExpressiveMiniPlayer with smooth position & opacity transition
@@ -155,6 +171,7 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
             ?? info['songname'] as String? ?? '未知歌曲')
             .replaceAll(RegExp(r'\.mp3$', caseSensitive: false), '');
         final singer = info['singername'] as String?;
+        if (!context.mounted) return;
         // 用 Navigator 的 overlay context 保证 Dialog 能正常路由
         final navCtx = Navigator.of(context).context;
         if (!mounted) return;
