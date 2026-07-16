@@ -262,8 +262,8 @@ class _ActionTile extends StatelessWidget {
           onTap: () => action.onTap(context, rankList),
           borderRadius: BorderRadius.circular(24),
           child: Container(
-            height: 106,
-            padding: const EdgeInsets.all(14),
+            height: 114,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
