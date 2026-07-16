@@ -98,7 +98,7 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
 
                         // 主交互排版区
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
+                          padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
                           child: Row(
                             children: [
                               // 专辑封面（含播放加载环与 Hero 动效）
@@ -106,11 +106,12 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
                                 tag: 'album_art_${song.hash ?? song.id}',
                                 child: _buildCoverArt(song, cs, player.isLoading),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 10),
 
                               // 歌曲信息排版
                               Expanded(
                                 child: Column(
+                                  mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
@@ -122,20 +123,23 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
                                         fontWeight: FontWeight.w600,
                                         color: cs.onSurface,
                                         letterSpacing: -0.2,
+                                        height: 1.25,
                                       ),
                                     ),
-                                    const SizedBox(height: 2),
+                                    const SizedBox(height: 1),
                                     Text(
                                       song.artistDisplay,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: tt.labelSmall?.copyWith(
                                         color: cs.onSurfaceVariant,
+                                        height: 1.2,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
+                              const SizedBox(width: 4),
 
                               // 媒体控制按钮组
                               _buildControlButton(
@@ -144,11 +148,11 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
                                 cs: cs,
                                 onTap: player.playPrevious,
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 2),
 
                               // 主播放/暂停响应态圆形按钮
                               _buildPlayPauseButton(player, cs),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 2),
 
                               _buildControlButton(
                                 icon: Icons.skip_next_rounded,

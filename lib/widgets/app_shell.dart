@@ -45,35 +45,23 @@ class _AppShellState extends State<AppShell> {
         final showMini = song != null && !player.isPlayerScreenVisible;
 
         final mq = MediaQuery.of(context);
-        // M3ExpressiveMiniPlayer capsule height (64) + vertical margin (12) = 76.0dp
-        final extraPadding = showMini ? 76.0 : 0.0;
-
-        // Dynamically override the bottom padding of the MediaQuery passed down to the Navigator
-        // so that scroll views (ListView, GridView) automatically reserve space to avoid occlusion.
-        final modifiedMediaQuery = mq.copyWith(
-          padding: mq.padding.copyWith(
-            bottom: mq.padding.bottom + extraPadding,
-          ),
-        );
-
-        // Detect if we are on the home screen (which hosts the M3 NavigationBar)
         final isHome = currentRoute == null || currentRoute == '/' || currentRoute == '';
 
         final double miniPlayerBottom;
         if (isHome) {
-          // Material Design 3 NavigationBar has a standard height of 80.0dp.
-          // By positioning at 80.0 + mq.padding.bottom, we float EXACTLY above NavigationBar with ZERO overlap!
+          // Material Design 3 NavigationBar 标准高度为 80.0dp。
+          // 定位在 80.0 + mq.padding.bottom 处，正好悬浮于 NavigationBar 正上方，零重叠且不会顶高底栏！
           miniPlayerBottom = 80.0 + mq.padding.bottom;
         } else {
-          // In sub-screens without NavigationBar, float just above the system navigation/gesture inset.
-          miniPlayerBottom = mq.padding.bottom > 0 ? mq.padding.bottom : 8.0;
+          // 在没有 NavigationBar 的二级子屏幕中，悬浮在系统底部手势栏/黑条正上方
+          miniPlayerBottom = mq.padding.bottom > 0 ? mq.padding.bottom + 8.0 : 12.0;
         }
 
         return Stack(
           children: [
-            // Inject modified safe area constraints to all children inside the Navigator
+            // 传递原生真实、纯净的 MediaQuery，绝不污染 padding.bottom 以免 NavigationBar 和 SafeArea 产生假间隙与 Bottom Overflowed
             MediaQuery(
-              data: modifiedMediaQuery,
+              data: mq,
               child: widget.child ?? const SizedBox.shrink(),
             ),
             // Render M3ExpressiveMiniPlayer with smooth position & opacity transition
