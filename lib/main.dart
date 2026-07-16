@@ -60,37 +60,78 @@ Future<void> main() async {
       Log.e('RENDER', details.exceptionAsString(), details.exception,
           details.stack);
     } catch (_) {}
-    return Material(
-      color: const Color(0xFF1E1E1E),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              ThemeAssets.codecrash,
-              width: 80,
-              height: 80,
-              errorBuilder: (_, __, ___) => const Icon(Icons.error_outline, size: 64, color: Colors.white38),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '渲染异常',
-              style: TextStyle(color: Colors.white70, fontSize: 16),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                details.exceptionAsString(),
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white38, fontSize: 12),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 如果在受限高度组件（如 64dp 的 MiniPlayer 或单行小控件）中出现暂时性排版或 Hero 转场闪动，
+        // 绝不可强行塞入 160+dp 的巨型黑卡，以免引发大面积黑框遮挡与二次严重的 RenderFlex Overflow。
+        if (constraints.maxHeight < 120 || !constraints.hasBoundedHeight) {
+          return Material(
+            color: const Color(0xFF1E1E1E).withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(16),
+            child: SizedBox(
+              height: constraints.hasBoundedHeight
+                  ? constraints.maxHeight.clamp(20.0, 64.0)
+                  : 64.0,
+              child: const Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.error_outline,
+                        size: 18, color: Colors.white38),
+                    SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        '轻微渲染闪过',
+                        style: TextStyle(
+                            color: Colors.white38, fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
-      ),
+          );
+        }
+
+        return Material(
+          color: const Color(0xFF1E1E1E),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  ThemeAssets.codecrash,
+                  width: 80,
+                  height: 80,
+                  errorBuilder: (_, __, ___) => const Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: Colors.white38),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '渲染异常',
+                  style: TextStyle(color: Colors.white70, fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    details.exceptionAsString(),
+                    textAlign: TextAlign.center,
+                    style:
+                        const TextStyle(color: Colors.white38, fontSize: 12),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   };
 

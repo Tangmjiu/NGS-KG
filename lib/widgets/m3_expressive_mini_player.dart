@@ -55,10 +55,7 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
               child: GestureDetector(
                 onTap: () => _openPlayerScreen(context, player),
                 child: Container(
-                  constraints: const BoxConstraints(
-                    minHeight: 64,
-                    maxHeight: 70,
-                  ),
+                  height: 64.0,
                   decoration: BoxDecoration(
                     color: cs.surfaceContainerHighest.withValues(alpha: 0.96),
                     borderRadius: AppShape.full,
@@ -104,9 +101,10 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
                           padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
                           child: Row(
                             children: [
-                              // 专辑封面（含播放加载环与 Hero 动效）
+                              // 专辑封面（含安全过渡与 Hero 动效）
                               Hero(
                                 tag: 'album_art_${song.hash ?? song.id}',
+                                flightShuttleBuilder: _safeFlightShuttle,
                                 child: _buildCoverArt(song, cs, player.isLoading),
                               ),
                               const SizedBox(width: 10),
@@ -182,10 +180,26 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
     );
   }
 
+  /// 飞行安全过渡组件（防止路由与 Hero 切出同时出现排版异常抛出黑框）
+  Widget _safeFlightShuttle(
+    BuildContext flightContext,
+    Animation<double> animation,
+    HeroFlightDirection flightDirection,
+    BuildContext fromHeroContext,
+    BuildContext toHeroContext,
+  ) {
+    final Hero toHero = toHeroContext.widget as Hero;
+    return Material(
+      color: Colors.transparent,
+      child: toHero.child,
+    );
+  }
+
   /// 滑动切歌时的底部提示背景
   Widget _buildSwipeIndicator(
       ColorScheme cs, IconData icon, String label, Alignment alignment) {
     return Container(
+      height: 64.0,
       decoration: BoxDecoration(
         color: cs.secondaryContainer.withValues(alpha: 0.8),
         borderRadius: AppShape.full,
