@@ -12,6 +12,8 @@ import '../services/update_checker.dart';
 import '../screens/player_screen.dart';
 import '../widgets/support_me_dialog.dart';
 import '../widgets/update_dialog.dart';
+import '../utils/theme.dart';
+import 'm3_expressive_mini_player.dart';
 
 /// 移动端外壳，嵌套在 MaterialApp.builder 中
 ///
@@ -43,8 +45,8 @@ class _AppShellState extends State<AppShell> {
         final showMini = song != null && !player.isPlayerScreenVisible;
 
         final mq = MediaQuery.of(context);
-        // MiniPlayer height is roughly 58.0dp (progress indicator + row layout + paddings)
-        final extraPadding = showMini ? 58.0 : 0.0;
+        // M3ExpressiveMiniPlayer capsule height (64) + vertical margin (12) = 76.0dp
+        final extraPadding = showMini ? 76.0 : 0.0;
 
         // Dynamically override the bottom padding of the MediaQuery passed down to the Navigator
         // so that scroll views (ListView, GridView) automatically reserve space to avoid occlusion.
@@ -59,11 +61,12 @@ class _AppShellState extends State<AppShell> {
 
         final double miniPlayerBottom;
         if (isHome) {
-          // Stay stacked above the main tab's NavigationBar
-          miniPlayerBottom = kBottomNavigationBarHeight + mq.padding.bottom;
+          // Material Design 3 NavigationBar has a standard height of 80.0dp.
+          // By positioning at 80.0 + mq.padding.bottom, we float EXACTLY above NavigationBar with ZERO overlap!
+          miniPlayerBottom = 80.0 + mq.padding.bottom;
         } else {
-          // Drop to the very bottom in sub-screens where the NavigationBar is hidden
-          miniPlayerBottom = mq.padding.bottom;
+          // In sub-screens without NavigationBar, float just above the system navigation/gesture inset.
+          miniPlayerBottom = mq.padding.bottom > 0 ? mq.padding.bottom : 8.0;
         }
 
         return Stack(
@@ -73,14 +76,32 @@ class _AppShellState extends State<AppShell> {
               data: modifiedMediaQuery,
               child: widget.child ?? const SizedBox.shrink(),
             ),
-            // Render MiniPlayer only when applicable, positioned adaptively
-            if (showMini)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: miniPlayerBottom,
-                child: const _MobileMiniPlayer(),
+            // Render M3ExpressiveMiniPlayer with smooth position & opacity transition
+            AnimatedPositioned(
+              duration: AppMotion.dMedium2,
+              curve: AppMotion.emphasizedDecelerate,
+              left: 0,
+              right: 0,
+              bottom: miniPlayerBottom,
+              child: AnimatedSwitcher(
+                duration: AppMotion.dMedium1,
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.3),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  );
+                },
+                child: showMini
+                    ? const M3ExpressiveMiniPlayer()
+                    : const SizedBox.shrink(),
               ),
+            ),
             const _ContinuePlayOverlay(),
             const _SupportPopupHandler(),
             const _UpdateCheckHandler(),
@@ -92,167 +113,7 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-class _MobileMiniPlayer extends StatelessWidget {
-  const _MobileMiniPlayer();
 
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Consumer<PlayerProvider>(
-      builder: (_, player, __) {
-        final song = player.currentSong;
-        if (song == null || player.isPlayerScreenVisible)
-          return const SizedBox.shrink();
-        final tt = Theme.of(context).textTheme;
-
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-          child: GestureDetector(
-            onTap: () {
-              player.setPlayerScreenVisible(true);
-              app.navKey.currentState
-                  ?.push(PageRouteBuilder(
-                    pageBuilder: (_, __, ___) => const PlayerScreen(),
-                    transitionsBuilder: (_, animation, __, child) {
-                      return FadeTransition(
-                          opacity: animation, child: child);
-                    },
-                    transitionDuration: const Duration(milliseconds: 300),
-                  ))
-                  .then((_) => player.setPlayerScreenVisible(false));
-            },
-            child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.95),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (player.duration.inMilliseconds > 0)
-                    ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(16),
-                        topRight: Radius.circular(16),
-                      ),
-                      child: LinearProgressIndicator(
-                        value: player.progress.isFinite ? player.progress : 0.0,
-                        backgroundColor: cs.surfaceContainerHigh,
-                        color: cs.primary,
-                        minHeight: 2,
-                      ),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      left: 8, right: 12, top: 4, bottom: 6,
-                    ),
-                    child: Row(
-                      children: [
-                        Hero(
-                          tag: 'album_art_${song.hash ?? song.id}',
-                          child: _miniCover(song, cs),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(song.name,
-                                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                                  style: tt.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: cs.onSurface)),
-                              const SizedBox(height: 2),
-                              Text(song.artistDisplay,
-                                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                                  style: tt.labelSmall?.copyWith(
-                                      color: cs.onSurfaceVariant)),
-                            ],
-                          ),
-                        ),
-                        if (player.isLoading)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: SizedBox(width: 28, height: 28,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2.5, color: cs.primary)),
-                          )
-                        else ...[
-                          _mobileBtn(Icons.skip_previous, player.playPrevious, cs),
-                          const SizedBox(width: 4),
-                          Container(
-                            width: 36, height: 36,
-                            decoration: BoxDecoration(
-                              color: cs.primary, shape: BoxShape.circle,
-                            ),
-                            child: IconButton(
-                              icon: Icon(
-                                player.isPlaying ? Icons.pause : Icons.play_arrow,
-                                color: cs.onPrimary, size: 22,
-                              ),
-                              onPressed: player.togglePlayPause,
-                              padding: EdgeInsets.zero,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          _mobileBtn(Icons.skip_next, player.playNext, cs),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _miniCover(Song song, ColorScheme cs) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: SizedBox(
-        width: 38, height: 38,
-        child: song.albumCoverUrl != null && song.albumCoverUrl!.isNotEmpty
-            ? CachedNetworkImage(
-                imageUrl: song.albumCoverUrl!,
-                fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => Container(
-                  color: cs.surfaceContainerHigh,
-                  child: Icon(Icons.music_note, size: 22, color: cs.onSurfaceVariant),
-                ),
-              )
-            : Container(
-                color: cs.surfaceContainerHigh,
-                child: Icon(Icons.music_note, size: 22, color: cs.onSurfaceVariant),
-              ),
-      ),
-    );
-  }
-
-  Widget _mobileBtn(IconData icon, VoidCallback? onTap, ColorScheme cs) {
-    return SizedBox(
-      width: 32, height: 32,
-      child: IconButton(
-        icon: Icon(icon, size: 22, color: cs.onSurfaceVariant),
-        onPressed: onTap,
-        padding: EdgeInsets.zero,
-      ),
-    );
-  }
-}
 
 // ══════════════════════════════════════════════�?
 //  跨设备继续播放检�?
