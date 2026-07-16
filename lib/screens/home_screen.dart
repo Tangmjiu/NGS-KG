@@ -400,25 +400,32 @@ class _HomeScreenState extends State<HomeScreen> {
         : mq;
 
     return Scaffold(
-      body: MediaQuery(
-        data: childMediaQuery,
-        child: AnimatedSwitcher(
-          duration: AppMotion.dMedium2,
-          switchInCurve: AppMotion.emphasizedDecelerate,
-          switchOutCurve: AppMotion.emphasizedAccelerate,
-          transitionBuilder: (child, animation) {
-            return M3FadeThroughTransition(animation: animation, child: child);
-          },
-          child: IndexedStack(
-            key: ValueKey(_currentTab),
-            index: _currentTab,
-            children: [
-              _buildHome(),
-              const DiscoverScreen(),
-              const ProfileScreen(),
-            ],
+      body: Column(
+        children: [
+          Expanded(
+            child: MediaQuery(
+              data: childMediaQuery,
+              child: AnimatedSwitcher(
+                duration: AppMotion.dMedium2,
+                switchInCurve: AppMotion.emphasizedDecelerate,
+                switchOutCurve: AppMotion.emphasizedAccelerate,
+                transitionBuilder: (child, animation) {
+                  return M3FadeThroughTransition(animation: animation, child: child);
+                },
+                child: IndexedStack(
+                  key: ValueKey(_currentTab),
+                  index: _currentTab,
+                  children: [
+                    _buildHome(),
+                    const DiscoverScreen(),
+                    const ProfileScreen(),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
+          if (showMini) const SizedBox(height: 76.0),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentTab,
