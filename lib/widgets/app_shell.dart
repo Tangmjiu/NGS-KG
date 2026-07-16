@@ -76,21 +76,16 @@ class _AppShellState extends State<AppShell> {
 
         return Stack(
           children: [
-            Column(
-              children: [
-                Expanded(
-                  child: MediaQuery(
-                    data: childMediaQuery,
-                    child: widget.child ?? const SizedBox.shrink(),
-                  ),
-                ),
-                if (showMini && !isHome)
-                  SizedBox(
-                    height: mq.padding.bottom > 0
-                        ? mq.padding.bottom + 84.0
-                        : 84.0,
-                  ),
-              ],
+            AnimatedPadding(
+              duration: AppMotion.dMedium2,
+              curve: AppMotion.emphasizedDecelerate,
+              padding: EdgeInsets.only(
+                bottom: (showMini && !isHome) ? 76.0 : 0.0,
+              ),
+              child: MediaQuery(
+                data: childMediaQuery,
+                child: widget.child ?? const SizedBox.shrink(),
+              ),
             ),
             // Render M3ExpressiveMiniPlayer with smooth position & opacity transition
             AnimatedPositioned(
