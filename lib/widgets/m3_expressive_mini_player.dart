@@ -295,16 +295,13 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
     required ColorScheme cs,
     VoidCallback? onTap,
   }) {
-    return Tooltip(
-      message: tooltip,
-      child: M3PressScale(
-        child: InkWell(
-          borderRadius: AppShape.full,
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Icon(icon, size: 24, color: cs.onSurfaceVariant),
-          ),
+    return M3PressScale(
+      child: InkWell(
+        borderRadius: AppShape.full,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Icon(icon, size: 24, color: cs.onSurfaceVariant),
         ),
       ),
     );
