@@ -128,71 +128,80 @@ void _showSongListSheet(
     builder: (sheetContext) {
       final cs = Theme.of(sheetContext).colorScheme;
       final tt = Theme.of(sheetContext).textTheme;
-      final availableHeight = MediaQuery.of(sheetContext).size.height * 0.65 -
-          MediaQuery.of(sheetContext).padding.bottom;
+      final screenHeight = MediaQuery.of(sheetContext).size.height;
+      final bottomPadding = MediaQuery.of(sheetContext).padding.bottom;
 
-      return SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
-              child: Row(
-                children: [
-                  Icon(icon, color: cs.primary, size: 24),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: tt.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  if (songs.isNotEmpty)
-                    FilledButton.icon(
-                      onPressed: () {
-                        Navigator.pop(sheetContext);
-                        context
-                            .read<PlayerProvider>()
-                            .playSong(songs.first, playlist: songs);
-                      },
-                      icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                      label: const Text('播放全部'),
-                      style: FilledButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
+      return ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: screenHeight * 0.7,
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
+                child: Row(
+                  children: [
+                    Icon(icon, color: cs.primary, size: 24),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: tt.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            if (songs.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(40),
-                child: Center(
-                  child: Text('暂无推荐列表内容',
-                      style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
-                ),
-              )
-            else
-              ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: availableHeight),
-                child: ListView.builder(
-                  itemCount: songs.length,
-                  itemBuilder: (_, i) {
-                    final song = songs[i];
-                    return SongTile(
-                      song: song,
-                      onTap: (s) {
-                        Navigator.pop(sheetContext);
-                        context
-                            .read<PlayerProvider>()
-                            .playSong(s, playlist: songs);
-                      },
-                    );
-                  },
+                    if (songs.isNotEmpty)
+                      FilledButton.icon(
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          context
+                              .read<PlayerProvider>()
+                              .playSong(songs.first, playlist: songs);
+                        },
+                        icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                        label: const Text('播放全部'),
+                        style: FilledButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-          ],
+              const Divider(height: 1),
+              if (songs.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(40),
+                  child: Center(
+                    child: Text('暂无推荐列表内容',
+                        style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                  ),
+                )
+              else
+                // 使用 Flexible 代替原来的硬编高计算，结合 ListView 内部 bottom padding，完美实现滑到底部且永不溢出
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.only(
+                      bottom: bottomPadding > 0 ? bottomPadding + 20 : 32,
+                    ),
+                    itemCount: songs.length,
+                    itemBuilder: (_, i) {
+                      final song = songs[i];
+                      return SongTile(
+                        song: song,
+                        onTap: (s) {
+                          Navigator.pop(sheetContext);
+                          context
+                              .read<PlayerProvider>()
+                              .playSong(s, playlist: songs);
+                        },
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
         ),
       );
     },
