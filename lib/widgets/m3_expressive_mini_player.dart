@@ -55,7 +55,10 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
               child: GestureDetector(
                 onTap: () => _openPlayerScreen(context, player),
                 child: Container(
-                  height: 64,
+                  constraints: const BoxConstraints(
+                    minHeight: 64,
+                    maxHeight: 70,
+                  ),
                   decoration: BoxDecoration(
                     color: cs.surfaceContainerHighest.withValues(alpha: 0.96),
                     borderRadius: AppShape.full,
@@ -98,7 +101,7 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
 
                         // 主交互排版区
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+                          padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
                           child: Row(
                             children: [
                               // 专辑封面（含播放加载环与 Hero 动效）
@@ -108,35 +111,39 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
                               ),
                               const SizedBox(width: 10),
 
-                              // 歌曲信息排版
+                              // 歌曲信息排版（运用 FittedBox.scaleDown 彻底消灭各种大字号与行高带来的 Bottom/Right Overflowed）
                               Expanded(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      song.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: tt.bodyMedium?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        color: cs.onSurface,
-                                        letterSpacing: -0.2,
-                                        height: 1.25,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        song.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: tt.bodyMedium?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: cs.onSurface,
+                                          letterSpacing: -0.2,
+                                          height: 1.2,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 1),
-                                    Text(
-                                      song.artistDisplay,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: tt.labelSmall?.copyWith(
-                                        color: cs.onSurfaceVariant,
-                                        height: 1.2,
+                                      const SizedBox(height: 1),
+                                      Text(
+                                        song.artistDisplay,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: tt.labelSmall?.copyWith(
+                                          color: cs.onSurfaceVariant,
+                                          height: 1.15,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 4),
@@ -185,20 +192,23 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
       ),
       alignment: alignment,
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: cs.onSecondaryContainer),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: cs.onSecondaryContainer,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: cs.onSecondaryContainer),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: cs.onSecondaryContainer,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
