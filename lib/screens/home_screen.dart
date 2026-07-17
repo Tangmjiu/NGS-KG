@@ -13,6 +13,7 @@ import '../utils/theme.dart';
 import 'discover_screen.dart';
 import 'profile_screen.dart';
 import 'search_screen.dart';
+import '../widgets/list_bottom_spacer.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -400,29 +401,24 @@ class _HomeScreenState extends State<HomeScreen> {
         : mq;
 
     return Scaffold(
-      body: AnimatedPadding(
-        duration: AppMotion.dMedium2,
-        curve: AppMotion.emphasizedDecelerate,
-        padding: EdgeInsets.only(bottom: showMini ? 76.0 : 0.0),
-        child: MediaQuery(
-          data: childMediaQuery,
-          child: AnimatedSwitcher(
-            duration: AppMotion.dMedium2,
-            switchInCurve: AppMotion.emphasizedDecelerate,
-            switchOutCurve: AppMotion.emphasizedAccelerate,
-            transitionBuilder: (child, animation) {
-              return M3FadeThroughTransition(
-                  animation: animation, child: child);
-            },
-            child: IndexedStack(
-              key: ValueKey(_currentTab),
-              index: _currentTab,
-              children: [
-                _buildHome(),
-                const DiscoverScreen(),
-                const ProfileScreen(),
-              ],
-            ),
+      body: MediaQuery(
+        data: childMediaQuery,
+        child: AnimatedSwitcher(
+          duration: AppMotion.dMedium2,
+          switchInCurve: AppMotion.emphasizedDecelerate,
+          switchOutCurve: AppMotion.emphasizedAccelerate,
+          transitionBuilder: (child, animation) {
+            return M3FadeThroughTransition(
+                animation: animation, child: child);
+          },
+          child: IndexedStack(
+            key: ValueKey(_currentTab),
+            index: _currentTab,
+            children: [
+              _buildHome(),
+              const DiscoverScreen(),
+              const ProfileScreen(),
+            ],
           ),
         ),
       ),
@@ -660,6 +656,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                     ),
+                  ),
+                  const SliverToBoxAdapter(
+                    child: ListBottomSpacer(isHome: true),
                   ),
                 ],
               ),

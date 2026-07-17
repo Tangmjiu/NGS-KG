@@ -37,40 +37,40 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
           color: Colors.transparent,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            child: M3PressScale(
-              child: GestureDetector(
-                onTap: () => _openPlayerScreen(context, player),
-                child: Material(
-                  color: cs.surfaceContainerHighest.withValues(alpha: 0.96),
-                  borderRadius: AppShape.full,
-                  clipBehavior: Clip.antiAlias,
-                  elevation: 4,
-                  shadowColor: cs.shadow.withValues(alpha: 0.12),
-                  child: Container(
-                    height: 64.0,
-                    decoration: BoxDecoration(
-                      borderRadius: AppShape.full,
-                      border: Border.all(
-                        color: cs.outlineVariant.withValues(alpha: 0.5),
-                        width: 1,
+            child: Dismissible(
+              key: ValueKey('mini_player_${song.hash ?? song.id}'),
+              direction: DismissDirection.horizontal,
+              confirmDismiss: (direction) async {
+                if (direction == DismissDirection.endToStart) {
+                  player.playNext();
+                } else if (direction == DismissDirection.startToEnd) {
+                  player.playPrevious();
+                }
+                // 不真正移除控件，由切歌后自动刷新 UI 承接
+                return false;
+              },
+              background: _buildSwipeIndicator(
+                  cs, Icons.skip_previous_rounded, '上一首', Alignment.centerLeft),
+              secondaryBackground: _buildSwipeIndicator(
+                  cs, Icons.skip_next_rounded, '下一首', Alignment.centerRight),
+              child: M3PressScale(
+                child: GestureDetector(
+                  onTap: () => _openPlayerScreen(context, player),
+                  child: Material(
+                    color: cs.surfaceContainerHighest.withValues(alpha: 0.96),
+                    borderRadius: AppShape.full,
+                    clipBehavior: Clip.antiAlias,
+                    elevation: 4,
+                    shadowColor: cs.shadow.withValues(alpha: 0.12),
+                    child: Container(
+                      height: 64.0,
+                      decoration: BoxDecoration(
+                        borderRadius: AppShape.full,
+                        border: Border.all(
+                          color: cs.outlineVariant.withValues(alpha: 0.5),
+                          width: 1,
+                        ),
                       ),
-                    ),
-                    child: Dismissible(
-                      key: ValueKey('mini_player_${song.hash ?? song.id}'),
-                      direction: DismissDirection.horizontal,
-                      confirmDismiss: (direction) async {
-                        if (direction == DismissDirection.endToStart) {
-                          player.playNext();
-                        } else if (direction == DismissDirection.startToEnd) {
-                          player.playPrevious();
-                        }
-                        // 不真正移除控件，由切歌后自动刷新 UI 承接
-                        return false;
-                      },
-                      background: _buildSwipeIndicator(
-                          cs, Icons.skip_previous_rounded, '上一首', Alignment.centerLeft),
-                      secondaryBackground: _buildSwipeIndicator(
-                          cs, Icons.skip_next_rounded, '下一首', Alignment.centerRight),
                       child: Stack(
                         children: [
                           // 底部嵌入式极细进度条
@@ -195,7 +195,10 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
     final isLeft = alignment == Alignment.centerLeft;
     return Container(
       height: 64.0,
-      color: cs.secondaryContainer.withValues(alpha: 0.88),
+      decoration: BoxDecoration(
+        color: cs.secondaryContainer.withValues(alpha: 0.88),
+        borderRadius: AppShape.full,
+      ),
       alignment: alignment,
       padding: EdgeInsets.only(
         left: isLeft ? 24 : 12,

@@ -8,6 +8,7 @@ import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
+import '../widgets/list_bottom_spacer.dart';
 
 class ArtistDetailScreen extends StatefulWidget {
   final int artistId;
@@ -258,16 +259,21 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
         ),
         Expanded(
           child: ListView.builder(
-            itemCount: _songs.length,
-            itemBuilder: (_, i) => M3StaggeredFadeIn(
-              index: i,
-              child: SongTile(
-                song: _songs[i],
-                onTap: (s) => context
-                    .read<PlayerProvider>()
-                    .playSong(s, playlist: _songs),
-              ),
-            ),
+            itemCount: _songs.length + 1,
+            itemBuilder: (_, i) {
+              if (i == _songs.length) {
+                return const ListBottomSpacer(isHome: false);
+              }
+              return M3StaggeredFadeIn(
+                index: i,
+                child: SongTile(
+                  song: _songs[i],
+                  onTap: (s) => context
+                      .read<PlayerProvider>()
+                      .playSong(s, playlist: _songs),
+                ),
+              );
+            },
           ),
         ),
       ],

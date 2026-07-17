@@ -7,6 +7,7 @@ import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../theme/theme_assets.dart';
 import '../widgets/song_tile.dart';
+import '../widgets/list_bottom_spacer.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
   final String? gcId;
@@ -326,7 +327,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 ),
               ),
               const SliverToBoxAdapter(
-                  child: SizedBox(height: 24)),
+                child: ListBottomSpacer(isHome: false),
+              ),
             ],
           );
 

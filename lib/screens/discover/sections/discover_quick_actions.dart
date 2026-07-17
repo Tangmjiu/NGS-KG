@@ -228,7 +228,6 @@ class _ActionTile extends StatelessWidget {
     final Color cardBgColor;
     final Color iconBoxColor;
     final Color iconColor;
-    final String subtitle;
     final IconData actionIcon;
 
     switch (index) {
@@ -236,21 +235,18 @@ class _ActionTile extends StatelessWidget {
         cardBgColor = cs.primaryContainer.withValues(alpha: 0.35);
         iconBoxColor = cs.primaryContainer;
         iconColor = cs.onPrimaryContainer;
-        subtitle = '巅峰热歌 · 飙升榜';
         actionIcon = Icons.arrow_outward_rounded;
         break;
       case 1:
         cardBgColor = cs.tertiaryContainer.withValues(alpha: 0.35);
         iconBoxColor = cs.tertiaryContainer;
         iconColor = cs.onTertiaryContainer;
-        subtitle = '独家调频 · 有声剧';
         actionIcon = Icons.arrow_outward_rounded;
         break;
       case 2:
         cardBgColor = cs.secondaryContainer.withValues(alpha: 0.35);
         iconBoxColor = cs.secondaryContainer;
         iconColor = cs.onSecondaryContainer;
-        subtitle = '专属定制 · 随心播';
         actionIcon = Icons.play_arrow_rounded;
         break;
       case 3:
@@ -258,7 +254,6 @@ class _ActionTile extends StatelessWidget {
         cardBgColor = cs.surfaceContainerHighest.withValues(alpha: 0.65);
         iconBoxColor = cs.secondary.withValues(alpha: 0.15);
         iconColor = cs.secondary;
-        subtitle = '重磅首发 · 尝鲜听';
         actionIcon = Icons.play_arrow_rounded;
         break;
     }
@@ -271,7 +266,7 @@ class _ActionTile extends StatelessWidget {
           onTap: () => action.onTap(context, rankList),
           borderRadius: BorderRadius.circular(24),
           child: Container(
-            height: 114,
+            height: 96,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
@@ -306,26 +301,13 @@ class _ActionTile extends StatelessWidget {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        action.label,
-                        style: tt.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: cs.onSurface,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: tt.labelSmall?.copyWith(
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.85),
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    action.label,
+                    style: tt.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: cs.onSurface,
+                      letterSpacing: -0.2,
+                    ),
                   ),
                 ),
               ],

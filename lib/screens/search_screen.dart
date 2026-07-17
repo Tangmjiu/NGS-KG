@@ -11,6 +11,7 @@ import '../services/api_client.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
+import '../widgets/list_bottom_spacer.dart';
 import '../theme/theme_assets.dart';
 import '../constants/banned_words.dart';
 
@@ -433,16 +434,21 @@ class _SearchScreenState extends State<SearchScreen>
       return _emptyResult('未找到歌曲');
     }
     return ListView.builder(
-      itemCount: _songs.length,
-      itemBuilder: (_, i) => M3StaggeredFadeIn(
-        index: i,
-        child: SongTile(
-          song: _songs[i],
-          onTap: (s) => context
-              .read<PlayerProvider>()
-              .playSong(s, playlist: _songs),
-        ),
-      ),
+      itemCount: _songs.length + 1,
+      itemBuilder: (_, i) {
+        if (i == _songs.length) {
+          return const ListBottomSpacer(isHome: false);
+        }
+        return M3StaggeredFadeIn(
+          index: i,
+          child: SongTile(
+            song: _songs[i],
+            onTap: (s) => context
+                .read<PlayerProvider>()
+                .playSong(s, playlist: _songs),
+          ),
+        );
+      },
     );
   }
 
@@ -451,8 +457,11 @@ class _SearchScreenState extends State<SearchScreen>
       return _emptyResult('未找到歌单');
     }
     return ListView.builder(
-      itemCount: _playlists.length,
+      itemCount: _playlists.length + 1,
       itemBuilder: (_, i) {
+        if (i == _playlists.length) {
+          return const ListBottomSpacer(isHome: false);
+        }
         final p = _playlists[i];
         final name = p['specialname'] as String? ?? p['name'] as String? ?? '';
         final img = p['imgurl'] as String? ?? p['img'] as String? ?? '';

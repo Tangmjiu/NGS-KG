@@ -13,6 +13,7 @@ import '../providers/liked_songs_provider.dart';
 import '../services/music_service.dart';
 import '../widgets/playlist_card.dart';
 import '../widgets/create_playlist_dialog.dart';
+import '../widgets/list_bottom_spacer.dart';
 import '../theme/theme_assets.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
@@ -103,6 +104,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             _buildMenu(auth),
             const SizedBox(height: 16),
             if (auth.isLoggedIn) _buildPlaylists(playlistProv, auth),
+            const ListBottomSpacer(isHome: true),
           ],
           ),
         );
@@ -256,8 +258,9 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildPlaylists(PlaylistProvider playlistProv, AuthProvider auth) {
-    if (playlistProv.isLoading)
+    if (playlistProv.isLoading) {
       return const Center(child: CircularProgressIndicator());
+    }
 
     if (playlistProv.userPlaylists.isEmpty) {
       return emptyStateWidget(ThemeAssets.emptyPlaylist, Icons.playlist_play, '暂无歌单');
@@ -359,8 +362,11 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
           : _songs.isEmpty
               ? emptyStateWidget(ThemeAssets.emptyPlaylist, Icons.favorite, '暂无收藏')
               : ListView.builder(
-                  itemCount: _songs.length,
+                  itemCount: _songs.length + 1,
                   itemBuilder: (_, i) {
+                    if (i == _songs.length) {
+                      return const ListBottomSpacer(isHome: false);
+                    }
                     final song = _songs[i];
                     return SongTile(
                       song: song,

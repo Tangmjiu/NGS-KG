@@ -9,6 +9,7 @@ import '../providers/playlist_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
+import '../widgets/list_bottom_spacer.dart';
 
 class AlbumDetailScreen extends StatefulWidget {
   final int albumId;
@@ -316,7 +317,9 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                 childCount: _songs.length,
               ),
             ),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          const SliverToBoxAdapter(
+            child: ListBottomSpacer(isHome: false),
+          ),
         ],
       ),
     );

@@ -140,7 +140,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
         elevation: 1,
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
           borderRadius: AppShape.lg,
         ),
         child: Stack(
@@ -289,7 +289,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                         secondChild: ConstrainedBox(
                           constraints: const BoxConstraints(minHeight: 140),
                           child: _buildPlayingState(
-                              cs, tt, provider, player, currentSong!, buffer),
+                              cs, tt, provider, player, currentSong, buffer),
                         ),
                       ),
                     ),
@@ -363,7 +363,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
             style: FilledButton.styleFrom(
               padding:
                   const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-              shape: RoundedRectangleBorder(
+              shape: const RoundedRectangleBorder(
                 borderRadius: AppShape.lg,
               ),
             ),
@@ -387,9 +387,10 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
     TextTheme tt,
     DiscoverProvider provider,
     PlayerProvider player,
-    Song currentSong,
+    Song? currentSong,
     List<Song> buffer,
   ) {
+    if (currentSong == null) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,

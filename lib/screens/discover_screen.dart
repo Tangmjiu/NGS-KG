@@ -12,6 +12,7 @@ import 'discover/sections/discover_scene_row.dart';
 import 'discover/sections/discover_ip_row.dart';
 import 'discover/sections/discover_fm_row.dart';
 import 'discover/sections/discover_personal_fm_row.dart';
+import '../widgets/list_bottom_spacer.dart';
 
 /// 发现页
 ///
@@ -99,7 +100,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               )
             else ...[
               // ── 私人 FM（置顶） ──
-              SliverToBoxAdapter(
+              const SliverToBoxAdapter(
                 child: DiscoverPersonalFmRow(),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 8)),
@@ -192,7 +193,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 ),
               ],
 
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              const SliverToBoxAdapter(
+                child: ListBottomSpacer(isHome: true),
+              ),
             ],
           ],
         ],

@@ -257,7 +257,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
           // ── 当前地址状态 ──
           Center(
             child: Text(
-              '当前: $_currentUrl',
+              '当前: ${_mode == ApiConfig.modeMjiutang && _route == ApiConfig.routeChina ? '中国内地路线' : _currentUrl}',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
