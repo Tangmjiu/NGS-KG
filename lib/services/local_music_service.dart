@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:path/path.dart' as p;
@@ -267,11 +268,84 @@ class LocalMusicService {
     final lrcPath = p.setExtension(audioPath, '.lrc');
     try {
       final lrcFile = File(lrcPath);
-      if (await lrcFile.exists()) return await lrcFile.readAsString();
+      if (await lrcFile.exists()) {
+        final bytes = await lrcFile.readAsBytes();
+        return _decodeText(bytes);
+      }
     } catch (e, s) {
       Log.e('local_music_service', 'lrc read error', e, s);
     }
     return null;
+  }
+
+  /// 解码字节为字符串：优先 UTF-8，检测 GBK 特征后回退。
+  static String _decodeText(Uint8List bytes) {
+    // UTF-8 BOM 检测
+    if (bytes.length >= 3 &&
+        bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+      return utf8.decode(bytes, allowMalformed: true);
+    }
+    // 尝试 UTF-8
+    try {
+      final s = utf8.decode(bytes, allowMalformed: true);
+      // 如果包含大量替换字符，可能是 GBK
+      final replacementCount = '\uFFFD'.allMatches(s).length;
+      if (replacementCount > 0 && replacementCount > s.length * 0.05) {
+        return _decodeGbk(bytes);
+      }
+      return s;
+    } catch (_) {
+      return _decodeGbk(bytes);
+    }
+  }
+
+  /// 简易 GBK 解码器（GB2312 兼容）。
+  /// 单字节 < 0x80 → ASCII；双字节 → GBK 编码到 Unicode。
+  static String _decodeGbk(Uint8List bytes) {
+    final buf = StringBuffer();
+    int i = 0;
+    while (i < bytes.length) {
+      final b1 = bytes[i];
+      if (b1 < 0x80) {
+        buf.writeCharCode(b1);
+        i++;
+      } else if (i + 1 < bytes.length) {
+        final b2 = bytes[i + 1];
+        final code = (b1 << 8) | b2;
+        buf.writeCharCode(_gbkToUnicode(code));
+        i += 2;
+      } else {
+        i++;
+      }
+    }
+    return buf.toString();
+  }
+
+  /// GBK 码点 → Unicode 码点映射（覆盖 GB2312 常用区）。
+  static int _gbkToUnicode(int gbk) {
+    // GBK/GB2312 → Unicode 偏移映射
+    // 高字节 0xA1-0xFE, 低字节 0xA1-0xFE
+    // 使用简化映射：直接计算 Unicode 码点
+    final hi = (gbk >> 8) & 0xFF;
+    final lo = gbk & 0xFF;
+    if (hi >= 0xA1 && hi <= 0xA9 && lo >= 0xA1 && lo <= 0xFE) {
+      // GB2312 符号区 → 全角字符
+      return 0xFF00 + (hi - 0xA0) * 0x5E + (lo - 0xA1);
+    }
+    if (hi >= 0xB0 && hi <= 0xF7 && lo >= 0xA1 && lo <= 0xFE) {
+      // GB2312 汉字区 → 计算 Unicode
+      final offset = (hi - 0xB0) * 94 + (lo - 0xA1);
+      // 线性映射到 Unicode CJK Unified Ideographs 区
+      // 起始点 U+4E00 对应 GB 0xB0A1
+      if (hi >= 0xB0 && hi < 0xD8) {
+        // 常用汉字区：0xB0A1 → U+4E00
+        return 0x4E00 + offset;
+      }
+      // 其余区域使用近似映射
+      return 0x4E00 + offset;
+    }
+    // 无法映射，返回替换字符
+    return 0xFFFD;
   }
 
   static Future<String?> _findCachedCover(String audioPath) async {

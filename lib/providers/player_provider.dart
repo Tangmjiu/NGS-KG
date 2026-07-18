@@ -719,7 +719,8 @@ class PlayerProvider extends ChangeNotifier
   void _loadEmbeddedLyrics(Song song) {
     if (song.lyrics == null || song.lyrics!.isEmpty) return;
     final text = song.lyrics!;
-    if (RegExp(r'^\s*\[\d{2}:\d{2}').hasMatch(text)) {
+    // 检测 LRC 格式：[mm:ss.xx] 或 [mm:ss] 出现在内容中（不限行首）
+    if (RegExp(r'\[\d{2}:\d{2}([.:]\d{2,3})?\]').hasMatch(text)) {
       _lyricController.loadLyric(text);
     } else {
       // 纯文本：每行作为一行歌词
