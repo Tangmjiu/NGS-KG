@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';
@@ -309,12 +309,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
         childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
         backgroundColor: cs.surfaceContainerLow,
         collapsedBackgroundColor: cs.surfaceContainerLow,
-        leading: CircleAvatar(
-          backgroundColor: cs.surfaceContainerHighest,
-          backgroundImage: entry.songs.isNotEmpty
-              ? entry.songs.first.coverImageProvider
-              : null,
-        ),
+        leading: _buildCoverAvatar(entry.thumbnail, cs),
         title: Text(
           entry.title,
           maxLines: 1,
@@ -339,6 +334,30 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
     );
   }
 
+  // ── Cover avatar: local files use MD3E music note fallback ──
+
+  Widget _buildCoverAvatar(String? coverUrl, ColorScheme cs) {
+    final hasCover = coverUrl != null && coverUrl.isNotEmpty;
+    ImageProvider? image;
+    if (hasCover) {
+      if (coverUrl!.startsWith('file:') || coverUrl.startsWith('/')) {
+        final path = coverUrl.startsWith('file:')
+            ? Uri.parse(coverUrl).toFilePath()
+            : coverUrl;
+        image = FileImage(File(path));
+      } else {
+        image = NetworkImage(coverUrl);
+      }
+    }
+    return CircleAvatar(
+      backgroundColor: cs.surfaceContainerHighest,
+      backgroundImage: image,
+      child: hasCover
+          ? null
+          : Icon(Icons.music_note_outlined, size: 22, color: cs.primary),
+    );
+  }
+
   // ── Shared song list tile (used in both flat and grouped views) ──
 
   Widget _buildSongTile(Song song, LocalMusicProvider prov) {
@@ -347,10 +366,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
     final cs = Theme.of(context).colorScheme;
 
     return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: cs.surfaceContainerHighest,
-        backgroundImage: song.coverImageProvider,
-      ),
+      leading: _buildCoverAvatar(song.albumCoverUrl, cs),
       title: Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         '${song.artists.join(", ")}${song.albumName != null ? " · ${song.albumName}" : ""}',

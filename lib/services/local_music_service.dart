@@ -13,9 +13,9 @@ import 'local_library_db.dart';
 class LocalMusicService {
   static const _audioExtensions = ['.mp3', '.flac', '.wav', '.aac', '.ogg', '.wma', '.m4a'];
   /// 加密/DRM 保护格式：不可播放，扫描时跳过。
-  static const _encryptedExtensions = ['.kgm', '.vpr', '.ncm', '.mgg', '.mflac', '.qmc0', '.qmc3', '.qmcflac', '.tkm', '.bkc', '.vpr'];
+  static const _encryptedExtensions = ['.kgm', '.kgg', '.vpr', '.ncm', '.mgg', '.mflac', '.qmc0', '.qmc3', '.qmcflac', '.tkm', '.bkc'];
   /// 文件名包含这些后缀视为加密（如 song.kgm.flac、song.qmcflac.mp3）。
-  static const _encryptedNamePatterns = ['kgm.', 'qmc', 'vpr.', 'ncm.', 'mgg.', 'mflac.', 'tkm.', 'bkc.'];
+  static const _encryptedNamePatterns = ['kgm.', 'kgg.', 'qmc', 'vpr.', 'ncm.', 'mgg.', 'mflac.', 'tkm.', 'bkc.'];
   static const _persistedDirsKey = 'local_music_folders';
 
   final LocalLibraryDB _db = LocalLibraryDB();
