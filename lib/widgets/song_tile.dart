@@ -8,6 +8,7 @@ import '../providers/playlist_provider.dart';
 import '../services/music_service.dart';
 import '../theme/theme_assets.dart';
 import '../utils/theme.dart';
+import 'playing_indicator.dart';
 
 class SongTile extends StatelessWidget {
   final Song song;
@@ -19,84 +20,136 @@ class SongTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final player = context.watch<PlayerProvider>();
+    final isCurrent = player.currentSong?.id == song.id;
+    final isPlaying = isCurrent && player.isPlaying;
+
     return Semantics(
       button: true,
       child: M3PressScale(
-        child: MergeSemantics(
-          child: ListTile(
-          leading: ClipRRect(
-            borderRadius: AppShape.sm,
-            child: song.albumCoverUrl != null
-                ? CachedNetworkImage(
-                    imageUrl: song.albumCoverUrl!,
-                    width: 48,
-                    height: 48,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => ExcludeSemantics(
-                      child: Container(
-                          color: cs.surfaceContainerHighest,
-                          width: 48,
-                          height: 48),
-                    ),
-                    errorWidget: (_, __, ___) => ExcludeSemantics(
-                        child: albumPlaceholderWidget(size: 32)),
-                  )
-                : ExcludeSemantics(
-                    child: Container(
-                      color: cs.surfaceContainerHighest,
-                      width: 48,
-                      height: 48,
-                      child: albumPlaceholderWidget(size: 32),
+        scaleDown: 0.96,
+        child: AnimatedContainer(
+          duration: AppMotion.dShort4,
+          curve: AppMotion.emphasized,
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          decoration: BoxDecoration(
+            color: isCurrent ? cs.primaryContainer : Colors.transparent,
+            borderRadius: AppShape.md,
+          ),
+          child: InkWell(
+            borderRadius: AppShape.md,
+            onTap: () => onTap?.call(song),
+            onLongPress: () => _showContextMenu(context),
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                children: [
+                  // Album Art
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      ClipRRect(
+                        borderRadius: AppShape.sm,
+                        child: song.albumCoverUrl != null
+                            ? CachedNetworkImage(
+                                imageUrl: song.albumCoverUrl!,
+                                width: 56,
+                                height: 56,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => _placeholder(cs),
+                                errorWidget: (_, __, ___) => _placeholder(cs),
+                              )
+                            : _placeholder(cs),
+                      ),
+                      // Playing Indicator Overlay
+                      if (isCurrent)
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.4),
+                            borderRadius: AppShape.sm,
+                          ),
+                          child: Center(
+                            child: isPlaying
+                                ? const PlayingIndicator(size: 24, color: Colors.white)
+                                : const Icon(Icons.pause_rounded, color: Colors.white, size: 24),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+                  // Texts
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          song.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.bodyLarge?.copyWith(
+                            fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                            color: isCurrent ? cs.onPrimaryContainer : cs.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          song.artistDisplay,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.bodyMedium?.copyWith(
+                            color: isCurrent 
+                                ? cs.onPrimaryContainer.withValues(alpha: 0.8) 
+                                : cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-          ),
-          title: Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: Text(song.artistDisplay,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Consumer<LikedSongsProvider>(
-                builder: (_, lp, __) {
-                  final liked = lp.likedIds.contains(song.id);
-                  return M3BounceFeedback(
-                    trigger: liked,
-                    child: IconButton(
-                      icon: Icon(
-                        liked ? Icons.favorite : Icons.favorite_border,
-                        size: 20,
-                      ),
-                      color: liked ? cs.error : cs.onSurfaceVariant,
-                      tooltip: liked ? '取消喜欢' : '喜欢',
-                      onPressed: () async {
-                        final info = SongInfo(
-                          id: song.id,
-                          name: song.name,
-                          hash: song.hash ?? '',
-                          albumId: song.albumId,
-                          audioId: song.id,
-                        );
-                        await lp.toggle(info);
-                      },
-                    ),
-                  );
-                },
+                  // Trailing Actions
+                  Consumer<LikedSongsProvider>(
+                    builder: (_, lp, __) {
+                      final liked = lp.likedIds.contains(song.id);
+                      return M3BounceFeedback(
+                        trigger: liked,
+                        child: IconButton(
+                          icon: Icon(
+                            liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                            size: 24,
+                          ),
+                          color: liked ? cs.error : (isCurrent ? cs.onPrimaryContainer : cs.onSurfaceVariant),
+                          tooltip: liked ? '取消喜欢' : '喜欢',
+                          onPressed: () async {
+                            final info = SongInfo(
+                              id: song.id,
+                              name: song.name,
+                              hash: song.hash ?? '',
+                              albumId: song.albumId,
+                              audioId: song.id,
+                            );
+                            await lp.toggle(info);
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
-              IconButton(
-                icon: const Icon(Icons.play_circle_outline, size: 24),
-                tooltip: '播放',
-                onPressed: () => onTap?.call(song),
-              ),
-            ],
+            ),
           ),
-          onTap: () => onTap?.call(song),
-          onLongPress: () => _showContextMenu(context),
         ),
       ),
-    ),
-  );
+    );
+  }
+
+  Widget _placeholder(ColorScheme cs) {
+    return Container(
+      color: cs.surfaceContainerHighest,
+      width: 56,
+      height: 56,
+      child: albumPlaceholderWidget(size: 32),
+    );
   }
 
   void _showContextMenu(BuildContext context) {

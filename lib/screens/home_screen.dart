@@ -57,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
               style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
         ),
         SizedBox(
-          height: 156,
+          height: 204,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -67,85 +67,87 @@ class _HomeScreenState extends State<HomeScreen> {
               return M3StaggeredFadeIn(
                 index: i,
                 child: Container(
-                  width: 190,
-                  margin: const EdgeInsets.only(right: 8),
+                  width: 260,
+                  margin: const EdgeInsets.only(right: 12),
                   decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest,
-                    borderRadius: AppShape.md,
+                    color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                    borderRadius: AppShape.lg,
                   ),
                   child: Column(
                     children: List.generate(chunk.length, (j) {
                       final song = chunk[j];
                       final flatIdx = i * 3 + j;
-                    return Expanded(
-                      child: M3PressScale(
-                        child: InkWell(
-                          borderRadius: (j == 0)
-                              ? const BorderRadius.vertical(top: Radius.circular(12))
-                              : (j == chunk.length - 1)
-                                  ? const BorderRadius.vertical(bottom: Radius.circular(12))
-                                  : null,
-                          onTap: () {
-                            player.playlistEndProvider = onEnd;
-                            player.playSong(song, playlist: songs.sublist(flatIdx));
-                          },
-                          child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Row(
-                            children: [
-                              ClipRRect(
-                                borderRadius: AppShape.xs,
-                                child: song.albumCoverUrl != null
-                                    ? CachedNetworkImage(
-                                        imageUrl: song.albumCoverUrl!,
-                                        width: 36,
-                                        height: 36,
-                                        fit: BoxFit.cover,
-                                        placeholder: (_, __) => Container(
-                                            width: 36,
-                                            height: 36,
-                                            color: cs.surface),
-                                        errorWidget: (_, __, ___) => Container(
-                                            width: 36,
-                                            height: 36,
+                      return Expanded(
+                        child: M3PressScale(
+                          scaleDown: 0.95,
+                          child: InkWell(
+                            borderRadius: (j == 0)
+                                ? const BorderRadius.vertical(top: Radius.circular(24))
+                                : (j == chunk.length - 1)
+                                    ? const BorderRadius.vertical(bottom: Radius.circular(24))
+                                    : null,
+                            onTap: () {
+                              player.playlistEndProvider = onEnd;
+                              player.playSong(song, playlist: songs.sublist(flatIdx));
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              child: Row(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: AppShape.sm,
+                                    child: song.albumCoverUrl != null
+                                        ? CachedNetworkImage(
+                                            imageUrl: song.albumCoverUrl!,
+                                            width: 44,
+                                            height: 44,
+                                            fit: BoxFit.cover,
+                                            placeholder: (_, __) => Container(
+                                                width: 44,
+                                                height: 44,
+                                                color: cs.surface),
+                                            errorWidget: (_, __, ___) => Container(
+                                                width: 44,
+                                                height: 44,
+                                                color: cs.surface,
+                                                child: const Icon(Icons.music_note_rounded,
+                                                    size: 20)),
+                                          )
+                                        : Container(
+                                            width: 44,
+                                            height: 44,
                                             color: cs.surface,
-                                            child: const Icon(Icons.music_note,
-                                                size: 18)),
-                                      )
-                                    : Container(
-                                        width: 36,
-                                        height: 36,
-                                        color: cs.surface,
-                                        child: const Icon(Icons.music_note,
-                                            size: 18)),
+                                            child: const Icon(Icons.music_note_rounded,
+                                                size: 20)),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(song.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500)),
+                                        const SizedBox(height: 2),
+                                        Text(song.artistDisplay,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                color: cs.onSurfaceVariant)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(song.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context).textTheme.bodyMedium),
-                                    Text(song.artistDisplay,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                            color: cs.onSurfaceVariant)),
-                                  ],
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  );
-                  }),
+                      );
+                    }),
+                  ),
                 ),
-              ),
               );
             },
           ),
@@ -685,6 +687,12 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    final searchBg = Color.alphaBlend(
+      cs.onSurface.withValues(alpha: isDark ? 0.08 : 0.05),
+      cs.surface,
+    );
+
     return Container(
       height: maxExtent,
       color: cs.surface,
@@ -695,7 +703,7 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
           Expanded(
             child: M3PressScale(
               child: Material(
-                color: cs.surfaceContainerHigh,
+                color: searchBg,
                 borderRadius: AppShape.full,
                 clipBehavior: Clip.antiAlias,
               child: InkWell(

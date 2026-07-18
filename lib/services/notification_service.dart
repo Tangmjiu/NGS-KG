@@ -99,6 +99,7 @@ class NotificationService {
     int duration = 0,    // 秒
     int position = 0,    // 秒
     bool isBuffering = false, // 是否缓冲中
+    double speed = 1.0,  // 播放速度
   }) async {
     if (!Platform.isAndroid) return;
 
@@ -112,11 +113,12 @@ class NotificationService {
         'lyricLine': lyricLine,
       });
 
-      // 更新播放状态（播放/暂停 + 进度 + 缓冲）
+      // 更新播放状态（播放/暂停 + 进度 + 缓冲 + 速度）
       await _mediaChannel.invokeMethod('updatePlaybackState', {
         'isPlaying': isPlaying,
         'position': position,
         'isBuffering': isBuffering,
+        'speed': speed,
       });
     } catch (_) {
       // 原生通道失败时不创建重复通知，静默降级

@@ -138,6 +138,40 @@ class AudioEngine {
     return keys[qualityLevel % keys.length];
   }
 
+  /// 异步预查特权与音质选项，让 UI 能在播放前显示正确的实际最高音质，避免冷启动及切歌时回退显示"标准"
+  Future<void> precheckPrivilege(Song song) async {
+    final hash = song.hash;
+    if (song.isLocal && hash == null) {
+      resolvedQualityNotifier.value = '128';
+      _currentQualityOptions = [QualityOption(value: '128', label: '标准', hash: '')];
+      _currentEffectOptions = [];
+      return;
+    }
+    if (hash != null && hash.isNotEmpty) {
+      try {
+        PrivilegeInfo? info = _privilegeCache[hash];
+        if (info == null) {
+          final res = await _musicService.getPrivilegeLite(hash);
+          info = PrivilegeInfo.fromJson(res);
+          if (info.options.isNotEmpty) {
+            _privilegeCache[hash] = info;
+          }
+        }
+        if (info.options.isNotEmpty || info.effectOptions.isNotEmpty) {
+          _currentQualityOptions = info.options;
+          _currentEffectOptions = info.effectOptions;
+          final preferredQuality = _currentQualityKey();
+          final available = info.options.map((o) => o.value).toList();
+          final bestMatch = Quality.fallbackChain(preferredQuality)
+              .firstWhere((q) => available.contains(q), orElse: () => '128');
+          resolvedQualityNotifier.value = bestMatch;
+        }
+      } catch (e) {
+        Log.w('audio_engine', 'precheck privilege failed', e);
+      }
+    }
+  }
+
   /// ─── 核心：构建候选音质列表 ───
   ///
   /// 1. 优先使用 /privilege/lite 获取歌曲可用音质变体（含独立 hash）

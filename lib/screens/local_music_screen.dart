@@ -10,6 +10,7 @@ import '../navidrome/navidrome_provider.dart';
 import '../navidrome/navidrome_login_screen.dart';
 import '../navidrome/navidrome_screen.dart';
 import '../utils/logger.dart';
+import '../widgets/list_bottom_spacer.dart';
 
 class LocalMusicScreen extends StatefulWidget {
   const LocalMusicScreen({super.key});
@@ -162,8 +163,11 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
             _buildToolbar(prov),
             Expanded(
               child: ListView.builder(
-                itemCount: songs.length,
+                itemCount: songs.length + 1,
                 itemBuilder: (_, i) {
+                  if (i == songs.length) {
+                    return const ListBottomSpacer(isHome: false, showText: false);
+                  }
                   final song = songs[i];
                   final currentSongId =
                       context.watch<PlayerProvider>().currentSong?.id;

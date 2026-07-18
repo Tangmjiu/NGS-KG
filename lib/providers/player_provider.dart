@@ -10,8 +10,12 @@ import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:flutter_lyric/core/lyric_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ym_lyric/model/krc_language_model.dart';
+import 'package:ym_lyric/model/krc_lyric_line_model.dart';
+import 'package:ym_lyric/utils/krc_lyric_util.dart';
 import '../utils/logger.dart';
 import '../models/song.dart';
+import '../models/song_mapper.dart';
 import '../utils/palette_extractor.dart';
 import '../services/music_service.dart';
 import '../services/notification_service.dart';
@@ -59,6 +63,44 @@ class PlayerProvider extends ChangeNotifier
   List<Color>? _cachedPaletteColors;
   final LyricController _lyricController = LyricController();
   Color? _backgroundColor;
+
+  // ─── 歌词处理状态 ───
+  bool _lyricLoading = false;
+  Map<int, List<String>> _lyricLangMap = {};
+  List<KrcLyricLineModel>? _krcLines;
+  int _selectedLyricLang = 0;
+  bool _showTranslation = true;
+  String? _lastLoadedHash;
+  int? _lastLoadedSongId;
+
+  // ─── /krm/audio 元数据缓存 ───
+  Map<String, dynamic>? _currentKrmAudio;
+  Map<String, dynamic>? get currentKrmAudio => _currentKrmAudio;
+
+  List<Map<String, dynamic>> get currentSongAuthors {
+    if (_currentKrmAudio == null) return [];
+    final list = _currentKrmAudio!['authors'] as List<dynamic>?;
+    if (list == null) return [];
+    return list.map((e) {
+      if (e is Map) {
+        final base = e['base'] as Map?;
+        return {
+          'id': SongMapper.safeInt(base?['author_id']),
+          'name': base?['author_name'] as String? ?? '',
+        };
+      }
+      return <String, dynamic>{};
+    }).where((e) => e['name'] != null && (e['name'] as String).isNotEmpty).toList();
+  }
+
+  int get currentSongAlbumId {
+    if (_currentKrmAudio != null) {
+      final albumInfo = _currentKrmAudio!['album_info'] as Map?;
+      final aid = SongMapper.safeInt(albumInfo?['album_id'] ?? _currentKrmAudio!['base']?['album_id']);
+      if (aid != null && aid > 0) return aid;
+    }
+    return currentSong?.albumId ?? 0;
+  }
 
   // ─── 歌曲高潮标记 ───
   int? _climaxMs; // 毫秒，当前歌曲的高潮开始时间
@@ -150,6 +192,13 @@ class PlayerProvider extends ChangeNotifier
 
   /// The lyric controller driving the [LyricView] in PlayerScreen.
   LyricController get lyricController => _lyricController;
+
+  bool get lyricLoading => _lyricLoading;
+  Map<int, List<String>> get lyricLangMap => _lyricLangMap;
+  List<KrcLyricLineModel>? get krcLines => _krcLines;
+  int get selectedLyricLang => _selectedLyricLang;
+  bool get showTranslation => _showTranslation;
+  bool get hasLangData => _lyricLangMap.isNotEmpty;
 
   /// Returns all available palette colours for the flowing light effect.
   /// Prefers the quantized [topColors] for richer variety, falls back to
@@ -337,6 +386,7 @@ class PlayerProvider extends ChangeNotifier
       duration: _duration.inSeconds,
       position: _position.inSeconds,
       isBuffering: _engine.isLoading.value,
+      speed: _engine.speed,
     );
     // 同步自定义按钮状态
     _notifyCustomButtons(song.id);
@@ -472,6 +522,17 @@ class PlayerProvider extends ChangeNotifier
       if (savedSpeed != null && savedSpeed > 0) {
         _engine.setSpeed(savedSpeed);
       }
+
+      final current = _queue.currentSong;
+      if (current != null) {
+        // 1. 冷启动立即提取专辑流光和KRM元数据
+        _onSongChanged(current);
+        // 2. 冷启动立即拉取歌词（支持本地内嵌及网络歌词）
+        loadLyricsForSong(current);
+        // 3. 异步预查特权以在播放前同步正确的最高音质级别
+        _engine.precheckPrivilege(current);
+      }
+
       notifyListeners();
     } catch (_) {}
   }
@@ -547,9 +608,13 @@ class PlayerProvider extends ChangeNotifier
     _lyricController.loadLyricModel(LyricModel(lines: []));
     _climaxMs = null;
     _isPlaying = true;
-    // 加载新歌的嵌入歌词
+    
     final nextSong = _queue.currentSong;
-    if (nextSong != null) _loadEmbeddedLyrics(nextSong);
+    if (nextSong != null) {
+      loadLyricsForSong(nextSong);
+      _onSongChanged(nextSong);
+      _engine.precheckPrivilege(nextSong);
+    }
     notifyListeners();
   }
 
@@ -570,6 +635,9 @@ class PlayerProvider extends ChangeNotifier
         _queue.playIndex(_queue.currentIndex + 1);
         final next = _queue.currentSong;
         if (next != null) {
+          loadLyricsForSong(next);
+          _onSongChanged(next);
+          _engine.precheckPrivilege(next);
           _enginePlayWithQuality(next);
           _handlingComplete = false;
           return;
@@ -618,8 +686,14 @@ class PlayerProvider extends ChangeNotifier
     _lastNotifLyricIdx = -1;
     final current = _queue.currentSong;
     if (current == null) return;
-    // Load embedded lyrics (metadata/companion .lrc) immediately
-    _loadEmbeddedLyrics(current);
+
+    // 1. 立即加载新歌歌词（支持本地内嵌及网络）
+    loadLyricsForSong(current);
+    // 2. 立即提取专辑流光和KRM元数据
+    _onSongChanged(current);
+    // 3. 异步预查特权以立刻在 UI 展现最高可用音质
+    _engine.precheckPrivilege(current);
+
     _applyQualityFromSettings();
     _engine.resetForNewSong();
     _isPlaying = true; // ← 立即标记，UI 及时响应
@@ -627,8 +701,6 @@ class PlayerProvider extends ChangeNotifier
     final version = _engine.currentVersion;
     await _engine.play(current, version: version, effectKey: _effectKey);
     _updateNotification();
-    // Extract palette from album art (supports both network and file:// URIs)
-    _extractPaletteFromCover(current);
     // 异步查询高潮时间（不阻塞播放，失败静默）
     _fetchClimax(current);
     // Upload play history via new API
@@ -1042,6 +1114,25 @@ class PlayerProvider extends ChangeNotifier
     }
   }
 
+  Future<void> _loadKrmAudio(Song song) async {
+    _currentKrmAudio = null;
+    final songId = song.mixSongId ?? song.id;
+    if (songId <= 0 || song.isLocal) return;
+
+    try {
+      final data = await _musicService.getKrmAudio(songId);
+      if (data != null && currentSong?.id == song.id) {
+        _currentKrmAudio = data;
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  void _onSongChanged(Song song) {
+    _extractPaletteFromCover(song);
+    _loadKrmAudio(song);
+  }
+
   // ──────────────────────────────────────────────────────────────
   //  Lyric management
   // ──────────────────────────────────────────────────────────────
@@ -1055,9 +1146,194 @@ class PlayerProvider extends ChangeNotifier
 
   /// Clears all lyric state (called when switching to a song without lyrics).
   void clearLyrics() {
+    _lyricLangMap = {};
+    _krcLines = null;
+    _selectedLyricLang = 0;
     _lyricController.loadLyricModel(LyricModel(lines: []));
     notifyListeners();
     _updateNotification();
+  }
+
+  // ─── 歌词自动拉取与转换核心逻辑 ───
+
+  void loadLyricsForSong(Song song) {
+    _lyricLangMap = {};
+    _krcLines = null;
+    _selectedLyricLang = 0;
+
+    // 1. 本地/已嵌入歌词直接加载
+    if (song.lyrics != null && song.lyrics!.isNotEmpty) {
+      _lyricLoading = false;
+      _loadEmbeddedLyrics(song);
+      notifyListeners();
+      return;
+    }
+
+    // 2. 线上歌曲通过 Hash 加载歌词
+    if (song.hash != null) {
+      _lyricLoading = true;
+      notifyListeners();
+      _loadLyrics(song.hash!, songName: song.name);
+    } else {
+      clearLyrics();
+    }
+  }
+
+  Future<void> _loadLyrics(String hash, {String? songName}) async {
+    try {
+      final searchRes =
+          await _musicService.searchLyricByHash(hash, keywords: songName);
+      final data = searchRes['data'] as Map<String, dynamic>? ?? searchRes;
+      final candidates = data['candidates'] as List<dynamic>? ?? [];
+      if (candidates.isNotEmpty) {
+        final c = candidates[0] as Map<String, dynamic>;
+        final id = int.parse(c['id'].toString());
+        final key = c['accesskey'] as String? ?? '';
+
+        // 优先 KRC
+        final krcBytes = await _musicService.fetchKrcContent(id, key);
+        if (krcBytes.isNotEmpty) {
+          try {
+            final krcModel = KrcLyricUtil.parseLyrics(krcBytes);
+            if (krcModel.krcLyricList.isEmpty) throw 'empty krc';
+
+            _lyricLangMap = {};
+            if (krcModel.lyricTag.language != null &&
+                krcModel.lyricTag.language!.isNotEmpty) {
+              try {
+                final langJson = jsonDecode(
+                  utf8.decode(base64Decode(krcModel.lyricTag.language!)),
+                );
+                final krcLang = KrcLanguage.fromJson(langJson);
+                for (final c in krcLang.content) {
+                  _lyricLangMap[c.language] = c.lyricContent
+                      .map((words) => words.join())
+                      .toList();
+                }
+              } catch (e, s) {
+                Log.e('player_provider', 'krc lang parse error', e, s);
+              }
+            }
+
+            _krcLines = krcModel.krcLyricList;
+            _selectedLyricLang = _lyricLangMap.keys.contains(0)
+                ? 0
+                : (_lyricLangMap.keys.firstOrNull ?? 0);
+
+            final transMap = _buildTransMap(_selectedLyricLang);
+            final lines = _buildLyricLines(krcModel.krcLyricList, transMap);
+
+            if (hash == _queue.currentSong?.hash) {
+              _lyricController.loadLyricModel(LyricModel(lines: lines));
+              _updateNotification();
+            }
+            _lyricLoading = false;
+            notifyListeners();
+            return;
+          } catch (e, s) {
+            Log.e('player_provider', 'krc parse error', e, s);
+          }
+        }
+
+        // 降级 LRC
+        final rawContent = await _musicService.fetchLyricContent(id, key);
+        if (rawContent.isNotEmpty) {
+          try {
+            String decoded;
+            try {
+              decoded = utf8.decode(base64Decode(rawContent));
+            } catch (_) {
+              decoded = rawContent;
+            }
+            if (hash == _queue.currentSong?.hash) {
+              _lyricController.loadLyric(decoded);
+              _updateNotification();
+            }
+          } catch (e, s) {
+            Log.e('player_provider', 'lrc parse error', e, s);
+          }
+        }
+      } else {
+        clearLyrics();
+      }
+    } catch (e, s) {
+      Log.e('player_provider', 'lyric load error', e, s);
+    }
+    _lyricLoading = false;
+    notifyListeners();
+  }
+
+  Map<int, String> _buildTransMap(int lang) {
+    final map = <int, String>{};
+    final lines = _lyricLangMap[lang];
+    if (lines == null || _krcLines == null) return map;
+    for (int i = 0; i < _krcLines!.length && i < lines.length; i++) {
+      if (lines[i].isNotEmpty) {
+        map[_krcLines![i].startTime] = lines[i];
+      }
+    }
+    return map;
+  }
+
+  List<LyricLine> _buildLyricLines(
+    List<KrcLyricLineModel> krcLines,
+    Map<int, String> transMap,
+  ) {
+    final result = <LyricLine>[];
+    for (final line in krcLines) {
+      String text;
+      try {
+        text = line.getWordLine();
+      } catch (_) {
+        continue;
+      }
+      if (text.trim().isEmpty) continue;
+
+      final words = <LyricWord>[];
+      if (line.line != null) {
+        final lineStart = line.startTime;
+        for (final w in line.line!) {
+          if (w.word == null || w.word!.isEmpty) continue;
+          final ws = (w.startTime ?? 0) + lineStart;
+          final we = ws + (w.duration ?? 0);
+          words.add(LyricWord(
+            text: w.word!,
+            start: Duration(milliseconds: ws),
+            end: Duration(milliseconds: we),
+          ));
+        }
+      }
+
+      result.add(LyricLine(
+        start: Duration(milliseconds: line.startTime),
+        end: Duration(milliseconds: line.startTime + line.duration),
+        text: text,
+        words: words.isNotEmpty ? words : null,
+        translation: _showTranslation ? transMap[line.startTime] : null,
+      ));
+    }
+    return result;
+  }
+
+  void applyLyricLang(int lang) {
+    if (_krcLines == null || !_lyricLangMap.containsKey(lang)) return;
+    _selectedLyricLang = lang;
+    _showTranslation = true;
+    final transMap = _buildTransMap(lang);
+    final lines = _buildLyricLines(_krcLines!, transMap);
+    _lyricController.loadLyricModel(LyricModel(lines: lines));
+    notifyListeners();
+  }
+
+  void toggleTranslation() {
+    _showTranslation = !_showTranslation;
+    if (_showTranslation) {
+      applyLyricLang(_selectedLyricLang);
+    } else {
+      final lines = _buildLyricLines(_krcLines ?? [], {});
+      _lyricController.loadLyricModel(LyricModel(lines: lines));
+      notifyListeners();
+    }
   }
 
   @override

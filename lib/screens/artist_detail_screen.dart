@@ -262,7 +262,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
             itemCount: _songs.length + 1,
             itemBuilder: (_, i) {
               if (i == _songs.length) {
-                return const ListBottomSpacer(isHome: false);
+                return const ListBottomSpacer(isHome: false, showText: false);
               }
               return M3StaggeredFadeIn(
                 index: i,

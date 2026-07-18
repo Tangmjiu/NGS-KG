@@ -43,10 +43,9 @@ class _AppShellState extends State<AppShell> {
 
         // 判定 Minibar 出现条件：
         // 1. 当前有播放歌曲；
-        // 2. 且全屏播放界面不处于显示状态；
-        // 3. 且非核心专注/引导页面（如登录页 '/login'）
-        final isHiddenRoute = currentRoute == '/login';
-        final showMini = song != null && !player.isPlayerScreenVisible && !isHiddenRoute;
+        // 2. 且非核心专注/全屏播放等隐藏页面（登录页 '/login'、全屏播放页 '/player'）
+        final isHiddenRoute = currentRoute == '/login' || currentRoute == '/player';
+        final showMini = song != null && !isHiddenRoute;
 
         final mq = MediaQuery.of(context);
         final isHome = currentRoute == null || currentRoute == '/' || currentRoute == '';

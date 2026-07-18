@@ -21,56 +21,102 @@ class PlaybackControls extends StatelessWidget {
             return Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                IconButton(
-                  icon: Icon(_modeIcon(player.playMode), size: 22),
-                  tooltip: '播放模式',
-                  color: cs.onSurfaceVariant,
-                  onPressed: _modeCycle(player),
-                ),
-                SizedBox(width: isWide ? 8 : 4),
-                IconButton(
-                  icon: Icon(player.isFmMode
-                      ? Icons.heart_broken_outlined
-                      : Icons.skip_previous, size: 32),
-                  tooltip: player.isFmMode ? '不喜欢' : '上一首',
-                  onPressed: player.playPrevious,
-                ),
-                SizedBox(width: isWide ? 16 : 8),
-                SizedBox(
-                  width: 56,
-                  height: 56,
-                  child: FloatingActionButton(
-                    heroTag: 'playPause',
-                    onPressed: player.togglePlayPause,
-                    child: AnimatedSwitcher(
-                      duration: AppMotion.dShort4,
-                      switchInCurve: AppMotion.emphasizedDecelerate,
-                      switchOutCurve: AppMotion.emphasizedAccelerate,
-                      transitionBuilder: (child, animation) {
-                        return ScaleTransition(scale: animation, child: child);
-                      },
-                      child: Icon(
-                        key: ValueKey(player.isPlaying),
-                        player.isPlaying
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded,
-                        size: 32,
-                      ),
+                M3PressScale(
+                  child: IconButton(
+                    icon: Icon(_modeIcon(player.playMode), size: 24),
+                    tooltip: '播放模式',
+                    color: cs.onSurfaceVariant,
+                    onPressed: _modeCycle(player),
+                    style: IconButton.styleFrom(
+                      padding: const EdgeInsets.all(12),
                     ),
                   ),
                 ),
                 SizedBox(width: isWide ? 16 : 8),
-                IconButton(
-                  icon: const Icon(Icons.skip_next, size: 32),
-                  tooltip: '下一首',
-                  onPressed: player.playNext,
+                M3PressScale(
+                  child: IconButton(
+                    icon: Icon(
+                      player.isFmMode ? Icons.heart_broken_outlined : Icons.skip_previous_rounded,
+                      size: 36,
+                    ),
+                    tooltip: player.isFmMode ? '不喜欢' : '上一首',
+                    color: cs.onSurface,
+                    onPressed: player.playPrevious,
+                    style: IconButton.styleFrom(
+                      padding: const EdgeInsets.all(16),
+                      backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                    ),
+                  ),
                 ),
-                SizedBox(width: isWide ? 8 : 4),
-                IconButton(
-                  icon: const Icon(Icons.playlist_play, size: 22),
-                  tooltip: '播放列表',
-                  color: cs.onSurfaceVariant,
-                  onPressed: () => showPlaylistStatic(context, player),
+                SizedBox(width: isWide ? 24 : 16),
+                M3PressScale(
+                  scaleDown: 0.92, // 更强烈的按压下沉反馈
+                  child: AnimatedContainer(
+                    duration: AppMotion.dShort4,
+                    curve: AppMotion.emphasized,
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer,
+                      borderRadius: BorderRadius.circular(player.isPlaying ? 28 : 44),
+                      boxShadow: [
+                        BoxShadow(
+                          color: cs.primary.withValues(alpha: 0.2),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        )
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: player.togglePlayPause,
+                        borderRadius: BorderRadius.circular(player.isPlaying ? 28 : 44),
+                        child: AnimatedSwitcher(
+                          duration: AppMotion.dShort4,
+                          switchInCurve: AppMotion.emphasizedDecelerate,
+                          switchOutCurve: AppMotion.emphasizedAccelerate,
+                          transitionBuilder: (child, animation) {
+                            return ScaleTransition(
+                              scale: animation,
+                              child: FadeTransition(opacity: animation, child: child),
+                            );
+                          },
+                          child: Icon(
+                            key: ValueKey(player.isPlaying),
+                            player.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                            size: 40,
+                            color: cs.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: isWide ? 24 : 16),
+                M3PressScale(
+                  child: IconButton(
+                    icon: const Icon(Icons.skip_next_rounded, size: 36),
+                    tooltip: '下一首',
+                    color: cs.onSurface,
+                    onPressed: player.playNext,
+                    style: IconButton.styleFrom(
+                      padding: const EdgeInsets.all(16),
+                      backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+                SizedBox(width: isWide ? 16 : 8),
+                M3PressScale(
+                  child: IconButton(
+                    icon: const Icon(Icons.playlist_play_rounded, size: 24),
+                    tooltip: '播放列表',
+                    color: cs.onSurfaceVariant,
+                    onPressed: () => showPlaylistStatic(context, player),
+                    style: IconButton.styleFrom(
+                      padding: const EdgeInsets.all(12),
+                    ),
+                  ),
                 ),
               ],
             );

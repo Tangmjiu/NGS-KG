@@ -60,6 +60,16 @@ class _SearchScreenState extends State<SearchScreen>
     _tabController.addListener(_onTabChanged);
     _loadHotSearch();
     _loadRanks();
+
+    // ── 检查并处理预设搜索词 ──
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is String && args.isNotEmpty) {
+        _searchCtrl.text = args;
+        _doSearch(args);
+      }
+    });
   }
 
   @override
@@ -168,6 +178,13 @@ class _SearchScreenState extends State<SearchScreen>
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    final searchBg = Color.alphaBlend(
+      cs.onSurface.withValues(alpha: isDark ? 0.08 : 0.05),
+      cs.surface,
+    );
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -176,43 +193,65 @@ class _SearchScreenState extends State<SearchScreen>
         title: Container(
           height: 40,
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHigh,
+            color: searchBg,
             borderRadius: AppShape.full,
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: TextField(
-            controller: _searchCtrl,
-            focusNode: _focusNode,
-            autofocus: false,
-            decoration: InputDecoration(
-              hintText: '搜索歌曲、歌单、歌手...',
-              border: InputBorder.none,
-              filled: false,
-              isCollapsed: true,
-              contentPadding: const EdgeInsets.symmetric(vertical: 10),
-              prefixIcon: Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: Icon(Icons.search, size: 20,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+          child: Row(
+            children: [
+              Icon(
+                Icons.search,
+                size: 20,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              suffixIcon: _searchCtrl.text.isNotEmpty
-                  ? SizedBox(
-                      width: 28,
-                      child: IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        tooltip: '清除',
-                        onPressed: () {
-                          _searchCtrl.clear();
-                          _onSearchChanged('');
-                        },
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _searchCtrl,
+                  focusNode: _focusNode,
+                  autofocus: false,
+                  textAlignVertical: TextAlignVertical.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontSize: 14,
                       ),
-                    )
-                  : null,
-            ),
-            onChanged: _onSearchChanged,
-            onSubmitted: _doSearch,
+                  decoration: InputDecoration(
+                    hintText: '搜索歌曲、歌单、歌手...',
+                    hintStyle: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      fontSize: 14,
+                    ),
+                    border: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    isCollapsed: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  onChanged: _onSearchChanged,
+                  onSubmitted: _doSearch,
+                ),
+              ),
+              if (_searchCtrl.text.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(100),
+                    onTap: () {
+                      _searchCtrl.clear();
+                      _onSearchChanged('');
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Icon(
+                        Icons.clear,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
         bottom: _showResult
@@ -437,7 +476,7 @@ class _SearchScreenState extends State<SearchScreen>
       itemCount: _songs.length + 1,
       itemBuilder: (_, i) {
         if (i == _songs.length) {
-          return const ListBottomSpacer(isHome: false);
+          return const ListBottomSpacer(isHome: false, showText: false);
         }
         return M3StaggeredFadeIn(
           index: i,
@@ -460,7 +499,7 @@ class _SearchScreenState extends State<SearchScreen>
       itemCount: _playlists.length + 1,
       itemBuilder: (_, i) {
         if (i == _playlists.length) {
-          return const ListBottomSpacer(isHome: false);
+          return const ListBottomSpacer(isHome: false, showText: false);
         }
         final p = _playlists[i];
         final name = p['specialname'] as String? ?? p['name'] as String? ?? '';
@@ -514,8 +553,11 @@ class _SearchScreenState extends State<SearchScreen>
       return _emptyResult('未找到专辑');
     }
     return ListView.builder(
-      itemCount: _albums.length,
+      itemCount: _albums.length + 1,
       itemBuilder: (_, i) {
+        if (i == _albums.length) {
+          return const ListBottomSpacer(isHome: false, showText: false);
+        }
         final a = _albums[i];
         final name = a['albumname'] as String? ?? '';
         final img = a['imgurl'] as String? ?? a['img'] as String? ?? '';
@@ -556,8 +598,11 @@ class _SearchScreenState extends State<SearchScreen>
       return _emptyResult('未找到歌手');
     }
     return ListView.builder(
-      itemCount: _artists.length,
+      itemCount: _artists.length + 1,
       itemBuilder: (_, i) {
+        if (i == _artists.length) {
+          return const ListBottomSpacer(isHome: false, showText: false);
+        }
         final a = _artists[i];
         final name = a['AuthorName'] as String? ?? a['singername'] as String? ?? a['name'] as String? ?? '';
         final img = a['Avatar'] as String? ?? a['imgurl'] as String? ?? a['img'] as String? ?? '';
@@ -634,8 +679,11 @@ class _SearchScreenState extends State<SearchScreen>
       return _emptyResult('未找到歌词');
     }
     return ListView.builder(
-      itemCount: _lyrics.length,
+      itemCount: _lyrics.length + 1,
       itemBuilder: (_, i) {
+        if (i == _lyrics.length) {
+          return const ListBottomSpacer(isHome: false, showText: false);
+        }
         final l = _lyrics[i];
         final songName = l['SongName'] as String? ?? l['songname'] as String? ?? '';
         final artist = l['SingerName'] as String? ?? l['singername'] as String? ?? '';

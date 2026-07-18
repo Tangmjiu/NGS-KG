@@ -365,7 +365,7 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
                   itemCount: _songs.length + 1,
                   itemBuilder: (_, i) {
                     if (i == _songs.length) {
-                      return const ListBottomSpacer(isHome: false);
+                      return const ListBottomSpacer(isHome: false, showText: false);
                     }
                     final song = _songs[i];
                     return SongTile(

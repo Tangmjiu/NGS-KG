@@ -318,7 +318,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
               ),
             ),
           const SliverToBoxAdapter(
-            child: ListBottomSpacer(isHome: false),
+            child: ListBottomSpacer(isHome: false, showText: false),
           ),
         ],
       ),

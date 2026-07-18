@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
+import '../providers/player_provider.dart';
 import '../models/song.dart';
 import '../theme/theme_assets.dart';
 import '../utils/theme.dart';
 import 'hi_res_badge.dart';
 
-/// Enhanced album cover art widget with glassmorphism shadow and
-/// scroll-driven crossfade for the Apple Music-style player.
+/// Enhanced album cover art widget with glassmorphism shadow,
+/// expressive MD3E scaling (shrinks when paused), and M3PressScale.
 class PlayerCoverArt extends StatelessWidget {
   final Song song;
   final double scrollOffset; // 0.0 = fully visible, 1.0 = lyrics page
@@ -22,9 +24,13 @@ class PlayerCoverArt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isPlaying = context.watch<PlayerProvider>().isPlaying;
+    
     return LayoutBuilder(
       builder: (context, constraints) {
-        final size = (constraints.maxWidth * 0.78).clamp(200.0, 400.0);
+        final baseSize = (constraints.maxWidth * 0.78).clamp(200.0, 400.0);
+        // 核心交互：播放时展开至 1.0，暂停时收缩至 0.85
+        final playScale = isPlaying ? 1.0 : 0.85;
 
         return Center(
           child: AnimatedOpacity(
@@ -32,34 +38,39 @@ class PlayerCoverArt extends StatelessWidget {
             curve: AppMotion.emphasized,
             opacity: (1.0 - scrollOffset * 2.0).clamp(0.0, 1.0),
             child: Transform.scale(
-              scale: 1.0 - scrollOffset * 0.2,
-              child: Hero(
-                tag: 'album_art_${song.hash ?? song.id}',
-                child: Container(
-                  width: size,
-                  height: size,
-                  decoration: BoxDecoration(
-                    borderRadius: AppShape.md,
-                    border: Border.all(
-                      color: cs.onSurface.withValues(alpha: 0.15),
-                      width: 1,
+              scale: 1.0 - scrollOffset * 0.2, // 歌词滚动时的额外缩小
+              child: M3PressScale(
+                scaleDown: 0.95, // 用户手动按压封面的阻尼
+                child: Hero(
+                  tag: 'album_art_${song.hash ?? song.id}',
+                  child: AnimatedContainer(
+                    duration: AppMotion.dMedium1, // 使用中等时长使展开收缩有物理弹性
+                    curve: AppMotion.emphasized,
+                    width: baseSize * playScale,
+                    height: baseSize * playScale,
+                    decoration: BoxDecoration(
+                      borderRadius: AppShape.md,
+                      border: Border.all(
+                        color: cs.onSurface.withValues(alpha: 0.15),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        // 播放时阴影向外扩张且加深，暂停时内敛柔和
+                        BoxShadow(
+                          color: cs.scrim.withValues(alpha: isPlaying ? 0.5 : 0.2),
+                          blurRadius: isPlaying ? 30 : 15,
+                          offset: Offset(0, isPlaying ? 15 : 8),
+                          spreadRadius: isPlaying ? 5 : 0,
+                        ),
+                        BoxShadow(
+                          color: cs.scrim.withValues(alpha: isPlaying ? 0.3 : 0.1),
+                          blurRadius: isPlaying ? 60 : 30,
+                          offset: Offset(0, isPlaying ? 30 : 15),
+                          spreadRadius: isPlaying ? 10 : 2,
+                        ),
+                      ],
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: cs.scrim.withValues(alpha: 0.5),
-                        blurRadius: 30,
-                        offset: const Offset(0, 15),
-                        spreadRadius: 5,
-                      ),
-                      BoxShadow(
-                        color: cs.scrim.withValues(alpha: 0.3),
-                        blurRadius: 60,
-                        offset: const Offset(0, 30),
-                        spreadRadius: 10,
-                      ),
-                    ],
-                  ),
-                  child: Stack(
+                    child: Stack(
                     clipBehavior: Clip.hardEdge,
                     children: [
                       ClipRRect(
@@ -71,17 +82,17 @@ class PlayerCoverArt extends StatelessWidget {
                                   song.albumCoverUrl!.isNotEmpty
                               ? CachedNetworkImage(
                                   imageUrl: song.albumCoverUrl!,
-                                  width: size,
-                                  height: size,
+                                  width: baseSize * playScale,
+                                  height: baseSize * playScale,
                                   fit: BoxFit.cover,
-                                  placeholder: (_, __) => _fallback(size),
-                                  errorWidget: (_, __, ___) => _fallback(size),
+                                  placeholder: (_, __) => _fallback(baseSize * playScale),
+                                  errorWidget: (_, __, ___) => _fallback(baseSize * playScale),
                                 )
-                              : _fallback(size),
+                              : _fallback(baseSize * playScale),
                         ),
                       ),
                       if (showHiRes)
-                        Positioned(
+                        const Positioned(
                           left: 4,
                           bottom: 8,
                           child: HiResBadge(height: 28),
@@ -92,7 +103,7 @@ class PlayerCoverArt extends StatelessWidget {
               ),
             ),
           ),
-        );
+        ));
       },
     );
   }

@@ -6,6 +6,7 @@ import '../providers/player_provider.dart';
 import '../widgets/local_cover_art.dart';
 import 'navidrome_provider.dart';
 import 'navidrome_models.dart';
+import '../widgets/list_bottom_spacer.dart';
 
 /// A 3-level browse screen for Navidrome music:
 /// artists → albums → songs, with search and breadcrumb navigation.
@@ -192,8 +193,11 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      itemCount: prov.artists.length,
+      itemCount: prov.artists.length + 1,
       itemBuilder: (_, i) {
+        if (i == prov.artists.length) {
+          return const ListBottomSpacer(isHome: false, showText: false);
+        }
         final artist = prov.artists[i];
         return _ArtistTile(
           artist: artist,
@@ -226,8 +230,13 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
       );
     }
 
+    final player = context.watch<PlayerProvider>();
+    final song = player.currentSong;
+    final showMini = song != null && !player.isPlayerScreenVisible;
+    final double extraBottomPadding = showMini ? 92.0 : 24.0;
+
     return GridView.builder(
-      padding: const EdgeInsets.all(8),
+      padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: extraBottomPadding),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         childAspectRatio: 0.85,
@@ -275,8 +284,11 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      itemCount: songs.length,
+      itemCount: songs.length + 1,
       itemBuilder: (_, i) {
+        if (i == songs.length) {
+          return const ListBottomSpacer(isHome: false, showText: false);
+        }
         final song = songs[i];
         final isCurrent = song.id == currentSongId;
         return ListTile(

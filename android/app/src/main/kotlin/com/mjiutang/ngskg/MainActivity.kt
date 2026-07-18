@@ -109,7 +109,8 @@ class MainActivity : FlutterActivity() {
                     val isPlaying = call.argument<Boolean>("isPlaying") ?: false
                     val positionSec = (call.argument<Number>("position")?.toLong() ?: 0L)
                     val isBuffering = call.argument<Boolean>("isBuffering") ?: false
-                    svc.updatePlaybackState(isPlaying, positionSec, isBuffering)
+                    val speed = (call.argument<Number>("speed")?.toFloat() ?: 1.0f)
+                    svc.updatePlaybackState(isPlaying, positionSec, isBuffering, speed)
                     result.success(null)
                 }
                 "updateCustomButtons" -> {

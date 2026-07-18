@@ -9,6 +9,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.session.MediaSession
@@ -59,6 +60,7 @@ class PlaybackService : android.app.Service() {
     private lateinit var mediaSession: MediaSession
     private lateinit var notificationManager: NotificationManager
     private var cachedArt: Bitmap? = null
+    private var cachedArtUrl: String? = null
     private var scope = CoroutineScope(Dispatchers.IO + Job())
 
     // ─── 状态缓存 ───
@@ -71,6 +73,7 @@ class PlaybackService : android.app.Service() {
     private var isCurrentlyBuffering: Boolean = false
     private var isLiked: Boolean = false
     private var playModeLabel: String = "sequential"  // sequential | shuffle | repeatOne
+    private var currentSpeed: Float = 1.0f
 
     // ─── Flutter 回调（由 MainActivity 设置） ───
     var onPrev: (() -> Unit)? = null
@@ -96,7 +99,16 @@ class PlaybackService : android.app.Service() {
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         createChannel()
         setupMediaSession()
-        startForeground(NOTIF_ID, buildNotification(isPlaying = false))
+        val initialNotif = buildNotification(isPlaying = false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                NOTIF_ID,
+                initialNotif,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+            )
+        } else {
+            startForeground(NOTIF_ID, initialNotif)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -173,17 +185,25 @@ class PlaybackService : android.app.Service() {
 
         // 异步加载封面（避免主线程 ANR）
         if (albumArtUrl != null) {
-            scope.launch {
-                try {
-                    val u = URL(albumArtUrl.replace("{size}", "480"))
-                    cachedArt = BitmapFactory.decodeStream(u.openStream())
-                    pushMetadata()
-                } catch (_: Exception) {
-                    cachedArt = null
-                    pushMetadata()
+            val finalUrl = albumArtUrl.replace("{size}", "480")
+            if (cachedArtUrl == finalUrl && cachedArt != null) {
+                // 封面 URL 没变且已有 Bitmap，直接更新元数据，避免高频网络请求和内存抖动
+                pushMetadata()
+            } else {
+                cachedArtUrl = finalUrl
+                scope.launch {
+                    try {
+                        val u = URL(finalUrl)
+                        cachedArt = BitmapFactory.decodeStream(u.openStream())
+                        pushMetadata()
+                    } catch (_: Exception) {
+                        cachedArt = null
+                        pushMetadata()
+                    }
                 }
             }
         } else {
+            cachedArtUrl = null
             cachedArt = null
             pushMetadata()
         }
@@ -192,13 +212,14 @@ class PlaybackService : android.app.Service() {
     fun updatePlaybackState(
         isPlaying: Boolean,
         positionSec: Long,       // 秒
-        isBuffering: Boolean = false
+        isBuffering: Boolean = false,
+        speed: Float = 1.0f
     ) {
         isCurrentlyPlaying = isPlaying
         currentPosition = positionSec * 1000L
         isCurrentlyBuffering = isBuffering
+        currentSpeed = speed
         pushPlaybackState()
-        updateNotification()
     }
 
     fun updateCustomButtons(
@@ -266,7 +287,7 @@ class PlaybackService : android.app.Service() {
 
         val pbs = PlaybackState.Builder()
             .setActions(actions)
-            .setState(state, currentPosition, 1.0f)
+            .setState(state, currentPosition, currentSpeed)
             .setExtras(extras)
             .build()
         mediaSession.setPlaybackState(pbs)
@@ -305,28 +326,25 @@ class PlaybackService : android.app.Service() {
                        else android.R.drawable.ic_media_play
         val playText = if (isPlaying) "暂停" else "播放"
 
-        // 通知：有歌词时标题显示歌词，正文显示"歌名 - 歌手"
-        // 这样 Media3 系统控件的大字是歌词，小字是歌曲信息
+        // 规范化媒体通知栏设计：
+        // 标题 (ContentTitle) 坚如磐石，永远展示当前歌名；
+        // 文本 (ContentText) 展示歌手名字，不再因为高频滚动歌词导致通知栏闪烁/错乱；
+        // 歌词只在 SubText (副标题) 中以辅助文字淡色展示，既有功能性又不破坏原生设计。
+        val displayTitle = currentTitle
+        val displayContent = currentArtist
         val lyricDisplay = currentLyricDisplay()
-        val displayTitle = lyricDisplay ?: currentTitle
-        val displayContent = if (lyricDisplay != null) {
-            "$currentTitle - $currentArtist"
-        } else {
-            currentArtist
-        }
 
         // Android 12+: 原生 MediaStyle API
-        // 注意：setSubText 在 Android 12+ 系统媒体通知模板中不显示，
-        // 歌词必须放在 setContentText 中才能在所有版本可见
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val style = Notification.MediaStyle()
                 .setMediaSession(mediaSession.sessionToken)
                 .setShowActionsInCompactView(0, 1, 2)
 
             return Notification.Builder(this, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_media_play)
+                .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(displayTitle)
                 .setContentText(displayContent)
+                .setSubText(lyricDisplay)
                 .setLargeIcon(cachedArt)
                 .setContentIntent(openPi)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
@@ -337,14 +355,15 @@ class PlaybackService : android.app.Service() {
                 .addAction(android.R.drawable.ic_media_next, "下一首", nextPi)
                 .build()
         } else {
-            // Android < 12: 兼容模式（仅 3 按钮，无自定义图标库）
+            // Android < 12: 兼容模式
             val style = androidx.media.app.NotificationCompat.MediaStyle()
                 .setShowActionsInCompactView(0, 1, 2)
 
             return NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_media_play)
+                .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(displayTitle)
                 .setContentText(displayContent)
+                .setSubText(lyricDisplay)
                 .setLargeIcon(cachedArt)
                 .setContentIntent(openPi)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -358,8 +377,27 @@ class PlaybackService : android.app.Service() {
     }
 
     private fun updateNotification() {
+        val active = isCurrentlyPlaying || isCurrentlyBuffering
         val n = buildNotification(isCurrentlyPlaying)
-        notificationManager.notify(NOTIF_ID, n)
+        if (active) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    NOTIF_ID,
+                    n,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                )
+            } else {
+                startForeground(NOTIF_ID, n)
+            }
+        } else {
+            notificationManager.notify(NOTIF_ID, n)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_DETACH)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(false)
+            }
+        }
     }
 
     fun exitService() {
