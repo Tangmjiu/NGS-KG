@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import '../models/local_song.dart';
 import '../models/song.dart';
 import '../services/local_music_service.dart';
 import '../services/metadata_reader.dart';
@@ -9,9 +8,9 @@ class LocalMusicProvider extends ChangeNotifier {
   final LocalMusicService _service = LocalMusicService();
 
   // State
-  List<LocalSong> _songs = [];
-  List<LocalSong> get songs => _filteredSongs;
-  List<LocalSong> _filteredSongs = [];
+  List<Song> _songs = [];
+  List<Song> get songs => _filteredSongs;
+  List<Song> _filteredSongs = [];
 
   bool _isScanning = false;
   bool get isScanning => _isScanning;
@@ -40,7 +39,7 @@ class LocalMusicProvider extends ChangeNotifier {
     if (_isScanning) return;
     _isScanning = true;
     _error = null;
-    _status = '正在扫描...';
+    _status = '正在加载...';
     notifyListeners();
     try {
       final songs = await _service.scanMusic();
@@ -48,7 +47,7 @@ class LocalMusicProvider extends ChangeNotifier {
       final seen = <String>{};
       _songs = [];
       for (final s in songs) {
-        if (seen.add(s.filePath)) _songs.add(s);
+        if (seen.add(s.filePath!)) _songs.add(s);
       }
       _scanned = true;
       _applyFilterAndSort();
@@ -60,12 +59,36 @@ class LocalMusicProvider extends ChangeNotifier {
     }
     _isScanning = false;
     notifyListeners();
+
+    // 后台增量扫描（不阻塞）
+    _rescanInBackground();
   }
 
-  /// 按需加载嵌入封面和歌词（非阻塞）。
+  /// 后台增量扫描，发现差异后静默刷新列表。
+  Future<void> _rescanInBackground() async {
+    try {
+      final diffCount = await _service.rescanIncremental(_songs);
+      if (diffCount > 0) {
+        final updated = await _service.loadFromCache();
+        final seen = <String>{};
+        _songs = [];
+        for (final s in updated) {
+          if (seen.add(s.filePath!)) _songs.add(s);
+        }
+        _applyFilterAndSort();
+        _status = _songs.isEmpty ? '未找到本地音乐' : '找到 ${_songs.length} 首';
+        notifyListeners();
+      }
+    } catch (_) {
+      // 静默失败，不影响用户
+    }
+  }
+
+  /// 按需加载嵌入封面和歌词（必须 await）。
   ///
-  /// 当用户点击歌曲或进入播放器时调用，读取完整封面并缓存到磁盘。
-  Future<void> loadDeferredMetadata(LocalSong song) async {
+  /// 当用户点击歌曲时调用，读取完整内嵌封面并缓存到磁盘，
+  /// 然后原地更新 _songs 中的条目。
+  Future<void> loadDeferredMetadata(Song song) async {
     final meta = await MetadataReader.readDeferred(song);
     if (meta == null) return;
 
@@ -73,23 +96,30 @@ class LocalMusicProvider extends ChangeNotifier {
     final idx = _songs.indexWhere((s) => s.filePath == song.filePath);
     if (idx == -1) return;
 
-    // 使用 MMR 返回的数据构建更新后的 LocalSong
     final coverPath = meta.albumCoverCachePath ??
-        await MetadataReader.cachedCoverPath(song.filePath) ??
-        song.albumCoverPath;
+        await MetadataReader.cachedCoverPath(song.filePath!) ??
+        song.albumCoverUrl;
 
-    final updated = LocalSong(
-      title: song.title,
-      artist: song.artist,
-      album: song.album,
-      filePath: song.filePath,
-      mediaStoreId: song.mediaStoreId,
-      size: song.size,
-      duration: meta.durationMs > 0 ? (meta.durationMs / 1000).round() : song.duration,
-      bitrate: meta.bitrate ?? song.bitrate,
-      codec: song.codec,
-      lyrics: meta.lyrics ?? song.lyrics,
-      albumCoverPath: coverPath,
+    final old = _songs[idx];
+    final updated = Song(
+      id: old.id,
+      name: old.name,
+      artists: (meta.artist != null && meta.artist!.isNotEmpty)
+          ? [meta.artist!]
+          : old.artists,
+      albumName: meta.album ?? old.albumName,
+      albumCoverUrl: coverPath != null && coverPath.startsWith('/')
+          ? Uri.file(coverPath).toString()
+          : (coverPath ?? old.albumCoverUrl),
+      filePath: old.filePath,
+      duration: meta.durationMs > 0 ? (meta.durationMs / 1000).round() : old.duration,
+      coverData: meta.albumArt,
+      mediaStoreId: old.mediaStoreId,
+      size: old.size,
+      bitrate: meta.bitrate ?? old.bitrate,
+      codec: old.codec,
+      lyrics: meta.lyrics ?? old.lyrics,
+      qualities: old.qualities,
     );
 
     _songs[idx] = updated;
@@ -118,63 +148,111 @@ class LocalMusicProvider extends ChangeNotifier {
     var result = _songs.where((s) {
       if (_searchQuery.isEmpty) return true;
       final q = _searchQuery.toLowerCase();
-      return s.displayName.toLowerCase().contains(q) ||
-          (s.artist?.toLowerCase().contains(q) ?? false) ||
-          (s.album?.toLowerCase().contains(q) ?? false);
-    }).toList();
+      final artist = s.artists.isNotEmpty ? s.artists.first : '';
+      return s.name.toLowerCase().contains(q) ||
+          artist.toLowerCase().contains(q) ||
+          (s.albumName?.toLowerCase().contains(q) ?? false);
+      }).toList();
 
-    result.sort((a, b) {
-      int cmp;
-      switch (_sortField) {
-        case 'artist':
-          cmp = (a.artist ?? '').compareTo(b.artist ?? '');
-          break;
-        case 'album':
-          cmp = (a.album ?? '').compareTo(b.album ?? '');
-          break;
-        case 'duration':
-          cmp = a.duration.compareTo(b.duration);
-          break;
-        default: // 'title'
-          cmp = a.displayName.compareTo(b.displayName);
-      }
-      return _sortAscending ? cmp : -cmp;
-    });
+      result.sort((a, b) {
+        int cmp;
+        switch (_sortField) {
+          case 'artist':
+            final artistA = a.artists.isNotEmpty ? a.artists.first : '';
+            final artistB = b.artists.isNotEmpty ? b.artists.first : '';
+            cmp = artistA.compareTo(artistB);
+            break;
+          case 'album':
+            cmp = (a.albumName ?? '').compareTo(b.albumName ?? '');
+            break;
+          case 'duration':
+            cmp = a.duration.compareTo(b.duration);
+            break;
+          default: // 'title'
+            cmp = a.name.compareTo(b.name);
+        }
+        return _sortAscending ? cmp : -cmp;
+      });
 
     _filteredSongs = result;
   }
 
-  static Map<String, String> _buildQualityMap(LocalSong s) {
-    final q = <String, String>{};
-    if (s.codec == 'FLAC' || s.codec == 'WAV') {
-      q['flac'] = s.filePath;
-    } else if (s.bitrate != null && s.bitrate! >= 320) {
-      q['320'] = s.filePath;
-    } else {
-      q['128'] = s.filePath;
+  // ── Grouped views ──
+
+  /// 按专辑分组（用于分 Tab 浏览）。
+  /// 返回排序后的 Entry 列表，每个 Entry 含专辑名、封面、歌曲列表。
+  List<LocalGroupEntry> groupedByAlbum() {
+    final map = <String, List<Song>>{};
+    for (final s in _songs) {
+      final key = s.albumName ?? '未知专辑';
+      map.putIfAbsent(key, () => []).add(s);
     }
-    return q;
+    final list = map.entries
+        .map((e) => LocalGroupEntry(
+              title: e.key,
+              count: e.value.length,
+              songs: e.value,
+              thumbnail: _findThumbnail(e.value),
+            ))
+        .toList();
+    list.sort((a, b) => a.title.compareTo(b.title));
+    return list;
   }
 
-  static Song localSongToSong(LocalSong s) {
-    return Song(
-      // 负数空间避免与在线歌曲 ID（始终为正）冲突
-      id: -(s.mediaStoreId ?? s.filePath.hashCode),
-      name: s.displayName,
-      artists: [s.artist ?? '本地音乐'],
-      albumName: s.album,
-      albumCoverUrl: s.albumCoverPath != null
-          ? Uri.file(s.albumCoverPath!).toString()
-          : null,
-      coverData: null, // 改为按需加载（见 loadDeferredMetadata）
-      filePath: s.filePath,
-      duration: s.duration,
-      qualities: _buildQualityMap(s),
-      lyrics: s.lyrics,
-    );
+  /// 按歌手分组。
+  List<LocalGroupEntry> groupedByArtist() {
+    final map = <String, List<Song>>{};
+    for (final s in _songs) {
+      final key = s.artists.isNotEmpty ? s.artists.first : '未知歌手';
+      map.putIfAbsent(key, () => []).add(s);
+    }
+    final list = map.entries
+        .map((e) => LocalGroupEntry(
+              title: e.key,
+              count: e.value.length,
+              songs: e.value,
+              thumbnail: _findThumbnail(e.value),
+            ))
+        .toList();
+    list.sort((a, b) => a.title.compareTo(b.title));
+    return list;
   }
 
-  List<Song> toSongList() => _filteredSongs.map(localSongToSong).toList();
+  /// 按文件夹分组（截取父目录名）。
+  List<LocalGroupEntry> groupedByFolder() {
+    final map = <String, List<Song>>{};
+    for (final s in _songs) {
+      final fp = s.filePath;
+      if (fp == null) continue;
+      final parent = fp.contains('/')
+          ? fp.substring(0, fp.lastIndexOf('/'))
+          : '/';
+      final folderName = parent.contains('/')
+          ? parent.substring(parent.lastIndexOf('/') + 1)
+          : parent;
+      final key = folderName.isEmpty ? '根目录' : folderName;
+      map.putIfAbsent(key, () => []).add(s);
+    }
+    final list = map.entries
+        .map((e) => LocalGroupEntry(
+              title: e.key,
+              count: e.value.length,
+              songs: e.value,
+              thumbnail: _findThumbnail(e.value),
+            ))
+        .toList();
+    list.sort((a, b) => a.title.compareTo(b.title));
+    return list;
+  }
+
+  static String? _findThumbnail(List<Song> songs) {
+    for (final s in songs) {
+      if (s.albumCoverUrl != null && s.albumCoverUrl!.isNotEmpty) {
+        return s.albumCoverUrl;
+      }
+    }
+    return null;
+  }
 
   // ── Directory management ──
 
@@ -189,4 +267,19 @@ class LocalMusicProvider extends ChangeNotifier {
     await _service.removeSearchDir(path);
     await scanMusic();
   }
+}
+
+/// 分组条目：用于按专辑/歌手/文件夹浏览本地音乐。
+class LocalGroupEntry {
+  final String title;
+  final int count;
+  final List<Song> songs;
+  final String? thumbnail;
+
+  const LocalGroupEntry({
+    required this.title,
+    required this.count,
+    required this.songs,
+    this.thumbnail,
+  });
 }

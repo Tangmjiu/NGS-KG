@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
@@ -61,19 +62,40 @@ class PlayerCoverArt extends StatelessWidget {
                               child: Semantics(
                                 image: true,
                                 label: '${song.name} 专辑封面',
-                                child: song.albumCoverUrl != null &&
-                                        song.albumCoverUrl!.isNotEmpty
-                                    ? CachedNetworkImage(
-                                        imageUrl: song.albumCoverUrl!,
-                                        width: baseSize,
-                                        height: baseSize,
-                                        fit: BoxFit.cover,
-                                        placeholder: (_, __) =>
-                                            _fallback(baseSize),
-                                        errorWidget: (_, __, ___) =>
-                                            _fallback(baseSize),
-                                      )
-                                    : _fallback(baseSize),
+                                child: Builder(
+                                        builder: (_) {
+                                          final url = song.albumCoverUrl;
+                                          if (url == null || url.isEmpty) {
+                                            return _fallback(baseSize);
+                                          }
+                                          // 本地文件：file:// URI 或裸路径
+                                          if (url.startsWith('file:') || url.startsWith('/')) {
+                                            final path = url.startsWith('file:')
+                                                ? Uri.parse(url).toFilePath()
+                                                : url;
+                                            final file = File(path);
+                                            if (file.existsSync()) {
+                                              return Image.file(
+                                                file,
+                                                width: baseSize,
+                                                height: baseSize,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (_, __, ___) => _fallback(baseSize),
+                                              );
+                                            }
+                                            return _fallback(baseSize);
+                                          }
+                                          // 网络 URL → 使用缓存加载
+                                          return CachedNetworkImage(
+                                            imageUrl: url,
+                                            width: baseSize,
+                                            height: baseSize,
+                                            fit: BoxFit.cover,
+                                            placeholder: (_, __) => _fallback(baseSize),
+                                            errorWidget: (_, __, ___) => _fallback(baseSize),
+                                          );
+                                        },
+                                      ),
                               ),
                             ),
                             if (showHiRes)

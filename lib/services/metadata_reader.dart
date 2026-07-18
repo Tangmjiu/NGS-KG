@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import '../models/local_song.dart';
+import '../models/song.dart';
 import '../utils/logger.dart';
 
 /// Reads audio file metadata using platform-specific APIs.
@@ -33,14 +33,16 @@ class MetadataReader {
     }
   }
 
-  /// On-demand read for a single [LocalSong].
+  /// On-demand read for a single [Song] (local file).
   ///
   /// Caches cover art to disk and lyrics to memory.  Returns the same
   /// [AudioMetadata] on subsequent calls (once per session).
-  static Future<AudioMetadata?> readDeferred(LocalSong song) async {
-    if (_cache.containsKey(song.filePath)) return _cache[song.filePath];
+  static Future<AudioMetadata?> readDeferred(Song song) async {
+    final fp = song.filePath;
+    if (fp == null) return null;
+    if (_cache.containsKey(fp)) return _cache[fp];
 
-    final file = File(song.filePath);
+    final file = File(fp);
     if (!await file.exists()) return null;
 
     final meta = await read(file);
@@ -50,30 +52,30 @@ class MetadataReader {
     if (meta.albumArt != null && meta.albumArt!.isNotEmpty) {
       try {
         final cacheDir = await getTemporaryDirectory();
-        final baseName = p.basenameWithoutExtension(song.filePath);
-        final cacheFile = File('${cacheDir.path}/album_art_$baseName.jpg');
-        if (!await cacheFile.exists()) {
-          await cacheFile.writeAsBytes(meta.albumArt!);
-        }
-        // Return the updated metadata with the cache path
-        _cache[song.filePath] = AudioMetadata(
-          title: meta.title,
-          artist: meta.artist,
-          album: meta.album,
-          durationMs: meta.durationMs,
-          bitrate: meta.bitrate,
-          albumArt: meta.albumArt,
-          lyrics: meta.lyrics,
-          albumCoverCachePath: cacheFile.path,
-        );
-        return _cache[song.filePath];
-      } catch (e, s) {
-        Log.e('metadata_reader', 'cover cache error', e, s);
-      }
-    }
+         final baseName = p.basenameWithoutExtension(fp);
+         final cacheFile = File('${cacheDir.path}/album_art_$baseName.jpg');
+         if (!await cacheFile.exists()) {
+           await cacheFile.writeAsBytes(meta.albumArt!);
+         }
+         // Return the updated metadata with the cache path
+         _cache[fp] = AudioMetadata(
+           title: meta.title,
+           artist: meta.artist,
+           album: meta.album,
+           durationMs: meta.durationMs,
+           bitrate: meta.bitrate,
+           albumArt: meta.albumArt,
+           lyrics: meta.lyrics,
+           albumCoverCachePath: cacheFile.path,
+         );
+         return _cache[fp];
+       } catch (e, s) {
+         Log.e('metadata_reader', 'cover cache error', e, s);
+       }
+     }
 
-    _cache[song.filePath] = meta;
-    return meta;
+     _cache[fp] = meta;
+     return meta;
   }
 
   /// Returns the cached cover path for [filePath], or null.

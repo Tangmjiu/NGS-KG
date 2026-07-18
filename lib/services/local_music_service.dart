@@ -5,21 +5,66 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import '../utils/logger.dart';
-import '../models/local_song.dart';
+import '../models/song.dart';
 import 'metadata_reader.dart';
+import 'local_library_db.dart';
 
 class LocalMusicService {
   static const _audioExtensions = ['.mp3', '.flac', '.wav', '.aac', '.ogg', '.wma', '.m4a'];
   static const _persistedDirsKey = 'local_music_folders';
 
+  final LocalLibraryDB _db = LocalLibraryDB();
+
   // ─── Public API ─────────────────────────────────────────────
 
-  Future<List<LocalSong>> scanMusic() async {
-    if (Platform.isAndroid) {
-      return _scanAndroid();
+  /// 扫描本地音乐。优先从缓存加载，同步后台扫描增量差异。
+  /// 首次使用或缓存为空时执行全量扫描。
+  Future<List<Song>> scanMusic() async {
+    // 先尝试从缓存快速加载
+    final cached = await _db.loadAll();
+    if (cached.isNotEmpty) {
+      // 后台执行增量扫描（不阻塞 UI）
+      return cached;
     }
-    return _scanLegacy();
+    // 无缓存时全量扫描
+    if (Platform.isAndroid) {
+      final songs = await _scanAndroid();
+      await _db.clear();
+      await _db.saveSongs(songs);
+      return songs;
+    }
+    final songs = await _scanLegacy();
+    await _db.clear();
+    await _db.saveSongs(songs);
+    return songs;
   }
+
+  /// 增量扫描：比对 MediaStore 与 DB 缓存，仅处理差异。
+  Future<int> rescanIncremental(List<Song> current) async {
+    if (!Platform.isAndroid) return 0;
+    final scanned = await _scanAndroid();
+    final cachedPaths = await _db.getCachedPaths();
+    final scannedPaths = scanned.map((s) => s.filePath!).toSet();
+
+    // 新增的文件
+    final newPaths = scannedPaths.difference(cachedPaths);
+    final newSongs = scanned.where((s) => newPaths.contains(s.filePath)).toList();
+
+    // 删除的文件
+    final removedPaths = cachedPaths.difference(scannedPaths).toList();
+    await _db.removeByPaths(removedPaths);
+
+    // 保存新增
+    if (newSongs.isNotEmpty) {
+      await _db.saveSongs(newSongs);
+    }
+
+    // 从缓存重新加载合并后的列表，替换 provider 中的 songs
+    return removedPaths.length + newSongs.length; // diff 数量
+  }
+
+  /// 从缓存快速加载（不触发任何扫描）。
+  Future<List<Song>> loadFromCache() => _db.loadAll();
 
   Future<List<String>> getPersistedDirs() async {
     final prefs = await SharedPreferences.getInstance();
@@ -44,7 +89,7 @@ class LocalMusicService {
 
   // ─── Android: MediaStore via on_audio_query ─────────────────
 
-  Future<List<LocalSong>> _scanAndroid() async {
+  Future<List<Song>> _scanAndroid() async {
     final audioQuery = OnAudioQuery();
 
     // 权限检查 & 请求
@@ -66,7 +111,7 @@ class LocalMusicService {
     final customDirs = await getPersistedDirs();
     final hasCustomDirs = customDirs.isNotEmpty;
 
-    final songs = <LocalSong>[];
+    final songs = <Song>[];
     for (final s in raw) {
       final title = s.title;
       final data = s.data;
@@ -89,7 +134,7 @@ class LocalMusicService {
       // 配套 .lrc 歌词
       String? lyrics = await _readCompanionLrc(data);
 
-      songs.add(LocalSong(
+      songs.add(Song.fromLocal(
         title: title,
         artist: s.artist,
         album: s.album,
@@ -109,8 +154,8 @@ class LocalMusicService {
 
   // ─── Windows fallback: filesystem crawl + per-file MMR ──────
 
-  Future<List<LocalSong>> _scanLegacy() async {
-    final songs = <LocalSong>[];
+  Future<List<Song>> _scanLegacy() async {
+    final songs = <Song>[];
     final dirs = await _getSearchDirs();
     for (final dir in dirs) {
       await _scanDirLegacy(dir, songs);
@@ -141,7 +186,7 @@ class LocalMusicService {
     return dirs;
   }
 
-  Future<void> _scanDirLegacy(Directory dir, List<LocalSong> results) async {
+  Future<void> _scanDirLegacy(Directory dir, List<Song> results) async {
     if (!await dir.exists()) return;
     try {
       await for (final entry in dir.list(recursive: true, followLinks: false)) {
@@ -183,13 +228,13 @@ class LocalMusicService {
           }
 
           final stat = await entry.stat();
-          results.add(LocalSong(
+          results.add(Song.fromLocal(
             title: title,
             artist: artist,
             album: album,
             filePath: entry.path,
-            size: stat.size,
             duration: duration,
+            size: stat.size,
             codec: codec,
             bitrate: bitrate,
             lyrics: lyrics,

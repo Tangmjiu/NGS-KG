@@ -25,6 +25,11 @@ class Song {
   final int? mixSongId; // 酷狗 MixSongID，用于播放历史上传等场景
   final int? artistId;  // 歌手 ID，用于导航到歌手详情
   final Uint8List? coverData; // 内嵌封面原始数据（本地音乐用）
+  // ─── 本地音乐扩展字段 ───
+  final int? mediaStoreId; // Android MediaStore _ID
+  final int size;          // 文件大小（字节）
+  final int? bitrate;      // kbps
+  final String? codec;     // MP3 / FLAC / WAV / AAC / OGG / WMA
   // ─── 私人 FM 扩展字段 ───
   final String? recDesc;        // FM 推荐理由（如"根据您喜欢的华语流行"）
   final String? language;       // 语言标签（CN/EN/JP/KR）
@@ -49,6 +54,10 @@ class Song {
     this.mixSongId,
     this.artistId,
     this.coverData,
+    this.mediaStoreId,
+    this.size = 0,
+    this.bitrate,
+    this.codec,
     this.recDesc,
     this.language,
     this.similarDesc,
@@ -105,6 +114,52 @@ class Song {
       }
     }
     return '标准';
+  }
+
+  /// 从本地音频文件创建 Song 对象。
+  ///
+  /// ID 使用负数空间（-(mediaStoreId ?? filePath.hashCode)），
+  /// 避免与在线歌曲正数 ID 冲突。
+  factory Song.fromLocal({
+    required String title,
+    String? artist,
+    String? album,
+    required String filePath,
+    int? mediaStoreId,
+    int duration = 0,
+    int size = 0,
+    int? bitrate,
+    String? codec,
+    String? lyrics,
+    String? albumCoverPath,
+  }) {
+    final coverUrl = albumCoverPath != null
+        ? Uri.file(albumCoverPath).toString()
+        : null;
+    // 根据 codec/bitrate 构建品质映射
+    final qualities = <String, String>{};
+    if (codec == 'FLAC' || codec == 'WAV') {
+      qualities['flac'] = filePath;
+    } else if (bitrate != null && bitrate >= 320) {
+      qualities['320'] = filePath;
+    } else {
+      qualities['128'] = filePath;
+    }
+    return Song(
+      id: -(mediaStoreId ?? filePath.hashCode),
+      name: title.endsWith('.mp3') ? title.substring(0, title.length - 4) : title,
+      artists: artist != null ? [artist] : ['本地音乐'],
+      albumName: album,
+      albumCoverUrl: coverUrl,
+      filePath: filePath,
+      duration: duration,
+      mediaStoreId: mediaStoreId,
+      size: size,
+      bitrate: bitrate,
+      codec: codec,
+      lyrics: lyrics,
+      qualities: qualities,
+    );
   }
 
   factory Song.fromJson(Map<String, dynamic> json) {

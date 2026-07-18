@@ -807,7 +807,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   Widget _buildLyricsFooter(PlayerProvider player) {
-    String source = 'KUGOU';
+    final currentSong = player.currentSong;
+    final bool isLocal = currentSong?.isLocal ?? false;
+    String source = isLocal ? 'LOCAL' : 'KUGOU';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
