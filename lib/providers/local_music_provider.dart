@@ -35,14 +35,14 @@ class LocalMusicProvider extends ChangeNotifier {
   bool get sortAscending => _sortAscending;
 
   // Methods
-  Future<void> scanMusic() async {
+  Future<void> scanMusic({bool forceFull = false}) async {
     if (_isScanning) return;
     _isScanning = true;
     _error = null;
-    _status = '正在加载...';
+    _status = forceFull ? '正在扫描...' : '正在加载...';
     notifyListeners();
     try {
-      final songs = await _service.scanMusic();
+      final songs = await _service.scanMusic(forceFull: forceFull);
       // Dedup by filePath
       final seen = <String>{};
       _songs = [];
@@ -59,30 +59,10 @@ class LocalMusicProvider extends ChangeNotifier {
     }
     _isScanning = false;
     notifyListeners();
-
-    // 后台增量扫描（不阻塞）
-    _rescanInBackground();
   }
 
-  /// 后台增量扫描，发现差异后静默刷新列表。
-  Future<void> _rescanInBackground() async {
-    try {
-      final diffCount = await _service.rescanIncremental(_songs);
-      if (diffCount > 0) {
-        final updated = await _service.loadFromCache();
-        final seen = <String>{};
-        _songs = [];
-        for (final s in updated) {
-          if (seen.add(s.filePath!)) _songs.add(s);
-        }
-        _applyFilterAndSort();
-        _status = _songs.isEmpty ? '未找到本地音乐' : '找到 ${_songs.length} 首';
-        notifyListeners();
-      }
-    } catch (_) {
-      // 静默失败，不影响用户
-    }
-  }
+  /// 强制全量重新扫描（提取内嵌封面）。
+  Future<void> refreshLibrary() => scanMusic(forceFull: true);
 
   /// 按需加载嵌入封面和歌词（必须 await）。
   ///

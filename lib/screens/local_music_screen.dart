@@ -152,7 +152,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                 const SizedBox(height: 8),
                 TextButton.icon(
                   icon: const Icon(Icons.refresh, size: 16),
-                  onPressed: () => prov.scanMusic(),
+                  onPressed: () => prov.refreshLibrary(),
                   label: const Text('重新扫描默认位置'),
                 ),
               ],
@@ -480,7 +480,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                         strokeWidth: 2, color: cs.onSurfaceVariant))
                 : Icon(Icons.refresh, size: 20, color: cs.onSurfaceVariant),
             tooltip: '重新扫描',
-            onPressed: prov.isScanning ? null : () => prov.scanMusic(),
+            onPressed: prov.isScanning ? null : () => prov.refreshLibrary(),
           ),
         ],
       ),

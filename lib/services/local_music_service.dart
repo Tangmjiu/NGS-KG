@@ -22,17 +22,33 @@ class LocalMusicService {
 
   // ─── Public API ─────────────────────────────────────────────
 
-  /// 扫描本地音乐。优先从缓存加载，同步后台扫描增量差异。
-  /// 首次使用或缓存为空时执行全量扫描。
-  Future<List<Song>> scanMusic() async {
-    // 先尝试从缓存快速加载
-    final cached = await _db.loadAll();
-    if (cached.isNotEmpty) {
-      return cached;
+  /// 扫描本地音乐。有缓存时快速加载，首次或 forced 时全量扫描。
+  Future<List<Song>> scanMusic({bool forceFull = false}) async {
+    if (!forceFull) {
+      final cached = await _db.loadAll();
+      if (cached.isNotEmpty) return cached;
     }
-    // 无缓存时全量扫描
+    // 全量扫描
     if (Platform.isAndroid) {
       final songs = await _scanAndroid();
+      // 批量提取无封面歌曲的内嵌封面
+      final coverMap = await _batchExtractCovers(songs);
+      if (coverMap.isNotEmpty) {
+        for (var i = 0; i < songs.length; i++) {
+          final s = songs[i];
+          if (s.filePath != null && coverMap.containsKey(s.filePath)) {
+            songs[i] = Song(
+              id: s.id, name: s.name, artists: s.artists,
+              albumName: s.albumName,
+              albumCoverUrl: Uri.file(coverMap[s.filePath]!).toString(),
+              filePath: s.filePath, duration: s.duration,
+              mediaStoreId: s.mediaStoreId, size: s.size,
+              bitrate: s.bitrate, codec: s.codec, lyrics: s.lyrics,
+              qualities: s.qualities,
+            );
+          }
+        }
+      }
       await _db.clear();
       await _db.saveSongs(songs);
       return songs;
@@ -75,6 +91,122 @@ class LocalMusicService {
     } catch (_) {
       return null;
     }
+  }
+
+  /// 批量提取内嵌封面（并发 4 路），返回 Map<filePath, coverCachePath>。
+  Future<Map<String, String>> _batchExtractCovers(List<Song> songs) async {
+    const concurrency = 4;
+    final result = <String, String>{};
+    final noCover = songs.where((s) =>
+        s.albumCoverUrl == null || s.albumCoverUrl!.isEmpty).toList();
+    if (noCover.isEmpty) return result;
+
+    for (var i = 0; i < noCover.length; i += concurrency) {
+      final batch = noCover.skip(i).take(concurrency);
+      final results = await Future.wait(batch.map((s) async {
+        final fp = s.filePath;
+        if (fp == null) return null;
+        try {
+          final file = File(fp);
+          if (!await file.exists()) return null;
+          final artPath = await _extractEmbeddedCover(file);
+          if (artPath != null) {
+            await _cacheCoverForPath(fp, artPath);
+            return MapEntry(fp, artPath);
+          }
+        } catch (_) {}
+        return null;
+      }));
+      for (final r in results) {
+        if (r != null) result[r.key] = r.value;
+      }
+    }
+    return result;
+  }
+
+  Future<void> _cacheCoverForPath(String audioPath, String artPath) async {
+    try {
+      final cacheDir = await getTemporaryDirectory();
+      final baseName = p.basenameWithoutExtension(audioPath);
+      final cacheFile = File('${cacheDir.path}/album_art_$baseName.jpg');
+      if (!await cacheFile.exists()) {
+        await File(artPath).copy(cacheFile.path);
+      }
+    } catch (_) {}
+  }
+
+  /// 从音频文件二进制读取内嵌封面。
+  static Future<String?> _extractEmbeddedCover(File file) async {
+    try {
+      final raf = await file.open(mode: FileMode.read);
+      try {
+        final header = await raf.read(4);
+        if (header.length < 3) return null;
+        // MP3 ID3v2 APIC
+        if (header[0] == 0x49 && header[1] == 0x44 && header[2] == 0x33) {
+          await raf.setPosition(6);
+          final sb = await raf.read(4);
+          final tagEnd = 10 + ((sb[0] << 21) | (sb[1] << 14) | (sb[2] << 7) | sb[3]);
+          var pos = 10;
+          while (pos < tagEnd - 10) {
+            await raf.setPosition(pos);
+            final fh = await raf.read(10);
+            if (fh.length < 10) break;
+            final fid = String.fromCharCodes(fh.sublist(0, 4));
+            final fsz = (fh[4] << 24) | (fh[5] << 16) | (fh[6] << 8) | fh[7];
+            if (fid == 'APIC' && fsz > 10) {
+              final data = await raf.read(fsz);
+              int off = 1;
+              while (off < data.length && data[off] != 0) off++;
+              off++; off++;
+              while (off < data.length && data[off] != 0) off++;
+              off++;
+              if (off < data.length) return _saveCoverBytes(data.sublist(off));
+              break;
+            }
+            pos += 10 + fsz;
+          }
+          return null;
+        }
+        // FLAC METADATA_BLOCK_PICTURE
+        if (header[0] == 0x66 && header[1] == 0x4C && header[2] == 0x61 && header[3] == 0x43) {
+          await raf.setPosition(4);
+          var last = false;
+          while (!last) {
+            final bh = await raf.read(4);
+            if (bh.length < 4) break;
+            last = (bh[0] & 0x80) != 0;
+            final bt = bh[0] & 0x7F;
+            final bs = (bh[1] << 16) | (bh[2] << 8) | bh[3];
+            if (bt == 6) {
+              final data = await raf.read(bs);
+              if (data.length < 32) break;
+              final ml = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+              var off = 8 + ml;
+              if (off + 4 > data.length) break;
+              final dl = (data[off] << 24) | (data[off+1] << 16) | (data[off+2] << 8) | data[off+3];
+              off += 4 + dl + 16;
+              if (off + 4 > data.length) break;
+              final pl = (data[off] << 24) | (data[off+1] << 16) | (data[off+2] << 8) | data[off+3];
+              off += 4;
+              if (off + pl <= data.length) return _saveCoverBytes(data.sublist(off, off + pl));
+              break;
+            }
+            await raf.setPosition(raf.positionSync() + bs);
+          }
+          return null;
+        }
+      } finally { await raf.close(); }
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<String?> _saveCoverBytes(List<int> bytes) async {
+    if (bytes.isEmpty) return null;
+    final d = await getTemporaryDirectory();
+    final f = File('${d.path}/embedded_${bytes.hashCode}_${DateTime.now().millisecondsSinceEpoch}.jpg');
+    await f.writeAsBytes(bytes);
+    return f.path;
   }
 
   /// 增量扫描：比对 MediaStore 与 DB 缓存，仅处理差异。
