@@ -23,14 +23,13 @@ class PlayerCoverArt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final isPlaying = context.watch<PlayerProvider>().isPlaying;
-    
+    // 核心交互：播放时展开至 1.0，暂停时收缩至 0.85
+    final double playScale = isPlaying ? 1.0 : 0.85;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final baseSize = (constraints.maxWidth * 0.78).clamp(200.0, 400.0);
-        // 核心交互：播放时展开至 1.0，暂停时收缩至 0.85
-        final playScale = isPlaying ? 1.0 : 0.85;
 
         return Center(
           child: AnimatedOpacity(
@@ -43,75 +42,64 @@ class PlayerCoverArt extends StatelessWidget {
                 scaleDown: 0.95, // 用户手动按压封面的阻尼
                 child: Hero(
                   tag: 'album_art_${song.hash ?? song.id}',
-                  child: AnimatedContainer(
-                    duration: AppMotion.dMedium1, // 使用中等时长使展开收缩有物理弹性
-                    curve: AppMotion.emphasized,
-                    width: baseSize * playScale,
-                    height: baseSize * playScale,
-                    decoration: BoxDecoration(
-                      borderRadius: AppShape.md,
-                      border: Border.all(
-                        color: cs.onSurface.withValues(alpha: 0.15),
-                        width: 1,
+                  // ── 用 AnimatedScale 做变换层缩放，不触发布局重排 ──
+                  child: AnimatedScale(
+                    scale: playScale,
+                    duration: AppMotion.dMedium4, // 400ms 让缩放更有物理感
+                    curve: AppMotion.emphasizedDecelerate,
+                    child: _ShadowWrapper(
+                      isPlaying: isPlaying,
+                      child: SizedBox(
+                        width: baseSize,
+                        height: baseSize,
+                        child: Stack(
+                          clipBehavior: Clip.hardEdge,
+                          fit: StackFit.expand,
+                          children: [
+                            ClipRRect(
+                              borderRadius: AppShape.md,
+                              child: Semantics(
+                                image: true,
+                                label: '${song.name} 专辑封面',
+                                child: song.albumCoverUrl != null &&
+                                        song.albumCoverUrl!.isNotEmpty
+                                    ? CachedNetworkImage(
+                                        imageUrl: song.albumCoverUrl!,
+                                        width: baseSize,
+                                        height: baseSize,
+                                        fit: BoxFit.cover,
+                                        placeholder: (_, __) =>
+                                            _fallback(baseSize),
+                                        errorWidget: (_, __, ___) =>
+                                            _fallback(baseSize),
+                                      )
+                                    : _fallback(baseSize),
+                              ),
+                            ),
+                            if (showHiRes)
+                              const Positioned(
+                                left: 4,
+                                bottom: 8,
+                                child: HiResBadge(height: 28),
+                              ),
+                          ],
+                        ),
                       ),
-                      boxShadow: [
-                        // 播放时阴影向外扩张且加深，暂停时内敛柔和
-                        BoxShadow(
-                          color: cs.scrim.withValues(alpha: isPlaying ? 0.5 : 0.2),
-                          blurRadius: isPlaying ? 30 : 15,
-                          offset: Offset(0, isPlaying ? 15 : 8),
-                          spreadRadius: isPlaying ? 5 : 0,
-                        ),
-                        BoxShadow(
-                          color: cs.scrim.withValues(alpha: isPlaying ? 0.3 : 0.1),
-                          blurRadius: isPlaying ? 60 : 30,
-                          offset: Offset(0, isPlaying ? 30 : 15),
-                          spreadRadius: isPlaying ? 10 : 2,
-                        ),
-                      ],
                     ),
-                    child: Stack(
-                    clipBehavior: Clip.hardEdge,
-                    children: [
-                      ClipRRect(
-                        borderRadius: AppShape.md,
-                        child: Semantics(
-                          image: true,
-                          label: '${song.name} 专辑封面',
-                          child: song.albumCoverUrl != null &&
-                                  song.albumCoverUrl!.isNotEmpty
-                              ? CachedNetworkImage(
-                                  imageUrl: song.albumCoverUrl!,
-                                  width: baseSize * playScale,
-                                  height: baseSize * playScale,
-                                  fit: BoxFit.cover,
-                                  placeholder: (_, __) => _fallback(baseSize * playScale),
-                                  errorWidget: (_, __, ___) => _fallback(baseSize * playScale),
-                                )
-                              : _fallback(baseSize * playScale),
-                        ),
-                      ),
-                      if (showHiRes)
-                        const Positioned(
-                          left: 4,
-                          bottom: 8,
-                          child: HiResBadge(height: 28),
-                        ),
-                    ],
                   ),
                 ),
               ),
             ),
           ),
-        ));
+        );
       },
     );
   }
 
   Widget _fallback(double size) {
     return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [Color(0xFF2A2D28), Color(0xFF121212)],
@@ -123,4 +111,55 @@ class PlayerCoverArt extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 用 TweenAnimationBuilder 平滑过渡阴影参数，
+/// 避免 isPlaying 瞬间切换导致阴影跳变。
+class _ShadowWrapper extends StatelessWidget {
+  final bool isPlaying;
+  final Widget child;
+
+  const _ShadowWrapper({required this.isPlaying, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    // 0.0 = paused, 1.0 = playing
+    final double target = isPlaying ? 1.0 : 0.0;
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(end: target),
+      duration: AppMotion.dMedium4,
+      curve: AppMotion.emphasizedDecelerate,
+      builder: (context, t, child) {
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: AppShape.md,
+            border: Border.all(
+              color: cs.onSurface.withValues(alpha: 0.15),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: cs.scrim.withValues(alpha: lerpDouble(0.2, 0.5, t)),
+                blurRadius: lerpDouble(15, 30, t),
+                offset: Offset(0, lerpDouble(8, 15, t)),
+                spreadRadius: lerpDouble(0, 5, t),
+              ),
+              BoxShadow(
+                color: cs.scrim.withValues(alpha: lerpDouble(0.1, 0.3, t)),
+                blurRadius: lerpDouble(30, 60, t),
+                offset: Offset(0, lerpDouble(15, 30, t)),
+                spreadRadius: lerpDouble(2, 10, t),
+              ),
+            ],
+          ),
+          child: child!,
+        );
+      },
+      child: child,
+    );
+  }
+
+  static double lerpDouble(double a, double b, double t) => a + (b - a) * t;
 }
