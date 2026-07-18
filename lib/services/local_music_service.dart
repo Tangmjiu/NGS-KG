@@ -12,6 +12,10 @@ import 'local_library_db.dart';
 
 class LocalMusicService {
   static const _audioExtensions = ['.mp3', '.flac', '.wav', '.aac', '.ogg', '.wma', '.m4a'];
+  /// 加密/DRM 保护格式：不可播放，扫描时跳过。
+  static const _encryptedExtensions = ['.kgm', '.vpr', '.ncm', '.mgg', '.mflac', '.qmc0', '.qmc3', '.qmcflac', '.tkm', '.bkc', '.vpr'];
+  /// 文件名包含这些后缀视为加密（如 song.kgm.flac、song.qmcflac.mp3）。
+  static const _encryptedNamePatterns = ['kgm.', 'qmc', 'vpr.', 'ncm.', 'mgg.', 'mflac.', 'tkm.', 'bkc.'];
   static const _persistedDirsKey = 'local_music_folders';
 
   final LocalLibraryDB _db = LocalLibraryDB();
@@ -24,7 +28,6 @@ class LocalMusicService {
     // 先尝试从缓存快速加载
     final cached = await _db.loadAll();
     if (cached.isNotEmpty) {
-      // 后台执行增量扫描（不阻塞 UI）
       return cached;
     }
     // 无缓存时全量扫描
@@ -38,6 +41,40 @@ class LocalMusicService {
     await _db.clear();
     await _db.saveSongs(songs);
     return songs;
+  }
+
+  /// 检测文件是否加密/DRM 保护。
+  bool _isEncrypted(String path) {
+    final lower = path.toLowerCase();
+    for (final ext in _encryptedExtensions) {
+      if (lower.endsWith(ext)) return true;
+    }
+    for (final pattern in _encryptedNamePatterns) {
+      if (lower.contains(pattern)) return true;
+    }
+    return false;
+  }
+
+  /// 通过 on_audio_query 查询 MediaStore 专辑封面并缓存。
+  Future<String?> _queryArtworkCover(OnAudioQuery audioQuery, int? mediaStoreId) async {
+    if (mediaStoreId == null) return null;
+    try {
+      final artBytes = await audioQuery.queryArtwork(
+        mediaStoreId,
+        ArtworkType.AUDIO,
+        quality: 60,
+        size: 360,
+      );
+      if (artBytes == null || artBytes.isEmpty) return null;
+      final cacheDir = await getTemporaryDirectory();
+      final cacheFile = File('${cacheDir.path}/album_art_ms_$mediaStoreId.jpg');
+      if (!await cacheFile.exists()) {
+        await cacheFile.writeAsBytes(artBytes);
+      }
+      return cacheFile.path;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// 增量扫描：比对 MediaStore 与 DB 缓存，仅处理差异。
@@ -124,6 +161,9 @@ class LocalMusicService {
       final ext = p.extension(data).toLowerCase();
       if (!_audioExtensions.contains(ext)) continue;
 
+      // 跳过加密/DRM 文件（.kgm、.kgm.flac、.ncm 等）
+      if (_isEncrypted(data)) continue;
+
       final codec = _detectCodec(ext);
 
       // 文件夹封面（快速检查，不走 MMR）
@@ -131,6 +171,11 @@ class LocalMusicService {
 
       // 之前缓存的封面
       coverPath ??= await _findCachedCover(data);
+
+      // MediaStore 专辑封面（Android 快速 API，无文件 I/O）
+      if (coverPath == null && s.id != null) {
+        coverPath = await _queryArtworkCover(audioQuery, s.id);
+      }
 
       // 配套 .lrc 歌词
       String? lyrics = await _readCompanionLrc(data);
@@ -192,6 +237,7 @@ class LocalMusicService {
     try {
       await for (final entry in dir.list(recursive: true, followLinks: false)) {
         if (entry is File && _isAudioFile(entry.path)) {
+          if (_isEncrypted(entry.path)) continue; // 跳过加密文件
           final name = entry.path.split('/').last;
           final ext = p.extension(entry.path).toLowerCase();
 

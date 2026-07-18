@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -242,6 +243,31 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
 
   /// 构建专辑封面或加载转圈指示器
   Widget _buildCoverArt(Song song, ColorScheme cs, bool isLoading) {
+    Widget coverWidget;
+    final url = song.albumCoverUrl;
+    if (url != null && url.isNotEmpty) {
+      // 本地文件：file:// URI 或裸路径
+      if (url.startsWith('file:') || url.startsWith('/')) {
+        final path = url.startsWith('file:') ? Uri.parse(url).toFilePath() : url;
+        final file = File(path);
+        if (file.existsSync()) {
+          coverWidget = Image.file(file, width: 48, height: 48, fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _defaultCoverIcon(cs),
+          );
+        } else {
+          coverWidget = _defaultCoverIcon(cs);
+        }
+      } else {
+        coverWidget = CachedNetworkImage(
+          imageUrl: url,
+          width: 48, height: 48, fit: BoxFit.cover,
+          errorWidget: (_, __, ___) => _defaultCoverIcon(cs),
+        );
+      }
+    } else {
+      coverWidget = _defaultCoverIcon(cs);
+    }
+
     return Container(
       width: 48,
       height: 48,
@@ -260,18 +286,7 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            if (song.albumCoverUrl != null && song.albumCoverUrl!.isNotEmpty)
-              CachedNetworkImage(
-                imageUrl: song.albumCoverUrl!,
-                width: 48,
-                height: 48,
-                fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => _defaultCoverIcon(cs),
-              )
-            else
-              _defaultCoverIcon(cs),
-
-            // 缓冲加载时的浮层微亮圈
+            coverWidget,
             if (isLoading)
               Container(
                 color: Colors.black.withValues(alpha: 0.35),
