@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import 'package:audio_service/audio_service.dart';
+import '../utils/logger.dart';
 
 /// audio_service 的 [AudioHandler] 实现。
 ///
@@ -10,6 +11,28 @@ import 'package:audio_service/audio_service.dart';
 ///   系统媒体通知和锁屏/蓝牙元数据。
 /// * 系统控制（通知栏按钮、蓝牙耳机、锁屏）→ 通过回调通知 PlayerProvider。
 class MusicAudioHandler extends BaseAudioHandler {
+  // ─── 使用系统原生 @android:drawable/ic_media_* 图标的按钮 ───
+  static const _prevControl = MediaControl(
+    androidIcon: 'drawable/ic_notif_prev',
+    label: 'Previous',
+    action: MediaAction.skipToPrevious,
+  );
+  static const _playControl = MediaControl(
+    androidIcon: 'drawable/ic_notif_play',
+    label: 'Play',
+    action: MediaAction.play,
+  );
+  static const _pauseControl = MediaControl(
+    androidIcon: 'drawable/ic_notif_pause',
+    label: 'Pause',
+    action: MediaAction.pause,
+  );
+  static const _nextControl = MediaControl(
+    androidIcon: 'drawable/ic_notif_next',
+    label: 'Next',
+    action: MediaAction.skipToNext,
+  );
+
   // ─── 系统控制 → PlayerProvider 回调 ───
 
   void Function()? onPlay;
@@ -38,6 +61,9 @@ class MusicAudioHandler extends BaseAudioHandler {
     bool liked = false,
     String playMode = 'sequential',
   }) {
+    Log.i('audio_handler', 'updateNotification: title=$title, isPlaying=$isPlaying, '
+        'processing=${isBuffering ? "buffering" : "ready"}');
+
     // ── MediaItem（→ 通知标题/歌手/封面 + 锁屏/蓝牙歌词） ──
     final uri = albumArtUrl != null
         ? Uri.tryParse(albumArtUrl.replaceFirst('{size}', '480'))
@@ -51,28 +77,28 @@ class MusicAudioHandler extends BaseAudioHandler {
       displaySubtitle: lyricLine, // 蓝牙/锁屏设备读取
     ));
 
-    // ── 通知按钮 ──
+    // ── 通知按钮（系统原生样式） ──
     final controls = <MediaControl>[
-      MediaControl.skipToPrevious,
-      if (isPlaying) MediaControl.pause else MediaControl.play,
-      MediaControl.skipToNext,
-      // 自定义按钮（展开通知显示）
-      MediaControl.custom(
-        androidIcon: liked
-            ? 'drawable/audio_service_favorite'
-            : 'drawable/audio_service_favorite_border',
-        label: liked ? '已收藏' : '收藏',
-        name: 'like',
-      ),
-      MediaControl.custom(
-        androidIcon: 'drawable/audio_service_shuffle',
-        label: playMode == 'shuffle'
-            ? '随机'
-            : playMode == 'repeatOne'
-                ? '单曲'
-                : '顺序',
-        name: 'switch_mode',
-      ),
+      _prevControl,
+      if (isPlaying) _pauseControl else _playControl,
+      _nextControl,
+      // 自定义按钮（展开通知显示）—— 临时注释，等 drawable 资源就绪后取消注释
+      // MediaControl.custom(
+      //   androidIcon: liked
+      //       ? 'drawable/audio_service_favorite'
+      //       : 'drawable/audio_service_favorite_border',
+      //   label: liked ? '已收藏' : '收藏',
+      //   name: 'like',
+      // ),
+      // MediaControl.custom(
+      //   androidIcon: 'drawable/audio_service_shuffle',
+      //   label: playMode == 'shuffle'
+      //       ? '随机'
+      //       : playMode == 'repeatOne'
+      //           ? '单曲'
+      //           : '顺序',
+      //   name: 'switch_mode',
+      // ),
     ];
 
     // ── 播放状态（→ 通知进度/播放暂停图标） ──
@@ -91,6 +117,7 @@ class MusicAudioHandler extends BaseAudioHandler {
 
   /// 清除当前媒体通知，释放资源。
   void cancelNotification() {
+    Log.i('audio_handler', 'cancelNotification');
     mediaItem.add(null);
     playbackState.add(playbackState.value.copyWith(
       playing: false,

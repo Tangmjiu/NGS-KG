@@ -154,6 +154,10 @@ Future<void> main() async {
       preloadArtwork: true,
     ),
   );
+  // 监听原生端异步错误（PlatformException 等）
+  AudioService.asyncError.listen((error) {
+    Log.e('audio_service', 'asyncError', error);
+  });
   // 系统控制回调 → PlayerProvider（通过 navKey 获取 context）
   audioHandler.onPlay = () => _notifAction('play_pause');
   audioHandler.onPause = () => _notifAction('play_pause');
