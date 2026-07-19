@@ -5,14 +5,14 @@ package com.mjiutang.ngskg
 
 import android.media.MediaMetadataRetriever
 import android.os.Build
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-class MainActivity : FlutterActivity() {
+class MainActivity : AudioServiceActivity() {
     private val CHANNEL_METADATA = "com.mjiutang.ngskg/metadata"
     private val CHANNEL_DEVICE = "com.mjiutang.ngskg/device"
     private val CHANNEL_EQUALIZER = "com.mjiutang.ngskg/equalizer"
