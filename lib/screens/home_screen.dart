@@ -96,12 +96,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                 children: [
                                   ClipRRect(
                                     borderRadius: AppShape.sm,
-                                    child: song.albumCoverUrl != null
+                                    child: song.thumbnailCoverUrl != null
                                         ? CachedNetworkImage(
-                                            imageUrl: song.albumCoverUrl!,
+                                            imageUrl: song.thumbnailCoverUrl!,
                                             width: 44,
                                             height: 44,
                                             fit: BoxFit.cover,
+                                            memCacheWidth: 88,
+                                            memCacheHeight: 88,
                                             placeholder: (_, __) => Container(
                                                 width: 44,
                                                 height: 44,
@@ -386,9 +388,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // 局部注入对 MiniBar 出现时的 MediaQuery padding.bottom 避让。
     // 在这里仅包裹 body 而不包裹整个 Scaffold，防止 Scaffold 将 bottomNavigationBar 抬高导致与 MiniBar 重叠。
-    final player = context.watch<PlayerProvider>();
-    final song = player.currentSong;
-    final showMini = song != null && !player.isPlayerScreenVisible;
+    // 精确选择：只订阅 MiniPlayer 显隐条件，避免播放进度导致整个首页重建
+    final showMini = context.select<PlayerProvider, bool>(
+      (p) => p.currentSong != null && !p.isPlayerScreenVisible && !p.isMiniPlayerDismissed,
+    );
 
     final mq = MediaQuery.of(context);
     final childMediaQuery = showMini
@@ -413,15 +416,13 @@ class _HomeScreenState extends State<HomeScreen> {
             return M3FadeThroughTransition(
                 animation: animation, child: child);
           },
-          child: IndexedStack(
-            key: ValueKey(_currentTab),
-            index: _currentTab,
-            children: [
-              _buildHome(),
-              const DiscoverScreen(),
-              const ProfileScreen(),
-            ],
-          ),
+          // 按需构建当前 tab，避免 DiscoverScreen / ProfileScreen 在后台同时构建/重建。
+          // 如需保留 tab 状态，可改用 PageStorage 包裹。
+          child: _currentTab == 0
+              ? _buildHome()
+              : _currentTab == 1
+                  ? const DiscoverScreen()
+                  : const ProfileScreen(),
         ),
       ),
       bottomNavigationBar: NavigationBar(

@@ -38,14 +38,16 @@ class _AppShellState extends State<AppShell> {
     return ValueListenableBuilder<String?>(
       valueListenable: app.AppRouteObserver.instance.currentRouteNotifier,
       builder: (context, currentRoute, _) {
-        final player = context.watch<PlayerProvider>();
-        final song = player.currentSong;
+        // 精确选择：只订阅 MiniPlayer 显隐条件，不随播放进度/歌词变化重建全局 Shell
+        final currentSongId = context.select<PlayerProvider, int?>((p) => p.currentSong?.id);
+        final isMiniDismissed = context.select<PlayerProvider, bool>((p) => p.isMiniPlayerDismissed);
 
         // 判定 Minibar 出现条件：
         // 1. 当前有播放歌曲；
         // 2. 且非核心专注/全屏播放等隐藏页面（登录页 '/login'、全屏播放页 '/player'）
+        // 3. 且用户没有手动关闭它
         final isHiddenRoute = currentRoute == '/login' || currentRoute == '/player';
-        final showMini = song != null && !isHiddenRoute;
+        final showMini = currentSongId != null && !isHiddenRoute && !isMiniDismissed;
 
         final mq = MediaQuery.of(context);
         final isHome = currentRoute == null || currentRoute == '/' || currentRoute == '';

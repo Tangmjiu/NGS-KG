@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import '../providers/discover_provider.dart';
@@ -232,12 +233,14 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     leading: ClipRRect(
                       borderRadius: AppShape.sm,
                       child: r.coverUrl != null
-                          ? Image.network(r.coverUrl!,
+                          ? CachedNetworkImage(
+                              imageUrl: r.coverUrl!,
                               width: 48,
                               height: 48,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
-                                  _rankPlaceholder())
+                              placeholder: (_, __) => _rankPlaceholder(),
+                              errorWidget: (_, __, ___) => _rankPlaceholder(),
+                            )
                           : _rankPlaceholder(),
                     ),
                     title: Text(r.name,

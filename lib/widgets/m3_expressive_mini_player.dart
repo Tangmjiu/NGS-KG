@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/player_provider.dart';
@@ -27,10 +28,16 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    return Consumer<PlayerProvider>(
-      builder: (context, player, child) {
-        final song = player.currentSong;
-        if (song == null || player.isPlayerScreenVisible) {
+    // 精确选择：外层只订阅显隐条件和当前歌曲，不随播放进度/加载状态重建。
+    return Selector<PlayerProvider, ({Song? song, bool visible, bool dismissed})>(
+      selector: (_, p) => (
+        song: p.currentSong,
+        visible: p.isPlayerScreenVisible,
+        dismissed: p.isMiniPlayerDismissed,
+      ),
+      builder: (context, state, _) {
+        final song = state.song;
+        if (song == null || state.visible || state.dismissed) {
           return const SizedBox.shrink();
         }
 
@@ -42,6 +49,7 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
               key: ValueKey('mini_player_${song.hash ?? song.id}'),
               direction: DismissDirection.horizontal,
               confirmDismiss: (direction) async {
+                final player = context.read<PlayerProvider>();
                 if (direction == DismissDirection.endToStart) {
                   player.playNext();
                 } else if (direction == DismissDirection.startToEnd) {
@@ -56,7 +64,8 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
                   cs, Icons.skip_next_rounded, '下一首', Alignment.centerRight),
               child: M3PressScale(
                 child: GestureDetector(
-                  onTap: () => _openPlayerScreen(context, player),
+                  onTap: () => _openPlayerScreen(context),
+                  onLongPress: () => _onLongPress(context),
                   child: Material(
                     color: cs.surfaceContainerHighest.withValues(alpha: 0.96),
                     borderRadius: AppShape.full,
@@ -74,21 +83,8 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
                       ),
                       child: Stack(
                         children: [
-                          // 底部嵌入式极细进度条
-                          if (player.duration.inMilliseconds > 0)
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              bottom: 0,
-                              child: LinearProgressIndicator(
-                                value: player.progress.isFinite
-                                    ? player.progress.clamp(0.0, 1.0)
-                                    : 0.0,
-                                backgroundColor: Colors.transparent,
-                                color: cs.primary,
-                                minHeight: 3,
-                              ),
-                            ),
+                          // 底部嵌入式极细进度条（独立订阅 progress，避免整行重建）
+                          const _MiniProgressBar(),
 
                           // 主交互排版区
                           Padding(
@@ -99,7 +95,7 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
                                 Hero(
                                   tag: 'album_art_${song.hash ?? song.id}',
                                   flightShuttleBuilder: _safeFlightShuttle,
-                                  child: _buildCoverArt(song, cs, player.isLoading),
+                                  child: _MiniCoverArt(song: song),
                                 ),
                                 const SizedBox(width: 10),
 
@@ -145,19 +141,19 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
                                   icon: Icons.skip_previous_rounded,
                                   tooltip: '上一首',
                                   cs: cs,
-                                  onTap: player.playPrevious,
+                                  onTap: () => context.read<PlayerProvider>().playPrevious(),
                                 ),
                                 const SizedBox(width: 2),
 
-                                // 主播放/暂停响应态圆形按钮
-                                _buildPlayPauseButton(player, cs),
+                                // 主播放/暂停响应态圆形按钮（独立订阅 isPlaying/isLoading）
+                                const _MiniPlayPauseButton(),
                                 const SizedBox(width: 2),
 
                                 _buildControlButton(
                                   icon: Icons.skip_next_rounded,
                                   tooltip: '下一首',
                                   cs: cs,
-                                  onTap: player.playNext,
+                                  onTap: () => context.read<PlayerProvider>().playNext(),
                                 ),
                               ],
                             ),
@@ -241,10 +237,29 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
     );
   }
 
+  void _onLongPress(BuildContext context) {
+    HapticFeedback.mediumImpact();
+    final player = context.read<PlayerProvider>();
+    player.dismissMiniPlayer();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('播放控制栏已隐藏，播放新歌时会自动重新显示'),
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: '恢复',
+          onPressed: () {
+            player.showMiniPlayer();
+          },
+        ),
+      ),
+    );
+  }
+
   /// 构建专辑封面或加载转圈指示器
-  Widget _buildCoverArt(Song song, ColorScheme cs, bool isLoading) {
+  static Widget _buildCoverArt(Song song, ColorScheme cs, bool isLoading) {
     Widget coverWidget;
-    final url = song.albumCoverUrl;
+    final url = song.thumbnailCoverUrl;
     if (url != null && url.isNotEmpty) {
       // 本地文件：file:// URI 或裸路径
       if (url.startsWith('file:') || url.startsWith('/')) {
@@ -261,6 +276,8 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
         coverWidget = CachedNetworkImage(
           imageUrl: url,
           width: 48, height: 48, fit: BoxFit.cover,
+          memCacheWidth: 96,
+          memCacheHeight: 96,
           errorWidget: (_, __, ___) => _defaultCoverIcon(cs),
         );
       }
@@ -307,7 +324,7 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
     );
   }
 
-  Widget _defaultCoverIcon(ColorScheme cs) {
+  static Widget _defaultCoverIcon(ColorScheme cs) {
     return Container(
       width: 48,
       height: 48,
@@ -336,7 +353,27 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
   }
 
   /// 播放/暂停圆形动效按钮
-  Widget _buildPlayPauseButton(PlayerProvider player, ColorScheme cs) {
+  static Widget _buildPlayPauseButton(
+    ({bool isPlaying, bool isLoading}) state,
+    ColorScheme cs,
+    BuildContext context,
+  ) {
+    if (state.isLoading) {
+      return SizedBox(
+        width: 42,
+        height: 42,
+        child: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: cs.primary,
+            ),
+          ),
+        ),
+      );
+    }
     return M3PressScale(
       child: Material(
         color: cs.primary,
@@ -345,7 +382,7 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
         shadowColor: cs.primary.withValues(alpha: 0.4),
         child: InkWell(
           customBorder: const CircleBorder(),
-          onTap: player.togglePlayPause,
+          onTap: () => context.read<PlayerProvider>().togglePlayPause(),
           child: SizedBox(
             width: 42,
             height: 42,
@@ -359,10 +396,10 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
                   );
                 },
                 child: Icon(
-                  player.isPlaying
+                  state.isPlaying
                       ? Icons.pause_rounded
                       : Icons.play_arrow_rounded,
-                  key: ValueKey<bool>(player.isPlaying),
+                  key: ValueKey<bool>(state.isPlaying),
                   color: cs.onPrimary,
                   size: 24,
                 ),
@@ -374,7 +411,8 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
     );
   }
 
-  void _openPlayerScreen(BuildContext context, PlayerProvider player) {
+  void _openPlayerScreen(BuildContext context) {
+    final player = context.read<PlayerProvider>();
     player.setPlayerScreenVisible(true);
     app.navKey.currentState
         ?.push(
@@ -398,5 +436,70 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
           ),
         )
         .then((_) => player.setPlayerScreenVisible(false));
+  }
+}
+
+/// 底部独立进度条：只订阅 progress，避免整个 MiniPlayer 随进度重建。
+class _MiniProgressBar extends StatelessWidget {
+  const _MiniProgressBar();
+
+  @override
+  Widget build(BuildContext context) {
+    return Selector<PlayerProvider, double?>(
+      selector: (_, p) {
+        final duration = p.duration.inMilliseconds;
+        if (duration <= 0) return null;
+        final value = p.position.inMilliseconds / duration;
+        return value.isFinite ? value.clamp(0.0, 1.0) : null;
+      },
+      builder: (_, value, __) {
+        if (value == null) return const SizedBox.shrink();
+        return Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: LinearProgressIndicator(
+            value: value,
+            backgroundColor: Colors.transparent,
+            color: Theme.of(context).colorScheme.primary,
+            minHeight: 3,
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 封面 + 加载遮罩：只订阅 isLoading，避免进度变化时重建封面。
+class _MiniCoverArt extends StatelessWidget {
+  final Song song;
+
+  const _MiniCoverArt({required this.song});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Selector<PlayerProvider, bool>(
+      selector: (_, p) => p.isLoading,
+      builder: (_, isLoading, __) {
+        return M3ExpressiveMiniPlayer._buildCoverArt(song, cs, isLoading);
+      },
+    );
+  }
+}
+
+/// 播放/暂停按钮：只订阅 isPlaying / isLoading，避免外部状态重建按钮。
+class _MiniPlayPauseButton extends StatelessWidget {
+  const _MiniPlayPauseButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Selector<PlayerProvider, ({bool isPlaying, bool isLoading})>(
+      selector: (_, p) => (isPlaying: p.isPlaying, isLoading: p.isLoading),
+      builder: (_, state, __) {
+        return M3ExpressiveMiniPlayer._buildPlayPauseButton(state, cs, context);
+      },
+    );
   }
 }

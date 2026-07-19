@@ -61,9 +61,6 @@ class MusicAudioHandler extends BaseAudioHandler {
     bool liked = false,
     String playMode = 'sequential',
   }) {
-    Log.i('audio_handler', 'updateNotification: title=$title, isPlaying=$isPlaying, '
-        'processing=${isBuffering ? "buffering" : "ready"}');
-
     // ── MediaItem（→ 通知标题/歌手/封面 + 锁屏/蓝牙歌词） ──
     final uri = albumArtUrl != null
         ? Uri.tryParse(albumArtUrl.replaceFirst('{size}', '480'))

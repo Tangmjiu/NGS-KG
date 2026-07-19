@@ -20,9 +20,15 @@ class SongTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final player = context.watch<PlayerProvider>();
-    final isCurrent = player.currentSong?.id == song.id;
-    final isPlaying = isCurrent && player.isPlaying;
+    // 精确选择：只订阅当前歌曲 ID 和播放状态，避免进度变化导致整行 rebuild
+    final playbackState = context.select<PlayerProvider, ({bool isCurrent, bool isPlaying})>(
+      (p) => (
+        isCurrent: p.currentSong?.id == song.id,
+        isPlaying: p.currentSong?.id == song.id && p.isPlaying,
+      ),
+    );
+    final isCurrent = playbackState.isCurrent;
+    final isPlaying = playbackState.isPlaying;
 
     return Semantics(
       button: true,
@@ -48,19 +54,21 @@ class SongTile extends StatelessWidget {
                   Stack(
                     alignment: Alignment.center,
                     children: [
-                      ClipRRect(
-                        borderRadius: AppShape.sm,
-                        child: song.albumCoverUrl != null
-                            ? CachedNetworkImage(
-                                imageUrl: song.albumCoverUrl!,
-                                width: 56,
-                                height: 56,
-                                fit: BoxFit.cover,
-                                placeholder: (_, __) => _placeholder(cs),
-                                errorWidget: (_, __, ___) => _placeholder(cs),
-                              )
-                            : _placeholder(cs),
-                      ),
+                                  ClipRRect(
+                                    borderRadius: AppShape.sm,
+                                    child: song.thumbnailCoverUrl != null
+                                        ? CachedNetworkImage(
+                                            imageUrl: song.thumbnailCoverUrl!,
+                                            width: 56,
+                                            height: 56,
+                                            fit: BoxFit.cover,
+                                            memCacheWidth: 112,
+                                            memCacheHeight: 112,
+                                            placeholder: (_, __) => _placeholder(cs),
+                                            errorWidget: (_, __, ___) => _placeholder(cs),
+                                          )
+                                        : _placeholder(cs),
+                                  ),
                       // Playing Indicator Overlay
                       if (isCurrent)
                         Container(

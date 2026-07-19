@@ -41,12 +41,14 @@ class DiscoverSongRow extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: AppShape.md,
-                    child: song.albumCoverUrl != null
+                    child: song.thumbnailCoverUrl != null
                         ? CachedNetworkImage(
-                            imageUrl: song.albumCoverUrl!,
+                            imageUrl: song.thumbnailCoverUrl!,
                             width: 120,
                             height: 120,
                             fit: BoxFit.cover,
+                            memCacheWidth: 240,
+                            memCacheHeight: 240,
                             placeholder: (_, __) => Container(
                               width: 120,
                               height: 120,

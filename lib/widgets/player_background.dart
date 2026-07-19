@@ -1,9 +1,8 @@
-import 'dart:async' show Timer;
 import 'dart:io';
-import 'dart:math' show sin, cos, pi, min;
+import 'dart:math' show sin, cos, pi;
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart' show Ticker, SchedulerBinding;
+import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
@@ -113,7 +112,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
               height: double.infinity,
               imageBuilder: (context, imageProvider) {
                 return ImageFiltered(
-                  imageFilter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
+                  imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
                   child: Image(
                     image: imageProvider,
                     fit: BoxFit.cover,
@@ -131,7 +130,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
         if ((!flowEnabled || !hasColors) && widget.albumCoverUrl == null && ThemeAssets.playerBg.isNotEmpty)
           Positioned.fill(
             child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
+              imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
               child: Image.file(
                 File(ThemeAssets.playerBg),
                 fit: BoxFit.cover,
@@ -184,7 +183,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
                                   panSpeedY: 0.03,
                                   panRadius: 50.0,
                                   opacity: 0.85,
-                                  blurSigma: 75.0,
+                                  blurSigma: 45.0,
                                 ),
                                 // Layer B: 顶层流光封面，反向旋转，速度不同，缩放比大，起混色作用
                                 FlowingImageLayer(
@@ -198,7 +197,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
                                   panSpeedY: 0.08,
                                   panRadius: 70.0,
                                   opacity: 0.45,
-                                  blurSigma: 90.0,
+                                  blurSigma: 55.0,
                                 ),
                               ],
                             ),
@@ -240,7 +239,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
                             panSpeedY: 0.03,
                             panRadius: 40.0,
                             opacity: 0.85,
-                            blurSigma: 75.0,
+                            blurSigma: 45.0,
                           ),
                           FlowingImageLayer(
                             imageProvider: imageProvider,
@@ -253,7 +252,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
                             panSpeedY: 0.08,
                             panRadius: 60.0,
                             opacity: 0.45,
-                            blurSigma: 90.0,
+                            blurSigma: 55.0,
                           ),
                         ],
                       ),

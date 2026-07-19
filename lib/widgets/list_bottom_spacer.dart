@@ -21,9 +21,10 @@ class ListBottomSpacer extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    final player = context.watch<PlayerProvider>();
-    final song = player.currentSong;
-    final showMini = song != null && !player.isPlayerScreenVisible;
+    // 精确选择：只订阅 MiniPlayer 显隐条件，不随播放进度重建
+    final showMini = context.select<PlayerProvider, bool>(
+      (p) => p.currentSong != null && !p.isPlayerScreenVisible,
+    );
 
     double spacerHeight;
     if (isHome) {

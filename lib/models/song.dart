@@ -68,6 +68,11 @@ class Song {
 
   String get artistDisplay => artists.join(' / ');
 
+  /// 小尺寸封面 URL（适合列表/缩略图），默认 240px。
+  /// 如果原 URL 不含 {size} 占位符则原样返回。
+  String? get thumbnailCoverUrl =>
+      albumCoverUrl?.replaceAll('{size}', '240');
+
   ImageProvider get coverImageProvider {
     if (coverData != null && coverData!.isNotEmpty) {
       return MemoryImage(coverData!);

@@ -106,6 +106,9 @@ class LocalCoverArt extends StatelessWidget {
       fit: fit,
       width: imageSize,
       height: imageSize,
+      // 限制内存中解码尺寸，避免小封面持有全尺寸位图
+      memCacheWidth: (imageSize * 2).toInt(),
+      memCacheHeight: (imageSize * 2).toInt(),
       placeholder: (_, __) => _placeholder(context, imageSize),
       errorWidget: (_, __, ___) => _placeholder(context, imageSize),
     );

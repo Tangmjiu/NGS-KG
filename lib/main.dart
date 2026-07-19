@@ -304,7 +304,8 @@ class NGSKGApp extends StatelessWidget {
                 if (ThemeAssets.playerBg.isNotEmpty)
                   Positioned.fill(
                     child: ImageFiltered(
-                      imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                      // 降低 sigma 以减少低端机 GPU 负载（视觉差异小）
+                      imageFilter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                       child: Image.file(
                         File(ThemeAssets.playerBg),
                         fit: BoxFit.cover,

@@ -328,12 +328,14 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                   padding: const EdgeInsets.only(right: 10),
                   child: ClipRRect(
                     borderRadius: AppShape.md,
-                    child: song.albumCoverUrl != null
+                    child: song.thumbnailCoverUrl != null
                         ? CachedNetworkImage(
-                            imageUrl: song.albumCoverUrl!,
+                            imageUrl: song.thumbnailCoverUrl!,
                             width: 80,
                             height: 80,
                             fit: BoxFit.cover,
+                            memCacheWidth: 160,
+                            memCacheHeight: 160,
                             errorWidget: (_, __, ___) => Container(
                               width: 80,
                               height: 80,
@@ -575,12 +577,14 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                           ],
                         ),
                         child: ClipOval(
-                          child: song.albumCoverUrl != null
+                          child: song.thumbnailCoverUrl != null
                               ? CachedNetworkImage(
-                                  imageUrl: song.albumCoverUrl!,
+                                  imageUrl: song.thumbnailCoverUrl!,
                                   width: 44,
                                   height: 44,
                                   fit: BoxFit.cover,
+                                  memCacheWidth: 88,
+                                  memCacheHeight: 88,
                                   errorWidget: (_, __, ___) => Container(
                                     color: cs.surfaceContainerHighest,
                                     child: Icon(Icons.music_note,
