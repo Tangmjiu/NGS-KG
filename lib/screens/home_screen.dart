@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/auth_provider.dart';
@@ -61,6 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
+            scrollCacheExtent: const ScrollCacheExtent.pixels(300),
             itemCount: chunks.length,
             itemBuilder: (_, i) {
               final chunk = chunks[i];
@@ -537,6 +539,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 scrollDirection: Axis.horizontal,
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 8),
+                                scrollCacheExtent: const ScrollCacheExtent.pixels(300),
                                 itemCount: provider.topPlaylists.length,
                                 itemBuilder: (_, i) {
                                   final pl = provider.topPlaylists[i];

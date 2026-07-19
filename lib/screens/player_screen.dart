@@ -1,12 +1,9 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
 
-import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 import 'package:flutter_lyric/flutter_lyric.dart';
-import 'package:flutter_lyric/core/lyric_model.dart';
 import 'package:provider/provider.dart';
 
 import '../models/song.dart';
@@ -14,8 +11,6 @@ import '../providers/player_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/liked_songs_provider.dart';
 import '../providers/auth_provider.dart';
-import '../services/music_service.dart';
-import '../utils/logger.dart';
 import '../constants/quality.dart';
 import '../widgets/player_background.dart';
 import '../widgets/player_cover_art.dart';
@@ -101,16 +96,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   final PageController _pageController = PageController();
   double _pageOffset = 0.0; // 0 = cover, 1 = lyrics
 
-  // ─── Drag state (progress bar) ───
-  bool _isDraggingProgress = false;
-  double _dragProgressValue = 0.0;
-
   @override
   void initState() {
     super.initState();
     _pageController.addListener(_onPageScroll);
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => _attachPlayerListener());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final player = context.read<PlayerProvider>();
@@ -119,27 +108,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
         });
       }
     });
-  }
-
-  void _attachPlayerListener() {
-    if (!mounted) return;
-    context.read<PlayerProvider>().addListener(_onPlayerTick);
-  }
-
-  void _onPlayerTick() {
-    if (!mounted) return;
-    final player = context.read<PlayerProvider>();
-    final song = player.currentSong;
-    if (song == null) return;
-
-    // 拖拽进度条时同步歌词滚动
-    if (_isDraggingProgress && _pageOffset >= 0.5) {
-      final dragPos = Duration(
-        milliseconds: (_dragProgressValue * player.duration.inMilliseconds)
-            .round(),
-      );
-      player.lyricController.setProgress(dragPos);
-    }
   }
 
   void _onPageScroll() {
@@ -152,9 +120,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     // 进入歌词页面时同步 controller 到实际播放位置
     if (wasBelowHalf && newOffset >= 0.5 && mounted) {
       final player = context.read<PlayerProvider>();
-      if (!_isDraggingProgress) {
-        player.lyricController.setProgress(player.position);
-      }
+      player.lyricController.setProgress(player.position);
     }
   }
 
@@ -162,9 +128,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void dispose() {
     _pageController.removeListener(_onPageScroll);
     _pageController.dispose();
-    try {
-      context.read<PlayerProvider>().removeListener(_onPlayerTick);
-    } catch (_) {}
     super.dispose();
   }
 
@@ -448,11 +411,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             Navigator.pop(ctx);
                             if (displayArtistsList.length > 1) {
                               // 弹窗让用户挑选歌手
-                              _showArtistSelectionSheet(p, song!);
+                              _showArtistSelectionSheet(p, song);
                             } else {
                               // 单歌手逻辑
                               final artistName = displayArtistsList.first;
-                              final artistId = hasKrm ? krmAuthors.first['id'] as int? : song!.artistId;
+                              final artistId = hasKrm ? krmAuthors.first['id'] as int? : song.artistId;
                               if (artistId != null && artistId > 0) {
                                 Navigator.pushNamed(context, '/artist/detail', arguments: {
                                   'id': artistId,
@@ -529,7 +492,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   void _showEffectSheet() {
-    final player = context.read<PlayerProvider>();
     showM3ModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1E1E1E),
@@ -739,13 +701,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
         child: CircularProgressIndicator(color: Colors.white70),
       );
     } else if (!hasLyrics) {
-      lyricsContent = Center(
+      lyricsContent = const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.lyrics_outlined, size: 48, color: Colors.white54),
-            const SizedBox(height: 16),
-            const Text('暂无歌词',
+            Icon(Icons.lyrics_outlined, size: 48, color: Colors.white54),
+            SizedBox(height: 16),
+            Text('暂无歌词',
                 style: TextStyle(color: Colors.white54, fontSize: 16)),
           ],
         ),
@@ -768,7 +730,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (ls.blurEffect) {
       lyricsWidget = ShaderMask(
         shaderCallback: (bounds) {
-          return LinearGradient(
+          return const LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
@@ -777,7 +739,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               Colors.black,
               Colors.transparent,
             ],
-            stops: const [0.0, 0.12, 0.88, 1.0],
+            stops: [0.0, 0.12, 0.88, 1.0],
           ).createShader(bounds);
         },
         blendMode: BlendMode.dstIn,
@@ -902,20 +864,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
         }
 
         // ── Slide-down gesture state ──
-        double _dragOffset = 0;
-        const double _dismissThreshold = 150;
+        double dragOffset = 0;
+        const double dismissThreshold = 150;
 
         return Scaffold(
           backgroundColor: Colors.black,
           body: GestureDetector(
             onVerticalDragUpdate: (details) {
-              _dragOffset += details.delta.dy;
-              if (_dragOffset > _dismissThreshold && mounted) {
+              dragOffset += details.delta.dy;
+              if (dragOffset > dismissThreshold && mounted) {
                 Navigator.pop(context);
               }
             },
             onVerticalDragEnd: (details) {
-              _dragOffset = 0;
+              dragOffset = 0;
               if ((details.primaryVelocity ?? 0) > 800 && mounted) {
                 Navigator.pop(context);
               }
@@ -1057,52 +1019,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
         const SizedBox(height: 12),
 
-        // Progress bar
-        PlayerProgressBar(
-          position: player.position,
-          duration: player.duration,
-          progress: _isDraggingProgress
-              ? _dragProgressValue
-              : (player.progress.isFinite ? player.progress : 0.0),
-          onDragStart: () {
-            setState(() => _isDraggingProgress = true);
-            final pos = Duration(
-              milliseconds:
-                  (_dragProgressValue * player.duration.inMilliseconds).round(),
-            );
-            player.lyricController.setProgress(pos);
-          },
-          onDragEnd: () async {
-            await player.seek(Duration(
-              milliseconds: (_dragProgressValue *
-                      player.duration.inMilliseconds)
-                  .round(),
-            ));
-            if (mounted) {
-              setState(() => _isDraggingProgress = false);
-            }
-          },
-          onSeek: (v) {
-            _dragProgressValue = v;
-            if (_isDraggingProgress) {
-              final pos = Duration(
-                milliseconds: (v * player.duration.inMilliseconds).round(),
-              );
-              player.lyricController.setProgress(pos);
-            }
-          },
-        ),
+        // Progress bar（独立订阅 position/duration/progress，避免整页重建）
+        _PlayerProgressBar(pageOffset: _pageOffset),
 
         const SizedBox(height: 12),
 
-        // Three controls: �?�?�?
-        PlayerControlsBar(
-          isPlaying: player.isPlaying,
-          isLoading: player.isLoading,
-          onPlayPause: player.togglePlayPause,
-          onPrevious: player.playPrevious,
-          onNext: player.playNext,
-        ),
+        // Three controls: �?�?�?（独立订阅 isPlaying/isLoading）
+        const _PlayerControls(),
 
         const SizedBox(height: 8),
 
@@ -1222,6 +1145,92 @@ class _IconBarItem extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Icon(icon, size: 22, color: iconColor ?? Colors.white60),
       ),
+    );
+  }
+}
+
+/// 独立订阅播放进度，避免进度变化时重建整个 PlayerScreen。
+class _PlayerProgressBar extends StatefulWidget {
+  final double pageOffset;
+
+  const _PlayerProgressBar({required this.pageOffset});
+
+  @override
+  State<_PlayerProgressBar> createState() => _PlayerProgressBarState();
+}
+
+class _PlayerProgressBarState extends State<_PlayerProgressBar> {
+  bool _isDragging = false;
+  double _dragValue = 0.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Selector<PlayerProvider, ({Duration position, Duration duration, double progress})>(
+      selector: (_, p) {
+        final durationMs = p.duration.inMilliseconds;
+        return (
+          position: p.position,
+          duration: p.duration,
+          progress: durationMs > 0 && p.progress.isFinite
+              ? p.progress.clamp(0.0, 1.0)
+              : 0.0,
+        );
+      },
+      builder: (context, state, _) {
+        final player = context.read<PlayerProvider>();
+        return PlayerProgressBar(
+          position: _isDragging
+              ? Duration(
+                  milliseconds: (_dragValue * state.duration.inMilliseconds)
+                      .round(),
+                )
+              : state.position,
+          duration: state.duration,
+          progress: _isDragging ? _dragValue : state.progress,
+          onDragStart: () {
+            setState(() => _isDragging = true);
+          },
+          onDragEnd: () async {
+            await player.seek(Duration(
+              milliseconds: (_dragValue * state.duration.inMilliseconds)
+                  .round(),
+            ));
+            if (mounted) {
+              setState(() => _isDragging = false);
+            }
+          },
+          onSeek: (v) {
+            setState(() => _dragValue = v);
+            if (_isDragging && widget.pageOffset >= 0.5) {
+              player.lyricController.setProgress(Duration(
+                milliseconds: (v * state.duration.inMilliseconds).round(),
+              ));
+            }
+          },
+        );
+      },
+    );
+  }
+}
+
+/// 独立订阅播放/加载状态，避免进度变化时重建整个 PlayerScreen。
+class _PlayerControls extends StatelessWidget {
+  const _PlayerControls();
+
+  @override
+  Widget build(BuildContext context) {
+    return Selector<PlayerProvider, ({bool isPlaying, bool isLoading})>(
+      selector: (_, p) => (isPlaying: p.isPlaying, isLoading: p.isLoading),
+      builder: (context, state, _) {
+        final player = context.read<PlayerProvider>();
+        return PlayerControlsBar(
+          isPlaying: state.isPlaying,
+          isLoading: state.isLoading,
+          onPlayPause: player.togglePlayPause,
+          onPrevious: player.playPrevious,
+          onNext: player.playNext,
+        );
+      },
     );
   }
 }

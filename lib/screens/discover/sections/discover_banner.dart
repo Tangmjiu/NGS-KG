@@ -42,6 +42,9 @@ class DiscoverBanner extends StatelessWidget {
                       children: [
                         CachedNetworkImage(
                           imageUrl: imgUrl,
+                          height: 160,
+                          memCacheWidth: 640,
+                          memCacheHeight: 320,
                           fit: BoxFit.cover,
                           placeholder: (_, __) =>
                               Container(color: cs.surfaceContainerHighest),

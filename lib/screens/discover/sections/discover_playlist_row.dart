@@ -44,6 +44,10 @@ class DiscoverPlaylistRow extends StatelessWidget {
                           child: pl.coverUrl != null
                               ? CachedNetworkImage(
                                   imageUrl: pl.coverUrl!,
+                                  width: 140,
+                                  height: 140,
+                                  memCacheWidth: 280,
+                                  memCacheHeight: 280,
                                   fit: BoxFit.cover,
                                 )
                               : Icon(Icons.playlist_play, color: cs.onSurfaceVariant),

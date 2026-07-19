@@ -43,6 +43,10 @@ class DiscoverRankRow extends StatelessWidget {
                           child: rank.coverUrl != null
                               ? CachedNetworkImage(
                                   imageUrl: rank.coverUrl!,
+                                  width: 100,
+                                  height: 100,
+                                  memCacheWidth: 200,
+                                  memCacheHeight: 200,
                                   fit: BoxFit.cover,
                                 )
                               : Icon(Icons.leaderboard, color: cs.onSurfaceVariant),

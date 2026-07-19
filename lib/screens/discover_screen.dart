@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:cached_network_image/cached_network_image.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';
@@ -226,6 +227,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   maxHeight: availableHeight,
                 ),
                 child: ListView.builder(
+                scrollCacheExtent: const ScrollCacheExtent.pixels(200),
                 itemCount: rankList.length,
                 itemBuilder: (_, i) {
                   final r = rankList[i];

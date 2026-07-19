@@ -52,10 +52,10 @@ class _PlayerBackgroundState extends State<PlayerBackground>
     super.initState();
     _ticker = createTicker((elapsed) {
       if (!mounted) return;
-      
+
       final delta = (elapsed - _lastElapsed).inMicroseconds / 1000000.0;
       _lastElapsed = elapsed;
-      
+
       // 容错读取播放状态
       bool isPlaying = true;
       try {
@@ -65,15 +65,24 @@ class _PlayerBackgroundState extends State<PlayerBackground>
       // 平滑插值计算当前速度（实现 Apple Music 播放时加速、暂停时缓停的效果）
       final targetSpeed = isPlaying ? 1.0 : 0.0;
       _currentSpeed += (targetSpeed - _currentSpeed) * (delta * 3.0);
-      
+
       // 当速度极小且目标为0时，直接清零以省计算
       if (!isPlaying && _currentSpeed < 0.001) {
         _currentSpeed = 0.0;
       }
-      
+
       _accumulatedTime += delta * _currentSpeed;
       _elapsed.value = _accumulatedTime;
-    })..start();
+    });
+  }
+
+  void _updateTickerState(bool isPlaying) {
+    // 播放时启动 ticker；暂停时让速度缓降到 0 后再停止，避免动画突兀中断。
+    if (isPlaying && !_ticker.isActive) {
+      _ticker.start();
+    } else if (!isPlaying && _ticker.isActive && _currentSpeed < 0.001) {
+      _ticker.stop();
+    }
   }
 
   @override
@@ -87,6 +96,8 @@ class _PlayerBackgroundState extends State<PlayerBackground>
   @override
   Widget build(BuildContext context) {
     final flowEnabled = context.watch<ThemeProvider>().flowLightEnabled;
+    final isPlaying = context.select<PlayerProvider, bool>((p) => p.isPlaying);
+    _updateTickerState(isPlaying);
     final hasColors = widget.paletteColors.length >= 3;
 
     return Stack(
