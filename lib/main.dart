@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:audio_service/audio_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/player_provider.dart';
 import 'providers/playlist_provider.dart';
@@ -22,6 +23,7 @@ import 'services/device_service.dart';
 import 'services/music_service.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
+import 'services/audio_handler.dart';
 import 'services/cache_service.dart';
 import 'providers/audio_settings_provider.dart';
 import 'navidrome/navidrome_provider.dart';
@@ -135,10 +137,40 @@ Future<void> main() async {
     );
   };
 
-  // 只对后台初始化任务使�?zone 捕获异常
+  // ─── 初始化 AudioService（替代原生 PlaybackService + MediaSession） ───
+  final audioHandler = await AudioService.init<MusicAudioHandler>(
+    builder: () => MusicAudioHandler(),
+    config: AudioServiceConfig(
+      androidNotificationChannelId: 'com.mjiutang.ngskg.audio',
+      androidNotificationChannelName: '音乐播放',
+      androidNotificationChannelDescription: '音乐播放控制（支持锁屏、蓝牙）',
+      androidNotificationIcon: 'mipmap/ic_launcher',
+      androidShowNotificationBadge: false,
+      androidNotificationClickStartsActivity: true,
+      androidNotificationOngoing: false,
+      androidStopForegroundOnPause: true,
+      artDownscaleWidth: 512,
+      artDownscaleHeight: 512,
+      preloadArtwork: true,
+    ),
+  );
+  // 系统控制回调 → PlayerProvider（通过 navKey 获取 context）
+  audioHandler.onPlay = () => _notifAction('play_pause');
+  audioHandler.onPause = () => _notifAction('play_pause');
+  audioHandler.onSkipNext = () => _notifAction('next');
+  audioHandler.onSkipPrevious = () => _notifAction('prev');
+  audioHandler.onSeek = (pos) {
+    final ctx = navKey.currentState?.overlay?.context;
+    if (ctx == null) return;
+    ctx.read<PlayerProvider>().seek(pos);
+  };
+  audioHandler.onStop = () {}; // BaseAudioHandler.stop() 自动清理通知
+  audioHandler.onLike = () => _notifAction('like');
+  audioHandler.onSwitchMode = () => _notifAction('switch_mode');
+
+  // 后台任务（非阻塞）
   runZonedGuarded(() {
     _initDevice();
-    _initNotifications();
   }, (error, stack) {
     Log.e('ZONE', 'Background init error', error, stack);
   });
@@ -150,16 +182,16 @@ Future<void> main() async {
   final audioSettings = AudioSettingsProvider()..init();
   final themeProvider = ThemeProvider()..init();
   final likedSongs = LikedSongsProvider(musicService);
-  // 先初始化认证（从本地文件加载），避免 auth 准备就绪�?PlayerProvider 发起网络请求
+  // 先初始化认证（从本地文件加载），避免 auth 准备就绪前 PlayerProvider 发起网络请求
   final authProvider = AuthProvider(authService, likedSongs: likedSongs);
-  // 小延迟确保文件读取完成；ready �?_loadSavedUser() 完成后触�?
-    unawaited(authProvider.ready.then((_) {
+  // 小延迟确保文件读取完成；ready 在 _loadSavedUser() 完成后触发
+  unawaited(authProvider.ready.then((_) {
     Log.i('main', 'AuthProvider ready, user=${authProvider.isLoggedIn}');
     if (authProvider.isLoggedIn) likedSongs.load();
   }));
-  // 注意：此处不能阻�?runApp —�?authProvider 在构造时已启�?_loadSavedUser()
-  // apiClient.setAuth �?_loadSavedUser 内调用，PlayerProvider �?restorePlaybackState
-  // �?addPostFrameCallback 调度，通常�?auth 就绪之后才执行�?
+  // 注意：此处不能阻塞 runApp — authProvider 在构造时已启动 _loadSavedUser()
+  // apiClient.setAuth 在 _loadSavedUser 内调用，PlayerProvider 的 restorePlaybackState
+  // 通过 addPostFrameCallback 调度，通常在 auth 就绪之后才执行。
   runApp(
     MultiProvider(
       providers: [
@@ -169,6 +201,7 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider(create: (_) => PlayerProvider(musicService,
+            audioHandler: audioHandler,
             audioSettings: audioSettings,
             likedSongs: likedSongs,
         )),
@@ -194,22 +227,6 @@ Future<void> _initDevice() async {
       ApiClient.setDfid(device.dfid);
     }
   } catch (_) {}
-}
-
-Future<void> _initNotifications() async {
-  final notif = NotificationService.instance;
-  await notif.init();
-  notif.onNotificationTap = () {};
-  notif.onPrev = () => _notifAction('prev');
-  notif.onPlayPause = () => _notifAction('play_pause');
-  notif.onNext = () => _notifAction('next');
-  notif.onLike = () => _notifAction('like');
-  notif.onSwitchMode = () => _notifAction('switch_mode');
-  notif.onSeekTo = (posMs) {
-    final ctx = navKey.currentState?.overlay?.context;
-    if (ctx == null) return;
-    ctx.read<PlayerProvider>().seek(Duration(milliseconds: posMs));
-  };
 }
 
 void _notifAction(String action) {

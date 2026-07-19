@@ -18,7 +18,7 @@ import '../models/song.dart';
 import '../models/song_mapper.dart';
 import '../utils/palette_extractor.dart';
 import '../services/music_service.dart';
-import '../services/notification_service.dart';
+import '../services/audio_handler.dart';
 import '../constants/quality.dart';
 import 'mixins.dart';
 import 'audio_engine.dart';
@@ -46,6 +46,7 @@ class PlayerProvider extends ChangeNotifier
   final MusicService _musicService;
   final AudioSettingsProvider? _audioSettings;
   final LikedSongsProvider? _likedSongs;
+  final MusicAudioHandler _audioHandler;
   late final AudioEngine _engine;
   late final PlaylistQueue _queue;
 
@@ -280,9 +281,12 @@ class PlayerProvider extends ChangeNotifier
   }
 
   PlayerProvider(this._musicService,
-      {AudioSettingsProvider? audioSettings, LikedSongsProvider? likedSongs})
+      {required MusicAudioHandler audioHandler,
+      AudioSettingsProvider? audioSettings,
+      LikedSongsProvider? likedSongs})
       : _audioSettings = audioSettings,
-        _likedSongs = likedSongs {
+        _likedSongs = likedSongs,
+        _audioHandler = audioHandler {
     _engine = AudioEngine(_musicService);
     _queue = PlaylistQueue();
 
@@ -366,7 +370,7 @@ class PlayerProvider extends ChangeNotifier
   void _updateNotification() {
     final song = _queue.currentSong;
     if (song == null) {
-      NotificationService.instance.cancelMediaNotification();
+      _audioHandler.cancelNotification();
       return;
     }
     // 当前歌词行（如果有）
@@ -377,31 +381,24 @@ class PlayerProvider extends ChangeNotifier
       final line = model.lines[cl].text;
       if (line.isNotEmpty) lyricLine = line;
     }
-    NotificationService.instance.showMediaNotification(
-      title: song.name,
-      artist: song.artistDisplay,
-      albumArtUrl: song.albumCoverUrl,
-      lyricLine: lyricLine,
-      isPlaying: _isPlaying,
-      duration: _duration.inSeconds,
-      position: _position.inSeconds,
-      isBuffering: _engine.isLoading.value,
-      speed: _engine.speed,
-    );
-    // 同步自定义按钮状态
-    _notifyCustomButtons(song.id);
-  }
-
-  /// 同步收藏和播放模式状态到系统媒体控件
-  void _notifyCustomButtons(int songId) {
-    final liked = _likedSongs?.likedIds.contains(songId) ?? false;
+    final liked = _likedSongs?.likedIds.contains(song.id) ?? false;
     final modeLabel = switch (_queue.playMode) {
       PlayMode.sequential => 'sequential',
       PlayMode.shuffle => 'shuffle',
       PlayMode.repeatOne => 'repeatOne',
       PlayMode.radio => 'sequential',
     };
-    NotificationService.instance.updateCustomButtons(
+    _audioHandler.updateNotification(
+      id: song.id.toString(),
+      title: song.name,
+      artist: song.artistDisplay,
+      albumArtUrl: song.albumCoverUrl,
+      lyricLine: lyricLine,
+      isPlaying: _isPlaying,
+      durationSec: _duration.inSeconds,
+      positionSec: _position.inSeconds,
+      isBuffering: _engine.isLoading.value,
+      speed: _engine.speed,
       liked: liked,
       playMode: modeLabel,
     );

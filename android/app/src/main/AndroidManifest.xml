@@ -45,25 +45,6 @@
             </intent-filter>
         </activity>
 
-        <!-- 前台媒体播放服务（支持 OPPO 流体云 + Android 13+ 媒体控件） -->
-        <service
-            android:name=".PlaybackService"
-            android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
-
-        <!-- 媒体按钮广播接收器（通知栏 + 蓝牙/耳机媒体按键） -->
-        <receiver
-            android:name=".MediaButtonReceiver"
-            android:exported="true">
-            <intent-filter android:priority="1000">
-                <action android:name="com.mjiutang.ngskg.PREV" />
-                <action android:name="com.mjiutang.ngskg.PLAY_PAUSE" />
-                <action android:name="com.mjiutang.ngskg.NEXT" />
-                <action android:name="com.mjiutang.ngskg.STOP" />
-                <action android:name="android.intent.action.MEDIA_BUTTON" />
-            </intent-filter>
-        </receiver>
-
         <!-- flutter_local_notifications 接收器 -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
