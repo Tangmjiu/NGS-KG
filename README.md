@@ -27,8 +27,6 @@
 * **本地音乐**：可扫描并播放设备本地存储的音频文件。
 * **云盘集成**：支持读取并播放酷狗个人云盘中的音乐。
 * **个性化**：内置主题市场，支持在线浏览、下载及一键应用社区主题。
-* **跨平台桌面支持**：桌面端提供侧边栏导航、SMTC/MPRIS 媒体控制以及系统托盘支持。
-
 ---
 
 ## 快速开始
@@ -36,7 +34,7 @@
 ### 开发环境
 
 * Flutter SDK（最新稳定版）
-* Android SDK（API 26+）或 Windows/Linux C++ 构建工具链
+* Android SDK（API 26+）
 * JDK 17+
 
 ### 初始化与运行
@@ -59,8 +57,6 @@
 
 ## 构建发布
 
-### Android 端
-
 * 构建 Debug 包：
   ```bash
   flutter build apk --debug
@@ -68,17 +64,6 @@
 * 构建 Release 拆分包（分架构缩小体积）：
   ```bash
   flutter build apk --release --split-per-abi
-  ```
-
-### 桌面端
-
-* Windows 端构建：
-  ```bash
-  flutter build windows --release
-  ```
-* Linux 端构建：
-  ```bash
-  flutter build linux --release
   ```
 
 ---
