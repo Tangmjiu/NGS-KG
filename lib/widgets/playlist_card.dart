@@ -20,7 +20,7 @@ class PlaylistCard extends StatelessWidget {
       child: M3PressScale(
         scaleDown: 0.95,
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          margin: const EdgeInsets.symmetric(vertical: 6),
           decoration: BoxDecoration(
             color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
             borderRadius: AppShape.lg,
