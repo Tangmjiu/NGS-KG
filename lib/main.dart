@@ -32,6 +32,7 @@ import 'providers/local_music_provider.dart';
 import 'utils/preview_config.dart';
 import 'theme/theme_assets.dart';
 import 'utils/navigation.dart';
+import 'services/intent_handler_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -219,6 +220,35 @@ Future<void> main() async {
       child: const NGSKGApp(),
     ),
   );
+  // 启动外部文件打开监听（Android Intent）
+  IntentHandlerService.instance.start();
+  IntentHandlerService.instance.onFileOpen.listen((filePath) async {
+    // 获取 LocalMusicProvider（通过 navKey 安全访问）
+    final ctx0 = navKey.currentState?.overlay?.context;
+    if (ctx0 == null) return;
+    final localProv = ctx0.read<LocalMusicProvider>();
+
+    // 先确保扫描完成
+    if (!localProv.scanned && !localProv.isScanning) {
+      await localProv.scanMusic();
+    }
+    final song = await localProv.addSongFromPath(filePath);
+    if (song == null) return;
+
+    // 加入播放列表并播放（重新获取 context 避免 async gap 问题）
+    final playCtx = navKey.currentState?.overlay?.context;
+    if (playCtx != null) {
+      playCtx.read<PlayerProvider>().playSong(song, playlist: localProv.songs);
+    }
+
+    // 导航到本地音乐界面
+    navKey.currentState?.pushNamedAndRemoveUntil(
+      AppRoutes.localMusic,
+      (route) => route.settings.name == AppRoutes.home,
+    );
+  });
+
+
 
 }
 

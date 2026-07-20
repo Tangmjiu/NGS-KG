@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/song.dart';
 import '../services/local_music_service.dart';
@@ -33,6 +34,16 @@ class LocalMusicProvider extends ChangeNotifier {
 
   bool _sortAscending = true;
   bool get sortAscending => _sortAscending;
+
+  // 高亮定位：外部文件打开时定位到该文件的路径
+  String? _highlightedFilePath;
+  String? get highlightedFilePath => _highlightedFilePath;
+
+  void clearHighlight() {
+    if (_highlightedFilePath == null) return;
+    _highlightedFilePath = null;
+    notifyListeners();
+  }
 
   // Methods
   Future<void> scanMusic({bool forceFull = false}) async {
@@ -247,7 +258,102 @@ class LocalMusicProvider extends ChangeNotifier {
     await _service.removeSearchDir(path);
     await scanMusic();
   }
+
+  // ── 外部文件导入 ──
+
+  /// 从指定文件路径导入一首歌曲到本地音乐列表。
+  ///
+  /// 如果该文件已在列表中，仅更新高亮定位。
+  /// 如果不在列表中，读取元数据后插入列表末尾并高亮定位。
+  /// 返回导入的歌曲对象。
+  Future<Song?> addSongFromPath(String filePath) async {
+    // 检查是否已在列表中
+    final existing = _songs.firstWhere(
+      (s) => s.filePath == filePath,
+      orElse: () => const Song(id: -1, name: '', artists: []),
+    );
+    if (existing.id != -1) {
+      // 已存在，仅高亮定位
+      _highlightedFilePath = filePath;
+      notifyListeners();
+      return existing;
+    }
+
+    // 不在列表，读取元数据并构建 Song
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        Log.w('LocalMusicProvider', '导入文件不存在: $filePath');
+        return null;
+      }
+
+      final meta = await MetadataReader.read(file);
+      final stat = await file.stat();
+      final baseName = filePath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), '');
+
+      final song = Song.fromLocal(
+        title: (meta?.title != null && meta!.title!.isNotEmpty) ? meta.title! : baseName,
+        artist: meta?.artist,
+        album: meta?.album,
+        filePath: filePath,
+        duration: meta != null && meta.durationMs > 0 ? (meta.durationMs / 1000).round() : 0,
+        size: stat.size,
+        codec: _detectCodecFromPath(filePath),
+        bitrate: meta?.bitrate,
+        lyrics: meta?.lyrics,
+      );
+
+      _songs.add(song);
+      _highlightedFilePath = filePath;
+      _applyFilterAndSort();
+      notifyListeners();
+      return song;
+    } catch (e, s) {
+      Log.e('LocalMusicProvider', '导入文件失败: $filePath', e, s);
+      return null;
+    }
+  }
+
+  static String _detectCodecFromPath(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.flac')) return 'FLAC';
+    if (lower.endsWith('.wav')) return 'WAV';
+    if (lower.endsWith('.mp3')) return 'MP3';
+    if (lower.endsWith('.aac') || lower.endsWith('.m4a')) return 'AAC';
+    if (lower.endsWith('.ogg')) return 'OGG';
+    if (lower.endsWith('.wma')) return 'WMA';
+    return '';
+  }
+
+  // ── 删除歌曲 ──
+
+  /// 从列表中移除歌曲（不删除本地文件）。
+  Future<void> removeSong(Song song) async {
+    _songs.removeWhere((s) => s.filePath == song.filePath);
+    if (_highlightedFilePath == song.filePath) {
+      _highlightedFilePath = null;
+    }
+    _applyFilterAndSort();
+    notifyListeners();
+  }
+
+  /// 删除本地文件（并从列表中移除）。
+  Future<bool> deleteLocalFile(Song song) async {
+    if (song.filePath == null) return false;
+    try {
+      final file = File(song.filePath!);
+      if (await file.exists()) {
+        await file.delete();
+      }
+      await removeSong(song);
+      return true;
+    } catch (e, s) {
+      Log.e('LocalMusicProvider', '删除文件失败: ${song.filePath}', e, s);
+      return false;
+    }
+  }
 }
+
 
 /// 分组条目：用于按专辑/歌手/文件夹浏览本地音乐。
 class LocalGroupEntry {
