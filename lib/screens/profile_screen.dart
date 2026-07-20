@@ -104,6 +104,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
+          SizedBox(height: MediaQuery.of(context).padding.top),
           if (auth.isLoggedIn)
             _buildUserHeader(auth)
           else
@@ -234,86 +235,69 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildMenu(AuthProvider auth, LocalMusicProvider localMusic, LikedSongsProvider likedSongs) {
-    final cs = Theme.of(context).colorScheme;
     final localCount = localMusic.songs.length;
     final likedCount = auth.isLoggedIn ? likedSongs.likedIds.length : 0;
 
-    return Column(
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1.55,
       children: [
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.5,
-          children: [
-            _buildGridItem(
-              icon: Icons.audiotrack_rounded,
-              title: '本地音乐',
-              value: localCount > 0 ? '$localCount' : '',
-              onTap: () => Navigator.pushNamed(context, '/local/music'),
-            ),
-            _buildGridItem(
-              icon: Icons.favorite_rounded,
-              title: '我的收藏',
-              value: auth.isLoggedIn && likedCount > 0 ? '$likedCount' : '',
-              onTap: () {
-                if (auth.isLoggedIn) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LikedSongsScreen()),
-                  );
-                } else {
-                  Navigator.pushNamed(context, '/login');
-                }
-              },
-              isLocked: !auth.isLoggedIn,
-            ),
-            _buildGridItem(
-              icon: Icons.history_rounded,
-              title: '听歌历史',
-              value: '',
-              onTap: () => Navigator.pushNamed(context, '/history'),
-            ),
-            _buildGridItem(
-              icon: Icons.cloud_rounded,
-              title: '云盘',
-              value: '',
-              onTap: () {
-                if (auth.isLoggedIn) {
-                  Navigator.pushNamed(context, '/cloud');
-                } else {
-                  Navigator.pushNamed(context, '/login');
-                }
-              },
-              isLocked: !auth.isLoggedIn,
-            ),
-          ],
+        _buildGridItem(
+          icon: Icons.audiotrack_rounded,
+          title: '本地音乐',
+          value: localCount > 0 ? '$localCount' : '',
+          onTap: () => Navigator.pushNamed(context, '/local/music'),
         ),
-        const SizedBox(height: 12),
-        Card(
-          elevation: 0,
-          color: cs.surfaceContainerHigh,
-          margin: EdgeInsets.zero,
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.message_rounded),
-                title: const Text('消息'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Navigator.pushNamed(context, '/messages'),
-              ),
-              Divider(height: 1, indent: 56, endIndent: 16, color: cs.outlineVariant.withValues(alpha: 0.3)),
-              ListTile(
-                leading: const Icon(Icons.settings_rounded),
-                title: const Text('设置'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Navigator.pushNamed(context, '/settings'),
-              ),
-            ],
-          ),
+        _buildGridItem(
+          icon: Icons.favorite_rounded,
+          title: '我的收藏',
+          value: auth.isLoggedIn && likedCount > 0 ? '$likedCount' : '',
+          onTap: () {
+            if (auth.isLoggedIn) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LikedSongsScreen()),
+              );
+            } else {
+              Navigator.pushNamed(context, '/login');
+            }
+          },
+          isLocked: !auth.isLoggedIn,
+        ),
+        _buildGridItem(
+          icon: Icons.history_rounded,
+          title: '听歌历史',
+          value: '',
+          onTap: () => Navigator.pushNamed(context, '/history'),
+        ),
+        _buildGridItem(
+          icon: Icons.cloud_rounded,
+          title: '云盘',
+          value: '',
+          onTap: () {
+            if (auth.isLoggedIn) {
+              Navigator.pushNamed(context, '/cloud');
+            } else {
+              Navigator.pushNamed(context, '/login');
+            }
+          },
+          isLocked: !auth.isLoggedIn,
+        ),
+        _buildGridItem(
+          icon: Icons.message_rounded,
+          title: '消息',
+          value: '',
+          onTap: () => Navigator.pushNamed(context, '/messages'),
+        ),
+        _buildGridItem(
+          icon: Icons.settings_rounded,
+          title: '设置',
+          value: '',
+          onTap: () => Navigator.pushNamed(context, '/settings'),
         ),
       ],
     );
@@ -464,47 +448,39 @@ class LikedSongsScreen extends StatefulWidget {
 }
 
 class _LikedSongsScreenState extends State<LikedSongsScreen> {
-  late final MusicService _musicService = context.read<MusicService>();
-  List<Song> _songs = [];
-  bool _loading = true;
-
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final songs = await _musicService
-          .getPlaylistTracksById(LikedSongsProvider.likedListId);
-      if (mounted) setState(() => _songs = songs);
-    } catch (e, s) {
-      Log.e('profile_screen', 'error', e, s);
-    }
-    if (mounted) setState(() => _loading = false);
+    // 页面加载后静默拉取一次最新收藏歌曲
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<LikedSongsProvider>().load();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final likedSongs = context.watch<LikedSongsProvider>();
+    final songs = likedSongs.songs;
+    final loading = !likedSongs.isLoaded && songs.isEmpty;
+
     return Scaffold(
       appBar: AppBar(title: const Text('我的收藏')),
-      body: _loading
+      body: loading
           ? const Center(child: CircularProgressIndicator())
-          : _songs.isEmpty
+          : songs.isEmpty
               ? emptyStateWidget(ThemeAssets.emptyPlaylist, Icons.favorite, '暂无收藏')
               : ListView.builder(
-                  itemCount: _songs.length + 1,
+                  itemCount: songs.length + 1,
                   itemBuilder: (_, i) {
-                    if (i == _songs.length) {
+                    if (i == songs.length) {
                       return const ListBottomSpacer(isHome: false, showText: false);
                     }
-                    final song = _songs[i];
+                    final song = songs[i];
                     return SongTile(
                       song: song,
                       onTap: (s) => context
                           .read<PlayerProvider>()
-                          .playSong(s, playlist: _songs),
+                          .playSong(s, playlist: songs),
                     );
                   },
                 ),
