@@ -109,9 +109,9 @@ class _ProfileScreenState extends State<ProfileScreen>
             _buildUserHeader(auth)
           else
             _buildLoggedOutHeader(),
-          const SizedBox(height: 16),
-          _buildMenu(auth, localMusic, likedSongs),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          _buildMenu(auth, playlistProv, localMusic, likedSongs),
+          const SizedBox(height: 12),
           if (auth.isLoggedIn) _buildPlaylists(playlistProv, auth),
           const ListBottomSpacer(isHome: true),
         ],
@@ -234,14 +234,25 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildMenu(AuthProvider auth, LocalMusicProvider localMusic, LikedSongsProvider likedSongs) {
+  Widget _buildMenu(AuthProvider auth, PlaylistProvider playlistProv, LocalMusicProvider localMusic, LikedSongsProvider likedSongs) {
     final localCount = localMusic.songs.length;
-    final likedCount = auth.isLoggedIn ? likedSongs.likedIds.length : 0;
+    
+    // 遍历用户歌单列表，查找真实的 ID 等于 2 (我喜欢) 的歌单歌曲数以确保 100% 真实同步
+    int likedCount = auth.isLoggedIn ? likedSongs.likedIds.length : 0;
+    if (auth.isLoggedIn) {
+      for (final pl in playlistProv.userPlaylists) {
+        if (pl.id == LikedSongsProvider.likedListId) {
+          likedCount = pl.trackCount;
+          break;
+        }
+      }
+    }
 
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
       childAspectRatio: 1.55,
