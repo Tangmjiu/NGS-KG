@@ -358,22 +358,7 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
     ColorScheme cs,
     BuildContext context,
   ) {
-    if (state.isLoading) {
-      return SizedBox(
-        width: 42,
-        height: 42,
-        child: Center(
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.5,
-              color: cs.primary,
-            ),
-          ),
-        ),
-      );
-    }
+
     return M3PressScale(
       child: Material(
         color: cs.primary,

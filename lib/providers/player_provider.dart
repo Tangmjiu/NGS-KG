@@ -351,6 +351,10 @@ class PlayerProvider extends ChangeNotifier
 
     _onLoadingChanged = () {
       _isLoading = _engine.isLoading.value;
+      if (!_isLoading) {
+        // 加载完成（成功或失败）时同步底层的播放状态
+        _isPlaying = _engine.isPlaying.value;
+      }
       notifyListeners();
     };
     _engine.isLoading.addListener(_onLoadingChanged);
@@ -362,11 +366,16 @@ class PlayerProvider extends ChangeNotifier
     _engine.error.addListener(_onErrorChanged);
 
     _onPlayingChanged = () {
+      if (_engine.isLoading.value) {
+        // 正在加载新歌时，不要让上一首 stop() 引起的 isPlaying=false 覆盖当前为 true 的状态
+        return;
+      }
       _isPlaying = _engine.isPlaying.value;
       notifyListeners();
       _updateNotification();
     };
     _engine.isPlaying.addListener(_onPlayingChanged);
+
 
     _engine.onComplete = _onComplete;
     _onQueueChanged = () {

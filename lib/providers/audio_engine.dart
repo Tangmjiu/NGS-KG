@@ -20,6 +20,7 @@ class AudioEngine {
   int _playAttempts = 0;
   int _playRequestVersion = 0;
   DateTime? _lastUrlFetchTime;
+  bool _playWhenReady = true;
 
   static const int _maxRetries = 2;
   static const _urlStaleDuration = Duration(minutes: 10);
@@ -243,8 +244,10 @@ class AudioEngine {
           await _player.setUrl(fp);
           if (version != _playRequestVersion) { isLoading.value = false; return; }
           _lastUrlFetchTime = DateTime.now();
-          await _player.play();
-          _hasActivePlayback = true;
+          if (_playWhenReady) {
+            await _player.play();
+            _hasActivePlayback = true;
+          }
         } else {
           // 本地文件：尝试 setFilePath，若失败则用 file:// URI + setUrl 重试
           try {
@@ -255,8 +258,10 @@ class AudioEngine {
           }
           if (version != _playRequestVersion) { isLoading.value = false; return; }
           _lastUrlFetchTime = DateTime.now();
-          await _player.play();
-          _hasActivePlayback = true;
+          if (_playWhenReady) {
+            await _player.play();
+            _hasActivePlayback = true;
+          }
         }
         isLoading.value = false;
         return;
@@ -284,8 +289,10 @@ class AudioEngine {
                 await _player.setUrl(songUrl.url);
                 if (version != _playRequestVersion) { isLoading.value = false; return; }
                 _lastUrlFetchTime = DateTime.now();
-                await _player.play();
-                _hasActivePlayback = true;
+                if (_playWhenReady) {
+                  await _player.play();
+                  _hasActivePlayback = true;
+                }
                 played = true;
                 resolvedQualityNotifier.value = opt.value;
                 Log.i('audio_engine', 'effect resolved: ${opt.value} (${opt.label})');
@@ -323,9 +330,10 @@ class AudioEngine {
             await _player.setUrl(songUrl.url);
             if (version != _playRequestVersion) { isLoading.value = false; return; }
             _lastUrlFetchTime = DateTime.now();
-
-            await _player.play();
-            _hasActivePlayback = true;
+            if (_playWhenReady) {
+              await _player.play();
+              _hasActivePlayback = true;
+            }
             played = true;
 
             // ✅ 记录最终解析到的音质
@@ -379,8 +387,10 @@ class AudioEngine {
   Future<void> togglePlayPause(Song? currentSong) async {
     if (currentSong == null) return;
     if (_player.playing) {
+      _playWhenReady = false; // 暂停时设为 false
       await _player.pause();
     } else {
+      _playWhenReady = true;  // 播放时设为 true
       if (position.value == Duration.zero || position.value >= duration.value) {
         error.value = null;
         isLoading.value = true;
@@ -399,6 +409,7 @@ class AudioEngine {
       }
     }
   }
+
 
   Future<void> _refreshUrlAndPlay(Song song) async {
     try {
@@ -527,6 +538,9 @@ class AudioEngine {
     resolvedQualityNotifier.value = null;
     _currentQualityOptions = [];
     _currentEffectOptions = [];
+    _playWhenReady = true;
+    _hasActivePlayback = false;
+    _player.stop(); // 立即停止上一首播放
   }
 
   Future<void> seek(Duration pos) async {
@@ -541,8 +555,10 @@ class AudioEngine {
   }
 
   Future<void> pause() async {
+    _playWhenReady = false; // 暂停时标记为不需要播放
     await _player.pause();
   }
+
 
   void setVolume(double volume) {
     _player.setVolume(volume);
