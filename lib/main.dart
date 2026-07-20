@@ -23,6 +23,7 @@ import 'services/device_service.dart';
 import 'services/music_service.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
+import 'services/api_config.dart';
 import 'services/audio_handler.dart';
 import 'services/cache_service.dart';
 import 'providers/audio_settings_provider.dart';
@@ -223,6 +224,10 @@ Future<void> main() async {
 
 Future<void> _initDevice() async {
   try {
+    // 启动时静默自动探测最佳 API 路线
+    await ApiConfig.instance.detectBestRoute();
+    ApiClient.instance.reinitialize();
+
     final device = await DeviceService.instance.getDeviceInfo();
     if (device == null || !device.isValid) {
       final newDevice = await DeviceService.instance.registerDevice();
