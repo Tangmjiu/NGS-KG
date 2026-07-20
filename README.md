@@ -1,11 +1,34 @@
-# NGS-KG+
+<p align="center">
+  <img src="assets/images/icon.png" width="120" alt="NGS-KG+">
+</p>
 
-基于酷狗音乐第三方 API 的 Flutter 跨平台音乐播放器。
+<h1 align="center">NGS-KG+</h1>
 
-目前原生支持 Android 端，并已适配 Windows 和 Linux 桌面端。
+<p align="center">
+  基于酷狗音乐第三方 API 的 Flutter 跨平台音乐播放器（Android）
+</p>
 
-[![Version](https://img.shields.io/badge/Version-1.5.1--preview-blue?style=flat-square)](https://github.com/Tangmjiu/NGS-KG)
-[![Nightcord](https://img.shields.io/badge/Nightcord-v2.0.0-purple?style=flat-square)](https://github.com/Tangmjiu/NGS-KG)
+<p align="center">
+  <img src="https://img.shields.io/badge/Version-1.5.1--preview-blue?style=flat-square" alt="v1.5.1 preview">
+  <img src="https://img.shields.io/badge/Nightcord-v2.0.0-purple?style=flat-square" alt="Nightcord v2.0.0">
+</p>
+
+<p align="center">
+  <sub>代号 **Nightcord** 来源于 QQ 群代号投票——至于为什么选这个，我也不知道。</sub>
+</p>
+
+<p align="center">
+  <a href="#功能">功能</a> ·
+  <a href="#快速开始">快速开始</a> ·
+  <a href="#构建">构建</a> ·
+  <a href="#赞助支持">赞助支持</a> ·
+  <a href="#交流群组">交流群组</a> ·
+  <a href="#API">API</a> ·
+  <a href="#免责声明">免责声明</a> ·
+  <a href="FAQ.md">FAQ</a> ·
+  <a href="https://github.com/Tangmjiu/NGS-KG/blob/android/THEME.md">主题制作</a> ·
+  <a href="https://github.com/Tangmjiu/ngs-kg-themes">主题市场</a>
+</p>
 
 ---
 
@@ -18,7 +41,7 @@
 
 ---
 
-## 核心功能
+## 功能
 
 * **登录管理**：支持手机验证码和酷狗 App 二维码扫码登录。
 * **音乐播放**：支持专辑封面显示、LRC/KRC 歌词逐行高亮、音质自动切换与后台稳定播放。
@@ -27,6 +50,7 @@
 * **本地音乐**：可扫描并播放设备本地存储的音频文件。
 * **云盘集成**：支持读取并播放酷狗个人云盘中的音乐。
 * **个性化**：内置主题市场，支持在线浏览、下载及一键应用社区主题。
+
 ---
 
 ## 快速开始
