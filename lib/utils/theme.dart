@@ -148,48 +148,52 @@ ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack, {bool hasGloba
 
     // ── Card ──
     cardTheme: CardThemeData(
-      elevation: comp.cardElevation,
-      color: colorScheme.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(radiusMd))),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      elevation: 0, // MD3E 强调色彩区分层级，而非传统的厚重阴影
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(radiusLg))),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // 更宽广的呼吸间距
     ),
 
     // ── Bottom Sheet ──
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: surface,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(radiusXl))),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(radiusXl))),
     ),
 
     // ── Dialog ──
     dialogTheme: DialogThemeData(
       backgroundColor: surface,
       elevation: comp.dialogElevation,
-      // M3 规范: Dialog 使用 Extra Large (28dp) 圆角
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(radiusXl))),
     ),
 
     // ── Divider ──
     dividerTheme: DividerThemeData(
-      color: colorScheme.outlineVariant,
+      color: colorScheme.outlineVariant.withValues(alpha: 0.5), // 更加柔和的分割线
       thickness: 0.5,
-      space: 0,
+      space: 1,
     ),
 
     // ── Input ──
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: colorScheme.surfaceContainerHighest,
+      fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(radiusSm)),
+        borderRadius: BorderRadius.all(Radius.circular(radiusMd)),
         borderSide: BorderSide.none,
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(radiusMd)),
+        borderSide: BorderSide(color: colorScheme.primary, width: 2),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
     ),
 
     // ── ListTile ──
-    listTileTheme: const ListTileThemeData(
-      contentPadding: EdgeInsets.symmetric(horizontal: 16),
+    listTileTheme: ListTileThemeData(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4), // 增加垂直呼吸感
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(radiusMd))),
     ),
 
     // ── NavigationBar ──
@@ -245,13 +249,13 @@ ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack, {bool hasGloba
     textTheme: _buildTextTheme(colorScheme, pack.fontFamily),
 
     // ── Page Transitions (M3 Motion) ──
-    // 所有平台使用统一的 M3 转场，避免 Android/iOS 差异
+    // 所有平台使用统一 of M3 转场，避免 Android/iOS 差异
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: {
         // 手机平台: drill-down 导航使用 Shared Z-Axis (前进/后退感)
-        TargetPlatform.android: _SharedZAxisTransitionBuilder(),
-        TargetPlatform.iOS: _SharedZAxisTransitionBuilder(),
-        TargetPlatform.fuchsia: _SharedZAxisTransitionBuilder(),
+        TargetPlatform.android: M3SharedZAxisTransitionBuilder(),
+        TargetPlatform.iOS: M3SharedZAxisTransitionBuilder(),
+        TargetPlatform.fuchsia: M3SharedZAxisTransitionBuilder(),
         // 桌面平台: 使用 Fade (简洁无方向感)
         TargetPlatform.linux: _FadeTransitionBuilder(),
         TargetPlatform.macOS: _FadeTransitionBuilder(),
@@ -372,8 +376,8 @@ TextTheme _buildTextTheme(ColorScheme cs, String? fontFamily) {
 ///
 /// 新页面从 z 轴方向淡入并放大，旧页面淡出并缩小。
 /// Duration: 300ms (Medium2), Easing: Emphasized Decelerate (进入) / Accelerate (离开)
-class _SharedZAxisTransitionBuilder extends PageTransitionsBuilder {
-  const _SharedZAxisTransitionBuilder();
+class M3SharedZAxisTransitionBuilder extends PageTransitionsBuilder {
+  const M3SharedZAxisTransitionBuilder();
 
   @override
   Widget buildTransitions<T>(

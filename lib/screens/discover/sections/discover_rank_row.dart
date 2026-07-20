@@ -22,41 +22,55 @@ class DiscoverRankRow extends StatelessWidget {
         itemBuilder: (_, i) {
           final rank = ranks[i];
           return M3PressScale(
-            child: GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/rank/detail',
-                arguments: {'id': rank.id, 'name': rank.name}),
+            scaleDown: 0.95,
             child: Container(
               width: 110,
-              margin: const EdgeInsets.only(right: 12),
+              margin: const EdgeInsets.only(right: 14),
               child: Column(
                 children: [
-                  ClipRRect(
-                    borderRadius: AppShape.md,
-                    child: rank.coverUrl != null
-                        ? CachedNetworkImage(
-                            imageUrl: rank.coverUrl!,
-                            width: 100,
-                            height: 100,
-                            fit: BoxFit.cover,
-                          )
-                        : Container(
-                            width: 100,
-                            height: 100,
-                            color: cs.surfaceContainerHighest,
-                            child: Icon(Icons.leaderboard,
-                                color: cs.onSurfaceVariant),
+                  Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      borderRadius: AppShape.lg,
+                      color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                    ),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ClipRRect(
+                          borderRadius: AppShape.lg,
+                          child: rank.coverUrl != null
+                              ? CachedNetworkImage(
+                                  imageUrl: rank.coverUrl!,
+                                  width: 100,
+                                  height: 100,
+                                  memCacheWidth: 200,
+                                  memCacheHeight: 200,
+                                  fit: BoxFit.cover,
+                                )
+                              : Icon(Icons.leaderboard, color: cs.onSurfaceVariant),
+                        ),
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: AppShape.lg,
+                            onTap: () => Navigator.pushNamed(context, '/rank/detail',
+                                arguments: {'id': rank.id, 'name': rank.name}),
                           ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
                     rank.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
-            ),
             ),
           );
         },

@@ -66,8 +66,10 @@
 
 ## Android specifics
 
-- Uses `flutter_local_notifications` with MediaStyle notification for playback controls.
-- PlaybackService (Kotlin) provides native MediaSession for lockscreen controls.
+- Media notification via `audio_service` (MediaSession + MediaStyle), initialized in `main.dart`.
+- `MusicAudioHandler` (`lib/services/audio_handler.dart`) bridges PlayerProvider ↔ system MediaSession.
+- `flutter_local_notifications` retained only for non-media message notifications.
+- Kotlin `PlaybackService` and `MediaButtonReceiver` removed in favor of `audio_service`. `MainActivity.kt` simplified.
 - Background audio via `just_audio` service integration.
 - `wakelock_plus` keeps screen on during playback.
 - Build: `flutter build apk --debug` / `flutter build apk --release --split-per-abi`.

@@ -3,63 +3,32 @@
 
 package com.mjiutang.ngskg
 
-import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
-import android.content.ServiceConnection
 import android.media.MediaMetadataRetriever
+import android.net.Uri
 import android.os.Build
-import android.os.IBinder
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.BasicMessageChannel
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
-import io.flutter.plugin.common.StringCodec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-class MainActivity : FlutterActivity() {
-    companion object {
-        // 供 MediaButtonReceiver 访问
-        var lastService: PlaybackService? = null
-    }
-
+class MainActivity : AudioServiceActivity() {
     private val CHANNEL_METADATA = "com.mjiutang.ngskg/metadata"
-    private val CHANNEL_MEDIA = "com.mjiutang.ngskg/media_session"
     private val CHANNEL_DEVICE = "com.mjiutang.ngskg/device"
     private val CHANNEL_EQUALIZER = "com.mjiutang.ngskg/equalizer"
+    private val CHANNEL_INTENT = "com.mjiutang.ngskg/intent"
 
-    private var playbackService: PlaybackService? = null
-    private var callbackChannel: BasicMessageChannel<String>? = null
-    private val serviceConnection = object : ServiceConnection {
-        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            playbackService = (service as PlaybackService.LocalBinder).getService()
-            lastService = playbackService
-            // 重新连接后恢复回调
-            playbackService?.onPrev = { callbackChannel?.send("onPrev") }
-            playbackService?.onPlayPause = { callbackChannel?.send("onPlayPause") }
-            playbackService?.onNext = { callbackChannel?.send("onNext") }
-            playbackService?.onSeekTo = { posMs ->
-                callbackChannel?.send("onSeekTo|$posMs")
-            }
-            playbackService?.onLike = { callbackChannel?.send("onLike") }
-            playbackService?.onSwitchMode = { callbackChannel?.send("onSwitchMode") }
-        }
+    // EventChannel 用于推送 Intent 文件 URI 到 Flutter
+    private var intentEventSink: EventChannel.EventSink? = null
 
-        override fun onServiceDisconnected(name: ComponentName?) {
-            playbackService = null
-            lastService = null
-        }
-    }
+    // 若 Flutter 引擎尚未就绪，暂存冷启动时的 URI
+    private var pendingFileUri: String? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-
-        // 启动前台媒体服务
-        val serviceIntent = Intent(this, PlaybackService::class.java)
-        startForegroundService(serviceIntent)
-        bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
 
         // 读取本地音乐元数据
         MethodChannel(
@@ -85,47 +54,6 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        // 媒体播放控制（来自 Flutter 的元数据和状态更新）
-        MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            CHANNEL_MEDIA
-        ).setMethodCallHandler { call, result ->
-            val svc = playbackService
-            if (svc == null) {
-                result.error("SERVICE_NOT_READY", "PlaybackService not bound", null)
-                return@setMethodCallHandler
-            }
-            when (call.method) {
-                "updateMetadata" -> {
-                    val title = call.argument<String>("title") ?: "未知歌曲"
-                    val artist = call.argument<String>("artist") ?: "未知歌手"
-                    val albumArtUrl = call.argument<String>("albumArtUrl")
-                    val durationSec = (call.argument<Number>("duration")?.toLong() ?: 0L)
-                    val lyricLine = call.argument<String>("lyricLine")
-                    svc.updateMetadata(title, artist, albumArtUrl, durationSec, lyricLine)
-                    result.success(null)
-                }
-                "updatePlaybackState" -> {
-                    val isPlaying = call.argument<Boolean>("isPlaying") ?: false
-                    val positionSec = (call.argument<Number>("position")?.toLong() ?: 0L)
-                    val isBuffering = call.argument<Boolean>("isBuffering") ?: false
-                    svc.updatePlaybackState(isPlaying, positionSec, isBuffering)
-                    result.success(null)
-                }
-                "updateCustomButtons" -> {
-                    val liked = call.argument<Boolean>("liked") ?: false
-                    val mode = call.argument<String>("playMode") ?: "sequential"
-                    svc.updateCustomButtons(liked, mode)
-                    result.success(null)
-                }
-                "release" -> {
-                    svc.exitService()
-                    result.success(null)
-                }
-                else -> result.notImplemented()
-            }
-        }
-
         // 设备信息通道（ABI 等）
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -147,21 +75,71 @@ class MainActivity : FlutterActivity() {
         )
         EqualizerHelper.registerWith(equalizerChannel, this)
 
-        // 设置回调通道（Native → Flutter）
-        callbackChannel = BasicMessageChannel<String>(
+        // Intent EventChannel：用于推送音频文件 URI 到 Flutter
+        EventChannel(
             flutterEngine.dartExecutor.binaryMessenger,
-            "com.mjiutang.ngskg/media_callbacks",
-            StringCodec.INSTANCE
-        ).also { channel ->
-            // 回调由 PlaybackService 的 binder lambdas 触发
+            CHANNEL_INTENT
+        ).setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, sink: EventChannel.EventSink?) {
+                intentEventSink = sink
+                // Flutter 已就绪，发送冷启动时暂存的 URI
+                pendingFileUri?.let { uri ->
+                    sink?.success(uri)
+                    pendingFileUri = null
+                }
+            }
+            override fun onCancel(arguments: Any?) {
+                intentEventSink = null
+            }
+        })
+
+        // 处理冷启动时的 Intent（应用被文件打开请求直接启动）
+        handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_VIEW) return
+        val uri = intent.data ?: return
+        val uriStr = resolveFileUri(uri)
+        if (uriStr.isNullOrEmpty()) return
+
+        if (intentEventSink != null) {
+            intentEventSink?.success(uriStr)
+        } else {
+            // Flutter 引擎还没准备好，暂存
+            pendingFileUri = uriStr
+        }
+    }
+
+    /** 将 content:// URI 解析为可用路径，优先尝试转换为文件路径 */
+    private fun resolveFileUri(uri: Uri): String? {
+        return when (uri.scheme) {
+            "file" -> uri.path
+            "content" -> {
+                // 尝试通过 ContentResolver 获取真实路径
+                try {
+                    val cursor = contentResolver.query(uri, arrayOf("_data"), null, null, null)
+                    cursor?.use {
+                        if (it.moveToFirst()) {
+                            val col = it.getColumnIndex("_data")
+                            if (col >= 0) return it.getString(col)
+                        }
+                    }
+                } catch (_: Exception) {}
+                // 无法解析真实路径时，直接返回 content URI 字符串
+                uri.toString()
+            }
+            else -> uri.toString()
         }
     }
 
     override fun onDestroy() {
-        try {
-            unbindService(serviceConnection)
-        } catch (_: Exception) {}
-        lastService = null
         super.onDestroy()
     }
 
@@ -193,3 +171,4 @@ class MainActivity : FlutterActivity() {
         }
     }
 }
+

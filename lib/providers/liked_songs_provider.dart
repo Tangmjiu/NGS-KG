@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../utils/logger.dart';
 import '../services/music_service.dart';
 import '../services/api_client.dart';
+import '../models/song.dart';
 
 class LikedSongsProvider extends ChangeNotifier {
   /// 收藏歌单 listid，与酷狗官方客户端同步（2 = "我喜欢"）
@@ -10,14 +11,17 @@ class LikedSongsProvider extends ChangeNotifier {
   final MusicService _musicService;
   final Set<int> _likedIds = {};
   final Map<int, int> _fileidMap = {};
+  List<Song> _songs = [];
   bool _loaded = false;
 
   Set<int> get likedIds => _likedIds;
+  List<Song> get songs => _songs;
   bool get isLoaded => _loaded;
 
   void clear() {
     _likedIds.clear();
     _fileidMap.clear();
+    _songs.clear();
     _loaded = false;
     notifyListeners();
   }
@@ -47,7 +51,12 @@ class LikedSongsProvider extends ChangeNotifier {
   Future<void> load() async {
     if (!_hasLogin) return;
     try {
-      final songs = await _musicService.getPlaylistTracksById(likedListId);
+      // 优先使用新版接口（带 pagesize=1000 以便拉齐所有收藏）
+      List<Song> songs = await _musicService.getPlaylistTracksNew(likedListId, pageSize: 1000);
+      if (songs.isEmpty) {
+        songs = await _musicService.getPlaylistTracksById(likedListId);
+      }
+      _songs = songs;
       _likedIds.clear();
       _fileidMap.clear();
       for (final s in songs) {
@@ -87,7 +96,8 @@ class LikedSongsProvider extends ChangeNotifier {
           }
         }
       }
-      notifyListeners();
+      // 喜欢成功后重新全量拉取，保持 _songs 歌曲模型数组数据更新
+      await load();
       return true;
     } catch (e, s) {
       Log.e('liked_songs_provider', 'error', e, s);
@@ -104,6 +114,7 @@ class LikedSongsProvider extends ChangeNotifier {
       }
       _likedIds.remove(song.id);
       _fileidMap.remove(song.id);
+      _songs.removeWhere((s) => s.id == song.id);
       notifyListeners();
       return true;
     } catch (e, s) {

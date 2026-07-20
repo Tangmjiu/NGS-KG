@@ -67,6 +67,27 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
     }
   }
 
+  String _currentStatusText() {
+    if (_mode == ApiConfig.modeMjiutang) {
+      if (_route == ApiConfig.routeCloudflare) {
+        return '当前: 内置服务器 (海外路线)';
+      } else {
+        return '当前: 内置服务器 (中国内地)';
+      }
+    } else {
+      if (_currentUrl.isEmpty) return '当前: 未设置自定义服务器';
+      final uri = Uri.tryParse(_currentUrl);
+      if (uri != null && uri.host.isNotEmpty) {
+        final host = uri.host;
+        final maskedHost = host.length > 4
+            ? '${host.substring(0, 2)}***${host.substring(host.length - 2)}'
+            : '***';
+        return '当前: 自定义服务器 (${uri.scheme}://$maskedHost${uri.hasPort ? ':${uri.port}' : ''})';
+      }
+      return '当前: 自定义服务器';
+    }
+  }
+
   Future<void> _testConnection() async {
     setState(() {
       _testing = true;
@@ -130,7 +151,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                   RadioListTile<String>(
                     title: const Text('Cloudflare（海外路线）'),
                     subtitle: Text(
-                      'https://kugouapi.mjiutang.top\n中国大陆延迟较高，部分地区无法访问',
+                      '通过边缘加速的海外节点，适合海外用户或在良好网络环境下访问',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     value: ApiConfig.routeCloudflare,
@@ -140,7 +161,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                   RadioListTile<String>(
                     title: const Text('中国内地'),
                     subtitle: Text(
-                      '不带域名可能不稳定',
+                      '国内加速节点，延迟较低，适合大陆直连困难的用户',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     value: ApiConfig.routeChina,
@@ -257,7 +278,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
           // ── 当前地址状态 ──
           Center(
             child: Text(
-              '当前: $_currentUrl',
+              _currentStatusText(),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),

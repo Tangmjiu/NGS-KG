@@ -13,9 +13,11 @@ import '../providers/liked_songs_provider.dart';
 import '../services/music_service.dart';
 import '../widgets/playlist_card.dart';
 import '../widgets/create_playlist_dialog.dart';
+import '../widgets/list_bottom_spacer.dart';
 import '../theme/theme_assets.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
+import '../providers/local_music_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -57,10 +59,16 @@ class _ProfileScreenState extends State<ProfileScreen>
   void refresh() => _refresh();
 
   Future<void> _refresh() async {
-    await Future.wait([
+    final auth = context.read<AuthProvider>();
+    final futures = <Future<void>>[
       _loadPlaylists(),
       _loadVipInfo(),
-    ]);
+      context.read<LocalMusicProvider>().scanMusic(),
+    ];
+    if (auth.isLoggedIn) {
+      futures.add(context.read<LikedSongsProvider>().load());
+    }
+    await Future.wait(futures);
   }
 
   Future<void> _loadPlaylists() async {
@@ -83,37 +91,90 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final playlistProv = context.watch<PlaylistProvider>();
+    final localMusic = context.watch<LocalMusicProvider>();
+    final likedSongs = context.watch<LikedSongsProvider>();
+
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: ListView(
+        controller: _scrollCtrl,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          SizedBox(height: MediaQuery.of(context).padding.top),
+          if (auth.isLoggedIn)
+            _buildUserHeader(auth)
+          else
+            _buildLoggedOutHeader(),
+          const SizedBox(height: 12),
+          _buildMenu(auth, playlistProv, localMusic, likedSongs),
+          const SizedBox(height: 12),
+          if (auth.isLoggedIn) _buildPlaylists(playlistProv, auth),
+          const ListBottomSpacer(isHome: true),
+        ],
+      ),
+    );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Consumer2<AuthProvider, PlaylistProvider>(
-      builder: (_, auth, playlistProv, __) {
-        return RefreshIndicator(
-          onRefresh: _refresh,
-          child: ListView(
-            controller: _scrollCtrl,
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            children: [
-            if (auth.isLoggedIn) _buildUserHeader(auth),
-            const SizedBox(height: 16),
-            _buildMenu(auth),
-            const SizedBox(height: 16),
-            if (auth.isLoggedIn) _buildPlaylists(playlistProv, auth),
-          ],
+  Widget _buildLoggedOutHeader() {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return M3PressScale(
+      scaleDown: 0.98,
+      child: Card(
+        elevation: 0,
+        color: cs.surfaceContainerHigh,
+        margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => Navigator.pushNamed(context, '/login'),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 32,
+                  backgroundColor: cs.surfaceContainerHighest,
+                  child: Icon(Icons.person_outline_rounded, size: 32, color: cs.onSurfaceVariant),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '点击登录账号',
+                        style: tt.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '登录后可同步你的云端收藏与个人歌单',
+                        style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
+              ],
+            ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
   Widget _buildUserHeader(AuthProvider auth) {
     final user = auth.user!;
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return Card(
+      elevation: 0,
+      color: cs.surfaceContainerHigh,
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -136,16 +197,15 @@ class _ProfileScreenState extends State<ProfileScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(user.nickname ?? '用户',
-                      style: Theme.of(context).textTheme.titleLarge),
-                  if (user.userId != null)
+                      style: tt.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                  if (user.userId != null) ...[
+                    const SizedBox(height: 4),
                     Text('ID: ${user.userId}',
-                        style: TextStyle(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant)),
-                  if (user.isVipActive || (_vipInfo?.isVipActive ?? false))
+                        style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                  ],
+                  if (user.isVipActive || (_vipInfo?.isVipActive ?? false)) ...[
+                    const SizedBox(height: 6),
                     Container(
-                      margin: const EdgeInsets.only(top: 4),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
@@ -156,7 +216,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       ),
                       child: Text(
                         _vipText(user),
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        style: tt.labelSmall?.copyWith(
                               color: _vipInfo?.badgeType.$2 == true
                                   ? Colors.black87
                                   : cs.onPrimary,
@@ -164,6 +224,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                             ),
                       ),
                     ),
+                  ],
                 ],
               ),
             ),
@@ -173,74 +234,142 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildMenu(AuthProvider auth) {
-    return Card(
-      child: Column(
-        children: [
-          if (!auth.isLoggedIn)
-            ListTile(
-              leading: const Icon(Icons.person),
-              title: const Text('登录'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.pushNamed(context, '/login'),
-            ),
-          ListTile(
-            leading: const Icon(Icons.audiotrack),
-            title: const Text('本地音乐'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.pushNamed(context, '/local/music'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.history),
-            title: const Text('听歌历史'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.pushNamed(context, '/history'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.message),
-            title: const Text('消息'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.pushNamed(context, '/messages'),
-          ),
-          if (auth.isLoggedIn) ...[
-            ListTile(
-              leading: const Icon(Icons.favorite),
-              title: const Text('我的收藏'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.push(
+  Widget _buildMenu(AuthProvider auth, PlaylistProvider playlistProv, LocalMusicProvider localMusic, LikedSongsProvider likedSongs) {
+    final localCount = localMusic.songs.length;
+    
+    // 遍历用户歌单列表，查找真实的 ID 等于 2 (我喜欢) 的歌单歌曲数以确保 100% 真实同步
+    int likedCount = auth.isLoggedIn ? likedSongs.likedIds.length : 0;
+    if (auth.isLoggedIn) {
+      for (final pl in playlistProv.userPlaylists) {
+        if (pl.id == LikedSongsProvider.likedListId) {
+          likedCount = pl.trackCount;
+          break;
+        }
+      }
+    }
+
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1.55,
+      children: [
+        _buildGridItem(
+          icon: Icons.audiotrack_rounded,
+          title: '本地音乐',
+          value: localCount > 0 ? '$localCount' : '',
+          onTap: () => Navigator.pushNamed(context, '/local/music'),
+        ),
+        _buildGridItem(
+          icon: Icons.favorite_rounded,
+          title: '我的收藏',
+          value: auth.isLoggedIn && likedCount > 0 ? '$likedCount' : '',
+          onTap: () {
+            if (auth.isLoggedIn) {
+              Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const LikedSongsScreen()),
-              ),
+              );
+            } else {
+              Navigator.pushNamed(context, '/login');
+            }
+          },
+          isLocked: !auth.isLoggedIn,
+        ),
+        _buildGridItem(
+          icon: Icons.history_rounded,
+          title: '听歌历史',
+          value: '',
+          onTap: () => Navigator.pushNamed(context, '/history'),
+        ),
+        _buildGridItem(
+          icon: Icons.cloud_rounded,
+          title: '云盘',
+          value: '',
+          onTap: () {
+            if (auth.isLoggedIn) {
+              Navigator.pushNamed(context, '/cloud');
+            } else {
+              Navigator.pushNamed(context, '/login');
+            }
+          },
+          isLocked: !auth.isLoggedIn,
+        ),
+        _buildGridItem(
+          icon: Icons.message_rounded,
+          title: '消息',
+          value: '',
+          onTap: () => Navigator.pushNamed(context, '/messages'),
+        ),
+        _buildGridItem(
+          icon: Icons.settings_rounded,
+          title: '设置',
+          value: '',
+          onTap: () => Navigator.pushNamed(context, '/settings'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGridItem({
+    required IconData icon,
+    required String title,
+    required String value,
+    required VoidCallback onTap,
+    bool isLocked = false,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return M3PressScale(
+      scaleDown: 0.96,
+      child: Card(
+        elevation: 0,
+        color: cs.surfaceContainerHigh,
+        margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Icon(
+                      icon,
+                      color: isLocked ? cs.onSurfaceVariant.withValues(alpha: 0.4) : cs.primary,
+                      size: 24,
+                    ),
+                    if (isLocked)
+                      Icon(Icons.lock_outline_rounded, color: cs.onSurfaceVariant.withValues(alpha: 0.4), size: 18)
+                    else if (value.isNotEmpty)
+                      Text(
+                        value,
+                        style: tt.labelLarge?.copyWith(
+                          color: cs.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                  ],
+                ),
+                Text(
+                  title,
+                  style: tt.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: isLocked ? cs.onSurfaceVariant.withValues(alpha: 0.6) : cs.onSurface,
+                  ),
+                ),
+              ],
             ),
-            // MV:
-            // MV: ListTile(
-            // MV:   leading: const Icon(Icons.video_library),
-            // MV:   title: const Text('收藏的视频'),
-            // MV:   trailing: const Icon(Icons.chevron_right),
-            // MV:   onTap: () => Navigator.pushNamed(context, '/videos/favorite'),
-            // MV: ),
-            // MV: ListTile(
-            // MV:   leading: const Icon(Icons.thumb_up),
-            // MV:   title: const Text('喜欢的视频'),
-            // MV:   trailing: const Icon(Icons.chevron_right),
-            // MV:   onTap: () => Navigator.pushNamed(context, '/videos/liked'),
-            // MV: ),
-          ],
-          if (auth.isLoggedIn) ...[
-            ListTile(
-              leading: const Icon(Icons.cloud),
-              title: const Text('云盘'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.pushNamed(context, '/cloud'),
-            ),
-          ],
-          ListTile(
-            leading: const Icon(Icons.settings),
-            title: const Text('设置'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.pushNamed(context, '/settings'),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -256,8 +385,9 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildPlaylists(PlaylistProvider playlistProv, AuthProvider auth) {
-    if (playlistProv.isLoading)
+    if (playlistProv.isLoading) {
       return const Center(child: CircularProgressIndicator());
+    }
 
     if (playlistProv.userPlaylists.isEmpty) {
       return emptyStateWidget(ThemeAssets.emptyPlaylist, Icons.playlist_play, '暂无歌单');
@@ -329,44 +459,39 @@ class LikedSongsScreen extends StatefulWidget {
 }
 
 class _LikedSongsScreenState extends State<LikedSongsScreen> {
-  late final MusicService _musicService = context.read<MusicService>();
-  List<Song> _songs = [];
-  bool _loading = true;
-
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final songs = await _musicService
-          .getPlaylistTracksById(LikedSongsProvider.likedListId);
-      if (mounted) setState(() => _songs = songs);
-    } catch (e, s) {
-      Log.e('profile_screen', 'error', e, s);
-    }
-    if (mounted) setState(() => _loading = false);
+    // 页面加载后静默拉取一次最新收藏歌曲
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<LikedSongsProvider>().load();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final likedSongs = context.watch<LikedSongsProvider>();
+    final songs = likedSongs.songs;
+    final loading = !likedSongs.isLoaded && songs.isEmpty;
+
     return Scaffold(
       appBar: AppBar(title: const Text('我的收藏')),
-      body: _loading
+      body: loading
           ? const Center(child: CircularProgressIndicator())
-          : _songs.isEmpty
+          : songs.isEmpty
               ? emptyStateWidget(ThemeAssets.emptyPlaylist, Icons.favorite, '暂无收藏')
               : ListView.builder(
-                  itemCount: _songs.length,
+                  itemCount: songs.length + 1,
                   itemBuilder: (_, i) {
-                    final song = _songs[i];
+                    if (i == songs.length) {
+                      return const ListBottomSpacer(isHome: false, showText: false);
+                    }
+                    final song = songs[i];
                     return SongTile(
                       song: song,
                       onTap: (s) => context
                           .read<PlayerProvider>()
-                          .playSong(s, playlist: _songs),
+                          .playSong(s, playlist: songs),
                     );
                   },
                 ),

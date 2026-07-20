@@ -1,7 +1,9 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
@@ -43,23 +45,40 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- 接收其他应用发来的音频文件打开请求 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="audio/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:pathPattern=".*\.mp3" />
+                <data android:pathPattern=".*\.flac" />
+                <data android:pathPattern=".*\.wav" />
+                <data android:pathPattern=".*\.aac" />
+                <data android:pathPattern=".*\.ogg" />
+                <data android:pathPattern=".*\.m4a" />
+            </intent-filter>
         </activity>
 
-        <!-- 前台媒体播放服务（支持 OPPO 流体云 + Android 13+ 媒体控件） -->
-        <service
-            android:name=".PlaybackService"
-            android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
+        <!-- audio_service 媒体前台服务 -->
+        <service android:name="com.ryanheise.audioservice.AudioService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="true"
+            tools:ignore="Instantiatable">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
 
-        <!-- 媒体按钮广播接收器（通知栏 + 蓝牙/耳机媒体按键） -->
-        <receiver
-            android:name=".MediaButtonReceiver"
-            android:exported="true">
-            <intent-filter android:priority="1000">
-                <action android:name="com.mjiutang.ngskg.PREV" />
-                <action android:name="com.mjiutang.ngskg.PLAY_PAUSE" />
-                <action android:name="com.mjiutang.ngskg.NEXT" />
-                <action android:name="com.mjiutang.ngskg.STOP" />
+        <!-- audio_service 媒体按钮接收器 -->
+        <receiver android:name="com.ryanheise.audioservice.MediaButtonReceiver"
+            android:exported="true"
+            tools:ignore="Instantiatable">
+            <intent-filter>
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>
         </receiver>

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../utils/navigation.dart' as app;
 import '../providers/player_provider.dart';
 import '../providers/auth_provider.dart';
@@ -9,9 +8,12 @@ import '../providers/theme_provider.dart';
 import '../models/song.dart';
 import '../services/api_client.dart';
 import '../services/update_checker.dart';
-import '../screens/player_screen.dart';
 import '../widgets/support_me_dialog.dart';
 import '../widgets/update_dialog.dart';
+import '../services/announcement_service.dart';
+import '../widgets/announcement_dialog.dart';
+import '../utils/theme.dart';
+import 'm3_expressive_mini_player.dart';
 
 /// 移动端外壳，嵌套在 MaterialApp.builder 中
 ///
@@ -35,188 +37,91 @@ class _AppShellState extends State<AppShell> {
   // ══════════════════════════════════════════════�?
 
   Widget _mobileShell() {
-    return Stack(
-      children: [
-        widget.child ?? const SizedBox.shrink(),
-        // MiniPlayer �?覆盖在底部导航栏上方
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: kBottomNavigationBarHeight +
-              MediaQuery.of(context).padding.bottom,
-          child: const _MobileMiniPlayer(),
-        ),
-        const _ContinuePlayOverlay(),
-        const _SupportPopupHandler(),
-        const _UpdateCheckHandler(),
-        const _LoginPromptOverlay(),
-      ],
-    );
-  }
-}
+    return ValueListenableBuilder<String?>(
+      valueListenable: app.AppRouteObserver.instance.currentRouteNotifier,
+      builder: (context, currentRoute, _) {
+        // 精确选择：只订阅 MiniPlayer 显隐条件，不随播放进度/歌词变化重建全局 Shell
+        final currentSongId =
+            context.select<PlayerProvider, int?>((p) => p.currentSong?.id);
+        final isMiniDismissed = context
+            .select<PlayerProvider, bool>((p) => p.isMiniPlayerDismissed);
 
-// ══════════════════════════════════════════════�?
-//  移动�?MiniPlayer �?精简版（移除 BackdropFilter 避免 Windows 渲染崩溃�?
-// ══════════════════════════════════════════════�?
+        // 判定 Minibar 出现条件：
+        // 1. 当前有播放歌曲；
+        // 2. 且非核心专注/全屏播放等隐藏页面（登录页 '/login'、全屏播放页 '/player'）
+        // 3. 且用户没有手动关闭它
+        final isHiddenRoute =
+            currentRoute == '/login' || currentRoute == '/player';
+        final showMini =
+            currentSongId != null && !isHiddenRoute && !isMiniDismissed;
 
-class _MobileMiniPlayer extends StatelessWidget {
-  const _MobileMiniPlayer();
+        final mq = MediaQuery.of(context);
+        final isHome =
+            currentRoute == null || currentRoute == '/' || currentRoute == '';
 
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Consumer<PlayerProvider>(
-      builder: (_, player, __) {
-        final song = player.currentSong;
-        if (song == null || player.isPlayerScreenVisible)
-          return const SizedBox.shrink();
-        final tt = Theme.of(context).textTheme;
+        final double miniPlayerBottom;
+        if (isHome) {
+          // Material Design 3 NavigationBar 标准高度为 80.0dp。
+          // 定位在 80.0 + mq.padding.bottom 处，正好悬浮于 NavigationBar 正上方，零重叠且不会顶高底栏！
+          miniPlayerBottom = 80.0 + mq.padding.bottom;
+        } else {
+          // 在没有 NavigationBar 的二级子屏幕中，悬浮在系统底部手势栏/黑条正上方
+          miniPlayerBottom =
+              mq.padding.bottom > 0 ? mq.padding.bottom + 8.0 : 12.0;
+        }
 
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-          child: GestureDetector(
-            onTap: () {
-              player.setPlayerScreenVisible(true);
-              app.navKey.currentState
-                  ?.push(PageRouteBuilder(
-                    pageBuilder: (_, __, ___) => const PlayerScreen(),
-                    transitionsBuilder: (_, animation, __, child) {
-                      return FadeTransition(
-                          opacity: animation, child: child);
-                    },
-                    transitionDuration: const Duration(milliseconds: 300),
-                  ))
-                  .then((_) => player.setPlayerScreenVisible(false));
-            },
-            child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.95),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (player.duration.inMilliseconds > 0)
-                    ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(16),
-                        topRight: Radius.circular(16),
-                      ),
-                      child: LinearProgressIndicator(
-                        value: player.progress.isFinite ? player.progress : 0.0,
-                        backgroundColor: cs.surfaceContainerHigh,
-                        color: cs.primary,
-                        minHeight: 2,
-                      ),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      left: 8, right: 12, top: 4, bottom: 6,
-                    ),
-                    child: Row(
-                      children: [
-                        Hero(
-                          tag: 'album_art_${song.hash ?? song.id}',
-                          child: _miniCover(song, cs),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(song.name,
-                                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                                  style: tt.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: cs.onSurface)),
-                              const SizedBox(height: 2),
-                              Text(song.artistDisplay,
-                                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                                  style: tt.labelSmall?.copyWith(
-                                      color: cs.onSurfaceVariant)),
-                            ],
-                          ),
-                        ),
-                        if (player.isLoading)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: SizedBox(width: 28, height: 28,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2.5, color: cs.primary)),
-                          )
-                        else ...[
-                          _mobileBtn(Icons.skip_previous, player.playPrevious, cs),
-                          const SizedBox(width: 4),
-                          Container(
-                            width: 36, height: 36,
-                            decoration: BoxDecoration(
-                              color: cs.primary, shape: BoxShape.circle,
-                            ),
-                            child: IconButton(
-                              icon: Icon(
-                                player.isPlaying ? Icons.pause : Icons.play_arrow,
-                                color: cs.onPrimary, size: 22,
-                              ),
-                              onPressed: player.togglePlayPause,
-                              padding: EdgeInsets.zero,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          _mobileBtn(Icons.skip_next, player.playNext, cs),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+        // 注入包含 MiniBar 高度的自适应 MediaQuery 避让区域：
+        // 仅在非首页（二级子页面，即无底部 NavigationBar）且 MiniBar 显示时，使主界面的 padding.bottom 追加 MiniBar 物理高（76.0dp）。
+        // 首页 Tab 页面内的避让将在 HomeScreen 级别的 body 内部局部注入，以防止全局污染导致 Scaffold 将底部 NavigationBar 错误抬高并与 MiniBar 重叠。
+        final double extraPadding = (showMini && !isHome) ? 76.0 : 0.0;
+        final childMediaQuery = mq.copyWith(
+          padding: mq.padding.copyWith(
+            bottom: mq.padding.bottom + extraPadding,
           ),
+          viewPadding: mq.viewPadding.copyWith(
+            bottom: mq.viewPadding.bottom + extraPadding,
           ),
         );
-      },
-    );
-  }
 
-  Widget _miniCover(Song song, ColorScheme cs) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: SizedBox(
-        width: 38, height: 38,
-        child: song.albumCoverUrl != null && song.albumCoverUrl!.isNotEmpty
-            ? CachedNetworkImage(
-                imageUrl: song.albumCoverUrl!,
-                fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => Container(
-                  color: cs.surfaceContainerHigh,
-                  child: Icon(Icons.music_note, size: 22, color: cs.onSurfaceVariant),
-                ),
-              )
-            : Container(
-                color: cs.surfaceContainerHigh,
-                child: Icon(Icons.music_note, size: 22, color: cs.onSurfaceVariant),
+        return Stack(
+          children: [
+            MediaQuery(
+              data: childMediaQuery,
+              child: widget.child ?? const SizedBox.shrink(),
+            ),
+            // Render M3ExpressiveMiniPlayer with smooth position & opacity transition
+            AnimatedPositioned(
+              duration: AppMotion.dMedium2,
+              curve: AppMotion.emphasizedDecelerate,
+              left: 0,
+              right: 0,
+              bottom: miniPlayerBottom,
+              child: AnimatedSwitcher(
+                duration: AppMotion.dMedium1,
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.3),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  );
+                },
+                child: showMini
+                    ? const M3ExpressiveMiniPlayer()
+                    : const SizedBox.shrink(),
               ),
-      ),
-    );
-  }
-
-  Widget _mobileBtn(IconData icon, VoidCallback? onTap, ColorScheme cs) {
-    return SizedBox(
-      width: 32, height: 32,
-      child: IconButton(
-        icon: Icon(icon, size: 22, color: cs.onSurfaceVariant),
-        onPressed: onTap,
-        padding: EdgeInsets.zero,
-      ),
+            ),
+            const _ContinuePlayOverlay(),
+            const _SupportPopupHandler(),
+            const _UpdateCheckHandler(),
+            const _LoginPromptOverlay(),
+          ],
+        );
+      },
     );
   }
 }
@@ -248,8 +153,8 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
 
     try {
       final client = ApiClient.instance;
-      final res = await client.get('/lastest/songs/listen',
-          params: {'pagesize': 1});
+      final res =
+          await client.get('/lastest/songs/listen', params: {'pagesize': 1});
       if (!mounted) return;
       final data = res.data as Map<String, dynamic>? ?? {};
       final body = data['data'] as Map<String, dynamic>? ?? data;
@@ -258,8 +163,8 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
       Map<String, dynamic>? songInfo;
       final currSong = body['curr_song'] as Map?;
       if (currSong is Map) {
-        songInfo = (currSong['info'] as Map<String, dynamic>?)
-            ?? currSong.cast<String, dynamic>();
+        songInfo = (currSong['info'] as Map<String, dynamic>?) ??
+            currSong.cast<String, dynamic>();
       }
       if (songInfo == null) {
         final songs = body['songs'] as List<dynamic>? ?? [];
@@ -269,10 +174,11 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
       }
       if (songInfo != null && mounted) {
         final info = songInfo;
-        final songName = (info['name'] as String?
-            ?? info['songname'] as String? ?? '未知歌曲')
-            .replaceAll(RegExp(r'\.mp3$', caseSensitive: false), '');
+        final songName =
+            (info['name'] as String? ?? info['songname'] as String? ?? '未知歌曲')
+                .replaceAll(RegExp(r'\.mp3$', caseSensitive: false), '');
         final singer = info['singername'] as String?;
+        if (!context.mounted) return;
         // 用 Navigator 的 overlay context 保证 Dialog 能正常路由
         final navCtx = Navigator.of(context).context;
         if (!mounted) return;
@@ -288,7 +194,9 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
                       const SizedBox(height: 8),
                       Text(songName,
                           style: Theme.of(context).textTheme.titleMedium),
-                      if (singer != null) Text(singer, style: Theme.of(context).textTheme.bodySmall),
+                      if (singer != null)
+                        Text(singer,
+                            style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
                   actions: [
@@ -299,8 +207,9 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
                       onPressed: () {
                         Navigator.pop(navCtx);
                         final hash = info['hash'] as String?;
-                        final songId = (info['mixsongid'] as num?)?.toInt()
-                            ?? (info['id'] as num?)?.toInt() ?? 0;
+                        final songId = (info['mixsongid'] as num?)?.toInt() ??
+                            (info['id'] as num?)?.toInt() ??
+                            0;
                         final song = Song(
                           id: songId,
                           name: songName,
@@ -310,7 +219,8 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
                           duration: (info['timelen'] as num?)?.toInt() ?? 0,
                           hash: hash,
                         );
-                        if (mounted) context.read<PlayerProvider>().playSong(song);
+                        if (mounted)
+                          context.read<PlayerProvider>().playSong(song);
                       },
                       child: const Text('继续'),
                     ),
@@ -385,9 +295,18 @@ class _UpdateCheckHandlerState extends State<_UpdateCheckHandler> {
 
   Future<void> _check() async {
     if (!mounted) return;
+
+    // 1. 检查更新
     final release = await UpdateChecker.check();
     if (release != null && mounted) {
-      showUpdateDialog(context, release);
+      await showUpdateDialog(context, release);
+    }
+
+    // 2. 检查公告
+    if (!mounted) return;
+    final announcement = await AnnouncementService.fetchLatest();
+    if (announcement != null && mounted) {
+      await showAnnouncementDialog(context, announcement);
     }
   }
 

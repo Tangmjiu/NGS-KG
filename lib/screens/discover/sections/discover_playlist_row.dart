@@ -22,47 +22,61 @@ class DiscoverPlaylistRow extends StatelessWidget {
         itemBuilder: (_, i) {
           final pl = playlists[i];
           return M3PressScale(
-            child: GestureDetector(
-            onTap: () {
-              Navigator.pushNamed(context, '/playlist/detail', arguments: {
-                'gcId': pl.globalCollectionId ??
-                    'collection_3_${pl.createUserId}_${pl.id}_0',
-                'name': pl.name,
-              });
-            },
+            scaleDown: 0.95,
             child: Container(
               width: 140,
-              margin: const EdgeInsets.only(right: 12),
+              margin: const EdgeInsets.only(right: 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipRRect(
-                    borderRadius: AppShape.md,
-                    child: pl.coverUrl != null
-                        ? CachedNetworkImage(
-                            imageUrl: pl.coverUrl!,
-                            width: 140,
-                            height: 140,
-                            fit: BoxFit.cover,
-                          )
-                        : Container(
-                            width: 140,
-                            height: 140,
-                            color: cs.surfaceContainerHighest,
-                            child: Icon(Icons.playlist_play,
-                                color: cs.onSurfaceVariant),
+                  Container(
+                    width: 140,
+                    height: 140,
+                    decoration: BoxDecoration(
+                      borderRadius: AppShape.lg,
+                      color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                    ),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ClipRRect(
+                          borderRadius: AppShape.lg,
+                          child: pl.coverUrl != null
+                              ? CachedNetworkImage(
+                                  imageUrl: pl.coverUrl!,
+                                  width: 140,
+                                  height: 140,
+                                  memCacheWidth: 280,
+                                  memCacheHeight: 280,
+                                  fit: BoxFit.cover,
+                                )
+                              : Icon(Icons.playlist_play, color: cs.onSurfaceVariant),
+                        ),
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: AppShape.lg,
+                            onTap: () {
+                              Navigator.pushNamed(context, '/playlist/detail', arguments: {
+                                'gcId': pl.globalCollectionId ??
+                                    'collection_3_${pl.createUserId}_${pl.id}_0',
+                                'name': pl.name,
+                              });
+                            },
                           ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Text(
                     pl.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
-            ),
             ),
           );
         },

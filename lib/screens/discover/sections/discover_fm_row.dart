@@ -38,6 +38,8 @@ class DiscoverFmRow extends StatelessWidget {
                             imageUrl: img,
                             width: 64,
                             height: 64,
+                            memCacheWidth: 128,
+                            memCacheHeight: 128,
                             fit: BoxFit.cover,
                             errorWidget: (_, __, ___) => Container(
                               width: 64,

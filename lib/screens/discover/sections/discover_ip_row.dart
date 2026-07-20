@@ -45,6 +45,8 @@ class DiscoverIpRow extends StatelessWidget {
                           imageUrl: imgUrl,
                           width: 260,
                           height: 112,
+                          memCacheWidth: 520,
+                          memCacheHeight: 224,
                           fit: BoxFit.cover,
                           placeholder: (_, __) => Container(
                             width: 260,

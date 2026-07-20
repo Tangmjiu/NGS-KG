@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-1.5.0--preview-blue?style=flat-square" alt="v1.5.0 preview">
+  <img src="https://img.shields.io/badge/Version-1.5.1--preview-blue?style=flat-square" alt="v1.5.1 preview">
   <img src="https://img.shields.io/badge/Nightcord-v2.0.0-purple?style=flat-square" alt="Nightcord v2.0.0">
 </p>
 

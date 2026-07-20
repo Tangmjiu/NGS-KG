@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:audio_service/audio_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/player_provider.dart';
 import 'providers/playlist_provider.dart';
@@ -22,6 +23,8 @@ import 'services/device_service.dart';
 import 'services/music_service.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
+import 'services/api_config.dart';
+import 'services/audio_handler.dart';
 import 'services/cache_service.dart';
 import 'providers/audio_settings_provider.dart';
 import 'navidrome/navidrome_provider.dart';
@@ -29,6 +32,7 @@ import 'providers/local_music_provider.dart';
 import 'utils/preview_config.dart';
 import 'theme/theme_assets.dart';
 import 'utils/navigation.dart';
+import 'services/intent_handler_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,44 +64,119 @@ Future<void> main() async {
       Log.e('RENDER', details.exceptionAsString(), details.exception,
           details.stack);
     } catch (_) {}
-    return Material(
-      color: const Color(0xFF1E1E1E),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              ThemeAssets.codecrash,
-              width: 80,
-              height: 80,
-              errorBuilder: (_, __, ___) => const Icon(Icons.error_outline, size: 64, color: Colors.white38),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '渲染异常',
-              style: TextStyle(color: Colors.white70, fontSize: 16),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                details.exceptionAsString(),
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white38, fontSize: 12),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 如果在受限高度组件（如 64dp 的 MiniPlayer 或单行小控件）中出现暂时性排版或 Hero 转场闪动，
+        // 绝不可强行塞入 160+dp 的巨型黑卡，以免引发大面积黑框遮挡与二次严重的 RenderFlex Overflow。
+        if (constraints.maxHeight < 120 || !constraints.hasBoundedHeight) {
+          return Material(
+            color: const Color(0xFF1E1E1E).withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(16),
+            child: SizedBox(
+              height: constraints.hasBoundedHeight
+                  ? constraints.maxHeight.clamp(20.0, 64.0)
+                  : 64.0,
+              child: const Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.error_outline,
+                        size: 18, color: Colors.white38),
+                    SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        '轻微渲染闪过',
+                        style: TextStyle(
+                            color: Colors.white38, fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
-      ),
+          );
+        }
+
+        return Material(
+          color: const Color(0xFF1E1E1E),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  ThemeAssets.codecrash,
+                  width: 80,
+                  height: 80,
+                  errorBuilder: (_, __, ___) => const Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: Colors.white38),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '渲染异常',
+                  style: TextStyle(color: Colors.white70, fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    details.exceptionAsString(),
+                    textAlign: TextAlign.center,
+                    style:
+                        const TextStyle(color: Colors.white38, fontSize: 12),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   };
 
-  // 只对后台初始化任务使�?zone 捕获异常
+  // ─── 初始化 AudioService（替代原生 PlaybackService + MediaSession） ───
+  final audioHandler = await AudioService.init<MusicAudioHandler>(
+    builder: () => MusicAudioHandler(),
+    config: AudioServiceConfig(
+      androidNotificationChannelId: 'com.mjiutang.ngskg.audio',
+      androidNotificationChannelName: '音乐播放',
+      androidNotificationChannelDescription: '音乐播放控制（支持锁屏、蓝牙）',
+      androidNotificationIcon: 'mipmap/ic_launcher',
+      androidShowNotificationBadge: false,
+      androidNotificationClickStartsActivity: true,
+      androidNotificationOngoing: false,
+      androidStopForegroundOnPause: false,
+      artDownscaleWidth: 512,
+      artDownscaleHeight: 512,
+      preloadArtwork: true,
+    ),
+  );
+  // 监听原生端异步错误（PlatformException 等）
+  AudioService.asyncError.listen((error) {
+    Log.e('audio_service', 'asyncError', error);
+  });
+  // 系统控制回调 → PlayerProvider（通过 navKey 获取 context）
+  audioHandler.onPlay = () => _notifAction('play_pause');
+  audioHandler.onPause = () => _notifAction('play_pause');
+  audioHandler.onSkipNext = () => _notifAction('next');
+  audioHandler.onSkipPrevious = () => _notifAction('prev');
+  audioHandler.onSeek = (pos) {
+    final ctx = navKey.currentState?.overlay?.context;
+    if (ctx == null) return;
+    ctx.read<PlayerProvider>().seek(pos);
+  };
+  audioHandler.onStop = () {}; // BaseAudioHandler.stop() 自动清理通知
+  audioHandler.onLike = () => _notifAction('like');
+  audioHandler.onSwitchMode = () => _notifAction('switch_mode');
+
+  // 后台任务（非阻塞）
   runZonedGuarded(() {
     _initDevice();
-    _initNotifications();
   }, (error, stack) {
     Log.e('ZONE', 'Background init error', error, stack);
   });
@@ -109,16 +188,16 @@ Future<void> main() async {
   final audioSettings = AudioSettingsProvider()..init();
   final themeProvider = ThemeProvider()..init();
   final likedSongs = LikedSongsProvider(musicService);
-  // 先初始化认证（从本地文件加载），避免 auth 准备就绪�?PlayerProvider 发起网络请求
+  // 先初始化认证（从本地文件加载），避免 auth 准备就绪前 PlayerProvider 发起网络请求
   final authProvider = AuthProvider(authService, likedSongs: likedSongs);
-  // 小延迟确保文件读取完成；ready �?_loadSavedUser() 完成后触�?
-    unawaited(authProvider.ready.then((_) {
+  // 小延迟确保文件读取完成；ready 在 _loadSavedUser() 完成后触发
+  unawaited(authProvider.ready.then((_) {
     Log.i('main', 'AuthProvider ready, user=${authProvider.isLoggedIn}');
     if (authProvider.isLoggedIn) likedSongs.load();
   }));
-  // 注意：此处不能阻�?runApp —�?authProvider 在构造时已启�?_loadSavedUser()
-  // apiClient.setAuth �?_loadSavedUser 内调用，PlayerProvider �?restorePlaybackState
-  // �?addPostFrameCallback 调度，通常�?auth 就绪之后才执行�?
+  // 注意：此处不能阻塞 runApp — authProvider 在构造时已启动 _loadSavedUser()
+  // apiClient.setAuth 在 _loadSavedUser 内调用，PlayerProvider 的 restorePlaybackState
+  // 通过 addPostFrameCallback 调度，通常在 auth 就绪之后才执行。
   runApp(
     MultiProvider(
       providers: [
@@ -128,6 +207,7 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider(create: (_) => PlayerProvider(musicService,
+            audioHandler: audioHandler,
             audioSettings: audioSettings,
             likedSongs: likedSongs,
         )),
@@ -140,11 +220,44 @@ Future<void> main() async {
       child: const NGSKGApp(),
     ),
   );
+  // 启动外部文件打开监听（Android Intent）
+  IntentHandlerService.instance.start();
+  IntentHandlerService.instance.onFileOpen.listen((filePath) async {
+    // 获取 LocalMusicProvider（通过 navKey 安全访问）
+    final ctx0 = navKey.currentState?.overlay?.context;
+    if (ctx0 == null) return;
+    final localProv = ctx0.read<LocalMusicProvider>();
+
+    // 先确保扫描完成
+    if (!localProv.scanned && !localProv.isScanning) {
+      await localProv.scanMusic();
+    }
+    final song = await localProv.addSongFromPath(filePath);
+    if (song == null) return;
+
+    // 加入播放列表并播放（重新获取 context 避免 async gap 问题）
+    final playCtx = navKey.currentState?.overlay?.context;
+    if (playCtx != null) {
+      playCtx.read<PlayerProvider>().playSong(song, playlist: localProv.songs);
+    }
+
+    // 导航到本地音乐界面
+    navKey.currentState?.pushNamedAndRemoveUntil(
+      AppRoutes.localMusic,
+      (route) => route.settings.name == AppRoutes.home,
+    );
+  });
+
+
 
 }
 
 Future<void> _initDevice() async {
   try {
+    // 启动时静默自动探测最佳 API 路线
+    await ApiConfig.instance.detectBestRoute();
+    ApiClient.instance.reinitialize();
+
     final device = await DeviceService.instance.getDeviceInfo();
     if (device == null || !device.isValid) {
       final newDevice = await DeviceService.instance.registerDevice();
@@ -153,22 +266,6 @@ Future<void> _initDevice() async {
       ApiClient.setDfid(device.dfid);
     }
   } catch (_) {}
-}
-
-Future<void> _initNotifications() async {
-  final notif = NotificationService.instance;
-  await notif.init();
-  notif.onNotificationTap = () {};
-  notif.onPrev = () => _notifAction('prev');
-  notif.onPlayPause = () => _notifAction('play_pause');
-  notif.onNext = () => _notifAction('next');
-  notif.onLike = () => _notifAction('like');
-  notif.onSwitchMode = () => _notifAction('switch_mode');
-  notif.onSeekTo = (posMs) {
-    final ctx = navKey.currentState?.overlay?.context;
-    if (ctx == null) return;
-    ctx.read<PlayerProvider>().seek(Duration(milliseconds: posMs));
-  };
 }
 
 void _notifAction(String action) {
@@ -226,6 +323,7 @@ class NGSKGApp extends StatelessWidget {
           darkTheme: themeProvider.buildDarkTheme(context, dynamicScheme: darkDynamic),
           themeMode: themeProvider.themeMode,
           initialRoute: AppRoutes.home,
+          navigatorObservers: [AppRouteObserver.instance],
           onGenerateRoute: (settings) {
             if (settings.name == AppRoutes.settings) {
               return MaterialPageRoute(
@@ -241,7 +339,8 @@ class NGSKGApp extends StatelessWidget {
                 if (ThemeAssets.playerBg.isNotEmpty)
                   Positioned.fill(
                     child: ImageFiltered(
-                      imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                      // 降低 sigma 以减少低端机 GPU 负载（视觉差异小）
+                      imageFilter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                       child: Image.file(
                         File(ThemeAssets.playerBg),
                         fit: BoxFit.cover,

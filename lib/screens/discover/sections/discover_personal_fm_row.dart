@@ -105,14 +105,14 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
     }
   }
 
-  // ─── 循环切换模式（不中断播放，仅刷新后续推荐） ───
-  void _cycleMode(DiscoverProvider provider) {
+  // ─── 循环切换模式（立即生效，替换当前播放队列） ───
+  void _cycleMode(DiscoverProvider provider, PlayerProvider player) {
     if (_fmLoading) return;
     final currentIndex = _modeValues.indexOf(provider.fmMode);
     final nextIndex = (currentIndex + 1) % _modeValues.length;
     provider.setFmMode(_modeValues[nextIndex]);
     if (provider.isFmActive) {
-      provider.refreshFmBuffer();
+      provider.switchFmPlayback(player);
     }
   }
 
@@ -140,7 +140,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
         elevation: 1,
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
           borderRadius: AppShape.lg,
         ),
         child: Stack(
@@ -182,7 +182,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                       Icon(Icons.podcasts, size: 22, color: cs.primary),
                       const SizedBox(width: 8),
                       GestureDetector(
-                        onTap: () => _cycleMode(provider),
+                        onTap: () => _cycleMode(provider, player),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -238,8 +238,8 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                         return Padding(
                           padding: const EdgeInsets.only(right: 6),
                           child: InkWell(
-                            onTap: () =>
-                                _onPoolChanged(provider, _poolValues[i]),
+                            onTap: () => _onPoolChanged(
+                                provider, player, _poolValues[i]),
                             borderRadius: AppShape.sm,
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
@@ -289,7 +289,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                         secondChild: ConstrainedBox(
                           constraints: const BoxConstraints(minHeight: 140),
                           child: _buildPlayingState(
-                              cs, tt, provider, player, currentSong!, buffer),
+                              cs, tt, provider, player, currentSong, buffer),
                         ),
                       ),
                     ),
@@ -328,12 +328,14 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                   padding: const EdgeInsets.only(right: 10),
                   child: ClipRRect(
                     borderRadius: AppShape.md,
-                    child: song.albumCoverUrl != null
+                    child: song.thumbnailCoverUrl != null
                         ? CachedNetworkImage(
-                            imageUrl: song.albumCoverUrl!,
+                            imageUrl: song.thumbnailCoverUrl!,
                             width: 80,
                             height: 80,
                             fit: BoxFit.cover,
+                            memCacheWidth: 160,
+                            memCacheHeight: 160,
                             errorWidget: (_, __, ___) => Container(
                               width: 80,
                               height: 80,
@@ -363,7 +365,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
             style: FilledButton.styleFrom(
               padding:
                   const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-              shape: RoundedRectangleBorder(
+              shape: const RoundedRectangleBorder(
                 borderRadius: AppShape.lg,
               ),
             ),
@@ -387,9 +389,10 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
     TextTheme tt,
     DiscoverProvider provider,
     PlayerProvider player,
-    Song currentSong,
+    Song? currentSong,
     List<Song> buffer,
   ) {
+    if (currentSong == null) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -574,12 +577,14 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                           ],
                         ),
                         child: ClipOval(
-                          child: song.albumCoverUrl != null
+                          child: song.thumbnailCoverUrl != null
                               ? CachedNetworkImage(
-                                  imageUrl: song.albumCoverUrl!,
+                                  imageUrl: song.thumbnailCoverUrl!,
                                   width: 44,
                                   height: 44,
                                   fit: BoxFit.cover,
+                                  memCacheWidth: 88,
+                                  memCacheHeight: 88,
                                   errorWidget: (_, __, ___) => Container(
                                     color: cs.surfaceContainerHighest,
                                     child: Icon(Icons.music_note,
@@ -608,11 +613,12 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
 
   // ── 交互 ──
 
-  void _onPoolChanged(DiscoverProvider provider, int poolId) {
+  void _onPoolChanged(
+      DiscoverProvider provider, PlayerProvider player, int poolId) {
     provider.setFmPoolId(poolId);
-    // 新算法池不会中断当前播放，仅刷新后续推荐缓冲
     if (provider.isFmActive) {
-      provider.refreshFmBuffer();
+      // 立即切换算法池，替换整个播放队列
+      provider.switchFmPlayback(player);
     }
   }
 

@@ -43,6 +43,8 @@ class DiscoverSceneRow extends StatelessWidget {
                               imageUrl: scene.iconUrl!,
                               width: 64,
                               height: 64,
+                              memCacheWidth: 128,
+                              memCacheHeight: 128,
                               fit: BoxFit.cover,
                               placeholder: (_, __) => Container(
                                 width: 64,
