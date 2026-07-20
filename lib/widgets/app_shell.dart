@@ -261,7 +261,8 @@ class _SupportPopupHandlerState extends State<_SupportPopupHandler> {
     final tp = context.read<ThemeProvider>();
     if (!tp.shouldShowSupportPopup) return;
 
-    final dismissed = await showSupportMeDialog(context, autoPopup: true);
+    final navContext = app.navKey.currentContext ?? context;
+    final dismissed = await showSupportMeDialog(navContext, autoPopup: true);
     if (dismissed && mounted) {
       tp.dismissSupportPopup();
     }
@@ -296,17 +297,19 @@ class _UpdateCheckHandlerState extends State<_UpdateCheckHandler> {
   Future<void> _check() async {
     if (!mounted) return;
 
+    final navContext = app.navKey.currentContext ?? context;
+
     // 1. 检查更新
     final release = await UpdateChecker.check();
     if (release != null && mounted) {
-      await showUpdateDialog(context, release);
+      await showUpdateDialog(navContext, release);
     }
 
     // 2. 检查公告
     if (!mounted) return;
     final announcement = await AnnouncementService.fetchLatest();
     if (announcement != null && mounted) {
-      await showAnnouncementDialog(context, announcement);
+      await showAnnouncementDialog(navContext, announcement);
     }
   }
 
@@ -342,8 +345,8 @@ class _LoginPromptOverlayState extends State<_LoginPromptOverlay> {
     final auth = context.read<AuthProvider>();
     if (auth.isLoggedIn) return;
 
-    final navCtx = Navigator.of(context).context;
-    if (!mounted) return;
+    final navCtx = app.navKey.currentContext;
+    if (navCtx == null || !mounted) return;
     showDialog(
       context: navCtx,
       builder: (ctx) => AlertDialog(
@@ -357,7 +360,7 @@ class _LoginPromptOverlayState extends State<_LoginPromptOverlay> {
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
-              Navigator.pushNamed(context, '/login');
+              Navigator.pushNamed(navCtx, '/login');
             },
             child: const Text('登录'),
           ),
