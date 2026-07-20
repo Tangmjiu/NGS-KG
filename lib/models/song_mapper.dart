@@ -151,7 +151,8 @@ class SongMapper {
 
       return Song(
         id: tryInt(json['audio_id'] ?? base?['audio_id'] ?? json['id']),
-        name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
+        name: (parts.length > 1 ? parts.sublist(1).join(' - ') : rawName)
+            .replaceAll(RegExp(r'\.(mp3|flac|wav|m4a)$', caseSensitive: false), ''),
         artists: _splitArtists(artist),
         albumCoverUrl: cover,
         albumId: albumId,
