@@ -207,27 +207,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  List<Map<String, dynamic>> _getValidKrmAuthors(PlayerProvider player, Song? song) {
-    final krmAuthors = player.currentSongAuthors;
-    if (krmAuthors.isEmpty || song == null || song.artists.isEmpty) return [];
 
-    final songArtistsLower = song.artists.map((a) => a.toLowerCase().trim()).toSet();
-    bool isKrmValid = false;
-    for (final author in krmAuthors) {
-      final authorName = (author['name'] as String? ?? '').toLowerCase().trim();
-      if (authorName.isEmpty) continue;
-      if (songArtistsLower.contains(authorName) ||
-          songArtistsLower.any((sa) => sa.contains(authorName) || authorName.contains(sa))) {
-        isKrmValid = true;
-        break;
-      }
-    }
-    return isKrmValid ? krmAuthors : [];
-  }
 
   void _showArtistSelectionSheet(PlayerProvider player, Song song) {
-    // 优先采用从 /krm/audio 拉取的精确多歌手详情，需通过合法性名字比对校验
-    final krmAuthors = _getValidKrmAuthors(player, song);
+    // KRM 数据已在 Provider 层通过 hash 校验，可直接信任
+    final krmAuthors = player.currentSongAuthors;
     final hasKrm = krmAuthors.isNotEmpty;
 
     // 兜底方案：使用分割出来的歌名歌手列表
@@ -311,8 +295,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   // 查看专辑显示条件：有 albumId，或者有 albumName 且不等于 'Unknown' / '无'
                   final hasAlbum = song != null && (albumId > 0 || (albumName.isNotEmpty && albumName != 'Unknown' && albumName != '无'));
                   
-                  // 歌手呈现：优先使用经过匹配比对校验的 krmAuthors，否则使用 song.artists
-                  final krmAuthors = _getValidKrmAuthors(p, song);
+                  // 歌手呈现：KRM 数据已在 Provider 层通过 hash 校验，可直接信任
+                  final krmAuthors = p.currentSongAuthors;
                   final hasKrm = krmAuthors.isNotEmpty;
                   final displayArtistsList = hasKrm ? krmAuthors.map((e) => e['name'] as String).toList() : (song?.artists ?? []);
                   final hasArtists = song != null && displayArtistsList.isNotEmpty;
@@ -944,7 +928,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   // ── Page header (shared, pinned at top) ──
 
   Widget _buildPageHeader(PlayerProvider player, Song song) {
-    final krmAuthors = _getValidKrmAuthors(player, song);
+    final krmAuthors = player.currentSongAuthors;
     final hasKrm = krmAuthors.isNotEmpty;
     final displayArtistsList = hasKrm ? krmAuthors.map((e) => e['name'] as String).toList() : song.artists;
     final artistsDisplayString = hasKrm ? displayArtistsList.join(' / ') : song.artistDisplay;

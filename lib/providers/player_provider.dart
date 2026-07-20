@@ -1193,10 +1193,22 @@ class PlayerProvider extends ChangeNotifier
 
     try {
       final data = await _musicService.getKrmAudio(songId);
-      if (data != null && currentSong?.id == song.id) {
-        _currentKrmAudio = data;
-        notifyListeners();
+      if (data == null || currentSong?.id != song.id) return;
+
+      // ── hash 校验：确认 /krm/audio 返回的确实是同一首歌 ──
+      // 酷狗 KRM 数据库中部分 mixSongId 映射错乱，会返回其他歌曲的元数据。
+      // 用音频内容唯一指纹 hash 做精确比对，不匹配则丢弃。
+      final krmHash = (data['base'] as Map?)?['hash'] as String?;
+      if (krmHash != null &&
+          song.hash != null &&
+          krmHash.toUpperCase() != song.hash!.toUpperCase()) {
+        Log.w('KRM', 'hash 不匹配，丢弃 KRM 数据: '
+            'song.hash=${song.hash}, krm.hash=$krmHash');
+        return;
       }
+
+      _currentKrmAudio = data;
+      notifyListeners();
     } catch (_) {}
   }
 
