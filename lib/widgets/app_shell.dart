@@ -10,6 +10,8 @@ import '../services/api_client.dart';
 import '../services/update_checker.dart';
 import '../widgets/support_me_dialog.dart';
 import '../widgets/update_dialog.dart';
+import '../services/announcement_service.dart';
+import '../widgets/announcement_dialog.dart';
 import '../utils/theme.dart';
 import 'm3_expressive_mini_player.dart';
 
@@ -39,18 +41,23 @@ class _AppShellState extends State<AppShell> {
       valueListenable: app.AppRouteObserver.instance.currentRouteNotifier,
       builder: (context, currentRoute, _) {
         // 精确选择：只订阅 MiniPlayer 显隐条件，不随播放进度/歌词变化重建全局 Shell
-        final currentSongId = context.select<PlayerProvider, int?>((p) => p.currentSong?.id);
-        final isMiniDismissed = context.select<PlayerProvider, bool>((p) => p.isMiniPlayerDismissed);
+        final currentSongId =
+            context.select<PlayerProvider, int?>((p) => p.currentSong?.id);
+        final isMiniDismissed = context
+            .select<PlayerProvider, bool>((p) => p.isMiniPlayerDismissed);
 
         // 判定 Minibar 出现条件：
         // 1. 当前有播放歌曲；
         // 2. 且非核心专注/全屏播放等隐藏页面（登录页 '/login'、全屏播放页 '/player'）
         // 3. 且用户没有手动关闭它
-        final isHiddenRoute = currentRoute == '/login' || currentRoute == '/player';
-        final showMini = currentSongId != null && !isHiddenRoute && !isMiniDismissed;
+        final isHiddenRoute =
+            currentRoute == '/login' || currentRoute == '/player';
+        final showMini =
+            currentSongId != null && !isHiddenRoute && !isMiniDismissed;
 
         final mq = MediaQuery.of(context);
-        final isHome = currentRoute == null || currentRoute == '/' || currentRoute == '';
+        final isHome =
+            currentRoute == null || currentRoute == '/' || currentRoute == '';
 
         final double miniPlayerBottom;
         if (isHome) {
@@ -59,7 +66,8 @@ class _AppShellState extends State<AppShell> {
           miniPlayerBottom = 80.0 + mq.padding.bottom;
         } else {
           // 在没有 NavigationBar 的二级子屏幕中，悬浮在系统底部手势栏/黑条正上方
-          miniPlayerBottom = mq.padding.bottom > 0 ? mq.padding.bottom + 8.0 : 12.0;
+          miniPlayerBottom =
+              mq.padding.bottom > 0 ? mq.padding.bottom + 8.0 : 12.0;
         }
 
         // 注入包含 MiniBar 高度的自适应 MediaQuery 避让区域：
@@ -118,8 +126,6 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-
-
 // ══════════════════════════════════════════════�?
 //  跨设备继续播放检�?
 // ══════════════════════════════════════════════�?
@@ -147,8 +153,8 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
 
     try {
       final client = ApiClient.instance;
-      final res = await client.get('/lastest/songs/listen',
-          params: {'pagesize': 1});
+      final res =
+          await client.get('/lastest/songs/listen', params: {'pagesize': 1});
       if (!mounted) return;
       final data = res.data as Map<String, dynamic>? ?? {};
       final body = data['data'] as Map<String, dynamic>? ?? data;
@@ -157,8 +163,8 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
       Map<String, dynamic>? songInfo;
       final currSong = body['curr_song'] as Map?;
       if (currSong is Map) {
-        songInfo = (currSong['info'] as Map<String, dynamic>?)
-            ?? currSong.cast<String, dynamic>();
+        songInfo = (currSong['info'] as Map<String, dynamic>?) ??
+            currSong.cast<String, dynamic>();
       }
       if (songInfo == null) {
         final songs = body['songs'] as List<dynamic>? ?? [];
@@ -168,9 +174,9 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
       }
       if (songInfo != null && mounted) {
         final info = songInfo;
-        final songName = (info['name'] as String?
-            ?? info['songname'] as String? ?? '未知歌曲')
-            .replaceAll(RegExp(r'\.mp3$', caseSensitive: false), '');
+        final songName =
+            (info['name'] as String? ?? info['songname'] as String? ?? '未知歌曲')
+                .replaceAll(RegExp(r'\.mp3$', caseSensitive: false), '');
         final singer = info['singername'] as String?;
         if (!context.mounted) return;
         // 用 Navigator 的 overlay context 保证 Dialog 能正常路由
@@ -188,7 +194,9 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
                       const SizedBox(height: 8),
                       Text(songName,
                           style: Theme.of(context).textTheme.titleMedium),
-                      if (singer != null) Text(singer, style: Theme.of(context).textTheme.bodySmall),
+                      if (singer != null)
+                        Text(singer,
+                            style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
                   actions: [
@@ -199,8 +207,9 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
                       onPressed: () {
                         Navigator.pop(navCtx);
                         final hash = info['hash'] as String?;
-                        final songId = (info['mixsongid'] as num?)?.toInt()
-                            ?? (info['id'] as num?)?.toInt() ?? 0;
+                        final songId = (info['mixsongid'] as num?)?.toInt() ??
+                            (info['id'] as num?)?.toInt() ??
+                            0;
                         final song = Song(
                           id: songId,
                           name: songName,
@@ -210,7 +219,8 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
                           duration: (info['timelen'] as num?)?.toInt() ?? 0,
                           hash: hash,
                         );
-                        if (mounted) context.read<PlayerProvider>().playSong(song);
+                        if (mounted)
+                          context.read<PlayerProvider>().playSong(song);
                       },
                       child: const Text('继续'),
                     ),
@@ -285,9 +295,18 @@ class _UpdateCheckHandlerState extends State<_UpdateCheckHandler> {
 
   Future<void> _check() async {
     if (!mounted) return;
+
+    // 1. 检查更新
     final release = await UpdateChecker.check();
     if (release != null && mounted) {
-      showUpdateDialog(context, release);
+      await showUpdateDialog(context, release);
+    }
+
+    // 2. 检查公告
+    if (!mounted) return;
+    final announcement = await AnnouncementService.fetchLatest();
+    if (announcement != null && mounted) {
+      await showAnnouncementDialog(context, announcement);
     }
   }
 
