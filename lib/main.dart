@@ -150,7 +150,7 @@ Future<void> main() async {
       androidShowNotificationBadge: false,
       androidNotificationClickStartsActivity: true,
       androidNotificationOngoing: false,
-      androidStopForegroundOnPause: true,
+      androidStopForegroundOnPause: false,
       artDownscaleWidth: 512,
       artDownscaleHeight: 512,
       preloadArtwork: true,
