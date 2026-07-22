@@ -165,7 +165,17 @@ class ThemeProvider extends ChangeNotifier {
       _useMonet = prefs.getBool(_keyUseMonet) ?? false;
       _selectedPackId = prefs.getString(_keySelectedPack) ?? 'ngs_nagisa';
       _flowLightEnabled = prefs.getBool(_keyFlowLight) ?? false;
-      _showHiResBadge = prefs.getBool(_keyShowHiResBadge) ?? true;
+      if (prefs.containsKey(_keyShowHiResBadge)) {
+        _showHiResBadge = prefs.getBool(_keyShowHiResBadge) ?? false;
+      } else {
+        // 判断是否为升级用户：在没有 _keyShowHiResBadge 的情况下，如果存在其他 theme 相关的配置，说明是升级用户
+        final hasThemeKeys = prefs.getKeys().any((k) => k.startsWith('theme_') && k != _keyShowHiResBadge);
+        if (hasThemeKeys) {
+          _showHiResBadge = true; // 升级过来的，保留开启设置
+        } else {
+          _showHiResBadge = false; // 全新安装，默认关闭
+        }
+      }
 
       // ─── 歌词显示设置 ───
       final lsStr = prefs.getString(_keyLyricSettings);

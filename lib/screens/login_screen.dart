@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import '../utils/logger.dart';
 import '../providers/auth_provider.dart';
@@ -139,7 +140,7 @@ class _PasswordLoginState extends State<_PasswordLogin> {
               labelText: '用户名',
               prefixIcon: const Icon(Icons.person),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: AppShape.sm,
               ),
             ),
           ),
@@ -158,7 +159,7 @@ class _PasswordLoginState extends State<_PasswordLogin> {
                 onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
               ),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: AppShape.sm,
               ),
             ),
           ),
@@ -170,7 +171,7 @@ class _PasswordLoginState extends State<_PasswordLogin> {
                 labelText: '验证码',
                 prefixIcon: const Icon(Icons.security),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: AppShape.sm,
                 ),
               ),
             ),
@@ -181,7 +182,7 @@ class _PasswordLoginState extends State<_PasswordLogin> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.errorContainer,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: AppShape.sm,
               ),
               child: Row(
                 children: [
@@ -314,7 +315,7 @@ class _PhoneLoginState extends State<_PhoneLogin> {
               prefixIcon: const Icon(Icons.phone_android),
               errorText: _phoneError,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: AppShape.sm,
               ),
             ),
             onChanged: (_) {
@@ -332,7 +333,7 @@ class _PhoneLoginState extends State<_PhoneLogin> {
                     labelText: '验证码',
                     prefixIcon: const Icon(Icons.message),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: AppShape.sm,
                     ),
                   ),
                 ),
@@ -513,7 +514,7 @@ class _QrLoginState extends State<_QrLogin> {
                 width: 200, height: 200,
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppShape.md,
                 ),
                 padding: const EdgeInsets.all(12),
                 child: _base64Img != null ? _buildQrImage()

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../utils/theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../models/scene_category.dart';
 
@@ -20,7 +21,8 @@ class DiscoverSceneRow extends StatelessWidget {
         itemCount: scenes.length,
         itemBuilder: (_, i) {
           final scene = scenes[i];
-          return GestureDetector(
+          return M3PressScale(
+            child: GestureDetector(
             onTap: () => Navigator.pushNamed(context, '/fm'),
             child: Container(
               width: 80,
@@ -32,15 +34,17 @@ class DiscoverSceneRow extends StatelessWidget {
                     height: 64,
                     decoration: BoxDecoration(
                       color: cs.primaryContainer.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: AppShape.lg,
                     ),
                     child: scene.iconUrl != null
                         ? ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: AppShape.lg,
                             child: CachedNetworkImage(
                               imageUrl: scene.iconUrl!,
                               width: 64,
                               height: 64,
+                              memCacheWidth: 128,
+                              memCacheHeight: 128,
                               fit: BoxFit.cover,
                               placeholder: (_, __) => Container(
                                 width: 64,
@@ -62,10 +66,11 @@ class DiscoverSceneRow extends StatelessWidget {
                     scene.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: cs.onSurface),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onSurface),
                   ),
                 ],
               ),
+            ),
             ),
           );
         },

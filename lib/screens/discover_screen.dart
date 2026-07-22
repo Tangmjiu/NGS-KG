@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:cached_network_image/cached_network_image.dart';
+import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import '../providers/discover_provider.dart';
 import 'discover/sections/discover_quick_actions.dart';
@@ -11,6 +14,7 @@ import 'discover/sections/discover_scene_row.dart';
 import 'discover/sections/discover_ip_row.dart';
 import 'discover/sections/discover_fm_row.dart';
 import 'discover/sections/discover_personal_fm_row.dart';
+import '../widgets/list_bottom_spacer.dart';
 
 /// 发现页
 ///
@@ -98,7 +102,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               )
             else ...[
               // ── 私人 FM（置顶） ──
-              SliverToBoxAdapter(
+              const SliverToBoxAdapter(
                 child: DiscoverPersonalFmRow(),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 8)),
@@ -191,7 +195,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 ),
               ],
 
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              const SliverToBoxAdapter(
+                child: ListBottomSpacer(isHome: true),
+              ),
             ],
           ],
         ],
@@ -200,7 +206,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   void _showRankList(List rankList) {
-    showModalBottomSheet(
+    showM3ModalBottomSheet(
       context: context,
       builder: (_) {
         // SafeArea 底部内边距不计入可用高度，否则内容溢出
@@ -221,19 +227,22 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   maxHeight: availableHeight,
                 ),
                 child: ListView.builder(
+                scrollCacheExtent: const ScrollCacheExtent.pixels(200),
                 itemCount: rankList.length,
                 itemBuilder: (_, i) {
                   final r = rankList[i];
                   return ListTile(
                     leading: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: AppShape.sm,
                       child: r.coverUrl != null
-                          ? Image.network(r.coverUrl!,
+                          ? CachedNetworkImage(
+                              imageUrl: r.coverUrl!,
                               width: 48,
                               height: 48,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
-                                  _rankPlaceholder())
+                              placeholder: (_, __) => _rankPlaceholder(),
+                              errorWidget: (_, __, ___) => _rankPlaceholder(),
+                            )
                           : _rankPlaceholder(),
                     ),
                     title: Text(r.name,

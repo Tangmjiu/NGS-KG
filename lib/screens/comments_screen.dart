@@ -63,15 +63,15 @@ class _CommentsScreenState extends State<CommentsScreen> {
                             : null,
                       ),
                       title: Text(c.userName ?? '匿名',
-                          style: const TextStyle(fontSize: 13)),
+                          style: Theme.of(context).textTheme.bodyMedium),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(c.content, style: const TextStyle(fontSize: 14)),
+                          Text(c.content, style: Theme.of(context).textTheme.bodyMedium),
                           if (c.time != null)
                             Text(c.time!,
-                                style: TextStyle(
-                                    fontSize: 11, color: Theme.of(context).colorScheme.outline)),
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.outline)),
                         ],
                       ),
                       trailing: SizedBox(
@@ -81,7 +81,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
                           children: [
                             Flexible(child: Text('${c.likedCount}',
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 12))),
+                                style: Theme.of(context).textTheme.bodySmall)),
                             const Icon(Icons.thumb_up, size: 14),
                           ],
                         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/playlist.dart';
@@ -96,7 +97,7 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: AppShape.sm,
                             child: (p.coverUrl != null &&
                                     p.coverUrl!.isNotEmpty)
                                 ? CachedNetworkImage(

@@ -112,10 +112,7 @@ class PaletteExtractor {
 
   /// Extracts a color palette from the image at [imageUrl].
   ///
-  /// Uses [NetworkImage] to load the image and [PaletteGenerator] to extract
-  /// the swatches. Results are cached by URL so subsequent calls with the same
-  /// URL return instantly.
-  ///
+  /// Limits resolution to 256px for fast extraction.
   /// Never throws — returns the [fallbackPalette] on any error.
   Future<ExtractedPalette> extract(String imageUrl) async {
     final cached = _cache[imageUrl];
@@ -124,6 +121,8 @@ class PaletteExtractor {
     try {
       final generator = await PaletteGenerator.fromImageProvider(
         NetworkImage(imageUrl),
+        size: const Size(256, 256),
+        maximumColorCount: 16,
       );
       final palette = _toExtractedPalette(generator);
       _cache[imageUrl] = palette;
@@ -137,6 +136,7 @@ class PaletteExtractor {
   /// Extracts a color palette using a custom [ImageProvider] (e.g. [FileImage]
   /// for local files) and caches the result under [cacheKey].
   ///
+  /// Limits image resolution to 256px for fast extraction.
   /// Never throws — returns the [fallbackPalette] on any error.
   Future<ExtractedPalette> extractFromProvider(
       ImageProvider provider, String cacheKey) async {
@@ -144,7 +144,11 @@ class PaletteExtractor {
     if (cached != null) return cached;
 
     try {
-      final generator = await PaletteGenerator.fromImageProvider(provider);
+      final generator = await PaletteGenerator.fromImageProvider(
+        provider,
+        size: const Size(256, 256),
+        maximumColorCount: 16,
+      );
       final palette = _toExtractedPalette(generator);
       _cache[cacheKey] = palette;
       return palette;

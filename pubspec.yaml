@@ -1,7 +1,7 @@
 name: ngskg_plus
 description: NGS-KG+ - Cross-platform music player based on KuGouMusic API
 publish_to: 'none'
-version: 1.5.0+1
+version: 1.5.1-preview+1
 
 environment:
   sdk: ^3.0.0
@@ -16,7 +16,8 @@ dependencies:
   dio_cookie_manager: ^3.1.1
   # Audio
   just_audio: ^0.9.40
-  # audio_session: no OHOS port, managed by AVSession on OHOS
+  audio_service: ^0.18.19
+  audio_session: ^0.1.25 # OHOS: managed by native AVSession
   # State
   provider: ^6.1.1
   # Local storage
@@ -46,7 +47,8 @@ dependencies:
   # Lyrics
   ym_lyric: ^0.0.4
   flutter_lyric: ^3.0.6
-  # on_audio_query: no OHOS port, replaced by custom OHOS mediaLibrary plugin
+  on_audio_query: ^2.9.0 # OHOS: replaced by custom mediaLibrary plugin
+  flutter_markdown: ^0.7.3
 
 dev_dependencies:
   flutter_test:

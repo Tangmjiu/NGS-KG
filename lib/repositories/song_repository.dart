@@ -269,6 +269,9 @@ class SongRepository extends BaseRepository {
         'fields': 'album_info,authors.base,base',
       });
       final data = res['data'];
+      if (data is List && data.isNotEmpty) {
+        return data.first as Map<String, dynamic>;
+      }
       if (data is Map) return data as Map<String, dynamic>;
       return null;
     } catch (_) {

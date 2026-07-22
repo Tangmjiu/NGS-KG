@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 
 /// 发现页通用横向滚动卡片区块
 ///
@@ -49,12 +50,18 @@ class HorizontalCardSection extends StatelessWidget {
               ),
               const Spacer(),
               if (onViewAll != null)
-                GestureDetector(
-                  onTap: onViewAll,
+                TextButton(
+                  onPressed: onViewAll,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: const Size(0, 28),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                   child: Text(
-                    '查看更多',
+                    '查看更多 >',
                     style: tt.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
+                      color: cs.primary,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -73,7 +80,10 @@ class HorizontalCardSection extends StatelessWidget {
               padding: EdgeInsets.only(right: index < itemCount - 1 ? gap : 0),
               child: SizedBox(
                 width: cardWidth,
-                child: itemBuilder(context, index),
+                child: M3StaggeredFadeIn(
+                  index: index,
+                  child: itemBuilder(context, index),
+                ),
               ),
             ),
           ),

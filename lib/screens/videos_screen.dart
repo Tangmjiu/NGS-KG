@@ -1,6 +1,7 @@
 // MV/Video 功能已暂停适配，代码保留供后续参考
 /*
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../utils/logger.dart';
 import '../services/music_service.dart';
@@ -70,7 +71,7 @@ class _VideosScreenState extends State<VideosScreen> {
                     clipBehavior: Clip.antiAlias,
                     child: ListTile(
                       leading: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: AppShape.xs,
                         child: v.coverUrl != null
                             ? CachedNetworkImage(
                                 imageUrl: v.coverUrl!,

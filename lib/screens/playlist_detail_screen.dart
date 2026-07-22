@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/playlist_provider.dart';
@@ -6,6 +7,7 @@ import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../theme/theme_assets.dart';
 import '../widgets/song_tile.dart';
+import '../widgets/list_bottom_spacer.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
   final String? gcId;
@@ -189,16 +191,18 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                   color: cs.onSurfaceVariant)),
                           const Spacer(),
                           if (!_isSelecting)
-                            FilledButton.tonalIcon(
-                              onPressed: () {
-                                context
-                                    .read<PlayerProvider>()
-                                    .playSong(detail.songs.first,
-                                        playlist: detail.songs);
-                              },
-                              icon: const Icon(
-                                  Icons.play_arrow, size: 18),
-                              label: const Text('播放全部'),
+                            M3PressScale(
+                              child: FilledButton.tonalIcon(
+                                onPressed: () {
+                                  context
+                                      .read<PlayerProvider>()
+                                      .playSong(detail.songs.first,
+                                          playlist: detail.songs);
+                                },
+                                icon: const Icon(
+                                    Icons.play_arrow, size: 18),
+                                label: const Text('播放全部'),
+                              ),
                             ),
                         ],
                       ),
@@ -221,19 +225,24 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     if (_isSelecting) {
                       final selected =
                           _selectedIndices.contains(index);
-                      return ListTile(
-                        leading: Checkbox(
-                          value: selected,
-                          onChanged: (_) =>
-                              _toggleSelection(index),
+                      return M3StaggeredFadeIn(
+                        index: index,
+                        child: M3PressScale(
+                          child: ListTile(
+                            leading: Checkbox(
+                              value: selected,
+                              onChanged: (_) =>
+                                  _toggleSelection(index),
+                            ),
+                            title: Text(song.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                            subtitle: Text(song.artistDisplay,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                            onTap: () => _toggleSelection(index),
+                          ),
                         ),
-                        title: Text(song.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                        subtitle: Text(song.artistDisplay,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                        onTap: () => _toggleSelection(index),
                       );
                     }
 
@@ -244,11 +253,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           .playSong(s,
                               playlist: detail.songs),
                     );
-                    return Dismissible(
+                    final dismissible = Dismissible(
                       key: ValueKey('pl_song_${song.id}'),
                       direction: DismissDirection.endToStart,
                       confirmDismiss: (_) async {
-                        return await showDialog<bool>(
+                        return await showM3Dialog<bool>(
                           context: context,
                           builder: (ctx) => AlertDialog(
                             title: const Text('移除'),
@@ -312,12 +321,14 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       ),
                       child: tile,
                     );
+                    return M3StaggeredFadeIn(index: index, child: dismissible);
                   },
                   childCount: detail.songs.length,
                 ),
               ),
               const SliverToBoxAdapter(
-                  child: SizedBox(height: 24)),
+                child: ListBottomSpacer(isHome: false),
+              ),
             ],
           );
 
@@ -407,7 +418,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       return;
     }
 
-    showModalBottomSheet(
+    showM3ModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(
@@ -475,7 +486,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     final songs =
         _selectedIndices.map((i) => detail.songs[i]).toList();
 
-    showDialog(
+    showM3Dialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('删除'),

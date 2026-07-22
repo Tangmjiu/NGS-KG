@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'navidrome_config.dart';
 import 'navidrome_provider.dart';
@@ -177,7 +178,7 @@ class _NavidromeLoginScreenState extends State<NavidromeLoginScreen> {
                     color: _testSuccess == true
                         ? Colors.green.withValues(alpha: 0.1)
                         : Colors.red.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppShape.sm,
                     border: Border.all(
                       color: _testSuccess == true ? Colors.green : Colors.red,
                     ),

@@ -1,0 +1,490 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../providers/player_provider.dart';
+import '../models/song.dart';
+import '../utils/navigation.dart' as app;
+import '../utils/theme.dart';
+import '../screens/player_screen.dart';
+
+/// Material Design 3 Expressive 悬浮媒体胶囊 (Floating MiniPlayer)
+///
+/// 特性规范：
+/// 1. **悬浮圆角胶囊形态 (Expressive Capsule)**：采用 `AppShape.full`（圆角 28dp），悬浮于底部导航栏或屏幕底部上方，具备轻盈的毛玻璃质感与立体投影。
+/// 2. **触控感应与手势反馈 (Tactile & Gesture Mastery)**：
+///    - **按压反馈**：卡片整体搭载 `M3PressScale` 微缩下沉物理动效（0.97 比例）。
+///    - **左右滑动切歌 (Swipe-to-Skip)**：直接向左/向右滑动胶囊可顺滑切换上一首/下一首，并带有触感振动响应。
+///    - **点击展开**：平滑开启全屏播放器页面。
+/// 3. **动态状态呈现**：
+///    - **播放/暂停图标互转**：采用 `AnimatedSwitcher` + `ScaleTransition` 顺滑切换按钮状态。
+///    - **环形/底边高精度进度条**：内嵌贴合胶囊下边缘的微细线性进度指示，动态颜色对准 `cs.primary`。
+class M3ExpressiveMiniPlayer extends StatelessWidget {
+  const M3ExpressiveMiniPlayer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    // 精确选择：外层只订阅显隐条件和当前歌曲，不随播放进度/加载状态重建。
+    return Selector<PlayerProvider, ({Song? song, bool visible, bool dismissed})>(
+      selector: (_, p) => (
+        song: p.currentSong,
+        visible: p.isPlayerScreenVisible,
+        dismissed: p.isMiniPlayerDismissed,
+      ),
+      builder: (context, state, _) {
+        final song = state.song;
+        if (song == null || state.visible || state.dismissed) {
+          return const SizedBox.shrink();
+        }
+
+        return Material(
+          color: Colors.transparent,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            child: Dismissible(
+              key: ValueKey('mini_player_${song.hash ?? song.id}'),
+              direction: DismissDirection.horizontal,
+              confirmDismiss: (direction) async {
+                final player = context.read<PlayerProvider>();
+                if (direction == DismissDirection.endToStart) {
+                  player.playNext();
+                } else if (direction == DismissDirection.startToEnd) {
+                  player.playPrevious();
+                }
+                // 不真正移除控件，由切歌后自动刷新 UI 承接
+                return false;
+              },
+              background: _buildSwipeIndicator(
+                  cs, Icons.skip_previous_rounded, '上一首', Alignment.centerLeft),
+              secondaryBackground: _buildSwipeIndicator(
+                  cs, Icons.skip_next_rounded, '下一首', Alignment.centerRight),
+              child: M3PressScale(
+                child: GestureDetector(
+                  onTap: () => _openPlayerScreen(context),
+                  onLongPress: () => _onLongPress(context),
+                  child: Material(
+                    color: cs.surfaceContainerHighest.withValues(alpha: 0.96),
+                    borderRadius: AppShape.full,
+                    clipBehavior: Clip.antiAlias,
+                    elevation: 4,
+                    shadowColor: cs.shadow.withValues(alpha: 0.12),
+                    child: Container(
+                      height: 64.0,
+                      decoration: BoxDecoration(
+                        borderRadius: AppShape.full,
+                        border: Border.all(
+                          color: cs.outlineVariant.withValues(alpha: 0.5),
+                          width: 1,
+                        ),
+                      ),
+                      child: Stack(
+                        children: [
+                          // 底部嵌入式极细进度条（独立订阅 progress，避免整行重建）
+                          const _MiniProgressBar(),
+
+                          // 主交互排版区
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                            child: Row(
+                              children: [
+                                // 专辑封面（含安全过渡与 Hero 动效）
+                                Hero(
+                                  tag: 'album_art_${song.hash ?? song.id}',
+                                  flightShuttleBuilder: _safeFlightShuttle,
+                                  child: _MiniCoverArt(song: song),
+                                ),
+                                const SizedBox(width: 10),
+
+                                // 歌曲信息排版（运用 FittedBox.scaleDown 彻底消灭各种大字号与行高带来的 Bottom/Right Overflowed）
+                                Expanded(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          song.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: tt.bodyMedium?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: cs.onSurface,
+                                            letterSpacing: -0.2,
+                                            height: 1.2,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 1),
+                                        Text(
+                                          song.artistDisplay,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: tt.labelSmall?.copyWith(
+                                            color: cs.onSurfaceVariant,
+                                            height: 1.15,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+
+                                // 媒体控制按钮组
+                                _buildControlButton(
+                                  icon: Icons.skip_previous_rounded,
+                                  tooltip: '上一首',
+                                  cs: cs,
+                                  onTap: () => context.read<PlayerProvider>().playPrevious(),
+                                ),
+                                const SizedBox(width: 2),
+
+                                // 主播放/暂停响应态圆形按钮（独立订阅 isPlaying/isLoading）
+                                const _MiniPlayPauseButton(),
+                                const SizedBox(width: 2),
+
+                                _buildControlButton(
+                                  icon: Icons.skip_next_rounded,
+                                  tooltip: '下一首',
+                                  cs: cs,
+                                  onTap: () => context.read<PlayerProvider>().playNext(),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 飞行安全过渡组件（防止路由与 Hero 切出同时出现排版异常抛出黑框）
+  Widget _safeFlightShuttle(
+    BuildContext flightContext,
+    Animation<double> animation,
+    HeroFlightDirection flightDirection,
+    BuildContext fromHeroContext,
+    BuildContext toHeroContext,
+  ) {
+    final Hero toHero = toHeroContext.widget as Hero;
+    return Material(
+      color: Colors.transparent,
+      child: toHero.child,
+    );
+  }
+
+  /// 滑动切歌时的底部提示背景
+  Widget _buildSwipeIndicator(
+      ColorScheme cs, IconData icon, String label, Alignment alignment) {
+    final isLeft = alignment == Alignment.centerLeft;
+    return Container(
+      height: 64.0,
+      decoration: BoxDecoration(
+        color: cs.secondaryContainer.withValues(alpha: 0.88),
+        borderRadius: AppShape.full,
+      ),
+      alignment: alignment,
+      padding: EdgeInsets.only(
+        left: isLeft ? 24 : 12,
+        right: isLeft ? 12 : 24,
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isLeft) ...[
+              Icon(icon, color: cs.onSecondaryContainer, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: cs.onSecondaryContainer,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ] else ...[
+              Text(
+                label,
+                style: TextStyle(
+                  color: cs.onSecondaryContainer,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(icon, color: cs.onSecondaryContainer, size: 22),
+            ]
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onLongPress(BuildContext context) {
+    HapticFeedback.mediumImpact();
+    final player = context.read<PlayerProvider>();
+    player.dismissMiniPlayer();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('播放控制栏已隐藏，播放新歌时会自动重新显示'),
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: '恢复',
+          onPressed: () {
+            player.showMiniPlayer();
+          },
+        ),
+      ),
+    );
+  }
+
+  /// 构建专辑封面或加载转圈指示器
+  static Widget _buildCoverArt(Song song, ColorScheme cs, bool isLoading) {
+    Widget coverWidget;
+    final url = song.thumbnailCoverUrl;
+    if (url != null && url.isNotEmpty) {
+      // 本地文件：file:// URI 或裸路径
+      if (url.startsWith('file:') || url.startsWith('/')) {
+        final path = url.startsWith('file:') ? Uri.parse(url).toFilePath() : url;
+        final file = File(path);
+        if (file.existsSync()) {
+          coverWidget = Image.file(file, width: 48, height: 48, fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _defaultCoverIcon(cs),
+          );
+        } else {
+          coverWidget = _defaultCoverIcon(cs);
+        }
+      } else {
+        coverWidget = CachedNetworkImage(
+          imageUrl: url,
+          width: 48, height: 48, fit: BoxFit.cover,
+          memCacheWidth: 96,
+          memCacheHeight: 96,
+          errorWidget: (_, __, ___) => _defaultCoverIcon(cs),
+        );
+      }
+    } else {
+      coverWidget = _defaultCoverIcon(cs);
+    }
+
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.15),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            coverWidget,
+            if (isLoading)
+              Container(
+                color: Colors.black.withValues(alpha: 0.35),
+                child: Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: cs.primary,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static Widget _defaultCoverIcon(ColorScheme cs) {
+    return Container(
+      width: 48,
+      height: 48,
+      color: cs.surfaceContainerHigh,
+      child: Icon(Icons.music_note_rounded, size: 24, color: cs.primary),
+    );
+  }
+
+  /// 基础控制按钮
+  Widget _buildControlButton({
+    required IconData icon,
+    required String tooltip,
+    required ColorScheme cs,
+    VoidCallback? onTap,
+  }) {
+    return M3PressScale(
+      child: InkWell(
+        borderRadius: AppShape.full,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Icon(icon, size: 24, color: cs.onSurfaceVariant),
+        ),
+      ),
+    );
+  }
+
+  /// 播放/暂停圆形动效按钮
+  static Widget _buildPlayPauseButton(
+    ({bool isPlaying, bool isLoading}) state,
+    ColorScheme cs,
+    BuildContext context,
+  ) {
+
+    return M3PressScale(
+      child: Material(
+        color: cs.primary,
+        shape: const CircleBorder(),
+        elevation: 1,
+        shadowColor: cs.primary.withValues(alpha: 0.4),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () => context.read<PlayerProvider>().togglePlayPause(),
+          child: SizedBox(
+            width: 42,
+            height: 42,
+            child: Center(
+              child: AnimatedSwitcher(
+                duration: AppMotion.dMedium1,
+                transitionBuilder: (child, animation) {
+                  return ScaleTransition(
+                    scale: animation,
+                    child: FadeTransition(opacity: animation, child: child),
+                  );
+                },
+                child: Icon(
+                  state.isPlaying
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
+                  key: ValueKey<bool>(state.isPlaying),
+                  color: cs.onPrimary,
+                  size: 24,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openPlayerScreen(BuildContext context) {
+    final player = context.read<PlayerProvider>();
+    player.setPlayerScreenVisible(true);
+    app.navKey.currentState
+        ?.push(
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => const PlayerScreen(),
+            transitionsBuilder: (_, animation, __, child) {
+              return SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.15),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: AppMotion.emphasizedDecelerate,
+                  ),
+                ),
+                child: FadeTransition(opacity: animation, child: child),
+              );
+            },
+            transitionDuration: AppMotion.dMedium2,
+          ),
+        )
+        .then((_) => player.setPlayerScreenVisible(false));
+  }
+}
+
+/// 底部独立进度条：只订阅 progress，避免整个 MiniPlayer 随进度重建。
+class _MiniProgressBar extends StatelessWidget {
+  const _MiniProgressBar();
+
+  @override
+  Widget build(BuildContext context) {
+    return Selector<PlayerProvider, double?>(
+      selector: (_, p) {
+        final duration = p.duration.inMilliseconds;
+        if (duration <= 0) return null;
+        final value = p.position.inMilliseconds / duration;
+        return value.isFinite ? value.clamp(0.0, 1.0) : null;
+      },
+      builder: (_, value, __) {
+        if (value == null) return const SizedBox.shrink();
+        return Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: LinearProgressIndicator(
+            value: value,
+            backgroundColor: Colors.transparent,
+            color: Theme.of(context).colorScheme.primary,
+            minHeight: 3,
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 封面 + 加载遮罩：只订阅 isLoading，避免进度变化时重建封面。
+class _MiniCoverArt extends StatelessWidget {
+  final Song song;
+
+  const _MiniCoverArt({required this.song});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Selector<PlayerProvider, bool>(
+      selector: (_, p) => p.isLoading,
+      builder: (_, isLoading, __) {
+        return M3ExpressiveMiniPlayer._buildCoverArt(song, cs, isLoading);
+      },
+    );
+  }
+}
+
+/// 播放/暂停按钮：只订阅 isPlaying / isLoading，避免外部状态重建按钮。
+class _MiniPlayPauseButton extends StatelessWidget {
+  const _MiniPlayPauseButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Selector<PlayerProvider, ({bool isPlaying, bool isLoading})>(
+      selector: (_, p) => (isPlaying: p.isPlaying, isLoading: p.isLoading),
+      builder: (_, state, __) {
+        return M3ExpressiveMiniPlayer._buildPlayPauseButton(state, cs, context);
+      },
+    );
+  }
+}

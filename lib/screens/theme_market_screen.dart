@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../models/theme_market_listing.dart';
@@ -245,7 +246,7 @@ class _ThemeMarketCard extends StatelessWidget {
           children: [
             // ── 左侧预览图 ──
             ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: AppShape.md,
               child: SizedBox(
                 width: 120,
                 height: 120,
@@ -299,12 +300,11 @@ class _ThemeMarketCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: _tagColor(cs, listing.tagColorIndex).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: AppShape.sm,
                         ),
                         child: Text(
                           tag,
-                          style: TextStyle(
-                            fontSize: 11,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: _tagColor(cs, listing.tagColorIndex),
                           ),
                         ),
@@ -377,7 +377,7 @@ class _StatusChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppShape.sm,
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -385,7 +385,7 @@ class _StatusChip extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500)),
+          Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color, fontWeight: FontWeight.w500)),
         ],
       ),
     );

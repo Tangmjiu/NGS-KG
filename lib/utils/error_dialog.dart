@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../utils/navigation.dart' as app;
 import '../theme/theme_assets.dart';
+import 'theme.dart';
 
 /// 显示错误弹窗
 ///
@@ -32,7 +33,7 @@ void showErrorDialog({
   copyText.writeln('---');
   copyText.writeln('NGS-KG+');
 
-  showDialog(
+  showM3Dialog(
     context: ctx,
     barrierDismissible: false,
     builder: (context) => AlertDialog(
@@ -61,7 +62,7 @@ void showErrorDialog({
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.errorContainer,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: AppShape.xs,
                 ),
                 child: Text(
                   errorCode,
@@ -83,13 +84,12 @@ void showErrorDialog({
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: AppShape.sm,
                 ),
                 child: SelectableText(
                   detail,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontFamily: 'monospace',
-                    fontSize: 11,
                   ),
                 ),
               ),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
@@ -93,7 +94,7 @@ class _PackCarousel extends StatelessWidget {
   }
 
   void _confirmDelete(BuildContext context, ThemeProvider tp, ThemePack pack) {
-    showDialog(
+    showM3Dialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('删除「${pack.name}」'),
@@ -154,7 +155,7 @@ class _PackCardState extends State<_PackCard> {
                 height: 135,
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: AppShape.lg,
                   border: Border.all(
                     color: widget.isSelected
                         ? Theme.of(context).colorScheme.primary
@@ -170,8 +171,7 @@ class _PackCardState extends State<_PackCard> {
                 widget.pack.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w400,
                   color: widget.isSelected
                       ? Theme.of(context).colorScheme.primary
@@ -183,8 +183,7 @@ class _PackCardState extends State<_PackCard> {
                 widget.pack.author,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
@@ -195,12 +194,11 @@ class _PackCardState extends State<_PackCard> {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppShape.sm,
                   ),
                   child: Text(
                     '当前',
-                    style: TextStyle(
-                      fontSize: 10,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: Theme.of(context).colorScheme.onPrimary,
                       fontWeight: FontWeight.w600,
                     ),
@@ -225,7 +223,7 @@ class _PackCardState extends State<_PackCard> {
     // 导入包有 preview → 显示
     if (widget.pack.previewPath != null) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: AppShape.lg,
         child: Image.file(
           File(widget.pack.previewPath!),
           width: 135,
@@ -269,7 +267,7 @@ class _ImportCard extends StatelessWidget {
               height: 135,
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: AppShape.lg,
                 border: Border.all(
                   color: Theme.of(context).colorScheme.outlineVariant,
                   style: BorderStyle.solid,
@@ -282,15 +280,15 @@ class _ImportCard extends StatelessWidget {
                   Icon(Icons.add_rounded, size: 40, color: Theme.of(context).colorScheme.outline),
                   const SizedBox(height: 4),
                   Text('导入主题',
-                      style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline)),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.outline)),
                 ],
               ),
             ),
             const SizedBox(height: 8),
             Text('导入 .zip',
-                style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             Text('主题包',
-                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ],
         ),
       ),
@@ -338,14 +336,14 @@ class _PackDetail extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: cs.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: AppShape.sm,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.check, size: 14, color: cs.onPrimaryContainer),
                     const SizedBox(width: 4),
-                    Text(tag, style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer)),
+                    Text(tag, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onPrimaryContainer)),
                   ],
                 ),
               )).toList(),
@@ -385,7 +383,7 @@ class _AccentSection extends StatelessWidget {
               if (tp.hasAccentOverride)
                 TextButton.icon(
                   icon: const Icon(Icons.clear, size: 16),
-                  label: const Text('清除覆盖', style: TextStyle(fontSize: 12)),
+                  label: const Text('清除覆盖'),
                   onPressed: tp.clearAccentOverride,
                 ),
             ],
@@ -424,7 +422,7 @@ class _AccentSection extends StatelessWidget {
 
   void _showColorPicker(BuildContext context, ThemeProvider tp) {
     Color picked = tp.customColor;
-    showDialog(
+    showM3Dialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('自定义取色'),
@@ -570,8 +568,7 @@ class _ColorDot extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(label,
-              style: TextStyle(
-                fontSize: 10,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: selected
                     ? Theme.of(context).colorScheme.primary
                     : Theme.of(context).colorScheme.onSurfaceVariant,

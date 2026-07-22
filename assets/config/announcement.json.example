@@ -1,0 +1,29 @@
+[
+  {
+    "id": "global_maintenance_20260720",
+    "title": "全服网络维护公告",
+    "publishTime": "2026-07-20T17:00:00+08:00",
+    "versionConstraint": "*",
+    "force": false,
+    "dismissible": true,
+    "content": "### 📢 尊敬的用户您好\n\n我们将于今日晚间对后台音乐解析代理进行例行升级。在维护期间，可能会有短暂的音频缓冲异常，请大家稍后再试。\n\n#### 📷 升级内容预览：\n![维护预览](https://fastly.jsdelivr.net/gh/Tangmjiu/NGS-KG@android/assets/images/icon.png)\n\n非常感谢您的支持和理解！"
+  },
+  {
+    "id": "patch_info_150",
+    "title": "仅对 1.5.0 版本用户的 Bug 提示",
+    "publishTime": "2026-07-20T17:15:00+08:00",
+    "versionConstraint": "1.5.0",
+    "force": true,
+    "dismissible": true,
+    "content": "### ⚠️ 关于 1.5.0 版本可能遭遇的歌词崩溃说明\n\n我们监测到在 `1.5.0` 版本中，部分小众无歌词歌曲可能导致播放界面闪退。\n\n目前我们已经上线了 `1.5.1` 正式更新，请大家直接点击下方“了解更多”跳转升级，或参阅配置指导文档：\n\n[点击免下载预览文档指南.docx](https://fastly.jsdelivr.net/gh/Tangmjiu/NGS-KG@android/assets/docs/patch_guide.docx)"
+  },
+  {
+    "id": "force_update_alert",
+    "title": "版本过旧强制升级提醒",
+    "publishTime": "2026-07-20T17:05:00+08:00",
+    "versionConstraint": "<1.5.0",
+    "force": true,
+    "dismissible": false,
+    "content": "### 🛑 客户端强制更新通知\n\n由于旧版使用的加密算法已失效，低于 `1.5.0` 的客户端目前将无法正常加载歌曲。\n\n请立即前往 GitHub 或者应用商店下载安装最新版。本弹窗目前为强制性显示，敬请知悉。"
+  }
+]

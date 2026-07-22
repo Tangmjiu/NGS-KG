@@ -10,11 +10,15 @@ import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:flutter_lyric/core/lyric_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ym_lyric/model/krc_language_model.dart';
+import 'package:ym_lyric/model/krc_lyric_line_model.dart';
+import 'package:ym_lyric/utils/krc_lyric_util.dart';
 import '../utils/logger.dart';
 import '../models/song.dart';
+import '../models/song_mapper.dart';
 import '../utils/palette_extractor.dart';
 import '../services/music_service.dart';
-import '../services/notification_service.dart';
+import '../services/audio_handler.dart';
 import '../constants/quality.dart';
 import 'mixins.dart';
 import 'audio_engine.dart';
@@ -42,12 +46,14 @@ class PlayerProvider extends ChangeNotifier
   final MusicService _musicService;
   final AudioSettingsProvider? _audioSettings;
   final LikedSongsProvider? _likedSongs;
+  final MusicAudioHandler _audioHandler;
   late final AudioEngine _engine;
   late final PlaylistQueue _queue;
 
   bool _isPlaying = false;
   bool _isLoading = false;
   bool _isPlayerScreenVisible = false;
+  bool _isMiniPlayerDismissed = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   String? _error;
@@ -59,6 +65,44 @@ class PlayerProvider extends ChangeNotifier
   List<Color>? _cachedPaletteColors;
   final LyricController _lyricController = LyricController();
   Color? _backgroundColor;
+
+  // ─── 歌词处理状态 ───
+  bool _lyricLoading = false;
+  Map<int, List<String>> _lyricLangMap = {};
+  List<KrcLyricLineModel>? _krcLines;
+  int _selectedLyricLang = 0;
+  bool _showTranslation = true;
+  String? _lastLoadedHash;
+  int? _lastLoadedSongId;
+
+  // ─── /krm/audio 元数据缓存 ───
+  Map<String, dynamic>? _currentKrmAudio;
+  Map<String, dynamic>? get currentKrmAudio => _currentKrmAudio;
+
+  List<Map<String, dynamic>> get currentSongAuthors {
+    if (_currentKrmAudio == null) return [];
+    final list = _currentKrmAudio!['authors'] as List<dynamic>?;
+    if (list == null) return [];
+    return list.map((e) {
+      if (e is Map) {
+        final base = e['base'] as Map?;
+        return {
+          'id': SongMapper.safeInt(base?['author_id']),
+          'name': base?['author_name'] as String? ?? '',
+        };
+      }
+      return <String, dynamic>{};
+    }).where((e) => e['name'] != null && (e['name'] as String).isNotEmpty).toList();
+  }
+
+  int get currentSongAlbumId {
+    if (_currentKrmAudio != null) {
+      final albumInfo = _currentKrmAudio!['album_info'] as Map?;
+      final aid = SongMapper.safeInt(albumInfo?['album_id'] ?? _currentKrmAudio!['base']?['album_id']);
+      if (aid != null && aid > 0) return aid;
+    }
+    return currentSong?.albumId ?? 0;
+  }
 
   // ─── 歌曲高潮标记 ───
   int? _climaxMs; // 毫秒，当前歌曲的高潮开始时间
@@ -80,6 +124,7 @@ class PlayerProvider extends ChangeNotifier
   // ─── 通知节流 ───
   int _lastNotifUpdateMs = 0;
   int _lastNotifLyricIdx = -1;
+  int _lastPositionNotifyMs = 0;
 
   // ─── 播放状态持久化（杀进程恢复） ───
   static const _keySavedSongId = 'playback_saved_song_id';
@@ -93,6 +138,9 @@ class PlayerProvider extends ChangeNotifier
   static const _keySavedQuality = 'playback_saved_quality_level';
   static const _keySavedQueueJson = 'playback_saved_queue_json';
   static const _keySavedQueueIndex = 'playback_saved_queue_index';
+
+  /// 新版播放状态存储 key（单个 JSON，避免 13 次 prefs 写入）。
+  static const _keySavedPlaybackStateV2 = 'playback_state_v2';
 
   late final VoidCallback _onPositionChanged;
   late final VoidCallback _onDurationChanged;
@@ -137,6 +185,21 @@ class PlayerProvider extends ChangeNotifier
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _queue.isLoadingMore;
   bool get isPlayerScreenVisible => _isPlayerScreenVisible;
+  bool get isMiniPlayerDismissed => _isMiniPlayerDismissed;
+
+  void dismissMiniPlayer() {
+    if (!_isMiniPlayerDismissed) {
+      _isMiniPlayerDismissed = true;
+      notifyListeners();
+    }
+  }
+
+  void showMiniPlayer() {
+    if (_isMiniPlayerDismissed) {
+      _isMiniPlayerDismissed = false;
+      notifyListeners();
+    }
+  }
   bool get isFmMode => _queue.type == QueueType.fm;
   Duration get position => _position;
   Duration get duration => _duration;
@@ -150,6 +213,13 @@ class PlayerProvider extends ChangeNotifier
 
   /// The lyric controller driving the [LyricView] in PlayerScreen.
   LyricController get lyricController => _lyricController;
+
+  bool get lyricLoading => _lyricLoading;
+  Map<int, List<String>> get lyricLangMap => _lyricLangMap;
+  List<KrcLyricLineModel>? get krcLines => _krcLines;
+  int get selectedLyricLang => _selectedLyricLang;
+  bool get showTranslation => _showTranslation;
+  bool get hasLangData => _lyricLangMap.isNotEmpty;
 
   /// Returns all available palette colours for the flowing light effect.
   /// Prefers the quantized [topColors] for richer variety, falls back to
@@ -231,16 +301,25 @@ class PlayerProvider extends ChangeNotifier
   }
 
   PlayerProvider(this._musicService,
-      {AudioSettingsProvider? audioSettings, LikedSongsProvider? likedSongs})
+      {required MusicAudioHandler audioHandler,
+      AudioSettingsProvider? audioSettings,
+      LikedSongsProvider? likedSongs})
       : _audioSettings = audioSettings,
-        _likedSongs = likedSongs {
+        _likedSongs = likedSongs,
+        _audioHandler = audioHandler {
     _engine = AudioEngine(_musicService);
     _queue = PlaylistQueue();
 
     _onPositionChanged = () {
       _position = _engine.position.value;
       _lyricController.setProgress(_position);
-      notifyListeners();
+      // 对 UI rebuild 节流：200ms 内最多通知一次。
+      // 歌词同步仍保持高精度，不随 notifyListeners 节流。
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (now - _lastPositionNotifyMs > 200) {
+        _lastPositionNotifyMs = now;
+        notifyListeners();
+      }
       if (sleepTimerRemaining != null && sleepTimerRemaining!.inSeconds <= 0) {
         _engine.pause();
         _isPlaying = false;
@@ -250,7 +329,6 @@ class PlayerProvider extends ChangeNotifier
       // 通知更新策略：
       // - 歌词行切换时 → 即时更新（锁屏歌词不卡顿）
       // - 仅位置变化 → 每 10 秒节流（用于蓝牙 A2DP 进度同步）
-      final now = DateTime.now().millisecondsSinceEpoch;
       final lyricIdx = _lyricController.activeIndexNotifiter.value;
       final lyricChanged = lyricIdx != _lastNotifLyricIdx;
       if (lyricChanged) {
@@ -273,6 +351,10 @@ class PlayerProvider extends ChangeNotifier
 
     _onLoadingChanged = () {
       _isLoading = _engine.isLoading.value;
+      if (!_isLoading) {
+        // 加载完成（成功或失败）时同步底层的播放状态
+        _isPlaying = _engine.isPlaying.value;
+      }
       notifyListeners();
     };
     _engine.isLoading.addListener(_onLoadingChanged);
@@ -284,11 +366,16 @@ class PlayerProvider extends ChangeNotifier
     _engine.error.addListener(_onErrorChanged);
 
     _onPlayingChanged = () {
+      if (_engine.isLoading.value) {
+        // 正在加载新歌时，不要让上一首 stop() 引起的 isPlaying=false 覆盖当前为 true 的状态
+        return;
+      }
       _isPlaying = _engine.isPlaying.value;
       notifyListeners();
       _updateNotification();
     };
     _engine.isPlaying.addListener(_onPlayingChanged);
+
 
     _engine.onComplete = _onComplete;
     _onQueueChanged = () {
@@ -317,7 +404,7 @@ class PlayerProvider extends ChangeNotifier
   void _updateNotification() {
     final song = _queue.currentSong;
     if (song == null) {
-      NotificationService.instance.cancelMediaNotification();
+      _audioHandler.cancelNotification();
       return;
     }
     // 当前歌词行（如果有）
@@ -328,30 +415,24 @@ class PlayerProvider extends ChangeNotifier
       final line = model.lines[cl].text;
       if (line.isNotEmpty) lyricLine = line;
     }
-    NotificationService.instance.showMediaNotification(
-      title: song.name,
-      artist: song.artistDisplay,
-      albumArtUrl: song.albumCoverUrl,
-      lyricLine: lyricLine,
-      isPlaying: _isPlaying,
-      duration: _duration.inSeconds,
-      position: _position.inSeconds,
-      isBuffering: _engine.isLoading.value,
-    );
-    // 同步自定义按钮状态
-    _notifyCustomButtons(song.id);
-  }
-
-  /// 同步收藏和播放模式状态到系统媒体控件
-  void _notifyCustomButtons(int songId) {
-    final liked = _likedSongs?.likedIds.contains(songId) ?? false;
+    final liked = _likedSongs?.likedIds.contains(song.id) ?? false;
     final modeLabel = switch (_queue.playMode) {
       PlayMode.sequential => 'sequential',
       PlayMode.shuffle => 'shuffle',
       PlayMode.repeatOne => 'repeatOne',
       PlayMode.radio => 'sequential',
     };
-    NotificationService.instance.updateCustomButtons(
+    _audioHandler.updateNotification(
+      id: song.id.toString(),
+      title: song.name,
+      artist: song.artistDisplay,
+      albumArtUrl: song.albumCoverUrl,
+      lyricLine: lyricLine,
+      isPlaying: _isPlaying,
+      durationSec: _duration.inSeconds,
+      positionSec: _position.inSeconds,
+      isBuffering: _engine.isLoading.value,
+      speed: _engine.speed,
       liked: liked,
       playMode: modeLabel,
     );
@@ -359,42 +440,39 @@ class PlayerProvider extends ChangeNotifier
 
   /// 将当前播放状态持久化到 SharedPreferences（杀进程后恢复用）。
   /// 保存完整队列（上限 200 首）、当前歌曲、进度、模式。
+  /// 使用单个 JSON 字符串一次性写入，避免 13 次独立 prefs 写入。
   Future<void> _savePlaybackState() async {
     final song = _queue.currentSong;
     if (song == null) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_keySavedSongId, song.id);
-      await prefs.setString(_keySavedSongName, song.name);
-      await prefs.setString(_keySavedSongHash, song.hash ?? '');
-      await prefs.setString(_keySavedSongArtist, song.artistDisplay);
-      await prefs.setString(_keySavedSongCover, song.albumCoverUrl ?? '');
-      await prefs.setInt(_keySavedSongAlbumId, song.albumId);
-      await prefs.setInt(_keySavedPosition, _position.inMilliseconds);
-      await prefs.setString(_keySavedPlayMode, _queue.playMode.name);
-      await prefs.setInt(_keySavedQuality, _qualityLevel);
-      await prefs.setDouble('playback_saved_speed', _engine.speed);
-      // 保存 filePath 用于本地歌曲恢复
-      await prefs.setString(
-          'playback_saved_file_path', song.filePath ?? '');
-
-      // 序列化完整队列（上限 200 首），包含 filePath 以支持本地歌曲恢复
       final queueLimit = _queue.playlist.take(200);
-      final queueJson = queueLimit.map((s) => {
-        'id': s.id,
-        'name': s.name,
-        'hash': s.hash ?? '',
-        'artist': s.artistDisplay,
-        'cover': s.albumCoverUrl ?? '',
-        'albumId': s.albumId,
-        'filePath': s.filePath ?? '',
-        'isLocal': s.isLocal,
-        'lyrics': s.lyrics ?? '',
-      }).toList();
-      await prefs.setString(
-          _keySavedQueueJson, jsonEncode(queueJson));
-      await prefs.setInt(
-          _keySavedQueueIndex, _queue.currentIndex);
+      final state = {
+        'songId': song.id,
+        'name': song.name,
+        'hash': song.hash ?? '',
+        'artist': song.artistDisplay,
+        'cover': song.albumCoverUrl ?? '',
+        'albumId': song.albumId,
+        'positionMs': _position.inMilliseconds,
+        'playMode': _queue.playMode.name,
+        'quality': _qualityLevel,
+        'speed': _engine.speed,
+        'filePath': song.filePath ?? '',
+        'queueIndex': _queue.currentIndex,
+        'queue': queueLimit.map((s) => {
+          'id': s.id,
+          'name': s.name,
+          'hash': s.hash ?? '',
+          'artist': s.artistDisplay,
+          'cover': s.albumCoverUrl ?? '',
+          'albumId': s.albumId,
+          'filePath': s.filePath ?? '',
+          'isLocal': s.isLocal,
+          'lyrics': s.lyrics ?? '',
+        }).toList(),
+      };
+      await prefs.setString(_keySavedPlaybackStateV2, jsonEncode(state));
     } catch (_) {}
   }
 
@@ -403,77 +481,139 @@ class PlayerProvider extends ChangeNotifier
   Future<void> restorePlaybackState() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final songId = prefs.getInt(_keySavedSongId);
-      if (songId == null) return;
-      final songName = prefs.getString(_keySavedSongName) ?? '';
-      final songHash = prefs.getString(_keySavedSongHash) ?? '';
-      final songArtist = prefs.getString(_keySavedSongArtist) ?? '';
-      final songCover = prefs.getString(_keySavedSongCover) ?? '';
-      final songAlbumId = prefs.getInt(_keySavedSongAlbumId) ?? 0;
-      final positionMs = prefs.getInt(_keySavedPosition) ?? 0;
-      final modeName = prefs.getString(_keySavedPlayMode) ?? 'sequential';
-      final quality = prefs.getInt(_keySavedQuality) ?? 0;
-
-      // 尝试恢复完整队列
-      final queueJsonStr = prefs.getString(_keySavedQueueJson);
-      final savedIndex = prefs.getInt(_keySavedQueueIndex) ?? 0;
-      List<Song> restoreSongs;
-      if (queueJsonStr != null && queueJsonStr.isNotEmpty) {
-        final list = jsonDecode(queueJsonStr) as List<dynamic>;
-        restoreSongs = list.map((e) {
-          final m = e as Map<String, dynamic>;
-          final isLocal = m['isLocal'] == true;
-          final filePath = m['filePath'] as String? ?? '';
-          return Song(
-            id: m['id'] as int,
-            name: m['name'] as String? ?? '',
-            artists: (m['artist'] as String? ?? '').split(' / '),
-            albumCoverUrl: (m['cover'] is String && (m['cover'] as String).isNotEmpty)
-                ? m['cover'] as String
-                : null,
-            albumId: (m['albumId'] as num?)?.toInt() ?? 0,
-            hash: (m['hash'] is String && (m['hash'] as String).isNotEmpty)
-                ? m['hash'] as String
-                : null,
-            filePath: isLocal && filePath.isNotEmpty ? filePath : null,
-            lyrics: m['lyrics'] as String?,
-          );
-        }).toList();
-      } else {
-        // 无完整队列数据，降级为仅当前歌曲（旧版本兼容）
-        // 单曲降级：从当前歌曲持久化数据中读取 filePath
-        final savedFp = prefs.getString('playback_saved_file_path') ?? '';
-        final isLocal = savedFp.isNotEmpty;
-        restoreSongs = [
-          Song(
-            id: songId,
-            name: songName,
-            artists: songArtist.split(' / '),
-            albumCoverUrl: songCover.isNotEmpty ? songCover : null,
-            albumId: songAlbumId,
-            hash: songHash.isNotEmpty ? songHash : null,
-            filePath: isLocal ? savedFp : null,
-          ),
-        ];
+      final v2Str = prefs.getString(_keySavedPlaybackStateV2);
+      if (v2Str != null && v2Str.isNotEmpty) {
+        await _restoreFromV2(v2Str);
+        return;
       }
-
-      final validIndex = savedIndex.clamp(0, restoreSongs.length - 1);
-      _queue.setPlaylist(restoreSongs, startIndex: validIndex);
-      _qualityLevel = quality;
-      _engine.qualityLevel = quality;
-      _position = Duration(milliseconds: positionMs);
-      // 恢复播放模式
-      final mode = PlayMode.values.where((m) => m.name == modeName).firstOrNull;
-      if (mode != null) _queue.setPlayMode(mode);
-      // 应用音质设置 & uploadHistory 开关（覆盖引擎默认值）
-      _applyQualityFromSettings();
-      // 恢复播放速度
-      final savedSpeed = prefs.getDouble('playback_saved_speed');
-      if (savedSpeed != null && savedSpeed > 0) {
-        _engine.setSpeed(savedSpeed);
-      }
-      notifyListeners();
+      // 兼容旧版分 key 存储
+      await _restoreLegacy(prefs);
     } catch (_) {}
+  }
+
+  /// 从新版单个 JSON 字符串恢复。
+  Future<void> _restoreFromV2(String v2Str) async {
+    final state = jsonDecode(v2Str) as Map<String, dynamic>;
+    final queueJson = (state['queue'] as List<dynamic>?) ?? [];
+    final savedIndex = (state['queueIndex'] as num?)?.toInt() ?? 0;
+    final restoreSongs = queueJson.isNotEmpty
+        ? _parseQueueJson(queueJson)
+        : _singleSongFromState(state);
+    _applyRestoredState(restoreSongs, savedIndex, state);
+  }
+
+  /// 兼容旧版分 key 存储的恢复逻辑。
+  Future<void> _restoreLegacy(SharedPreferences prefs) async {
+    final songId = prefs.getInt(_keySavedSongId);
+    if (songId == null) return;
+    final songName = prefs.getString(_keySavedSongName) ?? '';
+    final songHash = prefs.getString(_keySavedSongHash) ?? '';
+    final songArtist = prefs.getString(_keySavedSongArtist) ?? '';
+    final songCover = prefs.getString(_keySavedSongCover) ?? '';
+    final songAlbumId = prefs.getInt(_keySavedSongAlbumId) ?? 0;
+    final positionMs = prefs.getInt(_keySavedPosition) ?? 0;
+    final modeName = prefs.getString(_keySavedPlayMode) ?? 'sequential';
+    final quality = prefs.getInt(_keySavedQuality) ?? 0;
+    final savedSpeed = prefs.getDouble('playback_saved_speed');
+
+    final queueJsonStr = prefs.getString(_keySavedQueueJson);
+    final savedIndex = prefs.getInt(_keySavedQueueIndex) ?? 0;
+    final savedFilePath = prefs.getString('playback_saved_file_path') ?? '';
+    final restoreSongs = (queueJsonStr != null && queueJsonStr.isNotEmpty)
+        ? _parseQueueJson(jsonDecode(queueJsonStr) as List<dynamic>)
+        : [
+            Song(
+              id: songId,
+              name: songName,
+              artists: songArtist.split(' / '),
+              albumCoverUrl: songCover.isNotEmpty ? songCover : null,
+              albumId: songAlbumId,
+              hash: songHash.isNotEmpty ? songHash : null,
+              filePath: savedFilePath.isNotEmpty ? savedFilePath : null,
+            ),
+          ];
+
+    _applyRestoredState(
+      restoreSongs,
+      savedIndex,
+      {
+        'positionMs': positionMs,
+        'playMode': modeName,
+        'quality': quality,
+        'speed': savedSpeed,
+      },
+    );
+  }
+
+  /// 从队列 JSON 列表解析 [Song] 列表。
+  List<Song> _parseQueueJson(List<dynamic> list) {
+    return list.map((e) {
+      final m = e as Map<String, dynamic>;
+      final isLocal = m['isLocal'] == true;
+      final filePath = m['filePath'] as String? ?? '';
+      return Song(
+        id: m['id'] as int,
+        name: m['name'] as String? ?? '',
+        artists: (m['artist'] as String? ?? '').split(' / '),
+        albumCoverUrl: (m['cover'] is String && (m['cover'] as String).isNotEmpty)
+            ? m['cover'] as String
+            : null,
+        albumId: (m['albumId'] as num?)?.toInt() ?? 0,
+        hash: (m['hash'] is String && (m['hash'] as String).isNotEmpty)
+            ? m['hash'] as String
+            : null,
+        filePath: isLocal && filePath.isNotEmpty ? filePath : null,
+        lyrics: m['lyrics'] as String?,
+      );
+    }).toList();
+  }
+
+  /// 从新版 state 中单曲降级恢复（无队列时）。
+  List<Song> _singleSongFromState(Map<String, dynamic> state) {
+    final cover = state['cover'] as String?;
+    final hash = state['hash'] as String?;
+    final filePath = state['filePath'] as String? ?? '';
+    return [
+      Song(
+        id: (state['songId'] as num?)?.toInt() ?? 0,
+        name: state['name'] as String? ?? '',
+        artists: (state['artist'] as String? ?? '').split(' / '),
+        albumCoverUrl: cover != null && cover.isNotEmpty ? cover : null,
+        albumId: (state['albumId'] as num?)?.toInt() ?? 0,
+        hash: hash != null && hash.isNotEmpty ? hash : null,
+        filePath: filePath.isNotEmpty ? filePath : null,
+      ),
+    ];
+  }
+
+  /// 应用恢复的歌曲列表和状态。
+  void _applyRestoredState(List<Song> restoreSongs, int savedIndex, Map<String, dynamic> state) {
+    final validIndex = savedIndex.clamp(0, restoreSongs.length - 1);
+    _queue.setPlaylist(restoreSongs, startIndex: validIndex);
+    _qualityLevel = (state['quality'] as num?)?.toInt() ?? 0;
+    _engine.qualityLevel = _qualityLevel;
+    _position = Duration(milliseconds: (state['positionMs'] as num?)?.toInt() ?? 0);
+    final modeName = state['playMode'] as String? ?? 'sequential';
+    final mode = PlayMode.values.where((m) => m.name == modeName).firstOrNull;
+    if (mode != null) _queue.setPlayMode(mode);
+    // 应用音质设置 & uploadHistory 开关（覆盖引擎默认值）
+    _applyQualityFromSettings();
+    final savedSpeed = (state['speed'] as num?)?.toDouble();
+    if (savedSpeed != null && savedSpeed > 0) {
+      _engine.setSpeed(savedSpeed);
+    }
+
+    final current = _queue.currentSong;
+    if (current != null) {
+      // 1. 冷启动立即提取专辑流光和KRM元数据
+      _onSongChanged(current);
+      // 2. 冷启动立即拉取歌词（支持本地内嵌及网络歌词）
+      loadLyricsForSong(current);
+      // 3. 异步预查特权以在播放前同步正确的最高音质级别
+      _engine.precheckPrivilege(current);
+    }
+
+    notifyListeners();
   }
 
   /// 应用音质设置后直接调用引擎播放（用于自动切歌等非用户触发的播放）
@@ -547,9 +687,13 @@ class PlayerProvider extends ChangeNotifier
     _lyricController.loadLyricModel(LyricModel(lines: []));
     _climaxMs = null;
     _isPlaying = true;
-    // 加载新歌的嵌入歌词
+    
     final nextSong = _queue.currentSong;
-    if (nextSong != null) _loadEmbeddedLyrics(nextSong);
+    if (nextSong != null) {
+      loadLyricsForSong(nextSong);
+      _onSongChanged(nextSong);
+      _engine.precheckPrivilege(nextSong);
+    }
     notifyListeners();
   }
 
@@ -570,6 +714,9 @@ class PlayerProvider extends ChangeNotifier
         _queue.playIndex(_queue.currentIndex + 1);
         final next = _queue.currentSong;
         if (next != null) {
+          loadLyricsForSong(next);
+          _onSongChanged(next);
+          _engine.precheckPrivilege(next);
           _enginePlayWithQuality(next);
           _handlingComplete = false;
           return;
@@ -612,14 +759,21 @@ class PlayerProvider extends ChangeNotifier
     if (index < 0 || index >= _queue.playlist.length) return;
     _queue.playIndex(index);
     // Reset state for new song
+    _isMiniPlayerDismissed = false;
     _engine.clearError();
     _lyricController.loadLyricModel(LyricModel(lines: []));
     _climaxMs = null;
     _lastNotifLyricIdx = -1;
     final current = _queue.currentSong;
     if (current == null) return;
-    // Load embedded lyrics (metadata/companion .lrc) immediately
-    _loadEmbeddedLyrics(current);
+
+    // 1. 立即加载新歌歌词（支持本地内嵌及网络）
+    loadLyricsForSong(current);
+    // 2. 立即提取专辑流光和KRM元数据
+    _onSongChanged(current);
+    // 3. 异步预查特权以立刻在 UI 展现最高可用音质
+    _engine.precheckPrivilege(current);
+
     _applyQualityFromSettings();
     _engine.resetForNewSong();
     _isPlaying = true; // ← 立即标记，UI 及时响应
@@ -627,8 +781,6 @@ class PlayerProvider extends ChangeNotifier
     final version = _engine.currentVersion;
     await _engine.play(current, version: version, effectKey: _effectKey);
     _updateNotification();
-    // Extract palette from album art (supports both network and file:// URIs)
-    _extractPaletteFromCover(current);
     // 异步查询高潮时间（不阻塞播放，失败静默）
     _fetchClimax(current);
     // Upload play history via new API
@@ -647,7 +799,8 @@ class PlayerProvider extends ChangeNotifier
   void _loadEmbeddedLyrics(Song song) {
     if (song.lyrics == null || song.lyrics!.isEmpty) return;
     final text = song.lyrics!;
-    if (RegExp(r'^\s*\[\d{2}:\d{2}').hasMatch(text)) {
+    // 检测 LRC 格式：[mm:ss.xx] 或 [mm:ss] 出现在内容中（不限行首）
+    if (RegExp(r'\[\d{2}:\d{2}([.:]\d{2,3})?\]').hasMatch(text)) {
       _lyricController.loadLyric(text);
     } else {
       // 纯文本：每行作为一行歌词
@@ -747,6 +900,19 @@ class PlayerProvider extends ChangeNotifier
     }
     _fmSavedNormalSnapshot = null;
     notifyListeners();
+  }
+
+  /// 替换 FM 播放列表（用于切换模式/算法池时立即更新播放内容）
+  /// 不保存/恢复队列快照，保留现有 FM 回调。前一首歌到下一首的过渡动画由调用方处理。
+  void replaceFmPlaylist(List<Song> songs,
+      {required Future<List<Song>> Function() bufferProvider}) {
+    if (songs.isEmpty) return;
+    _queue.playlistEndProvider = null; // 防止切换过程中触发加载
+    _engine.clearError();
+    _queue.setPlaylist(songs, startIndex: 0);
+    _queue.setPlayMode(PlayMode.sequential);
+    _queue.playlistEndProvider = bufferProvider;
+    playIndex(0);
   }
 
   /// 将整张歌单/专辑追加到当前队列末尾。
@@ -1029,6 +1195,37 @@ class PlayerProvider extends ChangeNotifier
     }
   }
 
+  Future<void> _loadKrmAudio(Song song) async {
+    _currentKrmAudio = null;
+    final songId = song.mixSongId ?? song.id;
+    if (songId <= 0 || song.isLocal) return;
+
+    try {
+      final data = await _musicService.getKrmAudio(songId);
+      if (data == null || currentSong?.id != song.id) return;
+
+      // ── hash 校验：确认 /krm/audio 返回的确实是同一首歌 ──
+      // 酷狗 KRM 数据库中部分 mixSongId 映射错乱，会返回其他歌曲的元数据。
+      // 用音频内容唯一指纹 hash 做精确比对，不匹配则丢弃。
+      final krmHash = (data['base'] as Map?)?['hash'] as String?;
+      if (krmHash != null &&
+          song.hash != null &&
+          krmHash.toUpperCase() != song.hash!.toUpperCase()) {
+        Log.w('KRM', 'hash 不匹配，丢弃 KRM 数据: '
+            'song.hash=${song.hash}, krm.hash=$krmHash');
+        return;
+      }
+
+      _currentKrmAudio = data;
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  void _onSongChanged(Song song) {
+    _extractPaletteFromCover(song);
+    _loadKrmAudio(song);
+  }
+
   // ──────────────────────────────────────────────────────────────
   //  Lyric management
   // ──────────────────────────────────────────────────────────────
@@ -1042,9 +1239,194 @@ class PlayerProvider extends ChangeNotifier
 
   /// Clears all lyric state (called when switching to a song without lyrics).
   void clearLyrics() {
+    _lyricLangMap = {};
+    _krcLines = null;
+    _selectedLyricLang = 0;
     _lyricController.loadLyricModel(LyricModel(lines: []));
     notifyListeners();
     _updateNotification();
+  }
+
+  // ─── 歌词自动拉取与转换核心逻辑 ───
+
+  void loadLyricsForSong(Song song) {
+    _lyricLangMap = {};
+    _krcLines = null;
+    _selectedLyricLang = 0;
+
+    // 1. 本地/已嵌入歌词直接加载
+    if (song.lyrics != null && song.lyrics!.isNotEmpty) {
+      _lyricLoading = false;
+      _loadEmbeddedLyrics(song);
+      notifyListeners();
+      return;
+    }
+
+    // 2. 线上歌曲通过 Hash 加载歌词
+    if (song.hash != null) {
+      _lyricLoading = true;
+      notifyListeners();
+      _loadLyrics(song.hash!, songName: song.name);
+    } else {
+      clearLyrics();
+    }
+  }
+
+  Future<void> _loadLyrics(String hash, {String? songName}) async {
+    try {
+      final searchRes =
+          await _musicService.searchLyricByHash(hash, keywords: songName);
+      final data = searchRes['data'] as Map<String, dynamic>? ?? searchRes;
+      final candidates = data['candidates'] as List<dynamic>? ?? [];
+      if (candidates.isNotEmpty) {
+        final c = candidates[0] as Map<String, dynamic>;
+        final id = int.parse(c['id'].toString());
+        final key = c['accesskey'] as String? ?? '';
+
+        // 优先 KRC
+        final krcBytes = await _musicService.fetchKrcContent(id, key);
+        if (krcBytes.isNotEmpty) {
+          try {
+            final krcModel = KrcLyricUtil.parseLyrics(krcBytes);
+            if (krcModel.krcLyricList.isEmpty) throw 'empty krc';
+
+            _lyricLangMap = {};
+            if (krcModel.lyricTag.language != null &&
+                krcModel.lyricTag.language!.isNotEmpty) {
+              try {
+                final langJson = jsonDecode(
+                  utf8.decode(base64Decode(krcModel.lyricTag.language!)),
+                );
+                final krcLang = KrcLanguage.fromJson(langJson);
+                for (final c in krcLang.content) {
+                  _lyricLangMap[c.language] = c.lyricContent
+                      .map((words) => words.join())
+                      .toList();
+                }
+              } catch (e, s) {
+                Log.e('player_provider', 'krc lang parse error', e, s);
+              }
+            }
+
+            _krcLines = krcModel.krcLyricList;
+            _selectedLyricLang = _lyricLangMap.keys.contains(0)
+                ? 0
+                : (_lyricLangMap.keys.firstOrNull ?? 0);
+
+            final transMap = _buildTransMap(_selectedLyricLang);
+            final lines = _buildLyricLines(krcModel.krcLyricList, transMap);
+
+            if (hash == _queue.currentSong?.hash) {
+              _lyricController.loadLyricModel(LyricModel(lines: lines));
+              _updateNotification();
+            }
+            _lyricLoading = false;
+            notifyListeners();
+            return;
+          } catch (e, s) {
+            Log.e('player_provider', 'krc parse error', e, s);
+          }
+        }
+
+        // 降级 LRC
+        final rawContent = await _musicService.fetchLyricContent(id, key);
+        if (rawContent.isNotEmpty) {
+          try {
+            String decoded;
+            try {
+              decoded = utf8.decode(base64Decode(rawContent));
+            } catch (_) {
+              decoded = rawContent;
+            }
+            if (hash == _queue.currentSong?.hash) {
+              _lyricController.loadLyric(decoded);
+              _updateNotification();
+            }
+          } catch (e, s) {
+            Log.e('player_provider', 'lrc parse error', e, s);
+          }
+        }
+      } else {
+        clearLyrics();
+      }
+    } catch (e, s) {
+      Log.e('player_provider', 'lyric load error', e, s);
+    }
+    _lyricLoading = false;
+    notifyListeners();
+  }
+
+  Map<int, String> _buildTransMap(int lang) {
+    final map = <int, String>{};
+    final lines = _lyricLangMap[lang];
+    if (lines == null || _krcLines == null) return map;
+    for (int i = 0; i < _krcLines!.length && i < lines.length; i++) {
+      if (lines[i].isNotEmpty) {
+        map[_krcLines![i].startTime] = lines[i];
+      }
+    }
+    return map;
+  }
+
+  List<LyricLine> _buildLyricLines(
+    List<KrcLyricLineModel> krcLines,
+    Map<int, String> transMap,
+  ) {
+    final result = <LyricLine>[];
+    for (final line in krcLines) {
+      String text;
+      try {
+        text = line.getWordLine();
+      } catch (_) {
+        continue;
+      }
+      if (text.trim().isEmpty) continue;
+
+      final words = <LyricWord>[];
+      if (line.line != null) {
+        final lineStart = line.startTime;
+        for (final w in line.line!) {
+          if (w.word == null || w.word!.isEmpty) continue;
+          final ws = (w.startTime ?? 0) + lineStart;
+          final we = ws + (w.duration ?? 0);
+          words.add(LyricWord(
+            text: w.word!,
+            start: Duration(milliseconds: ws),
+            end: Duration(milliseconds: we),
+          ));
+        }
+      }
+
+      result.add(LyricLine(
+        start: Duration(milliseconds: line.startTime),
+        end: Duration(milliseconds: line.startTime + line.duration),
+        text: text,
+        words: words.isNotEmpty ? words : null,
+        translation: _showTranslation ? transMap[line.startTime] : null,
+      ));
+    }
+    return result;
+  }
+
+  void applyLyricLang(int lang) {
+    if (_krcLines == null || !_lyricLangMap.containsKey(lang)) return;
+    _selectedLyricLang = lang;
+    _showTranslation = true;
+    final transMap = _buildTransMap(lang);
+    final lines = _buildLyricLines(_krcLines!, transMap);
+    _lyricController.loadLyricModel(LyricModel(lines: lines));
+    notifyListeners();
+  }
+
+  void toggleTranslation() {
+    _showTranslation = !_showTranslation;
+    if (_showTranslation) {
+      applyLyricLang(_selectedLyricLang);
+    } else {
+      final lines = _buildLyricLines(_krcLines ?? [], {});
+      _lyricController.loadLyricModel(LyricModel(lines: lines));
+      notifyListeners();
+    }
   }
 
   @override

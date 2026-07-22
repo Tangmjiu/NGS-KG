@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ngskg_plus/models/song.dart';
 import 'package:ngskg_plus/models/playlist.dart';
 import 'package:ngskg_plus/models/user.dart';
+import 'package:ngskg_plus/services/update_checker.dart';
+import 'package:ngskg_plus/services/announcement_service.dart';
 
 void main() {
   group('Song model', () {
@@ -10,7 +12,10 @@ void main() {
         'id': 123,
         'name': 'Test Song',
         'artists': ['Artist A', 'Artist B'],
-        'album': {'name': 'Test Album', 'picUrl': 'http://example.com/cover.jpg'},
+        'album': {
+          'name': 'Test Album',
+          'picUrl': 'http://example.com/cover.jpg'
+        },
         'duration': 300,
         'lyricUrl': 'http://example.com/lyric',
       };
@@ -106,16 +111,21 @@ void main() {
       final online = Song(id: 1, name: 'Test', artists: []);
       expect(online.isLocal, false);
 
-      final local = Song(id: 1, name: 'Test', artists: [], filePath: '/path/to/file.mp3');
+      final local =
+          Song(id: 1, name: 'Test', artists: [], filePath: '/path/to/file.mp3');
       expect(local.isLocal, true);
 
-      final cloud = Song(id: 1, name: 'Test', artists: [], filePath: 'http://example.com/song.mp3');
+      final cloud = Song(
+          id: 1,
+          name: 'Test',
+          artists: [],
+          filePath: 'http://example.com/song.mp3');
       expect(cloud.isLocal, true);
     });
 
     test('qualityKeys order', () {
-      expect(Song.qualityKeys, ['128', '320', 'flac', 'high', 'viper_atmos', 'viper_clear', 'viper_tape']);
-      expect(Song.qualityLabels, ['标准', 'HQ', 'SQ', 'Hi-Res', '全景声', '蝰蛇超清', '母带']);
+      expect(Song.qualityKeys, ['128', '320', 'flac', 'high']);
+      expect(Song.qualityLabels, ['标准', 'HQ', 'SQ', 'Hi-Res']);
     });
   });
 
@@ -249,12 +259,90 @@ void main() {
     });
 
     test('toJson serializes correctly', () {
-      final user = User(userId: 1001, nickname: 'Test', avatarUrl: 'http://a.jpg', token: 'tok');
+      final user = User(
+          userId: 1001,
+          nickname: 'Test',
+          avatarUrl: 'http://a.jpg',
+          token: 'tok');
       final json = user.toJson();
       expect(json['userId'], 1001);
       expect(json['nickname'], 'Test');
       expect(json['avatarUrl'], 'http://a.jpg');
       expect(json['token'], 'tok');
+    });
+  });
+
+  group('UpdateChecker version comparison', () {
+    test('compareVersions handles clean semantic versions', () {
+      expect(UpdateChecker.compareVersions('1.5.0', '1.5.0'), 0);
+      expect(UpdateChecker.compareVersions('1.5.1', '1.5.0'), 1);
+      expect(UpdateChecker.compareVersions('1.5.0', '1.5.1'), -1);
+    });
+
+    test('compareVersions handles pre-release suffix', () {
+      // 数字相同，有后缀的 < 无后缀的（正式版）
+      expect(UpdateChecker.compareVersions('1.5.1', '1.5.1-preview'), 1);
+      expect(UpdateChecker.compareVersions('1.5.1-preview', '1.5.1'), -1);
+      expect(
+          UpdateChecker.compareVersions('1.5.1-preview', '1.5.1-preview'), 0);
+    });
+
+    test('compareVersions handles different numbers with pre-release suffix',
+        () {
+      // 数字不同，直接对比数字
+      expect(
+          UpdateChecker.compareVersions('1.5.2-preview', '1.5.1-preview'), 1);
+      expect(
+          UpdateChecker.compareVersions('1.5.1-preview', '1.5.2-preview'), -1);
+    });
+
+    test('compareVersions handles multi-segment padding', () {
+      expect(UpdateChecker.compareVersions('1.5', '1.5.0'), 0);
+      expect(UpdateChecker.compareVersions('1.5.0.1', '1.5.0'), 1);
+    });
+  });
+
+  group('AnnouncementService version constraint checking', () {
+    test('checkVersionConstraint handles wildcard and empty constraints', () {
+      expect(AnnouncementService.checkVersionConstraint('1.5.1', '*'), true);
+      expect(AnnouncementService.checkVersionConstraint('1.5.1', 'all'), true);
+      expect(AnnouncementService.checkVersionConstraint('1.5.1', ''), true);
+    });
+
+    test('checkVersionConstraint handles exact version matches', () {
+      expect(
+          AnnouncementService.checkVersionConstraint('1.5.1', '1.5.1'), true);
+      expect(
+          AnnouncementService.checkVersionConstraint('1.5.1', '=1.5.1'), true);
+      expect(
+          AnnouncementService.checkVersionConstraint('1.5.1', '1.5.0'), false);
+    });
+
+    test('checkVersionConstraint handles operators', () {
+      expect(
+          AnnouncementService.checkVersionConstraint('1.5.1', '<1.6.0'), true);
+      expect(
+          AnnouncementService.checkVersionConstraint('1.5.1', '<=1.5.1'), true);
+      expect(
+          AnnouncementService.checkVersionConstraint('1.5.1', '>1.5.0'), true);
+      expect(
+          AnnouncementService.checkVersionConstraint('1.5.1', '>=1.5.1'), true);
+
+      expect(
+          AnnouncementService.checkVersionConstraint('1.5.1', '<1.5.1'), false);
+      expect(
+          AnnouncementService.checkVersionConstraint('1.5.1', '>1.5.2'), false);
+    });
+
+    test('checkVersionConstraint handles pre-release version strings', () {
+      expect(
+          AnnouncementService.checkVersionConstraint(
+              '1.5.1-preview+1', '<=1.5.1'),
+          true);
+      expect(
+          AnnouncementService.checkVersionConstraint(
+              '1.5.1-preview+1', '1.5.1-preview'),
+          true);
     });
   });
 }

@@ -1,58 +1,33 @@
-name: Build Release APK + GitHub Release
+name: Release NGS-KG+ (All Platforms)
 
 on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release tag (e.g. v1.0.1)'
+        description: 'Release tag (e.g. v1.5.0-preview)'
         required: true
-        default: 'v1.0.1'
+        default: 'v1.5.0-preview'
       release_name:
-        description: 'Release name (e.g. NGS-KG+ v1.0.1)'
+        description: 'Release name (e.g. NGS-KG+ v1.5.0-preview Nightcord)'
         required: true
-        default: 'NGS-KG+ v1.0.1'
+        default: 'NGS-KG+ v1.5.0-preview Nightcord'
+      prerelease:
+        description: 'Is this a pre-release?'
+        required: false
+        default: 'true'
+        type: boolean
 
 jobs:
-  build:
+  # ═══════════════════════════════════════════════════════════
+  #  Android Build
+  # ═══════════════════════════════════════════════════════════
+  build-android:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      # ═══ Cache ═══
-
-      - name: Cache Flutter SDK
-        uses: actions/cache@v4
         with:
-          path: /opt/hostedtoolcache/flutter
-          key: flutter-${{ runner.os }}-3.44.0-stable
-          restore-keys: |
-            flutter-${{ runner.os }}-
-
-      - name: Cache Pub dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pub-cache
-            .dart_tool
-          key: pub-${{ runner.os }}-${{ hashFiles('pubspec.yaml', 'pubspec.lock') }}
-          restore-keys: |
-            pub-${{ runner.os }}-
-
-      - name: Cache Android SDK
-        uses: actions/cache@v4
-        with:
-          path: /usr/local/lib/android/sdk
-          key: android-sdk-${{ runner.os }}
-
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: ~/.gradle/caches
-          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+          ref: android
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -63,6 +38,32 @@ jobs:
       - name: Install Android SDK
         uses: android-actions/setup-android@v2
 
+      - name: Install SDK 36
+        run: |
+          yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" 2>/dev/null || true
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pubcache-android-${{ hashFiles('pubspec.lock') }}
+          restore-keys: pubcache-android-
+
+      - name: Cache Gradle wrapper
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/wrapper
+          key: gradle-wrapper-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties') }}
+
+      - name: Cache Gradle caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/configuration-cache
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties', 'pubspec.lock') }}
+          restore-keys: gradle-${{ runner.os }}-
+
       - name: Create assets directories
         run: |
           mkdir -p assets/images
@@ -71,68 +72,514 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      # ═══ CI network config: replace China mirrors with global ones ═══
       - name: Use global Gradle/Maven mirrors for CI
         run: |
           sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
           sed -i '/maven.*aliyun/d' android/settings.gradle android/build.gradle
 
-      # ── Build release APK (split-per-abi) ──
+      - name: Build debug APK
+        run: flutter build apk --debug --target-platform android-arm64 --android-skip-build-dependency-validation
+
       - name: Build release APK
         run: flutter build apk --release --split-per-abi
 
-      # ── Build debug APK (split-per-abi) ──
-      - name: Build debug APK
-        run: flutter build apk --debug --split-per-abi
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NGS-KG-debug-arm64-v8a
+          path: build/app/outputs/flutter-apk/app-debug.apk
 
-      # ── Upload artifacts ──
       - name: Upload release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: NGS-KG-${{ github.event.inputs.tag_name }}-release
+          name: NGS-KG-release-apks
           path: build/app/outputs/flutter-apk/*-release.apk
 
-      - name: Upload debug APKs
+  # ═══════════════════════════════════════════════════════════
+  #  Windows Build
+  # ═══════════════════════════════════════════════════════════
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: windows-desktop
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install Rust
+        run: rustup default stable
+
+      - name: Ensure assets directories
+        run: |
+          mkdir -Force assets\icons
+          mkdir -Force assets\images
+
+      - name: Copy app icon to assets/icons
+        run: Copy-Item windows\runner\resources\app_icon.ico assets\icons\ -Force
+
+      - name: Create placeholder assets if missing
+        run: |
+          $placeholder = @"
+          <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+            <rect width="100" height="100" fill="#2CA1F4"/>
+            <text x="50" y="65" text-anchor="middle" font-size="40" fill="white">♪</text>
+          </svg>
+          "@
+          $required = @('ban.png', 'codecrash.png', 'loading.png', 'sthiswrong.png', 'supportme.png')
+          foreach ($f in $required) {
+            $p = "assets\images\$f"
+            if (-not (Test-Path $p)) { Set-Content -Path $p -Value $placeholder -Encoding utf8 }
+          }
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Windows debug
+        run: flutter build windows --debug
+
+      - name: Build Windows release
+        run: flutter build windows --release
+
+      - name: Upload debug build
         uses: actions/upload-artifact@v4
         with:
-          name: NGS-KG-${{ github.event.inputs.tag_name }}-debug
-          path: build/app/outputs/flutter-apk/*-debug.apk
+          name: ngskg-windows-debug
+          path: build\windows\x64\runner\Debug
 
-      # ── Create GitHub Release ──
-      - name: Create Release
+      - name: Upload release build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ngskg-windows-release
+          path: build\windows\x64\runner\Release
+
+  # ═══════════════════════════════════════════════════════════
+  #  Watch Build
+  # ═══════════════════════════════════════════════════════════
+  build-watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: watch
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: 'stable'
+
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v2
+
+      - name: Install SDK 36
+        run: |
+          yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" 2>/dev/null || true
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pubcache-watch-${{ hashFiles('pubspec.lock') }}
+          restore-keys: pubcache-watch-
+
+      - name: Cache Gradle wrapper
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/wrapper
+          key: gradle-wrapper-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties') }}
+
+      - name: Cache Gradle caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/configuration-cache
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties', 'pubspec.lock') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Create assets directories
+        run: |
+          mkdir -p assets/images
+          mkdir -p assets/icons
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Use global Gradle/Maven mirrors for CI
+        run: |
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
+          sed -i '/maven.*aliyun/d' android/settings.gradle android/build.gradle
+
+      - name: Build watch debug APK
+        run: flutter build apk --debug --target-platform android-arm64 --android-skip-build-dependency-validation
+
+      - name: Build watch release APK
+        run: flutter build apk --release --target-platform android-arm64
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NGS-KG-watch-debug-arm64-v8a
+          path: build/app/outputs/flutter-apk/app-debug.apk
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NGS-KG-watch-release-arm64-v8a
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+  # ═══════════════════════════════════════════════════════════
+  #  Linux Build + Packaging
+  # ═══════════════════════════════════════════════════════════
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: linux-desktop
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: 'stable'
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev libayatana-appindicator3-dev flatpak flatpak-builder
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pubcache-linux-${{ hashFiles('pubspec.lock') }}
+          restore-keys: pubcache-linux-
+
+      - name: Create assets directories
+        run: |
+          mkdir -p assets/images
+          mkdir -p assets/icons
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Linux debug
+        run: flutter build linux --debug
+
+      - name: Build Linux release
+        run: flutter build linux --release
+
+      - name: Package as .deb
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1)
+          DEB_DIR="dist/deb/ngskg-plus_${VERSION}_amd64"
+          mkdir -p "$DEB_DIR/DEBIAN"
+          mkdir -p "$DEB_DIR/usr/bin"
+          mkdir -p "$DEB_DIR/usr/share/applications"
+          mkdir -p "$DEB_DIR/usr/share/icons/hicolor/256x256/apps"
+          cp -r build/linux/x64/release/bundle/* "$DEB_DIR/usr/bin/"
+          cat > "$DEB_DIR/DEBIAN/control" << EOF
+          Package: ngskg-plus
+          Version: $VERSION
+          Architecture: amd64
+          Maintainer: mjiutang <mjiutang@example.com>
+          Description: NGS-KG+ Music Player
+           A Flutter music player based on KuGou third-party API.
+          Depends: libgtk-3-0, libnotify4, libayatana-appindicator3-1, libmpv2
+          EOF
+          cat > "$DEB_DIR/usr/share/applications/ngskg-plus.desktop" << EOF
+          [Desktop Entry]
+          Name=NGS-KG+
+          Exec=/usr/bin/ngskg_plus
+          Icon=ngskg
+          Type=Application
+          Categories=Audio;Music;Player;
+          EOF
+          cp assets/images/icon.png "$DEB_DIR/usr/share/icons/hicolor/256x256/apps/ngskg.png"
+          dpkg-deb --build "$DEB_DIR" "dist/ngskg-plus_${VERSION}_amd64.deb"
+
+      - name: Package as .flatpak
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1)
+
+          cat > dist/com.mjiutang.ngskg.yml << EOF
+          app-id: com.mjiutang.ngskg
+          runtime: org.gnome.Platform
+          runtime-version: '47'
+          sdk: org.gnome.Sdk
+          command: ngskg_plus
+
+          modules:
+            - name: ngskg
+              buildsystem: simple
+              build-commands:
+                - mkdir -p /app/bin
+                - cp -r * /app/bin/
+                - chmod +x /app/bin/ngskg_plus
+              sources:
+                - type: dir
+                  path: ../build/linux/x64/release/bundle
+
+          finish-args:
+            - --share=network
+            - --share=ipc
+            - --socket=x11
+            - --socket=wayland
+            - --socket=pulseaudio
+            - --device=dri
+            - --talk-name=org.kde.StatusNotifierWatcher
+            - --talk-name=org.freedesktop.Notifications
+          EOF
+
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install -y --user flathub org.gnome.Platform//47 || true
+
+          flatpak-builder --user --install-deps-from=flathub --force-clean --repo=dist/repo dist/build dist/com.mjiutang.ngskg.yml
+
+          flatpak build-bundle dist/repo dist/ngskg-plus.flatpak com.mjiutang.ngskg
+
+      - name: Generate PKGBUILD
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1)
+          cat > dist/PKGBUILD << EOF
+          pkgname=ngskg-plus
+          pkgver=$VERSION
+          pkgrel=1
+          pkgdesc="NGS-KG+ Music Player (Flutter)"
+          arch=('x86_64')
+          url="https://github.com/Tangmjiu/NGS-KG"
+          license=('MIT')
+          depends=('gtk3' 'libayatana-appindicator' 'libnotify' 'mpv')
+          makedepends=('flutter' 'cmake' 'ninja' 'clang')
+          source=("\$url/archive/refs/tags/v\$pkgver.tar.gz")
+          sha256sums=('SKIP')
+          build() {
+            cd "NGS-KG-\$pkgver"
+            flutter build linux --release
+          }
+          package() {
+            cd "NGS-KG-\$pkgver"
+            mkdir -p "\$pkgdir/usr/bin"
+            cp -r build/linux/x64/release/bundle/* "\$pkgdir/usr/bin/"
+            mkdir -p "\$pkgdir/usr/share/applications"
+            cat > "\$pkgdir/usr/share/applications/ngskg-plus.desktop" << DESKTOP
+          [Desktop Entry]
+          Name=NGS-KG+
+          Exec=/usr/bin/ngskg_plus
+          Icon=ngskg
+          Type=Application
+          Categories=Audio;Music;Player;
+          DESKTOP
+            mkdir -p "\$pkgdir/usr/share/icons/hicolor/256x256/apps"
+            cp assets/images/icon.png "\$pkgdir/usr/share/icons/hicolor/256x256/apps/ngskg.png"
+          }
+          EOF
+
+      - name: Upload debug build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ngskg-linux-debug
+          path: build/linux/x64/debug/bundle
+
+      - name: Upload release build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ngskg-linux-release
+          path: build/linux/x64/release/bundle
+
+      - name: Upload .deb package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ngskg-linux-deb
+          path: dist/*.deb
+
+      - name: Upload .flatpak bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ngskg-linux-flatpak
+          path: dist/*.flatpak
+
+      - name: Upload PKGBUILD
+        uses: actions/upload-artifact@v4
+        with:
+          name: ngskg-linux-pkgbuild
+          path: dist/PKGBUILD
+
+  # ═══════════════════════════════════════════════════════════
+  #  Create GitHub Release
+  # ═══════════════════════════════════════════════════════════
+  release:
+    needs: [build-android, build-windows, build-watch, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List all artifacts
+        run: find artifacts -type f | head -50
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag_name }}
           name: ${{ github.event.inputs.release_name }}
           body: |
-            # NGS-KG+ 更新日志
+            # NGS-KG+ ${{ github.event.inputs.tag_name }}
 
-            ## 新增
+            > 代号 **Nightcord** 来源于 QQ 群代号投票——至于为什么选这个，我也不知道。
 
-            - **Apple Music 风格动态流光播放器背景**：HSL 色彩空间 8 色斑流动光效，5s 循环 + 大半径高斯模糊柔光混色
-            - **MD3 设计令牌系统**：AppShape（xs/sm/md/lg/xl/full 圆角体系）、AppMotion（标准/强调/减速/舒缓时长与缓动曲线）、AppBreakpoint（compact/medium/expanded 响应式断点）
-            - **跨平台更新检测器**：通过 GitHub Releases API 检查最新版本，识别 Android ABI（arm64-v8a / armeabi-v7a / x86_64）并下载对应 APK
-            - **音质设置独立子页面**：原 WiFi/蜂窝/下载三套独立音质设置移入独立子页面，设置组按「播放」「音频」「更新」「关于」重新组织
+            本版本为 **v1.5.0-preview (Nightcord v2.0.0)** 的预览版，现在覆盖 **Android / Windows / Linux / Watch (Wear OS)** 四大平台。
 
-            ## 变更
+            ---
 
-            - **Android 包名迁移**：`com.kugou.ngskg` → `com.mjiutang.ngskg`
-            - **版本管理统一**：`build.gradle` 从 `pubspec.yaml` 读取版本号，单一源消除漂移
-            - **通知歌词纯文本**：移除通知标题中的「♪」前缀
-            - **后台服务保活**：切换为 `START_STICKY` + 状态持久化，防止进程回收后静音
-            - **MIT 许可证**：项目根目录添加 LICENSE，主要源文件添加 SPDX 头
-            - **CI 提速**：debug 构建仅 arm64-v8a 单架构（~25min → ~12min）
+            ## ✨ 通用新增
 
-            ## 修复
+            - **FM 系统重构**：隔离 FM 队列系统，替换「上一首」为「不喜欢」，QueueType 枚举实现队列隔离
+            - **FM 播放改进**：缓冲管理、去重、顺序模式、fetchNextFmBatch 主动填充、非破坏性模式切换
+            - **FM 反馈循环**：updateFmFeedback 完整实现，修复 deadlock 路径
+            - **歌词设置**：字体大小 / 对齐 / 字重 / 模糊度可调
+            - **Hi-Res 标识**：设置页开关控制，官方 JPG 标识覆盖在专辑封面上
+            - **跨淡入淡出（Crossfade）**：播放切换时自动淡入淡出
+            - **KRC 歌词翻译/罗马音**：支持翻译 / 罗马音切换显示
+            - **多队列系统**：多队列底部 sheet、跳转到当前播放、将队列存为歌单
+            - **专辑详情多选**：批量添加到歌单
+            - **歌单滑动删除**：歌单详情页滑动删除歌曲 + 收藏歌单 + 评论入口
+            - **SongTile 喜欢按钮**：长按菜单（下一首播放 / 添加到歌单 / 查看专辑）
+            - **收藏歌单 API**：PlaylistProvider 封装 create/delete/collect 并自动刷新
+            - **队列持久化**：完整歌单序列化 + palette 缓存 + enqueuePlaylist
+            - **PreviewConfig 系统**：preview.yaml 开关与运行时加载器
+            - **主题市场 UI**：浏览、下载、应用社区主题
+            - **主题资源系统**：空状态插画、emptyStateWidget 组件、全局主题背景
+            - **调色板突变动画**：AnimatedSwitcher 600ms 淡入淡出过渡
+            - **相似歌单 API**：/playlist/similar 端点
+            - **Navidrome 集成**：支持 Navidrome 服务器连接与音乐浏览
 
-            - 流光背景颜色区域重叠 → per-blob 独立锚点 + 明度钳制 [0.12, 0.85]
-            - 锁屏歌词切换延迟 → 流光周期从 10s 优化为 5s
-            - 排行榜底部溢出 49px（SafeArea 适配）
-            - 日志详情行溢出 8.5px（itemExtent 64→72）
-            - 发现页集合字面量语法错误（内联变量表达式）
-            - 播放历史 API pagesize 不足导致数据缺失
+            ---
+
+            ## 📱 Android
+
+            ### 新增
+            - **系统均衡器**：Android 系统均衡器集成
+            - **Material You 动态取色**：flex_color_scheme + dynamic_color
+            - **流光帧率监控**：自动降频 + elapsed 模运算修复三角函数精度丢失
+            - **通知栏歌词**：Media3 系统媒体控件显示当前歌词行
+            - **后台播放服务**：START_STICKY + 持久化播放状态
+            - **本地音乐扫描**：扫描设备音频文件并播放
+
+            ### 构建
+            | 架构 | 文件 |
+            |------|------|
+            | arm64-v8a | `NGS-KG-arm64-v8a-release.apk` |
+            | armeabi-v7a | `NGS-KG-armeabi-v7a-release.apk` |
+            | x86_64 | `NGS-KG-x86_64-release.apk` |
+
+            ---
+
+            ## 🖥️ Windows
+
+            ### 新增
+            - **SMTC 集成**：System Media Transport Controls，系统媒体控件
+            - **系统托盘**：最小化到托盘，托盘图标显示歌词，托盘菜单控制播放
+            - **自定义标题栏**：MD3 风格窗口控制按钮，支持窗口拖动
+            - **桌面外壳（DesktopShell）**：自定义侧边栏导航 + 桌面专属 UI
+            - **桌面歌曲表格**：列表/网格双模式切换
+            - **单实例运行**：确保只有一个应用实例
+            - **响应式布局**：适配不同屏幕尺寸
+
+            ### 构建
+            | 架构 | 文件 |
+            |------|------|
+            | x64 | `ngskg-windows-release/` (bundle) |
+
+            ---
+
+            ## 🐧 Linux
+
+            ### 新增
+            - **MPRIS D-Bus 集成**：系统媒体控制（播放/暂停/上一首/下一首），正确设置元数据
+            - **窗口管理**：window_manager 实现窗口拖拽、最小化、最大化、关闭
+            - **系统托盘**：托盘图标 + 菜单控制（libayatana-appindicator）
+            - **桌面外壳（DesktopShell）**：侧边栏导航 + 桌面风格 UI
+            - **桌面歌曲表格**：列表/网格双模式切换
+
+            ### 打包格式
+            | 格式 | 文件 |
+            |------|------|
+            | .deb | `ngskg-plus_1.5.0_amd64.deb` |
+            | .flatpak | `ngskg-plus.flatpak` |
+            | PKGBUILD (AUR) | `PKGBUILD` |
+
+            ---
+
+            ## ⌚ Watch (Wear OS)
+
+            > 基于 Android 分支移植，针对圆形屏幕和手表交互优化。支持独立运行（Standalone）。
+
+            ### 新增
+            - **圆形屏幕适配**：RoundSafeArea 组件
+            - **旋钮支持**：wearable_rotary，旋转表冠滚动内容
+            - **独立运行模式**：无需手机 companion（com.google.android.wearable.standalone = true）
+            - **语音搜索**：支持语音识别搜索歌曲
+            - **紧凑布局**：针对手表小屏幕优化
+            - **始终深色模式**：适配 AMOLED 屏幕
+            - **FM 支持**：手表端 FM 播放功能
+
+            ### 构建
+            | 架构 | 文件 |
+            |------|------|
+            | arm64 | `NGS-KG-watch-release-arm64-v8a.apk` |
+
+            ---
+
+            ## 🔄 变更
+
+            - **UI 重构**：温和版 + 沉浸歌词风格
+            - **Provider 层重构**：统一 MusicService 访问模式，消除兼容层
+            - **播放列表 sheet**：支持滑动删除和长按拖拽排序
+            - **迷你播放栏**：gap 从 8px 增加到 16px
+            - **队列引擎**：新增 removeAt/move/insertAt/playNextSong 方法
+            - **LikedSongsProvider**：新增 clear() 方法供退出登录时清理缓存
+            - **版本管理**：版本号从 PackageInfo 动态读取
+            - **CI 调整**：全平台 Debug + Release 手动触发自动构建
+
+            ## 🐛 修复
+
+            - **FM UI 问题**：动态流光背景全黑（调色板颜色不足时补充派生色）
+            - **FM 数据加载**：修复 data loading bug，增加 buffer management
+            - **FM 无限重载**：停止发现页 FM 无限重载循环
+            - **每日推荐 ID**：修复 MixSongID 错误
+            - **登出清理**：清空 likedSongs 缓存 + 修复 auth 竞态条件
+            - **jsonDecode 安全**：处理 null 安全（res.data 为 String?）
+            - **MiniPlayer 点击**：通过 navKey 推播放器页面并管理可见性状态
+            - **切歌音频**：resetForNewSong 时停掉播放器，避免旧音频继续播放
+            - **Gradle 版本号**：正则缺少 (?m) multiline 标志修复
+            - **数据库路径**：sqflite_common_ffi 降级以兼容 Dart 3.11
+
+            ---
+
+            ### 下载说明
+
+            所有构建产物可在本页底部 **Assets** 面板下载。每个平台按分支独立构建，选择对应文件即可。
           files: |
-            build/app/outputs/flutter-apk/*-debug.apk
-            build/app/outputs/flutter-apk/*-release.apk
-          draft: true
-          prerelease: false
+            artifacts/NGS-KG-release-apks/*
+            artifacts/NGS-KG-debug-arm64-v8a/*
+            artifacts/ngskg-windows-release/**
+            artifacts/ngskg-linux-deb/*
+            artifacts/ngskg-linux-flatpak/*
+            artifacts/ngskg-linux-pkgbuild/*
+            artifacts/NGS-KG-watch-release-arm64-v8a/*
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}

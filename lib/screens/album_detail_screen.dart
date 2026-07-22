@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/album.dart';
@@ -8,6 +9,7 @@ import '../providers/playlist_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
+import '../widgets/list_bottom_spacer.dart';
 
 class AlbumDetailScreen extends StatefulWidget {
   final int albumId;
@@ -145,7 +147,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                     child: Row(
                       children: [
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: AppShape.sm,
                           child: img.isNotEmpty
                               ? CachedNetworkImage(
                                   imageUrl: img.replaceAll('{size}', '240'),
@@ -196,17 +198,19 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                   const Spacer(),
                   if (!_isSelecting)
                     // 播放全部按钮
-                    FilledButton.tonalIcon(
-                    onPressed: _songs.isEmpty
-                        ? null
-                        : () {
-                            context
-                                .read<PlayerProvider>()
-                                .playSong(_songs.first, playlist: _songs);
-                          },
-                    icon: const Icon(Icons.play_arrow, size: 18),
-                    label: const Text('播放全部'),
-                  ),
+                    M3PressScale(
+                      child: FilledButton.tonalIcon(
+                        onPressed: _songs.isEmpty
+                            ? null
+                            : () {
+                                context
+                                    .read<PlayerProvider>()
+                                    .playSong(_songs.first, playlist: _songs);
+                              },
+                        icon: const Icon(Icons.play_arrow, size: 18),
+                        label: const Text('播放全部'),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -222,26 +226,32 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                     Text('专辑简介',
                         style: tt.labelLarge
                             ?.copyWith(color: cs.onSurfaceVariant)),
-                    const SizedBox(height: 6),
-                    Text(
-                      desc,
-                      maxLines: _descExpanded ? null : 3,
-                      overflow: _descExpanded
-                          ? TextOverflow.visible
-                          : TextOverflow.ellipsis,
-                      style: tt.bodySmall
-                          ?.copyWith(color: cs.onSurfaceVariant),
+                    AnimatedSize(
+                      duration: AppMotion.dMedium1,
+                      curve: AppMotion.emphasizedDecelerate,
+                      alignment: Alignment.topLeft,
+                      child: Text(
+                        desc,
+                        maxLines: _descExpanded ? null : 3,
+                        overflow: _descExpanded
+                            ? TextOverflow.visible
+                            : TextOverflow.ellipsis,
+                        style: tt.bodySmall
+                            ?.copyWith(color: cs.onSurfaceVariant),
+                      ),
                     ),
                     if (desc.length > 100)
-                      GestureDetector(
-                        onTap: () => setState(() => _descExpanded = !_descExpanded),
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            _descExpanded ? '收起' : '展开',
-                            style: tt.labelSmall?.copyWith(
-                              color: cs.primary,
-                              fontWeight: FontWeight.w600,
+                      M3PressScale(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _descExpanded = !_descExpanded),
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              _descExpanded ? '收起' : '展开',
+                              style: tt.labelSmall?.copyWith(
+                                color: cs.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
@@ -275,31 +285,41 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                   final song = _songs[index];
                   if (_isSelecting) {
                     final selected = _selectedIndices.contains(index);
-                    return ListTile(
-                      leading: Checkbox(
-                        value: selected,
-                        onChanged: (_) => _toggleSelection(index),
+                    return M3StaggeredFadeIn(
+                      index: index,
+                      child: M3PressScale(
+                        child: ListTile(
+                          leading: Checkbox(
+                            value: selected,
+                            onChanged: (_) => _toggleSelection(index),
+                          ),
+                          title: Text(song.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          subtitle: Text(song.artistDisplay,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          onTap: () => _toggleSelection(index),
+                        ),
                       ),
-                      title: Text(song.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                      subtitle: Text(song.artistDisplay,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                      onTap: () => _toggleSelection(index),
                     );
                   }
-                  return SongTile(
-                    song: song,
-                    onTap: (s) => context
-                        .read<PlayerProvider>()
-                        .playSong(s, playlist: _songs),
+                  return M3StaggeredFadeIn(
+                    index: index,
+                    child: SongTile(
+                      song: song,
+                      onTap: (s) => context
+                          .read<PlayerProvider>()
+                          .playSong(s, playlist: _songs),
+                    ),
                   );
                 },
                 childCount: _songs.length,
               ),
             ),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          const SliverToBoxAdapter(
+            child: ListBottomSpacer(isHome: false, showText: false),
+          ),
         ],
       ),
     );
@@ -361,7 +381,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
       return;
     }
 
-    showModalBottomSheet(
+    showM3ModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(

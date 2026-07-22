@@ -6,32 +6,29 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../utils/platform_helper.dart';
 
-/// 原生媒体通知 & MediaSession 管理器（Dart 端）
+/// 通用消息通知管理器（非媒体通知）。
 ///
-/// 通过 MethodChannel 与 Android / OHOS 原生端通信，
-/// 实现：
-/// - 系统媒体通知（Android MediaStyle / OHOS AVSession）
-/// - 锁屏控制
-/// - 媒体按钮控制
+/// 媒体通知（MediaSession + MediaStyle）在 Android 上由 [MusicAudioHandler]
+/// 通过 audio_service 包自动管理。OHOS 上通过 MethodChannel 与原生 AVSession 通信。
+///
+/// 本类仅保留：
+/// - 应用内消息通知（如版本更新、后台任务完成等）
+/// - Android 13+ 通知权限请求
+/// - OHOS AVSession 原生通道
 class NotificationService {
   static final NotificationService _instance = NotificationService._();
   static NotificationService get instance => _instance;
   NotificationService._();
 
-  // ─── 原生通信 ───
-
-  static const _mediaChannel = MethodChannel('com.mjiutang.ngskg/media_session');
-  static const _callbackChannel = BasicMessageChannel<String>(
-    'com.mjiutang.ngskg/media_callbacks',
-    StringCodec(),
-  );
-
-  // ─── 全局通知（非媒体，仅用于消息提示） ───
-  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
-  // ─── 回调 ───
-  VoidCallback? onNotificationTap;
+  // ─── OHOS MethodChannel ───
+  static const _mediaChannel = MethodChannel('com.mjiutang.ngskg/media_session');
+  static const _callbackChannel = MethodChannel('com.mjiutang.ngskg/media_callback');
+
+  // 媒体按钮回调
   VoidCallback? onPrev;
   VoidCallback? onPlayPause;
   VoidCallback? onNext;
@@ -39,14 +36,13 @@ class NotificationService {
   VoidCallback? onSwitchMode;
   void Function(int positionMs)? onSeekTo;
 
-  // ─── 初始化 ───
-
   Future<void> init() async {
     if (_initialized) return;
 
-    // 初始化 flutter_local_notifications（仅用于非媒体消息提示）
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await _plugin.initialize(const InitializationSettings(android: androidSettings));
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    await _plugin.initialize(
+        const InitializationSettings(android: androidSettings));
 
     // Android 13+ 通知权限请求
     if (Platform.isAndroid) {
@@ -57,8 +53,8 @@ class NotificationService {
       } catch (_) {}
     }
 
-    if (Platform.isAndroid || isOhos) {
-      // 注册原生回调通道（媒体按钮 → Flutter）
+    if (isOhos) {
+      // OHOS: 注册原生回调通道（媒体按钮 → Flutter）
       _callbackChannel.setMessageHandler((msg) async {
         if (msg == 'onPrev') {
           onPrev?.call();
@@ -79,31 +75,27 @@ class NotificationService {
         }
         return '';
       });
-
     }
 
     _initialized = true;
   }
 
-  // ─── 媒体通知核心 ───
+  // ─── OHOS AVSession (Android 由 audio_service 管理) ───
 
-  /// 更新媒体元数据和播放状态
-  ///
-  /// 通知原生端更新 MediaSession 和 MediaStyle 通知。
+  /// OHOS: 更新媒体元数据和播放状态
   Future<void> showMediaNotification({
     required String title,
     required String artist,
     String? albumArtUrl,
     String? lyricLine,
     bool isPlaying = true,
-    int duration = 0,    // 秒
-    int position = 0,    // 秒
-    bool isBuffering = false, // 是否缓冲中
+    int duration = 0,
+    int position = 0,
+    bool isBuffering = false,
   }) async {
-    if (!Platform.isAndroid && !isOhos) return;
+    if (!isOhos) return;
 
     try {
-      // 更新元数据（标题、歌手、封面、时长、歌词）
       await _mediaChannel.invokeMethod('updateMetadata', {
         'title': title,
         'artist': artist,
@@ -111,24 +103,20 @@ class NotificationService {
         'duration': duration,
         'lyricLine': lyricLine,
       });
-
-      // 更新播放状态（播放/暂停 + 进度 + 缓冲）
       await _mediaChannel.invokeMethod('updatePlaybackState', {
         'isPlaying': isPlaying,
         'position': position,
         'isBuffering': isBuffering,
       });
-    } catch (_) {
-      // 原生通道失败时不创建重复通知，静默降级
-    }
+    } catch (_) {}
   }
 
-  /// 更新自定义按钮状态（收藏、播放模式）
+  /// OHOS: 更新自定义按钮状态（收藏、播放模式）
   Future<void> updateCustomButtons({
     required bool liked,
-    required String playMode,  // "sequential" | "shuffle" | "repeatOne"
+    required String playMode,
   }) async {
-    if (!Platform.isAndroid && !isOhos) return;
+    if (!isOhos) return;
     try {
       await _mediaChannel.invokeMethod('updateCustomButtons', {
         'liked': liked,
@@ -138,13 +126,12 @@ class NotificationService {
   }
 
   Future<void> cancelMediaNotification() async {
-    if (Platform.isAndroid || isOhos) {
-      try {
-        await _mediaChannel.invokeMethod('release');
-      } catch (_) {}
+    if (isOhos) {
+      try { await _mediaChannel.invokeMethod('release'); } catch (_) {}
     }
   }
 
+  // ─── 通用消息通知 ───
   Future<void> showMessageNotification(String title, String body) async {
     const androidDetails = AndroidNotificationDetails(
       'messages',
@@ -160,8 +147,5 @@ class NotificationService {
       const NotificationDetails(android: androidDetails),
     );
   }
-
-  /// 释放
-  void dispose() {
-  }
 }
+
