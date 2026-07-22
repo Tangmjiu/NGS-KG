@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../utils/platform_helper.dart';
 import '../providers/local_music_provider.dart';
 import '../providers/player_provider.dart';
 import '../navidrome/navidrome_provider.dart';
@@ -41,7 +42,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
 
   Future<void> _initScan() async {
     if (!mounted) return;
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid || isOhos) {
       final status = await Permission.audio.status;
       if (!status.isGranted) {
         final result = await Permission.audio.request();

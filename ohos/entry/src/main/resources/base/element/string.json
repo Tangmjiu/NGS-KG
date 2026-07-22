@@ -1,0 +1,32 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "module description"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "NGS-KG+"
+    },
+    {
+      "name": "perm_internet_reason",
+      "value": "用于在线音乐播放和API通信"
+    },
+    {
+      "name": "perm_network_reason",
+      "value": "用于检测网络连接状态"
+    },
+    {
+      "name": "perm_media_reason",
+      "value": "用于扫描和播放本地音乐文件"
+    },
+    {
+      "name": "perm_background_reason",
+      "value": "用于后台音乐播放"
+    }
+  ]
+}

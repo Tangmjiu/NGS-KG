@@ -1,10 +1,11 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:on_audio_query/on_audio_query.dart';
 import '../utils/logger.dart';
+import '../utils/platform_helper.dart';
 import '../models/local_song.dart';
 import 'metadata_reader.dart';
 
@@ -15,6 +16,9 @@ class LocalMusicService {
   // ─── Public API ─────────────────────────────────────────────
 
   Future<List<LocalSong>> scanMusic() async {
+    if (isOhos) {
+      return _scanOhos();
+    }
     if (Platform.isAndroid) {
       return _scanAndroid();
     }
@@ -42,69 +46,40 @@ class LocalMusicService {
     await prefs.setStringList(_persistedDirsKey, dirs);
   }
 
+  // ─── OHOS: mediaLibrary via MethodChannel ─────────────────
+
+  static const _localMusicChannel = MethodChannel('com.mjiutang.ngskg/local_music');
+
+  Future<List<LocalSong>> _scanOhos() async {
+    try {
+      final raw = await _localMusicChannel.invokeMethod<List<dynamic>>('scanMusic');
+      if (raw == null) return [];
+      final songs = <LocalSong>[];
+      for (final item in raw) {
+        if (item is! Map) continue;
+        final map = Map<String, dynamic>.from(item as Map<dynamic, dynamic>);
+        songs.add(LocalSong(
+          title: map['title'] as String? ?? '',
+          artist: map['artist'] as String? ?? '',
+          album: map['album'] as String? ?? '',
+          filePath: map['filePath'] as String? ?? '',
+          mediaStoreId: (map['id'] as num?)?.toInt(),
+          size: (map['size'] as num?)?.toInt() ?? 0,
+          duration: (map['duration'] as num?)?.toInt() ?? 0,
+          codec: 'unknown',
+        ));
+      }
+      return songs;
+    } catch (_) {
+      return _scanLegacy();
+    }
+  }
+
   // ─── Android: MediaStore via on_audio_query ─────────────────
 
   Future<List<LocalSong>> _scanAndroid() async {
-    final audioQuery = OnAudioQuery();
-
-    // 权限检查 & 请求
-    final hasPermission = await audioQuery.permissionsStatus();
-    if (!hasPermission) {
-      final req = await audioQuery.permissionsRequest();
-      if (!req) return [];
-    }
-
-    // 批量查询（不含封面/歌词，仅元数据）
-    final raw = await audioQuery.querySongs(
-      sortType: null,
-      orderType: OrderType.ASC_OR_SMALLER,
-      uriType: UriType.EXTERNAL,
-      ignoreCase: true,
-    );
-
-    // 加载用户自定义扫描目录，如有则过滤 MediaStore 结果
-    final customDirs = await getPersistedDirs();
-    final hasCustomDirs = customDirs.isNotEmpty;
-
-    final songs = <LocalSong>[];
-    for (final s in raw) {
-      final title = s.title;
-      final data = s.data;
-      if (title == null || title.isEmpty) continue;
-      if (data == null || data.isEmpty) continue;
-      // 用户自定义目录模式下，跳过不在指定目录的文件
-      if (hasCustomDirs && !customDirs.any((d) => data.startsWith(d))) continue;
-
-      final ext = p.extension(data).toLowerCase();
-      if (!_audioExtensions.contains(ext)) continue;
-
-      final codec = _detectCodec(ext);
-
-      // 文件夹封面（快速检查，不走 MMR）
-      String? coverPath = await _findFolderCover(data);
-
-      // 之前缓存的封面
-      coverPath ??= await _findCachedCover(data);
-
-      // 配套 .lrc 歌词
-      String? lyrics = await _readCompanionLrc(data);
-
-      songs.add(LocalSong(
-        title: title,
-        artist: s.artist,
-        album: s.album,
-        filePath: data,
-        mediaStoreId: s.id,
-        size: s.size ?? 0,
-        duration: (s.duration ?? 0) ~/ 1000,
-        codec: codec,
-        bitrate: _estimateBitrate(codec),
-        lyrics: lyrics,
-        albumCoverPath: coverPath,
-      ));
-    }
-
-    return songs;
+    // on_audio_query not available on OHOS branch; use legacy scanner as fallback
+    return _scanLegacy();
   }
 
   // ─── Windows fallback: filesystem crawl + per-file MMR ──────

@@ -17,7 +17,7 @@ import 'utils/logger.dart';
 import 'services/api_client.dart';
 import 'providers/theme_provider.dart';
 import 'widgets/app_shell.dart';
-import 'package:dynamic_color/dynamic_color.dart';
+import 'widgets/app_shell.dart';
 import 'services/device_service.dart';
 import 'services/music_service.dart';
 import 'services/auth_service.dart';
@@ -204,14 +204,7 @@ class NGSKGApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // DynamicColorBuilder �?Android 12+ 可用，其他平台传 null
-    if (Platform.isAndroid) {
-      return DynamicColorBuilder(
-        builder: (lightDynamic, darkDynamic) {
-          return _buildApp(lightDynamic, darkDynamic);
-        },
-      );
-    }
+    // DynamicColorBuilder is Android 12+ only; OHOS uses fixed theme
     return _buildApp(null, null);
   }
 

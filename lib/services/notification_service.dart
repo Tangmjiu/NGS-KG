@@ -4,15 +4,15 @@
 import 'dart:io' show Platform;
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../utils/platform_helper.dart';
 
 /// 原生媒体通知 & MediaSession 管理器（Dart 端）
 ///
-/// 通过 MethodChannel 与 Android 端的 MediaSessionManager.kt 通信，
+/// 通过 MethodChannel 与 Android / OHOS 原生端通信，
 /// 实现：
-/// - 系统媒体通知（MediaStyle，显示在快捷面板媒体中心）
+/// - 系统媒体通知（Android MediaStyle / OHOS AVSession）
 /// - 锁屏控制
-/// - 车载蓝牙 A2DP 元数据广播
-/// - 通知栏按钮控制
+/// - 媒体按钮控制
 class NotificationService {
   static final NotificationService _instance = NotificationService._();
   static NotificationService get instance => _instance;
@@ -57,7 +57,7 @@ class NotificationService {
       } catch (_) {}
     }
 
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid || isOhos) {
       // 注册原生回调通道（媒体按钮 → Flutter）
       _callbackChannel.setMessageHandler((msg) async {
         if (msg == 'onPrev') {
@@ -100,7 +100,7 @@ class NotificationService {
     int position = 0,    // 秒
     bool isBuffering = false, // 是否缓冲中
   }) async {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid && !isOhos) return;
 
     try {
       // 更新元数据（标题、歌手、封面、时长、歌词）
@@ -128,7 +128,7 @@ class NotificationService {
     required bool liked,
     required String playMode,  // "sequential" | "shuffle" | "repeatOne"
   }) async {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid && !isOhos) return;
     try {
       await _mediaChannel.invokeMethod('updateCustomButtons', {
         'liked': liked,
@@ -138,7 +138,7 @@ class NotificationService {
   }
 
   Future<void> cancelMediaNotification() async {
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid || isOhos) {
       try {
         await _mediaChannel.invokeMethod('release');
       } catch (_) {}
