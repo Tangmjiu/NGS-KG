@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../constants/discover_constants.dart';
-import '../../../utils/theme.dart';
 
 /// Banner 轮播
 class DiscoverBanner extends StatelessWidget {
@@ -31,20 +30,17 @@ class DiscoverBanner extends StatelessWidget {
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
-              borderRadius: AppShape.lg,
+              borderRadius: BorderRadius.circular(16),
               color: cs.surfaceContainerHighest,
             ),
             child: ClipRRect(
-              borderRadius: AppShape.lg,
+              borderRadius: BorderRadius.circular(16),
               child: imgUrl.isNotEmpty
                   ? Stack(
                       fit: StackFit.expand,
                       children: [
                         CachedNetworkImage(
                           imageUrl: imgUrl,
-                          height: 160,
-                          memCacheWidth: 640,
-                          memCacheHeight: 320,
                           fit: BoxFit.cover,
                           placeholder: (_, __) =>
                               Container(color: cs.surfaceContainerHighest),
@@ -70,8 +66,9 @@ class DiscoverBanner extends StatelessWidget {
                           left: 16,
                           child: Text(
                             title,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            style: const TextStyle(
                               color: Colors.white,
+                              fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -81,7 +78,8 @@ class DiscoverBanner extends StatelessWidget {
                   : Center(
                       child: Text(
                         title,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        style: const TextStyle(
+                          fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

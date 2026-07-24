@@ -91,7 +91,7 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text('共 $_total 首',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                 ),
               )
             : null,

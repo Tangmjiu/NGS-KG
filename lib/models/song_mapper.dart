@@ -14,7 +14,7 @@ class SongMapper {
       return Song(
         id: tryInt(json['Audioid'] ?? json['id']),
         name: (json['OriSongName'] ?? json['SongName'] ?? json['name'] ?? '') as String,
-        artists: _splitArtists(json['SingerName'] as String?),
+        artists: [(json['SingerName'] ?? '') as String],
         albumName: json['AlbumName'] as String?,
         albumCoverUrl: cover,
         albumId: tryInt(json['AlbumID']),
@@ -151,9 +151,8 @@ class SongMapper {
 
       return Song(
         id: tryInt(json['audio_id'] ?? base?['audio_id'] ?? json['id']),
-        name: (parts.length > 1 ? parts.sublist(1).join(' - ') : rawName)
-            .replaceAll(RegExp(r'\.(mp3|flac|wav|m4a)$', caseSensitive: false), ''),
-        artists: _splitArtists(artist),
+        name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
+        artists: [artist],
         albumCoverUrl: cover,
         albumId: albumId,
         artistId: artistId,
@@ -200,7 +199,7 @@ class SongMapper {
       return Song(
         id: tryInt(json['audio_id'] ?? json['album_audio_id'] ?? 0),
         name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
-        artists: _splitArtists(json['author_name'] as String?),
+        artists: [json['author_name'] as String? ?? ''],
         albumCoverUrl: cover,
         albumId: tryInt(json['album_id']),
         artistId: tryInt(json['author_id']),
@@ -311,7 +310,7 @@ class SongMapper {
       return Song(
         id: id,
         name: parts.length > 1 ? parts.sublist(1).join(' - ') : rawName,
-        artists: _splitArtists(artist),
+        artists: [artist],
         albumName: json['album_name'] as String?,
         albumCoverUrl: cover,
         duration: duration,
@@ -367,15 +366,5 @@ class SongMapper {
       if (d is double) return (d / 1000).round();
     }
     return 0;
-  }
-
-  /// 辅助方法：拆分多歌手为 List，支持 ' / ', '/', '、', ', ', ',', '，', '&', ' 和 ' 等多种连接符
-  static List<String> _splitArtists(String? artist) {
-    if (artist == null || artist.isEmpty) return [''];
-    return artist
-        .split(RegExp(r'\s*/\s*|、|\s*,\s*|\s*，\s*|\s*&\s*|\s+和\s+'))
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
   }
 }

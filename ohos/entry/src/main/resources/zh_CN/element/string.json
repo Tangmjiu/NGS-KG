@@ -2,15 +2,35 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "模块描述"
+      "value": "NGS-KG+ 音乐播放器"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "description"
+      "value": "NGS-KG+ 主页面"
     },
     {
       "name": "EntryAbility_label",
-      "value": "ngskg_plus"
+      "value": "NGS-KG+"
+    },
+    {
+      "name": "perm_internet_reason",
+      "value": "用于访问网络获取音乐数据"
+    },
+    {
+      "name": "perm_network_reason",
+      "value": "用于检测网络连接状态"
+    },
+    {
+      "name": "perm_media_reason",
+      "value": "用于扫描本地音乐文件"
+    },
+    {
+      "name": "perm_background_reason",
+      "value": "用于后台音乐播放"
+    },
+    {
+      "name": "perm_bluetooth_reason",
+      "value": "用于蓝牙耳机音乐控制"
     }
   ]
 }

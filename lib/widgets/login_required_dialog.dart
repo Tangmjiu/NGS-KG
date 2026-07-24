@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
 
 /// 未登录提示弹窗
 ///

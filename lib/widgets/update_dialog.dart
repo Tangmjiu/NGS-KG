@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/update_checker.dart';
 
 /// 发现新版本弹窗
 Future<void> showUpdateDialog(BuildContext context, ReleaseInfo release) {
-  return showM3Dialog(
+  return showDialog(
     context: context,
     barrierDismissible: false,
     builder: (ctx) => AlertDialog(
@@ -29,7 +28,7 @@ Future<void> showUpdateDialog(BuildContext context, ReleaseInfo release) {
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.green.withValues(alpha: 0.15),
-                    borderRadius: AppShape.sm,
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     release.tagName,
@@ -57,12 +56,13 @@ Future<void> showUpdateDialog(BuildContext context, ReleaseInfo release) {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
-                  borderRadius: AppShape.sm,
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: SingleChildScrollView(
                   child: SelectableText(
                     release.body,
                     style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                          fontSize: 12,
                           height: 1.5,
                         ),
                   ),

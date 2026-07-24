@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/auth_provider.dart';
@@ -122,7 +121,7 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                         height: 44,
                         decoration: BoxDecoration(
                           color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                          borderRadius: AppShape.sm,
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: isPlaying
                             ? const Padding(

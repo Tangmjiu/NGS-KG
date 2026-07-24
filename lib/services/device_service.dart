@@ -4,7 +4,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/device_info.dart';
-import '../utils/platform_helper.dart';
 import 'kugou_signer.dart';
 import 'api_client.dart';
 
@@ -101,7 +100,7 @@ class DeviceService {
   /// 获取当前设备的主 ABI（如 arm64-v8a / armeabi-v7a / x86_64）。
   /// Android 上通过原生 Build.SUPPORTED_ABIS 获取，其他平台返回 null。
   Future<String?> getAbi() async {
-    if (!Platform.isAndroid && !isOhos) return null;
+    if (!Platform.isAndroid) return null;
     try {
       return await _deviceChannel.invokeMethod<String>('getAbi');
     } catch (_) {

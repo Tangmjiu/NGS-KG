@@ -4,7 +4,6 @@ import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../theme/theme_assets.dart';
-import '../utils/theme.dart';
 import '../services/music_service.dart';
 
 class PlaybackControls extends StatelessWidget {
@@ -21,102 +20,56 @@ class PlaybackControls extends StatelessWidget {
             return Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                M3PressScale(
-                  child: IconButton(
-                    icon: Icon(_modeIcon(player.playMode), size: 24),
-                    tooltip: '播放模式',
-                    color: cs.onSurfaceVariant,
-                    onPressed: _modeCycle(player),
-                    style: IconButton.styleFrom(
-                      padding: const EdgeInsets.all(12),
-                    ),
-                  ),
+                IconButton(
+                  icon: Icon(_modeIcon(player.playMode), size: 22),
+                  tooltip: '播放模式',
+                  color: cs.onSurfaceVariant,
+                  onPressed: _modeCycle(player),
+                ),
+                SizedBox(width: isWide ? 8 : 4),
+                IconButton(
+                  icon: Icon(player.isFmMode
+                      ? Icons.heart_broken_outlined
+                      : Icons.skip_previous, size: 32),
+                  tooltip: player.isFmMode ? '不喜欢' : '上一首',
+                  onPressed: player.playPrevious,
                 ),
                 SizedBox(width: isWide ? 16 : 8),
-                M3PressScale(
-                  child: IconButton(
-                    icon: Icon(
-                      player.isFmMode ? Icons.heart_broken_outlined : Icons.skip_previous_rounded,
-                      size: 36,
-                    ),
-                    tooltip: player.isFmMode ? '不喜欢' : '上一首',
-                    color: cs.onSurface,
-                    onPressed: player.playPrevious,
-                    style: IconButton.styleFrom(
-                      padding: const EdgeInsets.all(16),
-                      backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                    ),
-                  ),
-                ),
-                SizedBox(width: isWide ? 24 : 16),
-                M3PressScale(
-                  scaleDown: 0.92, // 更强烈的按压下沉反馈
-                  child: AnimatedContainer(
-                    duration: AppMotion.dShort4,
-                    curve: AppMotion.emphasized,
-                    width: 88,
-                    height: 88,
-                    decoration: BoxDecoration(
-                      color: cs.primaryContainer,
-                      borderRadius: BorderRadius.circular(player.isPlaying ? 28 : 44),
-                      boxShadow: [
-                        BoxShadow(
-                          color: cs.primary.withValues(alpha: 0.2),
-                          blurRadius: 16,
-                          offset: const Offset(0, 8),
-                        )
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: player.togglePlayPause,
-                        borderRadius: BorderRadius.circular(player.isPlaying ? 28 : 44),
-                        child: AnimatedSwitcher(
-                          duration: AppMotion.dShort4,
-                          switchInCurve: AppMotion.emphasizedDecelerate,
-                          switchOutCurve: AppMotion.emphasizedAccelerate,
-                          transitionBuilder: (child, animation) {
-                            return ScaleTransition(
-                              scale: animation,
-                              child: FadeTransition(opacity: animation, child: child),
-                            );
-                          },
-                          child: Icon(
-                            key: ValueKey(player.isPlaying),
-                            player.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                            size: 40,
-                            color: cs.onPrimaryContainer,
-                          ),
-                        ),
+                SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: FloatingActionButton(
+                    heroTag: 'playPause',
+                    onPressed: player.togglePlayPause,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      switchInCurve: Curves.fastOutSlowIn,
+                      switchOutCurve: Curves.fastOutSlowIn,
+                      transitionBuilder: (child, animation) {
+                        return ScaleTransition(scale: animation, child: child);
+                      },
+                      child: Icon(
+                        key: ValueKey(player.isPlaying),
+                        player.isPlaying
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                        size: 32,
                       ),
                     ),
                   ),
                 ),
-                SizedBox(width: isWide ? 24 : 16),
-                M3PressScale(
-                  child: IconButton(
-                    icon: const Icon(Icons.skip_next_rounded, size: 36),
-                    tooltip: '下一首',
-                    color: cs.onSurface,
-                    onPressed: player.playNext,
-                    style: IconButton.styleFrom(
-                      padding: const EdgeInsets.all(16),
-                      backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                    ),
-                  ),
-                ),
                 SizedBox(width: isWide ? 16 : 8),
-                M3PressScale(
-                  child: IconButton(
-                    icon: const Icon(Icons.playlist_play_rounded, size: 24),
-                    tooltip: '播放列表',
-                    color: cs.onSurfaceVariant,
-                    onPressed: () => showPlaylistStatic(context, player),
-                    style: IconButton.styleFrom(
-                      padding: const EdgeInsets.all(12),
-                    ),
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.skip_next, size: 32),
+                  tooltip: '下一首',
+                  onPressed: player.playNext,
+                ),
+                SizedBox(width: isWide ? 8 : 4),
+                IconButton(
+                  icon: const Icon(Icons.playlist_play, size: 22),
+                  tooltip: '播放列表',
+                  color: cs.onSurfaceVariant,
+                  onPressed: () => showPlaylistStatic(context, player),
                 ),
               ],
             );
@@ -149,7 +102,7 @@ class PlaybackControls extends StatelessWidget {
 
   static void showPlaylistStatic(BuildContext context, PlayerProvider player) {
     final cs = Theme.of(context).colorScheme;
-    showM3ModalBottomSheet(
+    showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(
@@ -273,7 +226,8 @@ class PlaybackControls extends StatelessWidget {
                                       : Colors.transparent,
                                   child: Text(
                                     '${i + 1}',
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    style: TextStyle(
+                                      fontSize: 12,
                                       color: i == player.currentIndex
                                           ? cs.onPrimaryContainer
                                           : cs.onSurfaceVariant,
@@ -289,8 +243,8 @@ class PlaybackControls extends StatelessWidget {
                             s.artistDisplay,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: cs.onSurfaceVariant),
+                            style: TextStyle(
+                                fontSize: 11, color: cs.onSurfaceVariant),
                           ),
                           selected: i == player.currentIndex,
                           selectedTileColor:
@@ -357,7 +311,7 @@ class PlaybackControls extends StatelessWidget {
   static void _showAddToPlaylist(BuildContext context, PlayerProvider player) {
     final song = player.currentSong;
     if (song == null) return;
-    showM3ModalBottomSheet(
+    showModalBottomSheet(
       context: context,
       builder: (_) => SafeArea(
         child: Consumer<PlaylistProvider>(
@@ -423,7 +377,7 @@ class PlaybackControls extends StatelessWidget {
   }
 
   static void _confirmClear(BuildContext context, PlayerProvider player) {
-    showM3Dialog(
+    showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('确认清空'),
@@ -445,7 +399,7 @@ class PlaybackControls extends StatelessWidget {
 
   static void _showSaveQueueDialog(BuildContext context, PlayerProvider player, void Function(void Function()) setSheetState) {
     final nameCtrl = TextEditingController();
-    showM3Dialog(
+    showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('保存队列'),
@@ -484,7 +438,7 @@ class PlaybackControls extends StatelessWidget {
     final songs = player.playlist;
     if (songs.isEmpty) return;
     final nameCtrl = TextEditingController();
-    showM3Dialog(
+    showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('将队列存为歌单'),

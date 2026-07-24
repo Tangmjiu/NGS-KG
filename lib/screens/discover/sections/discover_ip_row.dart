@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../utils/theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../constants/discover_constants.dart';
 
@@ -32,7 +31,7 @@ class DiscoverIpRow extends StatelessWidget {
             margin: const EdgeInsets.only(right: 12),
             decoration: BoxDecoration(
               color: cs.surfaceContainerHighest,
-              borderRadius: AppShape.md,
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -45,8 +44,6 @@ class DiscoverIpRow extends StatelessWidget {
                           imageUrl: imgUrl,
                           width: 260,
                           height: 112,
-                          memCacheWidth: 520,
-                          memCacheHeight: 224,
                           fit: BoxFit.cover,
                           placeholder: (_, __) => Container(
                             width: 260,
@@ -82,8 +79,8 @@ class DiscoverIpRow extends StatelessWidget {
                     name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w500),
                   ),
                 ),
               ],

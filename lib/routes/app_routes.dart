@@ -77,10 +77,7 @@ class AppRoutes {
           ),
         );
       case search:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const SearchScreen(),
-        );
+        return MaterialPageRoute(builder: (_) => const SearchScreen());
       case rankDetail:
         final args = settings.arguments;
         if (args is! Map<String, dynamic>) return _fallback();

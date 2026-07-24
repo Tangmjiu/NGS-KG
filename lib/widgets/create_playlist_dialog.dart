@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import '../providers/playlist_provider.dart';
 
@@ -30,7 +29,7 @@ class _CreatePlaylistDialogState extends State<CreatePlaylistDialog> {
         decoration: InputDecoration(
           labelText: '歌单名称',
           border: OutlineInputBorder(
-            borderRadius: AppShape.sm,
+            borderRadius: BorderRadius.circular(8),
           ),
         ),
       ),

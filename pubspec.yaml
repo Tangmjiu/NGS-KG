@@ -16,12 +16,11 @@ dependencies:
   dio_cookie_manager: ^3.1.1
   # Audio
   just_audio: ^0.9.40
-  audio_service: ^0.18.19
-  audio_session: ^0.1.25 # OHOS: managed by native AVSession
+  audio_session: ^0.1.25
   # State
   provider: ^6.1.1
   # Local storage
-  # sqflite: no OHOS port, replaced by custom OHOS relationalStore plugin
+  sqflite: ^2.3.0
   path_provider: ^2.1.1
   path: ^1.9.0
   # UI
@@ -30,8 +29,11 @@ dependencies:
   # Theme
   flex_color_scheme: ^8.0.2
   flutter_colorpicker: ^1.1.0
-  # dynamic_color: Android 12+ only, not available on OHOS
+  dynamic_color: ^1.7.0
   archive: ^4.0.0
+  # Video
+  # MV: video_player: ^2.9.2
+  # MV: chewie: ^1.8.5
   # Audio
   wakelock_plus: ^1.2.10
   # Utils
@@ -47,8 +49,7 @@ dependencies:
   # Lyrics
   ym_lyric: ^0.0.4
   flutter_lyric: ^3.0.6
-  on_audio_query: ^2.9.0 # OHOS: replaced by custom mediaLibrary plugin
-  flutter_markdown: ^0.7.3
+  on_audio_query: ^2.9.0
 
 dev_dependencies:
   flutter_test:
@@ -56,7 +57,57 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.3
 
-
+# ── CPF-Flutter OHOS 适配覆盖 ──
+dependency_overrides:
+  just_audio:
+    git:
+      url: https://gitcode.com/CPF-Flutter/fluttertpc_just_audio.git
+      ref: br_just_audio-v0.9.41_ohos
+      path: just_audio
+  audio_session:
+    git:
+      url: https://gitcode.com/CPF-Flutter/flutter_audio_session.git
+      ref: br_v0.1.21_ohos
+  sqflite:
+    git:
+      url: https://gitcode.com/CPF-Flutter/flutter_sqflite.git
+      ref: br_v2.4.2_ohos
+      path: sqflite
+  path_provider:
+    git:
+      url: https://gitcode.com/CPF-Flutter/flutter_packages.git
+      path: packages/path_provider/path_provider
+  dynamic_color:
+    git:
+      url: https://gitcode.com/CPF-Flutter/fluttertpc_dynamic_color.git
+      ref: main
+      path: packages/dynamic_color
+  wakelock_plus:
+    git:
+      url: https://gitcode.com/CPF-Flutter/fluttertpc_wakelock_plus.git
+      ref: br_wakelock_plus_1.2.8_ohos
+      path: wakelock_plus
+  shared_preferences:
+    git:
+      url: https://gitcode.com/CPF-Flutter/flutter_packages.git
+      path: packages/shared_preferences/shared_preferences
+  url_launcher:
+    git:
+      url: https://gitcode.com/CPF-Flutter/flutter_packages.git
+      path: packages/url_launcher/url_launcher
+  file_picker:
+    git:
+      url: https://gitcode.com/CPF-Flutter/fluttertpc_file_picker.git
+      ref: br_v8.0.7_ohos
+  permission_handler:
+    git:
+      url: https://gitcode.com/CPF-Flutter/flutter_permission_handler.git
+      ref: br_permission_handler_v11.3.1_ohos
+      path: permission_handler
+  connectivity_plus:
+    git:
+      url: https://gitcode.com/CPF-Flutter/flutter_plus_plugins.git
+      path: packages/connectivity_plus/connectivity_plus
 
 flutter:
   uses-material-design: true

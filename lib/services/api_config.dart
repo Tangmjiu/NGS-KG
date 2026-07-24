@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/logger.dart';
 
@@ -73,47 +72,6 @@ class ApiConfig {
     final route = prefs.getString(_routeKey) ?? routeCloudflare;
     _cachedUrl = route == routeCloudflare ? cloudflareUrl : chinaUrl;
     return _cachedUrl;
-  }
-
-  /// 后台并发探测 API 延迟，自动锁定可用且速度最快的内置路线
-  Future<void> detectBestRoute() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getString(_modeKey) == modeCustom) return;
-
-    Log.i('ApiConfig', '开始并发探测 API 路线延迟...');
-    final client = HttpClient()..connectionTimeout = const Duration(milliseconds: 1500);
-
-    Future<String?> testUrl(String url, String routeName) async {
-      try {
-        final request = await client.getUrl(Uri.parse(url));
-        final response = await request.close();
-        if (response.statusCode >= 200 && response.statusCode < 400) {
-          Log.i('ApiConfig', '路线探测成功: $routeName, 状态码: ${response.statusCode}');
-          return routeName;
-        }
-      } catch (e) {
-        Log.w('ApiConfig', '路线探测超时或不可达: $routeName, 错误: $e');
-      }
-      return null;
-    }
-
-    try {
-      final results = await Future.wait([
-        testUrl(cloudflareUrl, routeCloudflare),
-        testUrl(chinaUrl, routeChina),
-      ]);
-
-      // results[0] 是 CF 节点，results[1] 是国内 IP 节点
-      final winner = results[0] ?? results[1];
-      if (winner != null) {
-        Log.i('ApiConfig', '自适应胜出路线为: $winner');
-        await setMjiutangRoute(winner);
-      } else {
-        Log.e('ApiConfig', '所有 API 路线均无法访问！请检查网络状态。');
-      }
-    } catch (e) {
-      Log.e('ApiConfig', '路由自动探测发生异常', e);
-    }
   }
 
   String get baseUrlSync => _cachedUrl.isNotEmpty ? _cachedUrl : chinaUrl;

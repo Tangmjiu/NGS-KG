@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
-import 'package:flutter/foundation.dart';
 import '../utils/constants.dart';
 import '../utils/error_dialog.dart';
 import '../utils/logger.dart';
@@ -325,14 +324,12 @@ class ApiClient {
     _dio.interceptors.add(CookieManager(_cookieJar));
     // 5. 响应缓存
     _dio.interceptors.add(CacheInterceptor());
-    // 6. 日志（仅在 debug/profile 模式下启用，避免 release 包在主线程拼日志字符串）
-    if (!kReleaseMode) {
-      _dio.interceptors.add(LogInterceptor(
-        requestBody: true,
-        responseBody: true,
-        logPrint: (o) {},
-      ));
-    }
+    // 6. 日志
+    _dio.interceptors.add(LogInterceptor(
+      requestBody: true,
+      responseBody: true,
+      logPrint: (o) {},
+    ));
     // 7. 错误弹窗（最后执行，捕获所有未被其他拦截器吞掉的异常）
     _dio.interceptors.add(_ErrorDialogInterceptor());
   }

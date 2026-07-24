@@ -7,8 +7,6 @@ import '../providers/player_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../services/music_service.dart';
 import '../theme/theme_assets.dart';
-import '../utils/theme.dart';
-import 'playing_indicator.dart';
 
 class SongTile extends StatelessWidget {
   final Song song;
@@ -20,148 +18,83 @@ class SongTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    // 精确选择：只订阅当前歌曲 ID 和播放状态，避免进度变化导致整行 rebuild
-    final playbackState = context.select<PlayerProvider, ({bool isCurrent, bool isPlaying})>(
-      (p) => (
-        isCurrent: p.currentSong?.id == song.id,
-        isPlaying: p.currentSong?.id == song.id && p.isPlaying,
-      ),
-    );
-    final isCurrent = playbackState.isCurrent;
-    final isPlaying = playbackState.isPlaying;
-
     return Semantics(
       button: true,
-      child: M3PressScale(
-        scaleDown: 0.96,
-        child: AnimatedContainer(
-          duration: AppMotion.dShort4,
-          curve: AppMotion.emphasized,
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          decoration: BoxDecoration(
-            color: isCurrent ? cs.primaryContainer : Colors.transparent,
-            borderRadius: AppShape.md,
-          ),
-          child: InkWell(
-            borderRadius: AppShape.md,
-            onTap: () => onTap?.call(song),
-            onLongPress: () => _showContextMenu(context),
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                children: [
-                  // Album Art
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                                  ClipRRect(
-                                    borderRadius: AppShape.sm,
-                                    child: song.thumbnailCoverUrl != null
-                                        ? CachedNetworkImage(
-                                            imageUrl: song.thumbnailCoverUrl!,
-                                            width: 56,
-                                            height: 56,
-                                            fit: BoxFit.cover,
-                                            memCacheWidth: 112,
-                                            memCacheHeight: 112,
-                                            placeholder: (_, __) => _placeholder(cs),
-                                            errorWidget: (_, __, ___) => _placeholder(cs),
-                                          )
-                                        : _placeholder(cs),
-                                  ),
-                      // Playing Indicator Overlay
-                      if (isCurrent)
-                        Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.4),
-                            borderRadius: AppShape.sm,
-                          ),
-                          child: Center(
-                            child: isPlaying
-                                ? const PlayingIndicator(size: 24, color: Colors.white)
-                                : const Icon(Icons.pause_rounded, color: Colors.white, size: 24),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(width: 16),
-                  // Texts
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          song.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: tt.bodyLarge?.copyWith(
-                            fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                            color: isCurrent ? cs.onPrimaryContainer : cs.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          song.artistDisplay,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: tt.bodyMedium?.copyWith(
-                            color: isCurrent 
-                                ? cs.onPrimaryContainer.withValues(alpha: 0.8) 
-                                : cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
+      child: MergeSemantics(
+        child: ListTile(
+          leading: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: song.albumCoverUrl != null
+                ? CachedNetworkImage(
+                    imageUrl: song.albumCoverUrl!,
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => ExcludeSemantics(
+                      child: Container(
+                          color: cs.surfaceContainerHighest,
+                          width: 48,
+                          height: 48),
+                    ),
+                    errorWidget: (_, __, ___) => ExcludeSemantics(
+                        child: albumPlaceholderWidget(size: 32)),
+                  )
+                : ExcludeSemantics(
+                    child: Container(
+                      color: cs.surfaceContainerHighest,
+                      width: 48,
+                      height: 48,
+                      child: albumPlaceholderWidget(size: 32),
                     ),
                   ),
-                  // Trailing Actions
-                  Consumer<LikedSongsProvider>(
-                    builder: (_, lp, __) {
-                      final liked = lp.likedIds.contains(song.id);
-                      return M3BounceFeedback(
-                        trigger: liked,
-                        child: IconButton(
-                          icon: Icon(
-                            liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                            size: 24,
-                          ),
-                          color: liked ? cs.error : (isCurrent ? cs.onPrimaryContainer : cs.onSurfaceVariant),
-                          tooltip: liked ? '取消喜欢' : '喜欢',
-                          onPressed: () async {
-                            final info = SongInfo(
-                              id: song.id,
-                              name: song.name,
-                              hash: song.hash ?? '',
-                              albumId: song.albumId,
-                              audioId: song.id,
-                            );
-                            await lp.toggle(info);
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
           ),
+          title: Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text(song.artistDisplay,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Consumer<LikedSongsProvider>(
+                builder: (_, lp, __) {
+                  final liked = lp.likedIds.contains(song.id);
+                  return IconButton(
+                    icon: Icon(
+                      liked ? Icons.favorite : Icons.favorite_border,
+                      size: 20,
+                    ),
+                    color: liked ? Colors.red : cs.onSurfaceVariant,
+                    tooltip: liked ? '取消喜欢' : '喜欢',
+                    onPressed: () async {
+                      final info = SongInfo(
+                        id: song.id,
+                        name: song.name,
+                        hash: song.hash ?? '',
+                        albumId: song.albumId,
+                        audioId: song.id,
+                      );
+                      await lp.toggle(info);
+                    },
+                  );
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.play_circle_outline, size: 24),
+                tooltip: '播放',
+                onPressed: () => onTap?.call(song),
+              ),
+            ],
+          ),
+          onTap: () => onTap?.call(song),
+          onLongPress: () => _showContextMenu(context),
         ),
       ),
     );
   }
 
-  Widget _placeholder(ColorScheme cs) {
-    return Container(
-      color: cs.surfaceContainerHighest,
-      width: 56,
-      height: 56,
-      child: albumPlaceholderWidget(size: 32),
-    );
-  }
-
   void _showContextMenu(BuildContext context) {
-    showM3ModalBottomSheet(
+    showModalBottomSheet(
       context: context,
       builder: (_) => SafeArea(
         child: Column(
@@ -230,12 +163,10 @@ class SongTile extends StatelessWidget {
       {required IconData icon,
       required String label,
       required VoidCallback onTap}) {
-    return M3PressScale(
-      child: ListTile(
-        leading: Icon(icon),
-        title: Text(label),
-        onTap: onTap,
-      ),
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(label),
+      onTap: onTap,
     );
   }
 
@@ -247,7 +178,7 @@ class SongTile extends StatelessWidget {
       );
       return;
     }
-    showM3ModalBottomSheet(
+    showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(
@@ -267,34 +198,29 @@ class SongTile extends StatelessWidget {
                 itemCount: playlists.length,
                 itemBuilder: (_, i) {
                   final pl = playlists[i];
-                  return M3StaggeredFadeIn(
-                    index: i,
-                    child: M3PressScale(
-                      child: ListTile(
-                        leading: const Icon(Icons.playlist_play),
-                        title: Text(pl.name),
-                        onTap: () async {
-                          Navigator.pop(ctx);
-                          final data = (song.hash?.isNotEmpty ?? false)
-                              ? '${song.name}|${song.hash}|${song.albumId}|${song.id}'
-                              : song.name;
-                          try {
-                            await MusicService().addTracksToPlaylist(pl.id, data);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('已添加到歌单')),
-                              );
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('添加失败: $e')),
-                              );
-                            }
-                          }
-                        },
-                      ),
-                    ),
+                  return ListTile(
+                    leading: const Icon(Icons.playlist_play),
+                    title: Text(pl.name),
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      final data = (song.hash?.isNotEmpty ?? false)
+                          ? '${song.name}|${song.hash}|${song.albumId}|${song.id}'
+                          : song.name;
+                      try {
+                        await MusicService().addTracksToPlaylist(pl.id, data);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('已添加到歌单')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('添加失败: $e')),
+                          );
+                        }
+                      }
+                    },
                   );
                 },
               ),

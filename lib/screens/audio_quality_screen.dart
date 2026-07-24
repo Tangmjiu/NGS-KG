@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/audio_settings_provider.dart';
@@ -99,7 +98,7 @@ class _QualityTile extends StatelessWidget {
       subtitle: Text(display,
           style: TextStyle(color: Theme.of(context).colorScheme.primary)),
       trailing: const Icon(Icons.chevron_right),
-      onTap: () => showM3ModalBottomSheet(
+      onTap: () => showModalBottomSheet(
         context: context,
         builder: (ctx) => SafeArea(
           child: SingleChildScrollView(

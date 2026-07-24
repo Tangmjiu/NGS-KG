@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../utils/theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../models/album.dart';
 
@@ -21,8 +20,7 @@ class DiscoverAlbumRow extends StatelessWidget {
         itemCount: albums.length,
         itemBuilder: (_, i) {
           final album = albums[i];
-          return M3PressScale(
-            child: GestureDetector(
+          return GestureDetector(
             onTap: () => Navigator.pushNamed(context, '/album/detail',
                 arguments: {'id': album.id, 'name': album.name}),
             child: Container(
@@ -32,14 +30,12 @@ class DiscoverAlbumRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ClipRRect(
-                    borderRadius: AppShape.md,
+                    borderRadius: BorderRadius.circular(12),
                     child: album.coverUrl != null
                         ? CachedNetworkImage(
                             imageUrl: album.coverUrl!,
                             width: 140,
                             height: 140,
-                            memCacheWidth: 280,
-                            memCacheHeight: 280,
                             fit: BoxFit.cover,
                             placeholder: (_, __) => Container(
                               width: 140,
@@ -66,7 +62,7 @@ class DiscoverAlbumRow extends StatelessWidget {
                     album.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    style: const TextStyle(fontSize: 13),
                   ),
                   const SizedBox(height: 2),
                   if (album.artistName != null)
@@ -75,11 +71,10 @@ class DiscoverAlbumRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style:
-                          Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                          TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                     ),
                 ],
               ),
-            ),
             ),
           );
         },

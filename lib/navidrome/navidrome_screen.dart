@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../widgets/local_cover_art.dart';
 import 'navidrome_provider.dart';
 import 'navidrome_models.dart';
-import '../widgets/list_bottom_spacer.dart';
 
 /// A 3-level browse screen for Navidrome music:
 /// artists → albums → songs, with search and breadcrumb navigation.
@@ -76,7 +74,7 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
                 )
               : null,
           border: OutlineInputBorder(
-            borderRadius: AppShape.sm,
+            borderRadius: BorderRadius.circular(8),
             borderSide: BorderSide.none,
           ),
           filled: true,
@@ -146,7 +144,8 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
       onTap: onTap,
       child: Text(
         label,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        style: TextStyle(
+          fontSize: 13,
           fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
           color: isActive ? cs.primary : cs.onSurface,
           decoration: onTap != null ? TextDecoration.underline : null,
@@ -193,11 +192,8 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      itemCount: prov.artists.length + 1,
+      itemCount: prov.artists.length,
       itemBuilder: (_, i) {
-        if (i == prov.artists.length) {
-          return const ListBottomSpacer(isHome: false, showText: false);
-        }
         final artist = prov.artists[i];
         return _ArtistTile(
           artist: artist,
@@ -230,13 +226,8 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
       );
     }
 
-    final player = context.watch<PlayerProvider>();
-    final song = player.currentSong;
-    final showMini = song != null && !player.isPlayerScreenVisible;
-    final double extraBottomPadding = showMini ? 92.0 : 24.0;
-
     return GridView.builder(
-      padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: extraBottomPadding),
+      padding: const EdgeInsets.all(8),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         childAspectRatio: 0.85,
@@ -284,11 +275,8 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      itemCount: songs.length + 1,
+      itemCount: songs.length,
       itemBuilder: (_, i) {
-        if (i == songs.length) {
-          return const ListBottomSpacer(isHome: false, showText: false);
-        }
         final song = songs[i];
         final isCurrent = song.id == currentSongId;
         return ListTile(
@@ -310,7 +298,7 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
             song.artistDisplay,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
           ),
           trailing: isCurrent
               ? Icon(Icons.volume_up, size: 18, color: cs.primary)
@@ -378,7 +366,7 @@ class _ArtistTile extends StatelessWidget {
           maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         '${artist.albumCount} 张专辑 · ${artist.songCount} 首歌曲',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
       ),
       trailing:
           Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),

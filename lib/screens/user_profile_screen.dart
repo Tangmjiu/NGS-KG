@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:dio/dio.dart';
 import '../providers/auth_provider.dart';
@@ -150,12 +149,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
           color: isSvip ? cs.tertiary : cs.primary,
-          borderRadius: AppShape.xs,
+          borderRadius: BorderRadius.circular(4),
         ),
         child: Text(
           _vipInfo?.summary ?? '',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          style: TextStyle(
             color: isSvip ? cs.onTertiary : cs.onPrimary,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
         ),

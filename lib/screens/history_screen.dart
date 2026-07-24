@@ -7,7 +7,6 @@ import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
-import '../widgets/list_bottom_spacer.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -113,18 +112,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
         color: cs.onSurface,
         child: ListView.builder(
           padding: const EdgeInsets.only(top: 16, bottom: 24),
-          itemCount: _songs.length + 1,
-          itemBuilder: (_, i) {
-            if (i == _songs.length) {
-              return const ListBottomSpacer(isHome: false, showText: false);
-            }
-            return SongTile(
-              song: _songs[i],
-              onTap: (s) => context
-                  .read<PlayerProvider>()
-                  .playSong(s, playlist: _songs),
-            );
-          },
+          itemCount: _songs.length,
+          itemBuilder: (_, i) => SongTile(
+            song: _songs[i],
+            onTap: (s) => context
+                .read<PlayerProvider>()
+                .playSong(s, playlist: _songs),
+          ),
         ),
       );
     }
@@ -142,18 +136,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
               top: MediaQuery.of(context).padding.top + 80,
               bottom: 24,
             ),
-            itemCount: _songs.length + 1,
-            itemBuilder: (_, i) {
-              if (i == _songs.length) {
-                return const ListBottomSpacer(isHome: false, showText: false);
-              }
-              return SongTile(
-                song: _songs[i],
-                onTap: (s) => context
-                    .read<PlayerProvider>()
-                    .playSong(s, playlist: _songs),
-              );
-            },
+            itemCount: _songs.length,
+            itemBuilder: (_, i) => SongTile(
+              song: _songs[i],
+              onTap: (s) => context
+                  .read<PlayerProvider>()
+                  .playSong(s, playlist: _songs),
+            ),
           ),
         ),
       ],

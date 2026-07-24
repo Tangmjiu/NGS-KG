@@ -15,13 +15,8 @@ mixin SleepTimerMixin on ChangeNotifier {
       if (_sleepTimerRemaining != null) {
         _sleepTimerRemaining =
             _sleepTimerRemaining! - const Duration(seconds: 1);
+        notifyListeners();
         _checkSleepTimer();
-        // 避免每秒 notifyListeners 导致全量 rebuild：
-        // 最后 5 秒实时更新 UI，其余每 5 秒更新一次。
-        final seconds = _sleepTimerRemaining!.inSeconds;
-        if (seconds <= 5 || seconds % 5 == 0) {
-          notifyListeners();
-        }
       }
     });
     notifyListeners();

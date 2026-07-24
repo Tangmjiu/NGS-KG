@@ -9,7 +9,23 @@ export class EqualizerPlugin {
 
     channel.setMethodCallHandler({
       onMethodCall: (call: MethodCall, result: MethodResult): void => {
-        result.notImplemented();
+        const method: string = call.method;
+
+        if (method === 'getBandLevelRange') {
+          result.success([0, 0]);
+        } else if (method === 'getNumberOfBands') {
+          result.success(5);
+        } else if (method === 'getCenterFreq') {
+          result.success(0);
+        } else if (method === 'setBandLevel') {
+          result.success(null);
+        } else if (method === 'getBandLevel') {
+          result.success(0);
+        } else if (method === 'release') {
+          result.success(null);
+        } else {
+          result.notImplemented();
+        }
       }
     });
   }

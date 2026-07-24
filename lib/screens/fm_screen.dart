@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/song.dart';
@@ -138,13 +137,13 @@ class _FmScreenState extends State<FmScreen> {
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: ListTile(
               leading: ClipRRect(
-                borderRadius: AppShape.md,
+                borderRadius: BorderRadius.circular(10),
                 child: Container(
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
                     color: cs.surfaceContainerHighest,
-                    borderRadius: AppShape.md,
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: img.isNotEmpty
                       ? CachedNetworkImage(
@@ -156,14 +155,14 @@ class _FmScreenState extends State<FmScreen> {
                       : Icon(Icons.radio, color: cs.onSurfaceVariant, size: 24),
                 ),
               ),
-              title: Text(name, maxLines: 1, style: Theme.of(context).textTheme.bodyMedium),
+              title: Text(name, maxLines: 1, style: const TextStyle(fontSize: 14)),
               subtitle: desc.isNotEmpty
                   ? Text(desc, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant))
+                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))
                   : null,
               trailing: AnimatedRotation(
                 turns: isExpanded ? 0.5 : 0,
-                duration: AppMotion.dShort4,
+                duration: const Duration(milliseconds: 200),
                 child: const Icon(Icons.expand_more, size: 20),
               ),
               onTap: () => _onRadioTap(radio),
@@ -182,7 +181,7 @@ class _FmScreenState extends State<FmScreen> {
                         height: 200,
                         decoration: BoxDecoration(
                           color: cs.surfaceContainerHighest,
-                          borderRadius: AppShape.md,
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: ListView.builder(
                           itemCount: _fmSongs.length,

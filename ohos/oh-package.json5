@@ -1,11 +1,11 @@
 {
   "modelVersion": "5.1.0",
   "name": "ngskg_plus",
-  "version": "1.0.0",
-  "description": "Please describe the basic information.",
+  "version": "1.5.1",
+  "description": "NGS-KG+ - Cross-platform music player based on KuGouMusic API",
   "main": "",
-  "author": "",
-  "license": "",
+  "author": "mjiutang",
+  "license": "MIT",
   "dependencies": {},
   "devDependencies": {
     "@ohos/hypium": "1.0.6"

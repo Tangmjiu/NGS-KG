@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../utils/theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../models/radio.dart';
 
@@ -22,8 +21,7 @@ class DiscoverFmRow extends StatelessWidget {
         itemBuilder: (_, i) {
           final fm = fmList[i];
           final img = (fm.coverUrl ?? '').replaceAll('{size}', '240');
-          return M3PressScale(
-            child: GestureDetector(
+          return GestureDetector(
             onTap: () => Navigator.pushNamed(context, '/fm',
                 arguments: {'fmid': fm.id, 'name': fm.name}),
             child: Container(
@@ -32,14 +30,12 @@ class DiscoverFmRow extends StatelessWidget {
               child: Column(
                 children: [
                   ClipRRect(
-                    borderRadius: AppShape.md,
+                    borderRadius: BorderRadius.circular(12),
                     child: img.isNotEmpty
                         ? CachedNetworkImage(
                             imageUrl: img,
                             width: 64,
                             height: 64,
-                            memCacheWidth: 128,
-                            memCacheHeight: 128,
                             fit: BoxFit.cover,
                             errorWidget: (_, __, ___) => Container(
                               width: 64,
@@ -60,11 +56,10 @@ class DiscoverFmRow extends StatelessWidget {
                     fm.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall,
+                    style: const TextStyle(fontSize: 11),
                   ),
                 ],
               ),
-            ),
             ),
           );
         },

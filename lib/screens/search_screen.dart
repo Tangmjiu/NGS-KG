@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/rank_entry.dart';
@@ -11,7 +10,6 @@ import '../services/api_client.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
-import '../widgets/list_bottom_spacer.dart';
 import '../theme/theme_assets.dart';
 import '../constants/banned_words.dart';
 
@@ -60,16 +58,6 @@ class _SearchScreenState extends State<SearchScreen>
     _tabController.addListener(_onTabChanged);
     _loadHotSearch();
     _loadRanks();
-
-    // ── 检查并处理预设搜索词 ──
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final args = ModalRoute.of(context)?.settings.arguments;
-      if (args is String && args.isNotEmpty) {
-        _searchCtrl.text = args;
-        _doSearch(args);
-      }
-    });
   }
 
   @override
@@ -178,13 +166,6 @@ class _SearchScreenState extends State<SearchScreen>
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
-    final searchBg = Color.alphaBlend(
-      cs.onSurface.withValues(alpha: isDark ? 0.08 : 0.05),
-      cs.surface,
-    );
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -193,65 +174,43 @@ class _SearchScreenState extends State<SearchScreen>
         title: Container(
           height: 40,
           decoration: BoxDecoration(
-            color: searchBg,
-            borderRadius: AppShape.full,
+            color: Theme.of(context).colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(25),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              Icon(
-                Icons.search,
-                size: 20,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+          child: TextField(
+            controller: _searchCtrl,
+            focusNode: _focusNode,
+            autofocus: false,
+            decoration: InputDecoration(
+              hintText: '搜索歌曲、歌单、歌手...',
+              border: InputBorder.none,
+              filled: false,
+              isCollapsed: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              prefixIcon: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(Icons.search, size: 20,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _searchCtrl,
-                  focusNode: _focusNode,
-                  autofocus: false,
-                  textAlignVertical: TextAlignVertical.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontSize: 14,
+              suffixIcon: _searchCtrl.text.isNotEmpty
+                  ? SizedBox(
+                      width: 28,
+                      child: IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        tooltip: '清除',
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          _onSearchChanged('');
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                       ),
-                  decoration: InputDecoration(
-                    hintText: '搜索歌曲、歌单、歌手...',
-                    hintStyle: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                      fontSize: 14,
-                    ),
-                    border: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    errorBorder: InputBorder.none,
-                    disabledBorder: InputBorder.none,
-                    isCollapsed: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  onChanged: _onSearchChanged,
-                  onSubmitted: _doSearch,
-                ),
-              ),
-              if (_searchCtrl.text.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(left: 4),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(100),
-                    onTap: () {
-                      _searchCtrl.clear();
-                      _onSearchChanged('');
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(6),
-                      child: Icon(
-                        Icons.clear,
-                        size: 18,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+                    )
+                  : null,
+            ),
+            onChanged: _onSearchChanged,
+            onSubmitted: _doSearch,
           ),
         ),
         bottom: _showResult
@@ -320,18 +279,13 @@ class _SearchScreenState extends State<SearchScreen>
     if (_suggestions.isNotEmpty) {
       return ListView.builder(
         itemCount: _suggestions.length,
-        itemBuilder: (_, i) => M3StaggeredFadeIn(
-          index: i,
-          child: M3PressScale(
-            child: ListTile(
-              leading: const Icon(Icons.search, size: 20),
-              title: Text(_suggestions[i]),
-              onTap: () {
-                _searchCtrl.text = _suggestions[i];
-                _doSearch(_suggestions[i]);
-              },
-            ),
-          ),
+        itemBuilder: (_, i) => ListTile(
+          leading: const Icon(Icons.search, size: 20),
+          title: Text(_suggestions[i]),
+          onTap: () {
+            _searchCtrl.text = _suggestions[i];
+            _doSearch(_suggestions[i]);
+          },
         ),
       );
     }
@@ -358,23 +312,20 @@ class _SearchScreenState extends State<SearchScreen>
                   final rank = _ranks[i];
                   final name = rank.name;
                   final img = rank.coverUrl ?? rank.bannerUrl ?? '';
-                  return M3StaggeredFadeIn(
-                    index: i,
-                    child: M3PressScale(
-                      child: GestureDetector(
-                        onTap: () {
-                          if (rank.id > 0) {
-                            Navigator.pushNamed(context, '/rank/detail',
-                                arguments: {'id': rank.id, 'name': name});
-                          }
-                        },
-                        child: Container(
+                  return GestureDetector(
+                    onTap: () {
+                      if (rank.id > 0) {
+                        Navigator.pushNamed(context, '/rank/detail',
+                            arguments: {'id': rank.id, 'name': name});
+                      }
+                    },
+                    child: Container(
                       width: 80,
                       margin: const EdgeInsets.only(right: 8),
                       child: Column(
                         children: [
                           ClipRRect(
-                            borderRadius: AppShape.sm,
+                            borderRadius: BorderRadius.circular(8),
                             child: img.isNotEmpty
                                 ? CachedNetworkImage(
                                     imageUrl: img.replaceAll('{size}', '240'),
@@ -400,10 +351,8 @@ class _SearchScreenState extends State<SearchScreen>
                         ],
                       ),
                     ),
-                  ),
-                ),
-              );
-            },
+                  );
+                },
               ),
             ),
           ],
@@ -414,32 +363,27 @@ class _SearchScreenState extends State<SearchScreen>
           ),
           ...List.generate(_hotSearch.length, (i) {
             final item = _hotSearch[i];
-            return M3StaggeredFadeIn(
-              index: i,
-              child: M3PressScale(
-                child: ListTile(
-                  leading: SizedBox(
-                    width: 28,
-                    child: Text('${i + 1}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: i < 3
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.outline,
-                        )),
-                  ),
-                  title: Text(item.text),
-                  subtitle: item.reason.isNotEmpty && item.reason != item.text
-                      ? Text(item.reason,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant))
-                      : null,
-                  onTap: () {
-                    _searchCtrl.text = item.text;
-                    _doSearch(item.text);
-                  },
-                ),
+            return ListTile(
+              leading: SizedBox(
+                width: 28,
+                child: Text('${i + 1}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: i < 3
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.outline,
+                    )),
               ),
+              title: Text(item.text),
+              subtitle: item.reason.isNotEmpty && item.reason != item.text
+                  ? Text(item.reason,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant))
+                  : null,
+              onTap: () {
+                _searchCtrl.text = item.text;
+                _doSearch(item.text);
+              },
             );
           }),
         ],
@@ -473,21 +417,13 @@ class _SearchScreenState extends State<SearchScreen>
       return _emptyResult('未找到歌曲');
     }
     return ListView.builder(
-      itemCount: _songs.length + 1,
-      itemBuilder: (_, i) {
-        if (i == _songs.length) {
-          return const ListBottomSpacer(isHome: false, showText: false);
-        }
-        return M3StaggeredFadeIn(
-          index: i,
-          child: SongTile(
-            song: _songs[i],
-            onTap: (s) => context
-                .read<PlayerProvider>()
-                .playSong(s, playlist: _songs),
-          ),
-        );
-      },
+      itemCount: _songs.length,
+      itemBuilder: (_, i) => SongTile(
+        song: _songs[i],
+        onTap: (s) => context
+            .read<PlayerProvider>()
+            .playSong(s, playlist: _songs),
+      ),
     );
   }
 
@@ -496,53 +432,45 @@ class _SearchScreenState extends State<SearchScreen>
       return _emptyResult('未找到歌单');
     }
     return ListView.builder(
-      itemCount: _playlists.length + 1,
+      itemCount: _playlists.length,
       itemBuilder: (_, i) {
-        if (i == _playlists.length) {
-          return const ListBottomSpacer(isHome: false, showText: false);
-        }
         final p = _playlists[i];
         final name = p['specialname'] as String? ?? p['name'] as String? ?? '';
         final img = p['imgurl'] as String? ?? p['img'] as String? ?? '';
         final count = p['songcount'] as int? ?? 0;
-        return M3StaggeredFadeIn(
-          index: i,
-          child: M3PressScale(
-            child: ListTile(
-              leading: img.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: AppShape.xs,
-                      child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
-                          width: 48, height: 48, fit: BoxFit.cover),
-                    )
-                  : Container(
-                      width: 48, height: 48,
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: const Icon(Icons.queue_music),
-                    ),
-              title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: Text('$count首歌'),
-              onTap: () {
-                final gcId = p['global_collection_id'] as String?
-                    ?? p['globalCollectionId'] as String?
-                    ?? p['parent_global_collection_id'] as String?
-                    ?? p['gid'] as String?
-                    ?? (() {
-                      final listId = p['id'] ?? p['specialid'];
-                      final userId = p['list_create_userid'] ?? p['userid']
-                          ?? ApiClient.userId;
-                      if (listId != null && userId != null) {
-                        return 'collection_3_${userId}_${listId}_0';
-                      }
-                      return listId?.toString();
-                    })();
-                if (gcId != null) {
-                  Navigator.pushNamed(context, '/playlist/detail',
-                      arguments: {'gcId': gcId, 'name': name});
-                }
-              },
-            ),
-          ),
+        return ListTile(
+          leading: img.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
+                      width: 48, height: 48, fit: BoxFit.cover),
+                )
+              : Container(
+                  width: 48, height: 48,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  child: const Icon(Icons.queue_music),
+                ),
+          title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text('$count首歌'),
+          onTap: () {
+            final gcId = p['global_collection_id'] as String?
+                ?? p['globalCollectionId'] as String?
+                ?? p['parent_global_collection_id'] as String?
+                ?? p['gid'] as String?
+                ?? (() {
+                  final listId = p['id'] ?? p['specialid'];
+                  final userId = p['list_create_userid'] ?? p['userid']
+                      ?? ApiClient.userId;
+                  if (listId != null && userId != null) {
+                    return 'collection_3_${userId}_${listId}_0';
+                  }
+                  return listId?.toString();
+                })();
+            if (gcId != null) {
+              Navigator.pushNamed(context, '/playlist/detail',
+                  arguments: {'gcId': gcId, 'name': name});
+            }
+          },
         );
       },
     );
@@ -553,41 +481,33 @@ class _SearchScreenState extends State<SearchScreen>
       return _emptyResult('未找到专辑');
     }
     return ListView.builder(
-      itemCount: _albums.length + 1,
+      itemCount: _albums.length,
       itemBuilder: (_, i) {
-        if (i == _albums.length) {
-          return const ListBottomSpacer(isHome: false, showText: false);
-        }
         final a = _albums[i];
         final name = a['albumname'] as String? ?? '';
         final img = a['imgurl'] as String? ?? a['img'] as String? ?? '';
         final artist = a['singer'] as String? ?? a['singername'] as String? ?? a['artist'] as String? ?? '';
-        return M3StaggeredFadeIn(
-          index: i,
-          child: M3PressScale(
-            child: ListTile(
-              leading: img.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: AppShape.xs,
-                      child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
-                          width: 48, height: 48, fit: BoxFit.cover),
-                    )
-                  : Container(
-                      width: 48, height: 48,
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: const Icon(Icons.album),
-                    ),
-              title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
-              onTap: () {
-                final id = a['albumid'];
-                final albumId = id is int ? id : (id is String ? int.tryParse(id) : null) ?? a['id'] as int?;
-                if (albumId != null) {
-                  Navigator.pushNamed(context, '/album/detail', arguments: {'id': albumId});
-                }
-              },
-            ),
-          ),
+        return ListTile(
+          leading: img.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
+                      width: 48, height: 48, fit: BoxFit.cover),
+                )
+              : Container(
+                  width: 48, height: 48,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  child: const Icon(Icons.album),
+                ),
+          title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
+          onTap: () {
+            final id = a['albumid'];
+            final albumId = id is int ? id : (id is String ? int.tryParse(id) : null) ?? a['id'] as int?;
+            if (albumId != null) {
+              Navigator.pushNamed(context, '/album/detail', arguments: {'id': albumId});
+            }
+          },
         );
       },
     );
@@ -598,41 +518,33 @@ class _SearchScreenState extends State<SearchScreen>
       return _emptyResult('未找到歌手');
     }
     return ListView.builder(
-      itemCount: _artists.length + 1,
+      itemCount: _artists.length,
       itemBuilder: (_, i) {
-        if (i == _artists.length) {
-          return const ListBottomSpacer(isHome: false, showText: false);
-        }
         final a = _artists[i];
         final name = a['AuthorName'] as String? ?? a['singername'] as String? ?? a['name'] as String? ?? '';
         final img = a['Avatar'] as String? ?? a['imgurl'] as String? ?? a['img'] as String? ?? '';
-        return M3StaggeredFadeIn(
-          index: i,
-          child: M3PressScale(
-            child: ListTile(
-              leading: img.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: AppShape.xl,
-                      child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
-                          width: 48, height: 48, fit: BoxFit.cover),
-                    )
-                  : Container(
-                      width: 48, height: 48,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.person),
-                    ),
-              title: Text(name),
-              onTap: () {
-                final id = a['AuthorId'] as int? ?? a['singermid'] as int? ?? a['id'] as int?;
-                if (id != null) {
-                  Navigator.pushNamed(context, '/artist/detail', arguments: {'id': id});
-                }
-              },
-            ),
-          ),
+        return ListTile(
+          leading: img.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
+                      width: 48, height: 48, fit: BoxFit.cover),
+                )
+              : Container(
+                  width: 48, height: 48,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.person),
+                ),
+          title: Text(name),
+          onTap: () {
+            final id = a['AuthorId'] as int? ?? a['singermid'] as int? ?? a['id'] as int?;
+            if (id != null) {
+              Navigator.pushNamed(context, '/artist/detail', arguments: {'id': id});
+            }
+          },
         );
       },
     );
@@ -679,39 +591,31 @@ class _SearchScreenState extends State<SearchScreen>
       return _emptyResult('未找到歌词');
     }
     return ListView.builder(
-      itemCount: _lyrics.length + 1,
+      itemCount: _lyrics.length,
       itemBuilder: (_, i) {
-        if (i == _lyrics.length) {
-          return const ListBottomSpacer(isHome: false, showText: false);
-        }
         final l = _lyrics[i];
         final songName = l['SongName'] as String? ?? l['songname'] as String? ?? '';
         final artist = l['SingerName'] as String? ?? l['singername'] as String? ?? '';
         final content = l['Lyric'] as String? ?? l['lyric'] as String? ?? l['content'] as String? ?? '';
-        return M3StaggeredFadeIn(
-          index: i,
-          child: M3PressScale(
-            child: ListTile(
-              title: Text(songName, maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  Text(content,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                ],
-              ),
-              isThreeLine: true,
-              onTap: () {
-                final song = SongMapper.fromKugouJson(l);
-                if (song != null) {
-                  context.read<PlayerProvider>().playSong(song);
-                }
-              },
-            ),
+        return ListTile(
+          title: Text(songName, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(content,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            ],
           ),
+          isThreeLine: true,
+          onTap: () {
+            final song = SongMapper.fromKugouJson(l);
+            if (song != null) {
+              context.read<PlayerProvider>().playSong(song);
+            }
+          },
         );
       },
     );
