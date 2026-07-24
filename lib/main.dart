@@ -221,6 +221,7 @@ class NGSKGApp extends StatelessWidget {
       builder: (context, themeProvider, _) {
         return MaterialApp(
           navigatorKey: navKey,
+          navigatorObservers: [AppRouteObserver.instance],
           title: 'NGS-KG+',
           debugShowCheckedModeBanner: false,
           theme: themeProvider.buildLightTheme(context, dynamicScheme: lightDynamic),
