@@ -1,12 +1,16 @@
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/logger.dart';
+import 'remote_config_service.dart';
 
 /// API 地址动态配置
 ///
-/// 两种模式：
-///   1. mjiutang — 内置两个路线（Cloudflare 海外 / 中国内地）
-///   2. custom  — 用户自定义地址
+/// 三种来源（优先级从高到低）：
+///   1. 远程配置下发（RemoteConfigService 缓存）— 不暴露真实 IP
+///   2. mjiutang — 内置域名路线（Cloudflare 已关闭代理，直接用域名）
+///   3. custom  — 用户自定义地址
+///
+/// 注：原中国内地路线（111.170.14.52）已失效，保留枚举仅兼容旧版本持久化数据。
 class ApiConfig {
   static ApiConfig? _instance;
 
@@ -17,10 +21,12 @@ class ApiConfig {
   static const String modeMjiutang = 'mjiutang';
   static const String modeCustom = 'custom';
   static const String routeCloudflare = 'cloudflare';
+
+  /// 已弃用：仅用于兼容旧版本 SharedPreferences 中的持久化值
   static const String routeChina = 'china';
 
+  /// 默认域名路线（Cloudflare 代理已关闭，直接解析到香港服务器）
   static const String cloudflareUrl = 'https://kugouapi.mjiutang.top';
-  static const String chinaUrl = 'http://111.170.14.52:42980';
 
   String _cachedUrl = '';
 
@@ -56,12 +62,25 @@ class ApiConfig {
   }
 
   /// 根据当前模式计算实际 URL
+  ///
+  /// 优先级：
+  ///   1. 远程配置缓存中的有效 api_base
+  ///   2. 自定义模式下的用户地址
+  ///   3. 默认域名路线
   Future<String> getBaseUrl() async {
     if (_cachedUrl.isNotEmpty) return _cachedUrl;
+
+    // 1. 远程配置缓存
+    final remoteCached = RemoteConfigService.instance.getValidCachedBaseUrl();
+    if (remoteCached != null && remoteCached.isNotEmpty) {
+      _cachedUrl = _normalizeUrl(remoteCached);
+      return _cachedUrl;
+    }
 
     final prefs = await SharedPreferences.getInstance();
     final mode = prefs.getString(_modeKey) ?? modeMjiutang;
 
+    // 2. 用户自定义地址
     if (mode == modeCustom) {
       final custom = prefs.getString(_customUrlKey);
       if (custom != null && custom.isNotEmpty) {
@@ -70,53 +89,41 @@ class ApiConfig {
       }
     }
 
+    // 3. 默认域名路线（旧版 routeChina 也统一回退到域名）
     final route = prefs.getString(_routeKey) ?? routeCloudflare;
-    _cachedUrl = route == routeCloudflare ? cloudflareUrl : chinaUrl;
+    _cachedUrl = route == routeCloudflare ? cloudflareUrl : cloudflareUrl;
     return _cachedUrl;
   }
 
-  /// 后台并发探测 API 延迟，自动锁定可用且速度最快的内置路线
+  /// 后台探测 API 可用性
+  ///
+  /// 原内地路线已失效，只探测域名路线。若域名不通且远程配置未启用，
+  /// 用户可手动切换到自定义 IP 模式。
   Future<void> detectBestRoute() async {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getString(_modeKey) == modeCustom) return;
 
-    Log.i('ApiConfig', '开始并发探测 API 路线延迟...');
-    final client = HttpClient()..connectionTimeout = const Duration(milliseconds: 1500);
-
-    Future<String?> testUrl(String url, String routeName) async {
-      try {
-        final request = await client.getUrl(Uri.parse(url));
-        final response = await request.close();
-        if (response.statusCode >= 200 && response.statusCode < 400) {
-          Log.i('ApiConfig', '路线探测成功: $routeName, 状态码: ${response.statusCode}');
-          return routeName;
-        }
-      } catch (e) {
-        Log.w('ApiConfig', '路线探测超时或不可达: $routeName, 错误: $e');
-      }
-      return null;
-    }
+    Log.i('ApiConfig', '开始探测 API 路线...');
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(milliseconds: 1500)
+      ..idleTimeout = const Duration(seconds: 2);
 
     try {
-      final results = await Future.wait([
-        testUrl(cloudflareUrl, routeCloudflare),
-        testUrl(chinaUrl, routeChina),
-      ]);
-
-      // results[0] 是 CF 节点，results[1] 是国内 IP 节点
-      final winner = results[0] ?? results[1];
-      if (winner != null) {
-        Log.i('ApiConfig', '自适应胜出路线为: $winner');
-        await setMjiutangRoute(winner);
-      } else {
-        Log.e('ApiConfig', '所有 API 路线均无法访问！请检查网络状态。');
+      final request = await client.getUrl(Uri.parse(cloudflareUrl));
+      final response = await request.close();
+      if (response.statusCode >= 200 && response.statusCode < 400) {
+        Log.i('ApiConfig', '域名路线可用, 状态码: ${response.statusCode}');
+        await setMjiutangRoute(routeCloudflare);
+        return;
       }
     } catch (e) {
-      Log.e('ApiConfig', '路由自动探测发生异常', e);
+      Log.w('ApiConfig', '域名路线探测失败: $e');
     }
+
+    Log.e('ApiConfig', '域名路线不可用，请检查网络，或在设置中切换到自定义 IP。');
   }
 
-  String get baseUrlSync => _cachedUrl.isNotEmpty ? _cachedUrl : chinaUrl;
+  String get baseUrlSync => _cachedUrl.isNotEmpty ? _cachedUrl : cloudflareUrl;
 
   /// 自定义模式下保存用户地址
   Future<void> setCustomUrl(String url) async {
