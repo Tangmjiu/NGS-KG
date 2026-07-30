@@ -142,17 +142,6 @@ class ThemeProvider extends ChangeNotifier {
     return preset.isNotEmpty ? preset.first.lightPrimary : _customColor;
   }
 
-  /// 根据亮度返回当前有效强调色
-  /// 亮色模式用 lightPrimary，暗色模式用 darkPrimary
-  Color effectiveColorFor(Brightness brightness) {
-    if (_accentKey == 'custom') return _customColor;
-    final preset = kThemePresets.where((p) => p.key == _accentKey);
-    if (preset.isEmpty) return _customColor;
-    return brightness == Brightness.dark
-        ? preset.first.darkPrimary
-        : preset.first.lightPrimary;
-  }
-
   /// 当前强调色显示名称
   String get accentLabel {
     if (_accentKey == 'custom') return '自定义';
@@ -458,7 +447,7 @@ class ThemeProvider extends ChangeNotifier {
     // 2. 强调色覆盖（使用亮度感知的预设色）
     if (hasAccentOverride) {
       return ColorScheme.fromSeed(
-        seedColor: effectiveColorFor(brightness),
+        seedColor: effectiveColor,
         brightness: brightness,
       );
     }

@@ -207,7 +207,8 @@ class SongMapper {
         hash: hash,
         qualities: q.isNotEmpty ? q : null,
       );
-    } catch (_) {
+    } catch (e, s) {
+      Log.e('song_mapper', 'fromRankJson error', e, s);
       return null;
     }
   }
