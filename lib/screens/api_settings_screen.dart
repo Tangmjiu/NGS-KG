@@ -71,11 +71,8 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
       _testing = true;
       _testResult = null;
     });
-    final config = ApiConfig.instance;
     final url = _mode == ApiConfig.modeMjiutang
-        ? (_route == ApiConfig.routeCloudflare
-            ? ApiConfig.cloudflareUrl
-            : ApiConfig.chinaUrl)
+        ? ApiConfig.cloudflareUrl
         : _urlCtrl.text.trim();
     if (url.isEmpty) return;
     final result = await ApiClient.testConnection(url);
@@ -127,20 +124,43 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
               child: Column(
                 children: [
                   RadioListTile<String>(
-                    title: const Text('Cloudflare（海外路线）'),
-                    subtitle: const Text(
-                      'https://kugouapi.mjiutang.top\n中国大陆延迟较高，部分地区无法访问',
-                      style: TextStyle(fontSize: 12),
+                    title: const Text('默认域名路线'),
+                    subtitle: Text(
+                      '使用官方域名访问，大部分地区可直接解析；如果解析失败，可尝试自定义 IP 模式',
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                     value: ApiConfig.routeCloudflare,
                     groupValue: _route,
                     onChanged: (v) => setState(() => _route = v!),
                   ),
                   RadioListTile<String>(
-                    title: const Text('中国内地'),
-                    subtitle: const Text(
-                      '不带域名可能不稳定',
-                      style: TextStyle(fontSize: 12),
+                    title: Row(
+                      children: [
+                        const Text('中国内地'),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.errorContainer,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '已停用',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onErrorContainer,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    subtitle: Text(
+                      '原国内加速节点已下线，选择后将自动回退到默认域名路线',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                     ),
                     value: ApiConfig.routeChina,
                     groupValue: _route,

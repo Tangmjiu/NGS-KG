@@ -305,7 +305,8 @@ class ApiClient {
 
     _dio = Dio(BaseOptions(
       // 初始 baseUrl — 会被 _DynamicBaseUrlInterceptor 在运行期覆盖
-      baseUrl: ApiConfig.chinaUrl,
+      // 默认使用域名路线，真实 IP 通过远程配置或自定义模式下发
+      baseUrl: ApiConfig.cloudflareUrl,
       connectTimeout: AppConstants.connectTimeout,
       receiveTimeout: AppConstants.receiveTimeout,
       headers: {

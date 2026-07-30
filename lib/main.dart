@@ -23,6 +23,7 @@ import 'services/music_service.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/cache_service.dart';
+import 'services/remote_config_service.dart';
 import 'providers/audio_settings_provider.dart';
 import 'navidrome/navidrome_provider.dart';
 import 'providers/local_music_provider.dart';
@@ -95,9 +96,9 @@ Future<void> main() async {
     );
   };
 
-  // 只对后台初始化任务使�?zone 捕获异常
+  // 后台初始化任务（非阻塞）
   runZonedGuarded(() {
-    _initDevice();
+    _initRemoteConfigAndDevice();
     _initNotifications();
   }, (error, stack) {
     Log.e('ZONE', 'Background init error', error, stack);
@@ -144,8 +145,19 @@ Future<void> main() async {
 
 }
 
-Future<void> _initDevice() async {
+Future<void> _initRemoteConfigAndDevice() async {
   try {
+    // 1. 先加载远程配置缓存并尝试拉取最新配置
+    await RemoteConfigService.instance.init();
+    await RemoteConfigService.instance.fetch();
+
+    // 2. 远程配置拿到后，重新初始化 ApiClient 以应用新的 baseUrl
+    ApiClient.instance.reinitialize();
+
+    // 3. 探测域名路线可用性（仅日志提示，内地路线已弃用）
+    await ApiConfig.instance.detectBestRoute();
+
+    // 4. 设备注册/恢复
     final device = await DeviceService.instance.getDeviceInfo();
     if (device == null || !device.isValid) {
       final newDevice = await DeviceService.instance.registerDevice();
