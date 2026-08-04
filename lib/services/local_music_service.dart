@@ -11,11 +11,43 @@ import 'metadata_reader.dart';
 import 'local_library_db.dart';
 
 class LocalMusicService {
-  static const _audioExtensions = ['.mp3', '.flac', '.wav', '.aac', '.ogg', '.wma', '.m4a'];
+  static const _audioExtensions = [
+    '.mp3',
+    '.flac',
+    '.wav',
+    '.aac',
+    '.ogg',
+    '.wma',
+    '.m4a'
+  ];
+
   /// 加密/DRM 保护格式：不可播放，扫描时跳过。
-  static const _encryptedExtensions = ['.kgm', '.kgg', '.vpr', '.ncm', '.mgg', '.mflac', '.qmc0', '.qmc3', '.qmcflac', '.tkm', '.bkc'];
+  static const _encryptedExtensions = [
+    '.kgm',
+    '.kgg',
+    '.vpr',
+    '.ncm',
+    '.mgg',
+    '.mflac',
+    '.qmc0',
+    '.qmc3',
+    '.qmcflac',
+    '.tkm',
+    '.bkc'
+  ];
+
   /// 文件名包含这些后缀视为加密（如 song.kgm.flac、song.qmcflac.mp3）。
-  static const _encryptedNamePatterns = ['kgm.', 'kgg.', 'qmc', 'vpr.', 'ncm.', 'mgg.', 'mflac.', 'tkm.', 'bkc.'];
+  static const _encryptedNamePatterns = [
+    'kgm.',
+    'kgg.',
+    'qmc',
+    'vpr.',
+    'ncm.',
+    'mgg.',
+    'mflac.',
+    'tkm.',
+    'bkc.'
+  ];
   static const _persistedDirsKey = 'local_music_folders';
 
   final LocalLibraryDB _db = LocalLibraryDB();
@@ -38,12 +70,18 @@ class LocalMusicService {
           final s = songs[i];
           if (s.filePath != null && coverMap.containsKey(s.filePath)) {
             songs[i] = Song(
-              id: s.id, name: s.name, artists: s.artists,
+              id: s.id,
+              name: s.name,
+              artists: s.artists,
               albumName: s.albumName,
               albumCoverUrl: Uri.file(coverMap[s.filePath]!).toString(),
-              filePath: s.filePath, duration: s.duration,
-              mediaStoreId: s.mediaStoreId, size: s.size,
-              bitrate: s.bitrate, codec: s.codec, lyrics: s.lyrics,
+              filePath: s.filePath,
+              duration: s.duration,
+              mediaStoreId: s.mediaStoreId,
+              size: s.size,
+              bitrate: s.bitrate,
+              codec: s.codec,
+              lyrics: s.lyrics,
               qualities: s.qualities,
             );
           }
@@ -72,7 +110,8 @@ class LocalMusicService {
   }
 
   /// 通过 on_audio_query 查询 MediaStore 专辑封面并缓存。
-  Future<String?> _queryArtworkCover(OnAudioQuery audioQuery, int? mediaStoreId) async {
+  Future<String?> _queryArtworkCover(
+      OnAudioQuery audioQuery, int? mediaStoreId) async {
     if (mediaStoreId == null) return null;
     try {
       final artBytes = await audioQuery.queryArtwork(
@@ -97,8 +136,9 @@ class LocalMusicService {
   Future<Map<String, String>> _batchExtractCovers(List<Song> songs) async {
     const concurrency = 4;
     final result = <String, String>{};
-    final noCover = songs.where((s) =>
-        s.albumCoverUrl == null || s.albumCoverUrl!.isEmpty).toList();
+    final noCover = songs
+        .where((s) => s.albumCoverUrl == null || s.albumCoverUrl!.isEmpty)
+        .toList();
     if (noCover.isEmpty) return result;
 
     for (var i = 0; i < noCover.length; i += concurrency) {
@@ -146,7 +186,8 @@ class LocalMusicService {
         if (header[0] == 0x49 && header[1] == 0x44 && header[2] == 0x33) {
           await raf.setPosition(6);
           final sb = await raf.read(4);
-          final tagEnd = 10 + ((sb[0] << 21) | (sb[1] << 14) | (sb[2] << 7) | sb[3]);
+          final tagEnd =
+              10 + ((sb[0] << 21) | (sb[1] << 14) | (sb[2] << 7) | sb[3]);
           var pos = 10;
           while (pos < tagEnd - 10) {
             await raf.setPosition(pos);
@@ -158,7 +199,8 @@ class LocalMusicService {
               final data = await raf.read(fsz);
               int off = 1;
               while (off < data.length && data[off] != 0) off++;
-              off++; off++;
+              off++;
+              off++;
               while (off < data.length && data[off] != 0) off++;
               off++;
               if (off < data.length) return _saveCoverBytes(data.sublist(off));
@@ -169,7 +211,10 @@ class LocalMusicService {
           return null;
         }
         // FLAC METADATA_BLOCK_PICTURE
-        if (header[0] == 0x66 && header[1] == 0x4C && header[2] == 0x61 && header[3] == 0x43) {
+        if (header[0] == 0x66 &&
+            header[1] == 0x4C &&
+            header[2] == 0x61 &&
+            header[3] == 0x43) {
           await raf.setPosition(4);
           var last = false;
           while (!last) {
@@ -181,22 +226,32 @@ class LocalMusicService {
             if (bt == 6) {
               final data = await raf.read(bs);
               if (data.length < 32) break;
-              final ml = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+              final ml =
+                  (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
               var off = 8 + ml;
               if (off + 4 > data.length) break;
-              final dl = (data[off] << 24) | (data[off+1] << 16) | (data[off+2] << 8) | data[off+3];
+              final dl = (data[off] << 24) |
+                  (data[off + 1] << 16) |
+                  (data[off + 2] << 8) |
+                  data[off + 3];
               off += 4 + dl + 16;
               if (off + 4 > data.length) break;
-              final pl = (data[off] << 24) | (data[off+1] << 16) | (data[off+2] << 8) | data[off+3];
+              final pl = (data[off] << 24) |
+                  (data[off + 1] << 16) |
+                  (data[off + 2] << 8) |
+                  data[off + 3];
               off += 4;
-              if (off + pl <= data.length) return _saveCoverBytes(data.sublist(off, off + pl));
+              if (off + pl <= data.length)
+                return _saveCoverBytes(data.sublist(off, off + pl));
               break;
             }
             await raf.setPosition(raf.positionSync() + bs);
           }
           return null;
         }
-      } finally { await raf.close(); }
+      } finally {
+        await raf.close();
+      }
     } catch (_) {}
     return null;
   }
@@ -204,7 +259,8 @@ class LocalMusicService {
   static Future<String?> _saveCoverBytes(List<int> bytes) async {
     if (bytes.isEmpty) return null;
     final d = await getTemporaryDirectory();
-    final f = File('${d.path}/embedded_${bytes.hashCode}_${DateTime.now().millisecondsSinceEpoch}.jpg');
+    final f = File(
+        '${d.path}/embedded_${bytes.hashCode}_${DateTime.now().millisecondsSinceEpoch}.jpg');
     await f.writeAsBytes(bytes);
     return f.path;
   }
@@ -218,7 +274,8 @@ class LocalMusicService {
 
     // 新增的文件
     final newPaths = scannedPaths.difference(cachedPaths);
-    final newSongs = scanned.where((s) => newPaths.contains(s.filePath)).toList();
+    final newSongs =
+        scanned.where((s) => newPaths.contains(s.filePath)).toList();
 
     // 删除的文件
     final removedPaths = cachedPaths.difference(scannedPaths).toList();
@@ -353,7 +410,9 @@ class LocalMusicService {
     try {
       final appDir = await getApplicationDocumentsDirectory();
       dirs.add(Directory('${appDir.path}/music'));
-    } catch (e, s) { Log.e('local_music_service', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('local_music_service', 'error', e, s);
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getStringList(_persistedDirsKey) ?? [];
@@ -383,26 +442,42 @@ class LocalMusicService {
 
           final meta = await MetadataReader.read(entry);
           if (meta != null) {
-            if (meta.title != null && meta.title!.isNotEmpty) title = meta.title!;
-            if (meta.artist != null && meta.artist!.isNotEmpty) artist = meta.artist!;
-            if (meta.album != null && meta.album!.isNotEmpty) album = meta.album!;
-            if (meta.durationMs > 0) duration = (meta.durationMs / 1000).round();
-            if (meta.bitrate != null && meta.bitrate! > 0) bitrate = meta.bitrate!;
+            if (meta.title != null && meta.title!.isNotEmpty)
+              title = meta.title!;
+            if (meta.artist != null && meta.artist!.isNotEmpty)
+              artist = meta.artist!;
+            if (meta.album != null && meta.album!.isNotEmpty)
+              album = meta.album!;
+            if (meta.durationMs > 0)
+              duration = (meta.durationMs / 1000).round();
+            if (meta.bitrate != null && meta.bitrate! > 0)
+              bitrate = meta.bitrate!;
             if (meta.albumArt != null && meta.albumArt!.isNotEmpty) {
               coverCachePath = await _cacheAlbumArt(entry.path, meta.albumArt!);
             }
           }
           coverCachePath ??= await _findFolderCover(entry.path);
 
-          if (ext == '.flac') { codec = 'FLAC'; bitrate ??= 900; }
-          else if (ext == '.wav') { codec = 'WAV'; bitrate ??= 1411; }
-          else if (ext == '.mp3') { codec = 'MP3'; }
-          else if (ext == '.aac' || ext == '.m4a') { codec = 'AAC'; }
-          else if (ext == '.ogg') { codec = 'OGG'; }
-          else if (ext == '.wma') { codec = 'WMA'; }
+          if (ext == '.flac') {
+            codec = 'FLAC';
+            bitrate ??= 900;
+          } else if (ext == '.wav') {
+            codec = 'WAV';
+            bitrate ??= 1411;
+          } else if (ext == '.mp3') {
+            codec = 'MP3';
+          } else if (ext == '.aac' || ext == '.m4a') {
+            codec = 'AAC';
+          } else if (ext == '.ogg') {
+            codec = 'OGG';
+          } else if (ext == '.wma') {
+            codec = 'WMA';
+          }
 
           String? lyrics = await _readCompanionLrc(entry.path);
-          if ((lyrics == null || lyrics.isEmpty) && meta?.lyrics != null && meta!.lyrics!.isNotEmpty) {
+          if ((lyrics == null || lyrics.isEmpty) &&
+              meta?.lyrics != null &&
+              meta!.lyrics!.isNotEmpty) {
             lyrics = meta.lyrics;
           }
 
@@ -421,7 +496,9 @@ class LocalMusicService {
           ));
         }
       }
-    } catch (e, s) { Log.e('local_music_service', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('local_music_service', 'error', e, s);
+    }
   }
 
   // ─── Shared helpers ─────────────────────────────────────────
@@ -433,8 +510,16 @@ class LocalMusicService {
 
   static Future<String?> _findFolderCover(String audioPath) async {
     final dir = p.dirname(audioPath);
-    const candidates = ['cover.jpg', 'cover.png', 'folder.jpg', 'folder.png',
-      'Cover.jpg', 'Front.jpg', 'Folder.jpg', 'AlbumArtSmall.jpg'];
+    const candidates = [
+      'cover.jpg',
+      'cover.png',
+      'folder.jpg',
+      'folder.png',
+      'Cover.jpg',
+      'Front.jpg',
+      'Folder.jpg',
+      'AlbumArtSmall.jpg'
+    ];
     for (final name in candidates) {
       final candidate = p.join(dir, name);
       if (await File(candidate).exists()) return candidate;
@@ -460,7 +545,9 @@ class LocalMusicService {
   static String _decodeText(Uint8List bytes) {
     // UTF-8 BOM 检测
     if (bytes.length >= 3 &&
-        bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+        bytes[0] == 0xEF &&
+        bytes[1] == 0xBB &&
+        bytes[2] == 0xBF) {
       return utf8.decode(bytes, allowMalformed: true);
     }
     // 尝试 UTF-8
@@ -539,25 +626,37 @@ class LocalMusicService {
 
   static String _detectCodec(String ext) {
     switch (ext) {
-      case '.flac': return 'FLAC';
-      case '.wav': return 'WAV';
-      case '.mp3': return 'MP3';
-      case '.aac': case '.m4a': return 'AAC';
-      case '.ogg': return 'OGG';
-      case '.wma': return 'WMA';
-      default: return '';
+      case '.flac':
+        return 'FLAC';
+      case '.wav':
+        return 'WAV';
+      case '.mp3':
+        return 'MP3';
+      case '.aac':
+      case '.m4a':
+        return 'AAC';
+      case '.ogg':
+        return 'OGG';
+      case '.wma':
+        return 'WMA';
+      default:
+        return '';
     }
   }
 
   static int _estimateBitrate(String codec) {
     switch (codec) {
-      case 'FLAC': return 900;
-      case 'WAV': return 1411;
-      default: return 0;
+      case 'FLAC':
+        return 900;
+      case 'WAV':
+        return 1411;
+      default:
+        return 0;
     }
   }
 
-  static Future<String?> _cacheAlbumArt(String audioPath, Uint8List artData) async {
+  static Future<String?> _cacheAlbumArt(
+      String audioPath, Uint8List artData) async {
     try {
       final cacheDir = await getTemporaryDirectory();
       final baseName = p.basenameWithoutExtension(audioPath);

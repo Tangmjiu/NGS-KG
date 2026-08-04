@@ -151,8 +151,7 @@ class Log {
       tag: tag,
       message: message,
       error: error,
-      stackTrace:
-          stack?.toString().split('\n').take(6).join('\n'),
+      stackTrace: stack?.toString().split('\n').take(6).join('\n'),
     );
     _entries.add(entry);
     if (_entries.length > _maxBufferLines) {

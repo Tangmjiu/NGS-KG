@@ -62,12 +62,10 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
         controller: _searchCtrl,
         decoration: InputDecoration(
           hintText: '搜索 Navidrome 音乐...',
-          prefixIcon:
-              Icon(Icons.search, size: 20, color: cs.onSurfaceVariant),
+          prefixIcon: Icon(Icons.search, size: 20, color: cs.onSurfaceVariant),
           suffixIcon: _isSearching
               ? IconButton(
-                  icon:
-                      Icon(Icons.close, size: 18, color: cs.onSurfaceVariant),
+                  icon: Icon(Icons.close, size: 18, color: cs.onSurfaceVariant),
                   onPressed: () {
                     _searchCtrl.clear();
                     setState(() => _isSearching = false);
@@ -119,9 +117,7 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
         _breadcrumbItem(
           prov.selectedArtistName!,
           prov.currentLevel == BrowseLevel.albums,
-          prov.currentLevel == BrowseLevel.songs
-              ? () => prov.goBack()
-              : null,
+          prov.currentLevel == BrowseLevel.songs ? () => prov.goBack() : null,
         ),
       );
     }
@@ -139,19 +135,18 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
     );
   }
 
-  Widget _breadcrumbItem(
-      String label, bool isActive, VoidCallback? onTap) {
+  Widget _breadcrumbItem(String label, bool isActive, VoidCallback? onTap) {
     final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Text(
         label,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-          color: isActive ? cs.primary : cs.onSurface,
-          decoration: onTap != null ? TextDecoration.underline : null,
-          decorationColor: cs.onSurfaceVariant,
-        ),
+              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+              color: isActive ? cs.primary : cs.onSurface,
+              decoration: onTap != null ? TextDecoration.underline : null,
+              decorationColor: cs.onSurfaceVariant,
+            ),
       ),
     );
   }
@@ -236,7 +231,8 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
     final double extraBottomPadding = showMini ? 92.0 : 24.0;
 
     return GridView.builder(
-      padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: extraBottomPadding),
+      padding: EdgeInsets.only(
+          left: 8, right: 8, top: 8, bottom: extraBottomPadding),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         childAspectRatio: 0.85,
@@ -246,8 +242,7 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
       itemCount: prov.albums.length,
       itemBuilder: (_, i) => _AlbumCard(
         album: prov.albums[i],
-        onTap: () =>
-            prov.selectAlbum(prov.albums[i].id, prov.albums[i].name),
+        onTap: () => prov.selectAlbum(prov.albums[i].id, prov.albums[i].name),
         getCoverUrl: (id) => prov.getCoverArtUrl(id),
       ),
     );
@@ -310,7 +305,10 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
             song.artistDisplay,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: cs.onSurfaceVariant),
           ),
           trailing: isCurrent
               ? Icon(Icons.volume_up, size: 18, color: cs.primary)
@@ -374,14 +372,15 @@ class _ArtistTile extends StatelessWidget {
         size: 48,
         borderRadius: 24,
       ),
-      title: Text(artist.name,
-          maxLines: 1, overflow: TextOverflow.ellipsis),
+      title: Text(artist.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         '${artist.albumCount} 张专辑 · ${artist.songCount} 首歌曲',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        style: Theme.of(context)
+            .textTheme
+            .bodySmall
+            ?.copyWith(color: cs.onSurfaceVariant),
       ),
-      trailing:
-          Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
+      trailing: Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
       onTap: onTap,
     );
   }
@@ -425,8 +424,7 @@ class _AlbumCard extends StatelessWidget {
               child: Text(album.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: tt.bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w500)),
+                  style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),

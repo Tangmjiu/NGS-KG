@@ -43,8 +43,10 @@ class NavidromeService {
 
   Uri _buildUri(String endpoint, {Map<String, String>? extra}) {
     final params = {..._authParams(), ...?extra};
-    final query = params.entries.map((e) =>
-        '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}').join('&');
+    final query = params.entries
+        .map((e) =>
+            '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+        .join('&');
     return Uri.parse('$_baseUrl/rest/$endpoint?$query');
   }
 
@@ -126,8 +128,10 @@ class NavidromeService {
       ..._authParams(),
       'id': songId,
     };
-    final query = params.entries.map((e) =>
-        '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}').join('&');
+    final query = params.entries
+        .map((e) =>
+            '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+        .join('&');
     return '$_baseUrl/rest/stream?$query';
   }
 

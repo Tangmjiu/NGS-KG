@@ -64,11 +64,11 @@ class RemoteConfigService {
   /// [remoteUrl] 远程配置 URL，默认使用 [defaultRemoteUrl]。
   /// 返回拉取到的 api_base；失败返回 null，调用方应使用 fallback。
   Future<String?> fetch({String? remoteUrl}) async {
-    final url = remoteUrl ?? defaultRemoteUrl;
-    if (url == defaultRemoteUrl) {
-      Log.w('RemoteConfig', 'remoteUrl 仍是占位符，跳过拉取');
-      return null;
-    }
+    final url = (remoteUrl == null || remoteUrl.trim().isEmpty)
+        ? defaultRemoteUrl
+        : remoteUrl;
+    // 注: defaultRemoteUrl 就是真实配置地址, 必须正常拉取,
+    // 不能当成"占位符"跳过 (否则远程配置机制永远不会生效)
 
     try {
       final client = HttpClient()

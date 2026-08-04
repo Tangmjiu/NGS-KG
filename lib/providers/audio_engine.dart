@@ -28,6 +28,8 @@ class AudioEngine {
   bool uploadHistory = true;
   int crossfadeMs = 0; // 0 = off, >0 = fade-in duration
   double _speed = 1.0;
+  double _userVolume = 1.0;
+  double get volume => _userVolume;
   double get speed => _speed;
 
   /// 最终解析出的音质 key（MoeKoeMusic 风格：记录实际可用的最高级别）
@@ -104,10 +106,12 @@ class AudioEngine {
   }
 
   void _initSession() {
-    AudioSession.instance.then((session) => session.configure(const AudioSessionConfiguration(
-      androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
-      androidWillPauseWhenDucked: true,
-    ))).catchError((e) {
+    AudioSession.instance
+        .then((session) => session.configure(const AudioSessionConfiguration(
+              androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+              androidWillPauseWhenDucked: true,
+            )))
+        .catchError((e) {
       Log.e('audio_engine', 'AudioSession init failed', e);
     });
   }
@@ -144,7 +148,9 @@ class AudioEngine {
     final hash = song.hash;
     if (song.isLocal && hash == null) {
       resolvedQualityNotifier.value = '128';
-      _currentQualityOptions = [QualityOption(value: '128', label: '标准', hash: '')];
+      _currentQualityOptions = [
+        QualityOption(value: '128', label: '标准', hash: '')
+      ];
       _currentEffectOptions = [];
       return;
     }
@@ -177,7 +183,8 @@ class AudioEngine {
   ///
   /// 1. 优先使用 /privilege/lite 获取歌曲可用音质变体（含独立 hash）
   /// 2. 回退到根据 qualityLevel 构建降级链（使用歌曲原始 hash）
-  Future<List<_Candidate>> _buildCandidates(Song song, String preferredQuality) async {
+  Future<List<_Candidate>> _buildCandidates(
+      Song song, String preferredQuality) async {
     final hash = song.hash;
 
     // 本地歌曲不需要特权查询
@@ -199,15 +206,19 @@ class AudioEngine {
         if (info.options.isNotEmpty || info.effectOptions.isNotEmpty) {
           _currentQualityOptions = info.options;
           _currentEffectOptions = info.effectOptions;
-          final candidates = info.candidates(preferredQuality, fallbackHash: hash);
-          return candidates.map((opt) => _Candidate(
-            quality: opt.value,
-            hash: opt.hash,
-            label: opt.label,
-          )).toList();
+          final candidates =
+              info.candidates(preferredQuality, fallbackHash: hash);
+          return candidates
+              .map((opt) => _Candidate(
+                    quality: opt.value,
+                    hash: opt.hash,
+                    label: opt.label,
+                  ))
+              .toList();
         }
       } catch (e, s) {
-        Log.w('audio_engine', 'privilege query failed, fallback to chain', e, s);
+        Log.w(
+            'audio_engine', 'privilege query failed, fallback to chain', e, s);
       }
     }
 
@@ -216,15 +227,18 @@ class AudioEngine {
     _currentQualityOptions = [];
     _currentEffectOptions = [];
     final chain = Quality.fallbackChain(preferredQuality);
-    return chain.map((q) => _Candidate(
-      quality: q,
-      hash: hash ?? '',
-      label: Quality.label(q),
-    )).toList();
+    return chain
+        .map((q) => _Candidate(
+              quality: q,
+              hash: hash ?? '',
+              label: Quality.label(q),
+            ))
+        .toList();
   }
 
   /// ─── 核心播放方法 ───
-  Future<void> play(Song song, {int? version, String effectKey = 'none'}) async {
+  Future<void> play(Song song,
+      {int? version, String effectKey = 'none'}) async {
     version ??= _playRequestVersion;
     if (version != _playRequestVersion) {
       isLoading.value = false;
@@ -242,7 +256,10 @@ class AudioEngine {
         final fp = song.filePath!;
         if (fp.startsWith('http') || fp.startsWith('https')) {
           await _player.setUrl(fp);
-          if (version != _playRequestVersion) { isLoading.value = false; return; }
+          if (version != _playRequestVersion) {
+            isLoading.value = false;
+            return;
+          }
           _lastUrlFetchTime = DateTime.now();
           if (_playWhenReady) {
             await _player.play();
@@ -256,7 +273,10 @@ class AudioEngine {
             final fileUri = Uri.file(fp).toString();
             await _player.setUrl(fileUri);
           }
-          if (version != _playRequestVersion) { isLoading.value = false; return; }
+          if (version != _playRequestVersion) {
+            isLoading.value = false;
+            return;
+          }
           _lastUrlFetchTime = DateTime.now();
           if (_playWhenReady) {
             await _player.play();
@@ -284,10 +304,16 @@ class AudioEngine {
                 hash: opt.hash.isNotEmpty ? opt.hash : song.hash,
                 quality: opt.value,
               );
-              if (version != _playRequestVersion) { isLoading.value = false; return; }
+              if (version != _playRequestVersion) {
+                isLoading.value = false;
+                return;
+              }
               if (!songUrl.isVideo && songUrl.url.isNotEmpty) {
                 await _player.setUrl(songUrl.url);
-                if (version != _playRequestVersion) { isLoading.value = false; return; }
+                if (version != _playRequestVersion) {
+                  isLoading.value = false;
+                  return;
+                }
                 _lastUrlFetchTime = DateTime.now();
                 if (_playWhenReady) {
                   await _player.play();
@@ -295,7 +321,8 @@ class AudioEngine {
                 }
                 played = true;
                 resolvedQualityNotifier.value = opt.value;
-                Log.i('audio_engine', 'effect resolved: ${opt.value} (${opt.label})');
+                Log.i('audio_engine',
+                    'effect resolved: ${opt.value} (${opt.label})');
               }
             } catch (_) {
               // 效果失败，降级到编码音质
@@ -309,45 +336,55 @@ class AudioEngine {
         final preferred = _currentQualityKey();
         final candidates = await _buildCandidates(song, preferred);
         for (final c in candidates) {
-        if (version != _playRequestVersion) { isLoading.value = false; return; }
-        if (c.hash.isEmpty && c.quality == '128') continue; // 无 hash 跳过
-
-        try {
-          final songUrl = await _musicService.getSongUrl(
-            song.id,
-            hash: c.hash.isNotEmpty ? c.hash : song.hash,
-            quality: c.quality,
-          );
-          if (version != _playRequestVersion) { isLoading.value = false; return; }
-
-          // 跳过 mp4 格式（Kugou 对部分 VIP 歌曲返回视频而非音频）
-          if (songUrl.isVideo) {
-            Log.w('audio_engine', 'skip mp4 quality=${c.quality}');
-            continue;
+          if (version != _playRequestVersion) {
+            isLoading.value = false;
+            return;
           }
+          if (c.hash.isEmpty && c.quality == '128') continue; // 无 hash 跳过
 
-          if (songUrl.url.isNotEmpty) {
-            await _player.setUrl(songUrl.url);
-            if (version != _playRequestVersion) { isLoading.value = false; return; }
-            _lastUrlFetchTime = DateTime.now();
-            if (_playWhenReady) {
-              await _player.play();
-              _hasActivePlayback = true;
+          try {
+            final songUrl = await _musicService.getSongUrl(
+              song.id,
+              hash: c.hash.isNotEmpty ? c.hash : song.hash,
+              quality: c.quality,
+            );
+            if (version != _playRequestVersion) {
+              isLoading.value = false;
+              return;
             }
-            played = true;
 
-            // ✅ 记录最终解析到的音质
-            resolvedQualityNotifier.value = c.quality;
-            Log.i('audio_engine', 'resolved quality: ${c.quality} (${c.label})');
-            break;
+            // 跳过 mp4 格式（Kugou 对部分 VIP 歌曲返回视频而非音频）
+            if (songUrl.isVideo) {
+              Log.w('audio_engine', 'skip mp4 quality=${c.quality}');
+              continue;
+            }
+
+            if (songUrl.url.isNotEmpty) {
+              await _player.setUrl(songUrl.url);
+              if (version != _playRequestVersion) {
+                isLoading.value = false;
+                return;
+              }
+              _lastUrlFetchTime = DateTime.now();
+              if (_playWhenReady) {
+                await _player.play();
+                _hasActivePlayback = true;
+              }
+              played = true;
+
+              // ✅ 记录最终解析到的音质
+              resolvedQualityNotifier.value = c.quality;
+              Log.i('audio_engine',
+                  'resolved quality: ${c.quality} (${c.label})');
+              break;
+            }
+          } catch (e) {
+            // 特殊异常直接抛出让外层 catch 处理
+            if (e is NoCopyrightException || e is NeedLoginException) rethrow;
+            Log.w('audio_engine', 'candidate quality=${c.quality} failed: $e');
+            // 继续尝试下一个候选
           }
-        } catch (e) {
-          // 特殊异常直接抛出让外层 catch 处理
-          if (e is NoCopyrightException || e is NeedLoginException) rethrow;
-          Log.w('audio_engine', 'candidate quality=${c.quality} failed: $e');
-          // 继续尝试下一个候选
-        }
-      } // end for
+        } // end for
       } // end if (!played) quality candidates
 
       if (!played) {
@@ -368,7 +405,11 @@ class AudioEngine {
       if (e is NeedLoginException) {
         isLoading.value = false;
         error.value = '播放失败: $e';
-        showErrorDialog(title: '登录失效', errorCode: 'API 20010', message: '播放需要重新登录', showLogin: true);
+        showErrorDialog(
+            title: '登录失效',
+            errorCode: 'API 20010',
+            message: '播放需要重新登录',
+            showLogin: true);
         return;
       }
       if (_playAttempts <= _maxRetries) {
@@ -390,7 +431,7 @@ class AudioEngine {
       _playWhenReady = false; // 暂停时设为 false
       await _player.pause();
     } else {
-      _playWhenReady = true;  // 播放时设为 true
+      _playWhenReady = true; // 播放时设为 true
       if (position.value == Duration.zero || position.value >= duration.value) {
         error.value = null;
         isLoading.value = true;
@@ -409,7 +450,6 @@ class AudioEngine {
       }
     }
   }
-
 
   Future<void> _refreshUrlAndPlay(Song song) async {
     try {
@@ -471,7 +511,8 @@ class AudioEngine {
                 await _player.seek(pos);
                 if (wasPlaying) await _player.play();
                 played = true;
-                Log.i('audio_engine', 'effect switch: -> ${opt.value} (${opt.label})');
+                Log.i('audio_engine',
+                    'effect switch: -> ${opt.value} (${opt.label})');
               }
             } catch (_) {
               // 效果失败，降级到编码音质
@@ -502,7 +543,8 @@ class AudioEngine {
                 await _player.play();
               }
               played = true;
-              Log.i('audio_engine', 'quality switch: -> ${c.quality} (${c.label})');
+              Log.i('audio_engine',
+                  'quality switch: -> ${c.quality} (${c.label})');
               break;
             }
           } catch (_) {
@@ -559,8 +601,8 @@ class AudioEngine {
     await _player.pause();
   }
 
-
   void setVolume(double volume) {
+    _userVolume = volume;
     _player.setVolume(volume);
   }
 
@@ -578,9 +620,9 @@ class AudioEngine {
     _player.setVolume(0.0);
     double vol = 0.0;
     Timer.periodic(interval, (timer) {
-      vol += 1.0 / steps;
-      if (vol >= 1.0) {
-        _player.setVolume(1.0);
+      vol += _userVolume / steps;
+      if (vol >= _userVolume) {
+        _player.setVolume(_userVolume);
         timer.cancel();
       } else {
         _player.setVolume(vol);
@@ -589,13 +631,15 @@ class AudioEngine {
   }
 
   /// 上报播放历史，重试最多 3 次，指数退避
-  Future<void> _uploadHistoryWithRetry(int songId, {int? duration, int retries = 3}) async {
+  Future<void> _uploadHistoryWithRetry(int songId,
+      {int? duration, int retries = 3}) async {
     for (int attempt = 0; attempt < retries; attempt++) {
       try {
         await _musicService.uploadPlayHistory(songId, duration: duration);
         return; // 成功
       } catch (e, s) {
-        Log.w('audio_engine', 'uploadPlayHistory failed (attempt ${attempt + 1}/$retries): $e');
+        Log.w('audio_engine',
+            'uploadPlayHistory failed (attempt ${attempt + 1}/$retries): $e');
         if (attempt < retries - 1) {
           // 指数退避：1s, 2s, 4s
           await Future.delayed(Duration(seconds: 1 << attempt));

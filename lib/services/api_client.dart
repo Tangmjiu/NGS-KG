@@ -40,9 +40,21 @@ class _RetryInterceptor extends Interceptor {
   }
 
   bool _shouldRetry(DioException err) {
-    return err.type == DioExceptionType.connectionTimeout ||
+    if (err.type == DioExceptionType.connectionTimeout ||
         err.type == DioExceptionType.receiveTimeout ||
-        err.type == DioExceptionType.connectionError;
+        err.type == DioExceptionType.connectionError) {
+      return true;
+    }
+    // 代理服务器偶发 5xx (网关不稳定) 时, 对 GET 请求重试
+    if (err.type == DioExceptionType.badResponse) {
+      final status = err.response?.statusCode ?? 0;
+      if (status >= 500 &&
+          status < 600 &&
+          err.requestOptions.method == 'GET') {
+        return true;
+      }
+    }
+    return false;
   }
 }
 

@@ -9,6 +9,10 @@ import 'package:provider/provider.dart';
 import 'package:audio_service/audio_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/player_provider.dart';
+import 'package:window_manager/window_manager.dart';
+import 'package:tray_manager/tray_manager.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqflite/sqflite.dart';
 import 'providers/playlist_provider.dart';
 import 'providers/liked_songs_provider.dart';
 import 'providers/discover_provider.dart';
@@ -30,13 +34,49 @@ import 'services/remote_config_service.dart';
 import 'providers/audio_settings_provider.dart';
 import 'navidrome/navidrome_provider.dart';
 import 'providers/local_music_provider.dart';
+import 'providers/navigation_provider.dart';
 import 'utils/preview_config.dart';
 import 'theme/theme_assets.dart';
 import 'utils/navigation.dart';
 import 'services/intent_handler_service.dart';
+import 'utils/desktop_manager.dart';
+import 'utils/single_instance.dart';
+import 'utils/local_server.dart';
+import 'services/amll_webview_manager.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SingleInstance.enforce();
+
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    await windowManager.ensureInitialized();
+    WindowOptions windowOptions = const WindowOptions(
+      size: Size(1280, 800),
+      minimumSize: Size(1024, 680),
+      center: true,
+      backgroundColor: Colors.transparent,
+      skipTaskbar: false,
+      titleBarStyle: TitleBarStyle.normal,
+      title: 'NGS-KG+ / NGS-KG Plus',
+    );
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+
+    // 初始化桌面端数据库
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+
+    // 初始化系统托盘等桌面行为
+    await DesktopManager.instance.init();
+    
+    // 初始化本地静态资源服务器 (供WebView用)
+    await LocalServer.start();
+
+    // 预初始化 AMLL Webview（全屏播放器即开即用，后台进行不阻塞启动）
+    unawaited(AmllWebviewManager.instance.init());
+  }
 
   await Log.init();
 
@@ -81,14 +121,12 @@ Future<void> main() async {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.error_outline,
-                        size: 18, color: Colors.white38),
+                    Icon(Icons.error_outline, size: 18, color: Colors.white38),
                     SizedBox(width: 6),
                     Flexible(
                       child: Text(
                         '轻微渲染闪过',
-                        style: TextStyle(
-                            color: Colors.white38, fontSize: 11),
+                        style: TextStyle(color: Colors.white38, fontSize: 11),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -110,10 +148,8 @@ Future<void> main() async {
                   ThemeAssets.codecrash,
                   width: 80,
                   height: 80,
-                  errorBuilder: (_, __, ___) => const Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: Colors.white38),
+                  errorBuilder: (_, __, ___) => const Icon(Icons.error_outline,
+                      size: 64, color: Colors.white38),
                 ),
                 const SizedBox(height: 16),
                 const Text(
@@ -126,8 +162,7 @@ Future<void> main() async {
                   child: Text(
                     details.exceptionAsString(),
                     textAlign: TextAlign.center,
-                    style:
-                        const TextStyle(color: Colors.white38, fontSize: 12),
+                    style: const TextStyle(color: Colors.white38, fontSize: 12),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -207,16 +242,19 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: audioSettings),
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider.value(value: authProvider),
-        ChangeNotifierProvider(create: (_) => PlayerProvider(musicService,
-            audioHandler: audioHandler,
-            audioSettings: audioSettings,
-            likedSongs: likedSongs,
-        )),
+        ChangeNotifierProvider(
+            create: (_) => PlayerProvider(
+                  musicService,
+                  audioHandler: audioHandler,
+                  audioSettings: audioSettings,
+                  likedSongs: likedSongs,
+                )),
         ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
         ChangeNotifierProvider.value(value: likedSongs),
         ChangeNotifierProvider(create: (_) => DiscoverProvider(musicService)),
         ChangeNotifierProvider(create: (_) => NavidromeProvider()),
         ChangeNotifierProvider(create: (_) => LocalMusicProvider()),
+        ChangeNotifierProvider(create: (_) => NavigationProvider()),
       ],
       child: const NGSKGApp(),
     ),
@@ -248,9 +286,6 @@ Future<void> main() async {
       (route) => route.settings.name == AppRoutes.home,
     );
   });
-
-
-
 }
 
 Future<void> _initRemoteConfigAndDevice() async {
@@ -291,11 +326,11 @@ void _notifAction(String action) {
       final song = player.currentSong;
       if (song != null) {
         ctx.read<LikedSongsProvider>().toggle(SongInfo(
-          id: song.id,
-          name: song.name,
-          hash: song.hash ?? '',
-          albumId: song.albumId,
-        ));
+              id: song.id,
+              name: song.name,
+              hash: song.hash ?? '',
+              albumId: song.albumId,
+            ));
       }
     case 'switch_mode':
       final modes = [PlayMode.sequential, PlayMode.shuffle, PlayMode.repeatOne];
@@ -327,9 +362,12 @@ class NGSKGApp extends StatelessWidget {
           navigatorKey: navKey,
           title: 'NGS-KG+',
           debugShowCheckedModeBanner: false,
-          theme: themeProvider.buildLightTheme(context, dynamicScheme: lightDynamic),
-          darkTheme: themeProvider.buildDarkTheme(context, dynamicScheme: darkDynamic),
+          theme: themeProvider.buildLightTheme(context,
+              dynamicScheme: lightDynamic),
+          darkTheme:
+              themeProvider.buildDarkTheme(context, dynamicScheme: darkDynamic),
           themeMode: themeProvider.themeMode,
+          scrollBehavior: const AppScrollBehavior(),
           initialRoute: AppRoutes.home,
           navigatorObservers: [AppRouteObserver.instance],
           onGenerateRoute: (settings) {
@@ -341,24 +379,37 @@ class NGSKGApp extends StatelessWidget {
             return AppRoutes.generateRoute(settings);
           },
           builder: (context, child) {
-            return Stack(
-              children: [
-                // ── 全局主题背景（首�?发现/搜索等页面共用） ──
-                if (ThemeAssets.playerBg.isNotEmpty)
-                  Positioned.fill(
-                    child: ImageFiltered(
-                      // 降低 sigma 以减少低端机 GPU 负载（视觉差异小）
-                      imageFilter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                      child: Image.file(
-                        File(ThemeAssets.playerBg),
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            return DesktopShortcuts(
+              onPlayPause: () => _notifAction('play_pause'),
+              onNext: () => _notifAction('next'),
+              onPrev: () => _notifAction('prev'),
+              onBack: () {
+                final nav = navKey.currentState;
+                if (nav?.canPop() ?? false) nav!.pop();
+              },
+              onSearch: () {
+                final nav = navKey.currentState;
+                nav?.pushNamed(AppRoutes.search);
+              },
+              child: Stack(
+                children: [
+                  // ── 全局主题背景（首?发现/搜索等页面共用） ──
+                  if (ThemeAssets.playerBg.isNotEmpty)
+                    Positioned.fill(
+                      child: ImageFiltered(
+                        // 降低 sigma 以减少低端机 GPU 负载（视觉差异小）
+                        imageFilter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                        child: Image.file(
+                          File(ThemeAssets.playerBg),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
                       ),
                     ),
-                  ),
-                // AppShell 自适应外壳：桌面全宽壳 / 移动 MiniPlayer + overlays
-                AppShell(child: child),
-              ],
+                  // AppShell 自适应外壳：桌面全宽壳 / 移动 MiniPlayer + overlays
+                  AppShell(child: child),
+                ],
+              ),
             );
           },
         );
@@ -367,3 +418,12 @@ class NGSKGApp extends StatelessWidget {
   }
 }
 
+class AppScrollBehavior extends MaterialScrollBehavior {
+  const AppScrollBehavior();
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+      };
+}

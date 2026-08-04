@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/logger.dart';
+import '../utils/responsive.dart';
 import '../services/music_service.dart';
 
 class ArtistFollowedNewsScreen extends StatefulWidget {
@@ -33,13 +34,16 @@ class _ArtistFollowedNewsScreenState extends State<ArtistFollowedNewsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final body = _buildBody();
     return Scaffold(
-      appBar: AppBar(title: const Text('关注动态')),
-      body: isWide
-          ? Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: body))
-          : body,
+      appBar: Responsive.isDesktopLayout(context)
+          ? null
+          : AppBar(title: const Text('关注动态')),
+      body: Responsive.constrainedContent(
+        context,
+        maxWidth: Responsive.maxWidthList,
+        child: body,
+      ),
     );
   }
 

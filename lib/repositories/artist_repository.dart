@@ -104,9 +104,7 @@ class ArtistRepository extends BaseRepository {
     });
     final raw = res['data'];
     if (raw is List) {
-      return raw
-          .map((e) => Album.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return raw.map((e) => Album.fromJson(e as Map<String, dynamic>)).toList();
     }
     return [];
   }

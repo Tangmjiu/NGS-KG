@@ -7,6 +7,7 @@ import '../models/radio.dart';
 import '../providers/player_provider.dart';
 import '../utils/logger.dart';
 import '../services/music_service.dart';
+import '../utils/responsive.dart';
 
 class FmScreen extends StatefulWidget {
   const FmScreen({super.key});
@@ -76,48 +77,58 @@ class _FmScreenState extends State<FmScreen> {
     player.playSong(song, playlist: _fmSongs);
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('电台')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _radios.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+      appBar: Responsive.isDesktopLayout(context)
+          ? null
+          : AppBar(title: const Text('电台')),
+      body: Responsive.constrainedContent(
+        context,
+        maxWidth: Responsive.maxWidthList,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _radios.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.radio,
+                            size: 80,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+                        const SizedBox(height: 16),
+                        Text('暂无电台',
+                            style: tt.bodyLarge
+                                ?.copyWith(color: cs.onSurfaceVariant)),
+                      ],
+                    ),
+                  )
+                : ListView(
                     children: [
-                      Icon(Icons.radio, size: 80, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
-                      const SizedBox(height: 16),
-                      Text('暂无电台', style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant)),
+                      if (_radios.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                          child: Row(
+                            children: [
+                              Text('推荐电台',
+                                  style: tt.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w600)),
+                              const SizedBox(width: 8),
+                              Text('${_radios.length} 个',
+                                  style: tt.labelSmall
+                                      ?.copyWith(color: cs.onSurfaceVariant)),
+                            ],
+                          ),
+                        ),
+                        ..._buildRadioList(),
+                        const SizedBox(height: 24),
+                      ],
                     ],
                   ),
-                )
-              : ListView(
-                  children: [
-                    if (_radios.isNotEmpty) ...[
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                        child: Row(
-                          children: [
-                            Text('推荐电台',
-                                style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-                            const SizedBox(width: 8),
-                            Text('${_radios.length} 个',
-                                style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
-                          ],
-                        ),
-                      ),
-                      ..._buildRadioList(),
-                      const SizedBox(height: 24),
-                    ],
-                  ],
-                ),
+      ),
     );
   }
 
@@ -150,16 +161,22 @@ class _FmScreenState extends State<FmScreen> {
                       ? CachedNetworkImage(
                           imageUrl: img,
                           fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) =>
-                              Icon(Icons.radio, color: cs.onSurfaceVariant, size: 24),
+                          errorWidget: (_, __, ___) => Icon(Icons.radio,
+                              color: cs.onSurfaceVariant, size: 24),
                         )
                       : Icon(Icons.radio, color: cs.onSurfaceVariant, size: 24),
                 ),
               ),
-              title: Text(name, maxLines: 1, style: Theme.of(context).textTheme.bodyMedium),
+              title: Text(name,
+                  maxLines: 1, style: Theme.of(context).textTheme.bodyMedium),
               subtitle: desc.isNotEmpty
-                  ? Text(desc, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant))
+                  ? Text(desc,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: cs.onSurfaceVariant))
                   : null,
               trailing: AnimatedRotation(
                 turns: isExpanded ? 0.5 : 0,
@@ -172,13 +189,14 @@ class _FmScreenState extends State<FmScreen> {
           if (isExpanded)
             _loadingSongs
                 ? const Padding(
-                    padding: EdgeInsets.all(16), child: CircularProgressIndicator())
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator())
                 : _fmSongs.isEmpty
                     ? const Padding(
                         padding: EdgeInsets.all(16), child: Text('暂无歌曲'))
                     : Container(
-                        margin:
-                            const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 4),
                         height: 200,
                         decoration: BoxDecoration(
                           color: cs.surfaceContainerHighest,

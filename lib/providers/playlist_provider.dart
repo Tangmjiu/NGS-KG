@@ -41,7 +41,7 @@ class PlaylistProvider extends ChangeNotifier {
 
   Future<void> fetchPlaylistDetail(String id) async {
     _isLoading = true;
-    _currentPlaylist = null;  // Clear previous playlist immediately
+    _currentPlaylist = null; // Clear previous playlist immediately
     notifyListeners();
     try {
       _currentPlaylist = await _musicService.getPlaylistDetail(id);

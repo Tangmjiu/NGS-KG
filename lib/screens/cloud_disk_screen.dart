@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/song.dart';
 import '../providers/auth_provider.dart';
 import '../providers/player_provider.dart';
 import '../utils/logger.dart';
+import '../utils/responsive.dart';
+import '../utils/theme.dart';
 import '../services/music_service.dart';
 
 class CloudDiskScreen extends StatefulWidget {
@@ -35,7 +37,11 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
     }
     try {
       final songs = await _musicService.getUserCloudDisk();
-      if (mounted) setState(() { _songs = songs; _error = null; });
+      if (mounted)
+        setState(() {
+          _songs = songs;
+          _error = null;
+        });
     } catch (e, s) {
       Log.e('CloudDisk', 'load error', e, s);
       if (mounted) setState(() => _error = '加载失败，请下拉刷新重试');
@@ -46,7 +52,10 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
   Future<void> _playSong(int index, Map<String, dynamic> item) async {
     setState(() => _playingIndex = index);
     final hash = item['hash'] as String?;
-    if (hash == null) { setState(() => _playingIndex = null); return; }
+    if (hash == null) {
+      setState(() => _playingIndex = null);
+      return;
+    }
     try {
       final url = await _musicService.getCloudSongUrl(
         hash,
@@ -54,9 +63,13 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
         name: item['name'] as String?,
         albumAudioId: item['album_audio_id'] as int?,
       );
-      if (!mounted) { return; }
+      if (!mounted) {
+        return;
+      }
       if (url.isEmpty) {
-        if (mounted) { setState(() => _playingIndex = null); }
+        if (mounted) {
+          setState(() => _playingIndex = null);
+        }
         return;
       }
       final song = Song(
@@ -71,7 +84,9 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
         qualities: hash.isNotEmpty ? {'128': hash} : null,
         filePath: url,
       );
-      if (!mounted) { return; }
+      if (!mounted) {
+        return;
+      }
       await context.read<PlayerProvider>().playSong(song);
     } catch (e, s) {
       Log.e('CloudDisk', 'play error', e, s);
@@ -81,7 +96,7 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
+    final isDesktop = Responsive.isDesktopLayout(context);
     final bodyContent = _isLoading
         ? const Center(child: CircularProgressIndicator())
         : _error != null
@@ -89,9 +104,12 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.error_outline, size: 80, color: Theme.of(context).colorScheme.error),
+                    Icon(Icons.error_outline,
+                        size: 80, color: Theme.of(context).colorScheme.error),
                     const SizedBox(height: 16),
-                    Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                    Text(_error!,
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error)),
                   ],
                 ),
               )
@@ -100,55 +118,109 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.cloud_off, size: 80, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        Icon(Icons.cloud_off,
+                            size: 80,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant),
                         const SizedBox(height: 16),
-                        Text('云盘暂无歌曲', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                        Text('云盘暂无歌曲',
+                            style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant)),
                       ],
                     ),
                   )
                 : RefreshIndicator(
-                onRefresh: _load,
-                child: ListView.builder(
-                  padding: const EdgeInsets.only(top: 8),
-                  itemCount: _songs.length,
-                  itemBuilder: (_, i) {
-                    final item = _songs[i];
-                    final name = item['name'] as String? ?? '';
-                    final author = item['author_name'] as String? ?? '';
-                    final isPlaying = _playingIndex == i;
-                    return ListTile(
-                      leading: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                          borderRadius: AppShape.sm,
-                        ),
-                        child: isPlaying
-                            ? const Padding(
-                                padding: EdgeInsets.all(12),
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : Icon(Icons.cloud_done, color: Theme.of(context).colorScheme.primary),
-                      ),
-                      title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: Text(author, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                      enabled: !isPlaying,
-                      onTap: isPlaying ? null : () => _playSong(i, item),
-                    );
-                  },
-                ),
-              );
-    return Scaffold(
-      appBar: AppBar(title: const Text('云盘')),
-      body: isWide
-          ? Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
+                    onRefresh: _load,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.only(top: 8),
+                      itemCount: _songs.length,
+                      itemBuilder: (_, i) {
+                        final item = _songs[i];
+                        final name = item['name'] as String? ?? '';
+                        final author = item['author_name'] as String? ?? '';
+                        final cover = item['cover'] as String?;
+                        final isPlaying = _playingIndex == i;
+                        return ListTile(
+                          leading: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest,
+                              borderRadius: AppShape.sm,
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: isPlaying
+                                ? const Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : cover != null && cover.isNotEmpty
+                                    ? CachedNetworkImage(
+                                        imageUrl:
+                                            cover.replaceAll('{size}', '240'),
+                                        width: 44,
+                                        height: 44,
+                                        fit: BoxFit.cover,
+                                        errorWidget: (_, __, ___) => Icon(
+                                            Icons.cloud_done,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary),
+                                      )
+                                    : Icon(Icons.cloud_done,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary),
+                          ),
+                          title: Text(name,
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                          subtitle: Text(author,
+                              style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant)),
+                          enabled: !isPlaying,
+                          onTap: isPlaying ? null : () => _playSong(i, item),
+                        );
+                      },
+                    ),
+                  );
+
+    if (isDesktop) {
+      return Scaffold(
+        appBar: null,
+        body: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '云盘歌曲',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ),
+            Expanded(
+              child: Responsive.constrainedContent(
+                context,
+                maxWidth: Responsive.maxWidthList,
                 child: bodyContent,
               ),
-            )
-          : bodyContent,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('云盘')),
+      body: bodyContent,
     );
   }
 }

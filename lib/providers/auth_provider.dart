@@ -41,7 +41,9 @@ class AuthProvider extends ChangeNotifier {
         ApiClient.setAuth(_user!.token, _user!.userId?.toString());
         notifyListeners();
       }
-    } catch (e, s) { Log.e('auth_provider', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('auth_provider', 'error', e, s);
+    }
     _readyCompleter.complete();
   }
 
@@ -51,7 +53,9 @@ class AuthProvider extends ChangeNotifier {
       final dir = await getApplicationDocumentsDirectory();
       final file = File('${dir.path}/user.json');
       await file.writeAsString(jsonEncode(_user!.toJson()));
-    } catch (e, s) { Log.e('auth_provider', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('auth_provider', 'error', e, s);
+    }
   }
 
   Future<void> _clearSavedUser() async {
@@ -61,20 +65,24 @@ class AuthProvider extends ChangeNotifier {
       if (await file.exists()) {
         await file.delete();
       }
-    } catch (e, s) { Log.e('auth_provider', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('auth_provider', 'error', e, s);
+    }
   }
 
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
-  Future<bool> loginWithPassword(String username, String password, {String? captcha}) async {
+  Future<bool> loginWithPassword(String username, String password,
+      {String? captcha}) async {
     if (_isLoggingIn) return false;
     _isLoggingIn = true;
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
     try {
-      _user = await _authService.loginWithPassword(username, password, captcha: captcha);
+      _user = await _authService.loginWithPassword(username, password,
+          captcha: captcha);
       _isLoading = false;
       _isLoggingIn = false;
       notifyListeners();
@@ -125,7 +133,8 @@ class AuthProvider extends ChangeNotifier {
     return _authService.getQrKey();
   }
 
-  Future<Map<String, dynamic>> getQrCreate(String key, {bool qrimg = false}) async {
+  Future<Map<String, dynamic>> getQrCreate(String key,
+      {bool qrimg = false}) async {
     return _authService.getQrCreate(key, qrimg: qrimg);
   }
 

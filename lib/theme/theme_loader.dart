@@ -39,7 +39,8 @@ class ThemeLoader {
   }
 
   /// 从字节数据解析 ZIP 主题包（公开给 MarketService 调用）
-  static Future<ThemePack?> parseZipBytes(List<int> bytes, String fileName) async {
+  static Future<ThemePack?> parseZipBytes(
+      List<int> bytes, String fileName) async {
     final archive = ZipDecoder().decodeBytes(bytes);
     if (archive.isEmpty) {
       Log.w('ThemeLoader', 'empty zip: $fileName');
@@ -56,7 +57,8 @@ class ThemeLoader {
       return null;
     }
 
-    final manifestJson = jsonDecode(utf8.decode(manifestFile.content)) as Map<String, dynamic>;
+    final manifestJson =
+        jsonDecode(utf8.decode(manifestFile.content)) as Map<String, dynamic>;
 
     final name = manifestJson['name'] as String? ?? '未命名主题';
     final author = manifestJson['author'] as String? ?? '未知作者';
@@ -68,8 +70,10 @@ class ThemeLoader {
     ColorScheme? darkScheme;
     final colors = manifestJson['colors'] as Map<String, dynamic>?;
     if (colors != null) {
-      lightScheme = _parseColorScheme(colors['light'] as Map<String, dynamic>?, Brightness.light);
-      darkScheme = _parseColorScheme(colors['dark'] as Map<String, dynamic>?, Brightness.dark);
+      lightScheme = _parseColorScheme(
+          colors['light'] as Map<String, dynamic>?, Brightness.light);
+      darkScheme = _parseColorScheme(
+          colors['dark'] as Map<String, dynamic>?, Brightness.dark);
     }
 
     // ── 解析字体 ──
@@ -84,7 +88,8 @@ class ThemeLoader {
         if (regular != null && regular.isNotEmpty) {
           final medium = rawWeight['medium'] as String?;
           final bold = rawWeight['bold'] as String?;
-          fontWeightFiles = FontWeightFiles(regular: regular, medium: medium, bold: bold);
+          fontWeightFiles =
+              FontWeightFiles(regular: regular, medium: medium, bold: bold);
         }
       }
     }
@@ -103,9 +108,18 @@ class ThemeLoader {
     final rawAssets = manifestJson['assets'] as Map<String, dynamic>?;
     if (rawAssets != null) {
       const assetKeys = [
-        'sthiswrong', 'codecrash', 'loading', 'ban', 'supportme', 'icon',
-        'album_placeholder', 'playlist_placeholder', 'artist_placeholder',
-        'empty_playlist', 'empty_content', 'load_failed',
+        'sthiswrong',
+        'codecrash',
+        'loading',
+        'ban',
+        'supportme',
+        'icon',
+        'album_placeholder',
+        'playlist_placeholder',
+        'artist_placeholder',
+        'empty_playlist',
+        'empty_content',
+        'load_failed',
         'hi_res_badge',
       ];
 
@@ -119,7 +133,8 @@ class ThemeLoader {
         );
         if (!zipEntry.isFile) continue;
 
-        final ext = zipPath.contains('.') ? '.${zipPath.split('.').last}' : '.png';
+        final ext =
+            zipPath.contains('.') ? '.${zipPath.split('.').last}' : '.png';
         final destName = '$key$ext';
         final destPath = '${appDir.path}/$destName';
         await File(destPath).writeAsBytes(zipEntry.content);
@@ -157,7 +172,8 @@ class ThemeLoader {
           orElse: () => _emptyFile(),
         );
         if (zipEntry.isFile) {
-          final ext = bgPath.contains('.') ? '.${bgPath.split('.').last}' : '.png';
+          final ext =
+              bgPath.contains('.') ? '.${bgPath.split('.').last}' : '.png';
           final destPath = '${appDir.path}/player_bg$ext';
           await File(destPath).writeAsBytes(zipEntry.content);
           playerBgPath = destPath;
@@ -231,16 +247,20 @@ class ThemeLoader {
       // 转换 assetFiles 为相对路径
       if (manifestMap['assetFiles'] != null) {
         final af = manifestMap['assetFiles'] as Map<String, dynamic>;
-        manifestMap['assetFiles'] = af.map((k, v) =>
-            MapEntry(k, toRelative(v as String)));
+        manifestMap['assetFiles'] =
+            af.map((k, v) => MapEntry(k, toRelative(v as String)));
       }
       // 转换 previewPath
-      if (manifestMap['previewPath'] != null && (manifestMap['previewPath'] as String).isNotEmpty) {
-        manifestMap['previewPath'] = toRelative(manifestMap['previewPath'] as String);
+      if (manifestMap['previewPath'] != null &&
+          (manifestMap['previewPath'] as String).isNotEmpty) {
+        manifestMap['previewPath'] =
+            toRelative(manifestMap['previewPath'] as String);
       }
       // 转换 playerBgPath
-      if (manifestMap['playerBgPath'] != null && (manifestMap['playerBgPath'] as String).isNotEmpty) {
-        manifestMap['playerBgPath'] = toRelative(manifestMap['playerBgPath'] as String);
+      if (manifestMap['playerBgPath'] != null &&
+          (manifestMap['playerBgPath'] as String).isNotEmpty) {
+        manifestMap['playerBgPath'] =
+            toRelative(manifestMap['playerBgPath'] as String);
       }
       // 转换 fontWeightFiles 路径
       if (manifestMap['fontWeightFiles'] != null) {
@@ -305,18 +325,20 @@ class ThemeLoader {
       final dir = await _getThemeDir(id);
       final manifestFile = File('${dir.path}/manifest.json');
       if (!await manifestFile.exists()) return null;
-      final data = jsonDecode(await manifestFile.readAsString())
-          as Map<String, dynamic>;
+      final data =
+          jsonDecode(await manifestFile.readAsString()) as Map<String, dynamic>;
       final pack = ThemePack.fromJson(data);
 
       // 解析相对路径 → 绝对路径
-      String resolve(String? p) =>
-          (p != null && p.isNotEmpty && !p.startsWith('/') && !p.contains(':\\'))
-              ? '${dir.path}/$p'
-              : (p ?? '');
+      String resolve(String? p) => (p != null &&
+              p.isNotEmpty &&
+              !p.startsWith('/') &&
+              !p.contains(':\\'))
+          ? '${dir.path}/$p'
+          : (p ?? '');
 
-      final resolvedAssets = pack.assetFiles?.map((k, v) =>
-          MapEntry(k, resolve(v)));
+      final resolvedAssets =
+          pack.assetFiles?.map((k, v) => MapEntry(k, resolve(v)));
 
       FontWeightFiles? resolvedFonts;
       if (pack.fontWeightFiles != null) {
@@ -397,7 +419,8 @@ class ThemeLoader {
   }
 
   /// 解析 manifest 中的 colorScheme map
-  static ColorScheme? _parseColorScheme(Map<String, dynamic>? data, Brightness brightness) {
+  static ColorScheme? _parseColorScheme(
+      Map<String, dynamic>? data, Brightness brightness) {
     if (data == null || data.isEmpty) return null;
 
     Color c(String key, Color fallback) {
@@ -418,7 +441,8 @@ class ThemeLoader {
         secondary: c('secondary', const Color(0xFF565F71)),
         onSecondary: c('onSecondary', const Color(0xFFFFFFFF)),
         secondaryContainer: c('secondaryContainer', const Color(0xFFDAE2F9)),
-        onSecondaryContainer: c('onSecondaryContainer', const Color(0xFF131C2B)),
+        onSecondaryContainer:
+            c('onSecondaryContainer', const Color(0xFF131C2B)),
         tertiary: c('tertiary', const Color(0xFF6E5676)),
         onTertiary: c('onTertiary', const Color(0xFFFFFFFF)),
         tertiaryContainer: c('tertiaryContainer', const Color(0xFFF8D8FE)),
@@ -430,11 +454,14 @@ class ThemeLoader {
         surface: c('surface', const Color(0xFFFDF8FF)),
         surfaceDim: c('surfaceDim', const Color(0xFFDED8E1)),
         surfaceBright: c('surfaceBright', const Color(0xFFFDF8FF)),
-        surfaceContainerLowest: c('surfaceContainerLowest', const Color(0xFFFFFFFF)),
+        surfaceContainerLowest:
+            c('surfaceContainerLowest', const Color(0xFFFFFFFF)),
         surfaceContainerLow: c('surfaceContainerLow', const Color(0xFFF7F2FB)),
         surfaceContainer: c('surfaceContainer', const Color(0xFFF2ECF5)),
-        surfaceContainerHigh: c('surfaceContainerHigh', const Color(0xFFEBE6EF)),
-        surfaceContainerHighest: c('surfaceContainerHighest', const Color(0xFFE0DAE3)),
+        surfaceContainerHigh:
+            c('surfaceContainerHigh', const Color(0xFFEBE6EF)),
+        surfaceContainerHighest:
+            c('surfaceContainerHighest', const Color(0xFFE0DAE3)),
         onSurface: c('onSurface', const Color(0xFF1C1B1F)),
         onSurfaceVariant: c('onSurfaceVariant', const Color(0xFF49454F)),
         outline: c('outline', const Color(0xFF7A7580)),
@@ -451,7 +478,8 @@ class ThemeLoader {
         secondary: c('secondary', const Color(0xFFBEC6DC)),
         onSecondary: c('onSecondary', const Color(0xFF283141)),
         secondaryContainer: c('secondaryContainer', const Color(0xFF3E4759)),
-        onSecondaryContainer: c('onSecondaryContainer', const Color(0xFFDAE2F9)),
+        onSecondaryContainer:
+            c('onSecondaryContainer', const Color(0xFFDAE2F9)),
         tertiary: c('tertiary', const Color(0xFFDBBDE2)),
         onTertiary: c('onTertiary', const Color(0xFF3D2846)),
         tertiaryContainer: c('tertiaryContainer', const Color(0xFF553F5D)),
@@ -463,11 +491,14 @@ class ThemeLoader {
         surface: c('surface', const Color(0xFF141318)),
         surfaceDim: c('surfaceDim', const Color(0xFF141318)),
         surfaceBright: c('surfaceBright', const Color(0xFF3A383E)),
-        surfaceContainerLowest: c('surfaceContainerLowest', const Color(0xFF0E0E13)),
+        surfaceContainerLowest:
+            c('surfaceContainerLowest', const Color(0xFF0E0E13)),
         surfaceContainerLow: c('surfaceContainerLow', const Color(0xFF1C1B20)),
         surfaceContainer: c('surfaceContainer', const Color(0xFF201F24)),
-        surfaceContainerHigh: c('surfaceContainerHigh', const Color(0xFF2B292F)),
-        surfaceContainerHighest: c('surfaceContainerHighest', const Color(0xFF36343A)),
+        surfaceContainerHigh:
+            c('surfaceContainerHigh', const Color(0xFF2B292F)),
+        surfaceContainerHighest:
+            c('surfaceContainerHighest', const Color(0xFF36343A)),
         onSurface: c('onSurface', const Color(0xFFE6E1E6)),
         onSurfaceVariant: c('onSurfaceVariant', const Color(0xFFCAC4CD)),
         outline: c('outline', const Color(0xFF948F99)),
@@ -478,6 +509,5 @@ class ThemeLoader {
     }
   }
 
-  static ArchiveFile _emptyFile() =>
-      ArchiveFile('__empty__', 0, Uint8List(0));
+  static ArchiveFile _emptyFile() => ArchiveFile('__empty__', 0, Uint8List(0));
 }

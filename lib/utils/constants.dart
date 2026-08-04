@@ -3,5 +3,6 @@ class AppConstants {
   static const String baseUrl = 'http://111.170.14.52:42980';
   static const Duration connectTimeout = Duration(seconds: 15);
   static const Duration receiveTimeout = Duration(seconds: 15);
-  static const String userAgent = 'Mozilla/5.0 (Linux; Android 14; NGS-KG+) AppleWebKit/537.36';
+  static const String userAgent =
+      'Mozilla/5.0 (Linux; Android 14; NGS-KG+) AppleWebKit/537.36';
 }

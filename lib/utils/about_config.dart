@@ -17,8 +17,7 @@ class AboutConfig {
 
   /// 版本号由 pubspec.yaml 管理，运行时通过 package_info_plus 读取。
   /// 可通过 --dart-define=ABOUT_VERSION=xxx 覆盖（用于 CI 构建时标注）。
-  static const String versionOverride =
-      String.fromEnvironment('ABOUT_VERSION');
+  static const String versionOverride = String.fromEnvironment('ABOUT_VERSION');
 
   // ─── 简介 ───
 

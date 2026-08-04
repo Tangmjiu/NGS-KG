@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:dio/dio.dart';
 import '../providers/auth_provider.dart';
 import '../utils/logger.dart';
+import '../utils/responsive.dart';
 import '../models/vip_info.dart';
 import '../services/music_service.dart';
 import '../services/api_client.dart';
@@ -51,7 +52,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final body = _isLoading
         ? const Center(child: CircularProgressIndicator())
         : ListView(
@@ -77,7 +77,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               if (user != null && user.userId != null)
                 Center(
                   child: Text('ID: ${user.userId}',
-                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      style: TextStyle(
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant)),
                 ),
               // ── VIP 信息 ──
               if (_vipInfo?.isVipActive ?? false) ...[
@@ -87,8 +89,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               const SizedBox(height: 24),
 
               // ── 会员卡片 ──
-              if (_vipInfo?.isVipActive ?? false)
-                _buildVipCard(),
+              if (_vipInfo?.isVipActive ?? false) _buildVipCard(),
 
               // ── 账号卡片 ──
               if (_detail != null)
@@ -102,12 +103,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             style: Theme.of(context).textTheme.titleMedium),
                         const SizedBox(height: 12),
                         _infoRow('昵称', _detail!['nickname']?.toString() ?? ''),
-                        _infoRow('性别', _detail!['sex'] == 1 ? '男' : _detail!['sex'] == 2 ? '女' : '未设置'),
+                        _infoRow(
+                            '性别',
+                            _detail!['sex'] == 1
+                                ? '男'
+                                : _detail!['sex'] == 2
+                                    ? '女'
+                                    : '未设置'),
                         _infoRow('地区', _detail!['city']?.toString() ?? ''),
                         _infoRow('等级', _detail!['level']?.toString() ?? ''),
                         if (_detail!['birthday']?.toString().isNotEmpty == true)
                           _infoRow('生日', _detail!['birthday'].toString()),
-                        _infoRow('注册时间', _detail!['reg_time']?.toString() ?? ''),
+                        _infoRow(
+                            '注册时间', _detail!['reg_time']?.toString() ?? ''),
                       ],
                     ),
                   ),
@@ -132,13 +140,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ],
           );
     return Scaffold(
-      appBar: AppBar(title: Text(user?.nickname ?? '个人主页')),
-      body: isWide
-          ? Center(child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: body,
-            ))
-          : body,
+      appBar: Responsive.isDesktopLayout(context)
+          ? null
+          : AppBar(
+              title: Text(user?.nickname ?? '个人主页'),
+              automaticallyImplyLeading: Responsive.isMobileLayout(context),
+            ),
+      body: Responsive.constrainedContent(
+        context,
+        maxWidth: Responsive.maxWidthSettings,
+        child: body,
+      ),
     );
   }
 
@@ -155,9 +167,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         child: Text(
           _vipInfo?.summary ?? '',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: isSvip ? cs.onTertiary : cs.onPrimary,
-            fontWeight: FontWeight.w600,
-          ),
+                color: isSvip ? cs.onTertiary : cs.onPrimary,
+                fontWeight: FontWeight.w600,
+              ),
         ),
       ),
     );
@@ -173,8 +185,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('会员信息',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text('会员信息', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 12),
               _infoRow('会员类型', info.displayName),
               if (info.vipBeginTime != null)
@@ -200,8 +211,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          SizedBox(width: 80, child: Text(label,
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))),
+          SizedBox(
+              width: 80,
+              child: Text(label,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant))),
           Expanded(child: Text(value, overflow: TextOverflow.ellipsis)),
         ],
       ),

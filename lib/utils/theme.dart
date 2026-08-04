@@ -115,9 +115,11 @@ abstract final class AppMotion {
 /// 基于 ColorScheme + ThemePack 构建纯原生 MD3 ThemeData
 ///
 /// 所有组件主题统一使用 AppShape/AppMotion 令牌，禁止 magic number。
-ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack, {bool hasGlobalBg = false}) {
+ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack,
+    {bool hasGlobalBg = false}) {
   final isDark = colorScheme.brightness == Brightness.dark;
-  final rawSurface = isDark ? colorScheme.surfaceDim : colorScheme.surfaceBright;
+  final rawSurface =
+      isDark ? colorScheme.surfaceDim : colorScheme.surfaceBright;
   // 有全局背景时，让 surface 半透明以便背景图透出
   final surface = hasGlobalBg ? rawSurface.withValues(alpha: 0.85) : rawSurface;
 
@@ -133,6 +135,7 @@ ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack, {bool hasGloba
 
   return ThemeData(
     useMaterial3: true,
+    fontFamily: pack.fontFamily ?? 'HarmonyOS Sans',
     brightness: colorScheme.brightness,
     colorScheme: colorScheme,
     scaffoldBackgroundColor: surface,
@@ -150,22 +153,26 @@ ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack, {bool hasGloba
     cardTheme: CardThemeData(
       elevation: 0, // MD3E 强调色彩区分层级，而非传统的厚重阴影
       color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(radiusLg))),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // 更宽广的呼吸间距
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(radiusLg))),
+      margin:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // 更宽广的呼吸间距
     ),
 
     // ── Bottom Sheet ──
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: surface,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(radiusXl))),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(radiusXl))),
     ),
 
     // ── Dialog ──
     dialogTheme: DialogThemeData(
       backgroundColor: surface,
       elevation: comp.dialogElevation,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(radiusXl))),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(radiusXl))),
     ),
 
     // ── Divider ──
@@ -192,8 +199,10 @@ ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack, {bool hasGloba
 
     // ── ListTile ──
     listTileTheme: ListTileThemeData(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4), // 增加垂直呼吸感
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(radiusMd))),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 20, vertical: 4), // 增加垂直呼吸感
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(radiusMd))),
     ),
 
     // ── NavigationBar ──
@@ -241,7 +250,8 @@ ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack, {bool hasGloba
             ? const Color(0xFF000000)
             : const Color(0xFFFFFFFF),
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(radiusSm))),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(radiusSm))),
       behavior: SnackBarBehavior.floating,
     ),
 
@@ -304,7 +314,8 @@ ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack, {bool hasGloba
 
     // ── FAB (M3 标准 56x56, 16dp 圆角) ──
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(radiusLg))),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(radiusLg))),
       elevation: 3,
       foregroundColor: colorScheme.onPrimaryContainer,
       backgroundColor: colorScheme.primaryContainer,
@@ -325,7 +336,8 @@ ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack, {bool hasGloba
         return colorScheme.outline;
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) return colorScheme.primary.withValues(alpha: 0.5);
+        if (states.contains(WidgetState.selected))
+          return colorScheme.primary.withValues(alpha: 0.5);
         return colorScheme.surfaceContainerHighest;
       }),
     ),
@@ -344,26 +356,41 @@ ThemeData buildThemeData(ColorScheme colorScheme, ThemePack pack, {bool hasGloba
 
 TextTheme _buildTextTheme(ColorScheme cs, String? fontFamily) {
   final base = TextTheme(
-    displayLarge: TextStyle(fontSize: 57, fontWeight: FontWeight.w300, color: cs.onSurface),
-    displayMedium: TextStyle(fontSize: 45, fontWeight: FontWeight.w300, color: cs.onSurface),
-    displaySmall: TextStyle(fontSize: 36, fontWeight: FontWeight.w400, color: cs.onSurface),
-    headlineLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w400, color: cs.onSurface),
-    headlineMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.w400, color: cs.onSurface),
-    headlineSmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w400, color: cs.onSurface),
-    titleLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w500, color: cs.onSurface),
-    titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: cs.onSurface),
-    titleSmall: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: cs.onSurface),
-    bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, color: cs.onSurface),
-    bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: cs.onSurface),
-    bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: cs.onSurfaceVariant),
-    labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: cs.onSurface),
-    labelMedium: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: cs.onSurfaceVariant),
-    labelSmall: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: cs.onSurfaceVariant),
+    displayLarge: TextStyle(
+        fontSize: 57, fontWeight: FontWeight.w300, color: cs.onSurface),
+    displayMedium: TextStyle(
+        fontSize: 45, fontWeight: FontWeight.w300, color: cs.onSurface),
+    displaySmall: TextStyle(
+        fontSize: 36, fontWeight: FontWeight.w400, color: cs.onSurface),
+    headlineLarge: TextStyle(
+        fontSize: 32, fontWeight: FontWeight.w400, color: cs.onSurface),
+    headlineMedium: TextStyle(
+        fontSize: 28, fontWeight: FontWeight.w400, color: cs.onSurface),
+    headlineSmall: TextStyle(
+        fontSize: 24, fontWeight: FontWeight.w400, color: cs.onSurface),
+    titleLarge: TextStyle(
+        fontSize: 22, fontWeight: FontWeight.w500, color: cs.onSurface),
+    titleMedium: TextStyle(
+        fontSize: 16, fontWeight: FontWeight.w500, color: cs.onSurface),
+    titleSmall: TextStyle(
+        fontSize: 14, fontWeight: FontWeight.w500, color: cs.onSurface),
+    bodyLarge: TextStyle(
+        fontSize: 16, fontWeight: FontWeight.w400, color: cs.onSurface),
+    bodyMedium: TextStyle(
+        fontSize: 14, fontWeight: FontWeight.w400, color: cs.onSurface),
+    bodySmall: TextStyle(
+        fontSize: 12, fontWeight: FontWeight.w400, color: cs.onSurfaceVariant),
+    labelLarge: TextStyle(
+        fontSize: 14, fontWeight: FontWeight.w500, color: cs.onSurface),
+    labelMedium: TextStyle(
+        fontSize: 12, fontWeight: FontWeight.w500, color: cs.onSurfaceVariant),
+    labelSmall: TextStyle(
+        fontSize: 11, fontWeight: FontWeight.w500, color: cs.onSurfaceVariant),
   );
   if (fontFamily != null) {
     return base.apply(fontFamily: fontFamily);
   }
-  return base;
+  return base.apply(fontFamily: 'HarmonyOS Sans');
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -409,16 +436,20 @@ class _SharedZAxisTransition extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // ── 前进: 新页面进入 (Emphasized Decelerate) ──
-    final forwardScale = Tween<double>(begin: 0.92, end: 1.0)
-        .animate(CurvedAnimation(parent: animation, curve: AppMotion.emphasizedDecelerate));
-    final forwardOpacity = Tween<double>(begin: 0.0, end: 1.0)
-        .animate(CurvedAnimation(parent: animation, curve: AppMotion.emphasizedDecelerate));
+    final forwardScale = Tween<double>(begin: 0.92, end: 1.0).animate(
+        CurvedAnimation(
+            parent: animation, curve: AppMotion.emphasizedDecelerate));
+    final forwardOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(
+            parent: animation, curve: AppMotion.emphasizedDecelerate));
 
     // ── 后退: 旧页面被覆盖时缩小淡出 (Emphasized Accelerate) ──
-    final backwardScale = Tween<double>(begin: 1.0, end: 1.08)
-        .animate(CurvedAnimation(parent: secondaryAnimation, curve: AppMotion.emphasizedAccelerate));
-    final backwardOpacity = Tween<double>(begin: 1.0, end: 0.0)
-        .animate(CurvedAnimation(parent: secondaryAnimation, curve: AppMotion.emphasizedAccelerate));
+    final backwardScale = Tween<double>(begin: 1.0, end: 1.08).animate(
+        CurvedAnimation(
+            parent: secondaryAnimation, curve: AppMotion.emphasizedAccelerate));
+    final backwardOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(
+        CurvedAnimation(
+            parent: secondaryAnimation, curve: AppMotion.emphasizedAccelerate));
 
     return FadeTransition(
       opacity: forwardOpacity,
@@ -473,9 +504,13 @@ class _FadeTransitionBuilder extends PageTransitionsBuilder {
 /// M3 Dialog 出现转场 — Fade + Scale (从 0.8→1.0)
 ///
 /// Duration: 250ms (Medium1), Easing: Emphasized Decelerate
-Widget m3DialogTransitionBuilder(BuildContext context, Animation<double> animation,
-    Animation<double> secondaryAnimation, Widget child) {
-  final curve = CurvedAnimation(parent: animation, curve: AppMotion.emphasizedDecelerate);
+Widget m3DialogTransitionBuilder(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child) {
+  final curve =
+      CurvedAnimation(parent: animation, curve: AppMotion.emphasizedDecelerate);
   return FadeTransition(
     opacity: curve,
     child: ScaleTransition(
@@ -489,9 +524,13 @@ Widget m3DialogTransitionBuilder(BuildContext context, Animation<double> animati
 /// M3 Bottom Sheet 出现转场 — Slide up + Fade
 ///
 /// Duration: 300ms (Medium2), Easing: Emphasized Decelerate
-Widget m3BottomSheetTransitionBuilder(BuildContext context, Animation<double> animation,
-    Animation<double> secondaryAnimation, Widget child) {
-  final curve = CurvedAnimation(parent: animation, curve: AppMotion.emphasizedDecelerate);
+Widget m3BottomSheetTransitionBuilder(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child) {
+  final curve =
+      CurvedAnimation(parent: animation, curve: AppMotion.emphasizedDecelerate);
   return FadeTransition(
     opacity: curve,
     child: SlideTransition(
@@ -578,15 +617,18 @@ class _M3StaggeredFadeInState extends State<M3StaggeredFadeIn>
       vsync: this,
       duration: widget.duration,
     );
-    _opacity = CurvedAnimation(parent: _controller, curve: AppMotion.emphasizedDecelerate);
+    _opacity = CurvedAnimation(
+        parent: _controller, curve: AppMotion.emphasizedDecelerate);
     _offset = Tween<Offset>(
       begin: const Offset(0, 0.1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: AppMotion.emphasizedDecelerate));
+    ).animate(CurvedAnimation(
+        parent: _controller, curve: AppMotion.emphasizedDecelerate));
 
     // 交错延迟：每项最多 8 项延迟后不再增加
     final delay = Duration(
-      milliseconds: (widget.index.clamp(0, 8)) * widget.itemDelay.inMilliseconds,
+      milliseconds:
+          (widget.index.clamp(0, 8)) * widget.itemDelay.inMilliseconds,
     );
     Future.delayed(delay, () {
       if (mounted) _controller.forward();
@@ -644,8 +686,8 @@ class _M3PressScaleState extends State<M3PressScale>
       duration: AppMotion.dShort3,
       reverseDuration: AppMotion.dShort3,
     );
-    _scale = Tween<double>(begin: 1.0, end: widget.scaleDown)
-        .animate(CurvedAnimation(parent: _controller, curve: AppMotion.emphasized));
+    _scale = Tween<double>(begin: 1.0, end: widget.scaleDown).animate(
+        CurvedAnimation(parent: _controller, curve: AppMotion.emphasized));
   }
 
   @override
@@ -760,7 +802,8 @@ Future<T?> showM3Dialog<T>({
     context: context,
     pageBuilder: (_, __, ___) => builder(context),
     barrierDismissible: barrierDismissible,
-    barrierLabel: barrierLabel ?? MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierLabel: barrierLabel ??
+        MaterialLocalizations.of(context).modalBarrierDismissLabel,
     barrierColor: barrierColor ?? Colors.black54,
     transitionDuration: AppMotion.dMedium1,
     transitionBuilder: m3DialogTransitionBuilder,

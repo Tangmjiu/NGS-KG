@@ -26,11 +26,18 @@ class Album {
       if (!s.startsWith('http')) return 'https:$s';
       return s;
     }
+
     return Album(
       id: _toInt(json['album_id'] ?? json['albumid'] ?? json['id'] ?? 0),
-      name: (json['album_name'] ?? json['albumname'] ?? json['name'] ?? '') as String,
-      coverUrl: parseCover(json['sizable_cover'] ?? json['imgurl'] ?? json['coverImgUrl'] ?? json['cover']),
-      artistName: json['author_name'] ?? json['singername'] ?? json['artist'] as String?,
+      name: (json['album_name'] ?? json['albumname'] ?? json['name'] ?? '')
+          as String,
+      coverUrl: parseCover(json['sizable_cover'] ??
+          json['imgurl'] ??
+          json['coverImgUrl'] ??
+          json['cover']),
+      artistName: json['author_name'] ??
+          json['singername'] ??
+          json['artist'] as String?,
       artistId: _toInt(json['album_artist_id'] ?? json['artist_id']),
       songCount: _toInt(json['song_count'] ?? json['songcount']),
       description: json['intro'] as String?,
@@ -46,10 +53,14 @@ class Album {
       if (!s.startsWith('http')) return 'https:$s';
       return s;
     }
+
     return Album(
       id: _toInt(json['albumid'] ?? json['id'] ?? 0),
       name: (json['albumname'] ?? json['name'] ?? '') as String,
-      coverUrl: parseCover(json['sizable_cover'] ?? json['imgurl'] ?? json['img'] ?? json['cover']),
+      coverUrl: parseCover(json['sizable_cover'] ??
+          json['imgurl'] ??
+          json['img'] ??
+          json['cover']),
       artistName: json['singername'] as String? ?? json['artist'] as String?,
       artistId: _toInt(json['album_artist_id']),
       songCount: _toInt(json['song_count']),

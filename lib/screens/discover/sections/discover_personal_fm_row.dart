@@ -220,10 +220,13 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                           ),
                           child: Text(
                             '播放中',
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: cs.onTertiaryContainer,
-                            ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: cs.onTertiaryContainer,
+                                ),
                           ),
                         ),
                     ],
@@ -253,14 +256,17 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                               ),
                               child: Text(
                                 _poolLabels[i],
-                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  fontWeight: selected
-                                      ? FontWeight.w600
-                                      : FontWeight.normal,
-                                  color: selected
-                                      ? cs.onSecondaryContainer
-                                      : cs.onSurfaceVariant,
-                                ),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
+                                      fontWeight: selected
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
+                                      color: selected
+                                          ? cs.onSecondaryContainer
+                                          : cs.onSurfaceVariant,
+                                    ),
                               ),
                             ),
                           ),
@@ -284,7 +290,8 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                             : CrossFadeState.showFirst,
                         firstChild: ConstrainedBox(
                           constraints: const BoxConstraints(minHeight: 140),
-                          child: _buildIdleState(cs, provider, player, hasContent),
+                          child:
+                              _buildIdleState(cs, provider, player, hasContent),
                         ),
                         secondChild: ConstrainedBox(
                           constraints: const BoxConstraints(minHeight: 140),
@@ -311,7 +318,10 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
       children: [
         Text(
           '根据你的听歌口味智能推荐',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: cs.onSurfaceVariant),
         ),
         const SizedBox(height: 16),
         if (hasContent)
@@ -363,8 +373,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
             icon: const Icon(Icons.play_arrow_rounded, size: 20),
             label: Text(hasContent ? '继续FM推荐' : '启动私人FM'),
             style: FilledButton.styleFrom(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
               shape: const RoundedRectangleBorder(
                 borderRadius: AppShape.lg,
               ),
@@ -409,19 +418,21 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
           currentSong.artistDisplay,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+          style: Theme.of(context)
+              .textTheme
+              .bodyMedium
+              ?.copyWith(color: cs.onSurfaceVariant),
         ),
-        if (currentSong.recDesc != null &&
-            currentSong.recDesc!.isNotEmpty) ...[
+        if (currentSong.recDesc != null && currentSong.recDesc!.isNotEmpty) ...[
           const SizedBox(height: 4),
           Text(
             currentSong.recDesc!,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: cs.primary,
-              fontWeight: FontWeight.w500,
-            ),
+                  color: cs.primary,
+                  fontWeight: FontWeight.w500,
+                ),
           ),
         ],
         const SizedBox(height: 14),
@@ -435,7 +446,8 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                   isPlaying: player.isPlaying && _eqController.isAnimating),
             ),
             const Spacer(),
-            _iconBtn(Icons.heart_broken_outlined,
+            _iconBtn(
+                Icons.heart_broken_outlined,
                 cs.error.withValues(alpha: 0.75),
                 () => _dislike(provider, player, currentSong)),
             const SizedBox(width: 4),
@@ -462,8 +474,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
               ),
             ),
             const SizedBox(width: 8),
-            _iconBtn(
-                Icons.skip_next_rounded, cs.onSurfaceVariant,
+            _iconBtn(Icons.skip_next_rounded, cs.onSurfaceVariant,
                 () => player.playNext()),
           ],
         ),
@@ -538,8 +549,7 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
         const SizedBox(height: 8),
         Text('即将播放',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: cs.onSurfaceVariant)),
+                fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
         const SizedBox(height: 8),
         SizedBox(
           height: 56,
@@ -588,15 +598,13 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                                   errorWidget: (_, __, ___) => Container(
                                     color: cs.surfaceContainerHighest,
                                     child: Icon(Icons.music_note,
-                                        size: 14,
-                                        color: cs.onSurfaceVariant),
+                                        size: 14, color: cs.onSurfaceVariant),
                                   ),
                                 )
                               : Container(
                                   color: cs.surfaceContainerHighest,
                                   child: Icon(Icons.music_note,
-                                      size: 14,
-                                      color: cs.onSurfaceVariant),
+                                      size: 14, color: cs.onSurfaceVariant),
                                 ),
                         ),
                       ),
@@ -622,7 +630,8 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
     }
   }
 
-  Future<void> _startFm(DiscoverProvider provider, PlayerProvider player) async {
+  Future<void> _startFm(
+      DiscoverProvider provider, PlayerProvider player) async {
     setState(() => _fmLoading = true);
     await provider.startFmPlayback(player);
     if (mounted) setState(() => _fmLoading = false);

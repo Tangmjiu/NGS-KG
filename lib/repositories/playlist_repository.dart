@@ -12,19 +12,23 @@ class PlaylistRepository extends BaseRepository {
   String get _userId => ApiClient.userId ?? '0';
 
   Future<PlaylistDetail> getPlaylistDetail(String gcId) async {
-    final res = await get('/playlist/detail', params: {'ids': gcId}, withCookie: true);
+    final res =
+        await get('/playlist/detail', params: {'ids': gcId}, withCookie: true);
     final data = res['data'];
     if (data is List && data.isNotEmpty) {
-      return PlaylistDetail.fromKugouJson(Map<String, dynamic>.from(data[0] as Map));
+      return PlaylistDetail.fromKugouJson(
+          Map<String, dynamic>.from(data[0] as Map));
     }
     if (data is Map) {
       final list = data['list'] as List<dynamic>?;
       if (list != null && list.isNotEmpty) {
-        return PlaylistDetail.fromKugouJson(Map<String, dynamic>.from(list[0] as Map));
+        return PlaylistDetail.fromKugouJson(
+            Map<String, dynamic>.from(list[0] as Map));
       }
       final info = data['info'] as List<dynamic>?;
       if (info != null && info.isNotEmpty) {
-        return PlaylistDetail.fromKugouJson(Map<String, dynamic>.from(info[0] as Map));
+        return PlaylistDetail.fromKugouJson(
+            Map<String, dynamic>.from(info[0] as Map));
       }
       return PlaylistDetail.fromKugouJson(Map<String, dynamic>.from(data));
     }
@@ -36,7 +40,9 @@ class PlaylistRepository extends BaseRepository {
     // 尝试 1: 带 pagesize=1000（某些服务器支持，部分返回 502/20010）
     try {
       final params1 = <String, dynamic>{
-        'id': gcId, 'page': page, 'pagesize': 1000,
+        'id': gcId,
+        'page': page,
+        'pagesize': 1000,
       };
       final res1 = await get('/playlist/track/all',
           params: params1, withCookie: true, silent: true);
@@ -48,10 +54,12 @@ class PlaylistRepository extends BaseRepository {
 
     // 尝试 2: 用原始 pageSize（兼容旧服务器）
     final params2 = <String, dynamic>{
-      'id': gcId, 'page': page, 'pagesize': pageSize,
+      'id': gcId,
+      'page': page,
+      'pagesize': pageSize,
     };
-    final res2 = await get('/playlist/track/all',
-        params: params2, withCookie: true);
+    final res2 =
+        await get('/playlist/track/all', params: params2, withCookie: true);
     final data2 = res2['data'];
     if (data2 is List) {
       return data2
@@ -60,12 +68,12 @@ class PlaylistRepository extends BaseRepository {
           .toList();
     }
     if (data2 is Map) {
-      final songs2 = data2['lists'] as List<dynamic>?
-          ?? data2['songs'] as List<dynamic>?
-          ?? data2['info'] as List<dynamic>?
-          ?? data2['list'] as List<dynamic>?
-          ?? data2['audios'] as List<dynamic>?
-          ?? data2['songlist'] as List<dynamic>?;
+      final songs2 = data2['lists'] as List<dynamic>? ??
+          data2['songs'] as List<dynamic>? ??
+          data2['info'] as List<dynamic>? ??
+          data2['list'] as List<dynamic>? ??
+          data2['audios'] as List<dynamic>? ??
+          data2['songlist'] as List<dynamic>?;
       if (songs2 != null) {
         return songs2
             .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
@@ -94,17 +102,19 @@ class PlaylistRepository extends BaseRepository {
     }
 
     // 尝试 2: 用原始 pageSize
-    final res2 = await get('/playlist/track/all', params: {
-      'id': 'collection_3_${_userId}_${listid}_0',
-      'page': page,
-      'pagesize': pageSize,
-    }, withCookie: true);
+    final res2 = await get('/playlist/track/all',
+        params: {
+          'id': 'collection_3_${_userId}_${listid}_0',
+          'page': page,
+          'pagesize': pageSize,
+        },
+        withCookie: true);
     final data2 = res2['data'];
     if (data2 is Map) {
-      final songs2 = data2['lists'] as List<dynamic>?
-          ?? data2['songs'] as List<dynamic>?
-          ?? data2['info'] as List<dynamic>?
-          ?? data2['list'] as List<dynamic>?;
+      final songs2 = data2['lists'] as List<dynamic>? ??
+          data2['songs'] as List<dynamic>? ??
+          data2['info'] as List<dynamic>? ??
+          data2['list'] as List<dynamic>?;
       if (songs2 != null) {
         return songs2
             .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))
@@ -119,12 +129,12 @@ class PlaylistRepository extends BaseRepository {
   List<Song>? _parseTrackList(dynamic data) {
     List<dynamic>? songs;
     if (data is Map) {
-      songs = data['lists'] as List<dynamic>?
-          ?? data['songs'] as List<dynamic>?
-          ?? data['info'] as List<dynamic>?
-          ?? data['list'] as List<dynamic>?
-          ?? data['audios'] as List<dynamic>?
-          ?? data['songlist'] as List<dynamic>?;
+      songs = data['lists'] as List<dynamic>? ??
+          data['songs'] as List<dynamic>? ??
+          data['info'] as List<dynamic>? ??
+          data['list'] as List<dynamic>? ??
+          data['audios'] as List<dynamic>? ??
+          data['songlist'] as List<dynamic>?;
     } else if (data is List) {
       songs = data;
     }
@@ -141,8 +151,7 @@ class PlaylistRepository extends BaseRepository {
     try {
       final params1 = <String, dynamic>{'page': page, 'pagesize': pageSize};
       if (userId != null) params1['userid'] = userId;
-      final res1 = await get('/user/playlist',
-          params: params1, silent: true);
+      final res1 = await get('/user/playlist', params: params1, silent: true);
       final list1 = _parsePlaylistList(res1['data']);
       if (list1 != null) return list1;
     } catch (_) {
@@ -200,7 +209,8 @@ class PlaylistRepository extends BaseRepository {
   }
 
   Future<List<PlaylistTag>> getPlaylistTags() async {
-    final res = await cachedGet('/playlist/tags', ttl: const Duration(hours: 24));
+    final res =
+        await cachedGet('/playlist/tags', ttl: const Duration(hours: 24));
     final raw = res['data'];
     if (raw is List) {
       return raw
@@ -264,15 +274,18 @@ class PlaylistRepository extends BaseRepository {
   }
 
   Future<Map<String, dynamic>> createPlaylist(String name,
-      {int type = 0, int isPri = 0, int? listCreateListid,
-       int? listCreateUserid}) async {
+      {int type = 0,
+      int isPri = 0,
+      int? listCreateListid,
+      int? listCreateUserid}) async {
     final params = <String, dynamic>{
       'name': name,
       'list_create_userid': listCreateUserid ?? _userId,
       'type': type,
       'is_pri': isPri,
     };
-    if (listCreateListid != null) params['list_create_listid'] = listCreateListid;
+    if (listCreateListid != null)
+      params['list_create_listid'] = listCreateListid;
     final res = await get('/playlist/add', params: params);
     return res;
   }
@@ -281,7 +294,8 @@ class PlaylistRepository extends BaseRepository {
     await get('/playlist/del', params: {'listid': listid});
   }
 
-  Future<Map<String, dynamic>> addTracksToPlaylist(int listid, String data) async {
+  Future<Map<String, dynamic>> addTracksToPlaylist(
+      int listid, String data) async {
     return get('/playlist/tracks/add',
         params: {'listid': listid, 'data': data});
   }
@@ -290,5 +304,4 @@ class PlaylistRepository extends BaseRepository {
     await get('/playlist/tracks/del',
         params: {'listid': listid, 'fileids': fileids});
   }
-
 }

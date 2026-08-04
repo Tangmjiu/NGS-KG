@@ -14,6 +14,8 @@ import 'discover/sections/discover_scene_row.dart';
 import 'discover/sections/discover_ip_row.dart';
 import 'discover/sections/discover_fm_row.dart';
 import 'discover/sections/discover_personal_fm_row.dart';
+import '../utils/responsive.dart';
+import '../routes/app_routes.dart';
 import '../widgets/list_bottom_spacer.dart';
 
 /// 发现页
@@ -43,26 +45,33 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
+    final isDesktop = Responsive.isDesktopLayout(context);
+
     return RefreshIndicator(
       onRefresh: () => provider.loadAll(),
       child: CustomScrollView(
         slivers: [
           // ── Title ──
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                MediaQuery.of(context).padding.top + 20,
-                20,
-                4,
-              ),
-              child: Text(
-                '发现',
-                style: tt.headlineLarge
-                    ?.copyWith(fontWeight: FontWeight.bold),
+          if (!isDesktop)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  MediaQuery.of(context).padding.top + 20,
+                  20,
+                  4,
+                ),
+                child: Text(
+                  '发现',
+                  style:
+                      tt.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
               ),
             ),
-          ),
+          if (isDesktop)
+            const SliverToBoxAdapter(
+              child: SizedBox(height: 20),
+            ),
 
           if (provider.loading)
             const SliverToBoxAdapter(
@@ -80,16 +89,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   child: Center(
                     child: Column(
                       children: [
-                        Icon(Icons.error_outline,
-                            size: 48, color: cs.error),
+                        Icon(Icons.error_outline, size: 48, color: cs.error),
                         const SizedBox(height: 8),
                         Text('加载失败',
-                            style: tt.titleMedium
-                                ?.copyWith(color: cs.error)),
+                            style: tt.titleMedium?.copyWith(color: cs.error)),
                         const SizedBox(height: 4),
                         Text(provider.error!,
-                            style: tt.bodySmall,
-                            textAlign: TextAlign.center),
+                            style: tt.bodySmall, textAlign: TextAlign.center),
                         const SizedBox(height: 12),
                         FilledButton.tonal(
                           onPressed: () => provider.loadAll(),
@@ -118,8 +124,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 SliverToBoxAdapter(
                   child: DiscoverSectionHeader(
                     title: '推荐歌单',
-                    onViewAll: () =>
-                        Navigator.pushNamed(context, '/recommended/playlists'),
+                    onViewAll: () => Navigator.pushNamed(
+                        context, AppRoutes.recommendedPlaylists),
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -166,8 +172,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   child: DiscoverSectionHeader(title: '场景音乐'),
                 ),
                 SliverToBoxAdapter(
-                  child: DiscoverSceneRow(
-                      scenes: provider.sceneCategories),
+                  child: DiscoverSceneRow(scenes: provider.sceneCategories),
                 ),
               ],
 
@@ -186,8 +191,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 SliverToBoxAdapter(
                   child: DiscoverSectionHeader(
                     title: '电台推荐',
-                    onViewAll: () =>
-                        Navigator.pushNamed(context, '/fm'),
+                    onViewAll: () => Navigator.pushNamed(context, AppRoutes.fm),
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -206,61 +210,83 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   void _showRankList(List rankList) {
-    showM3ModalBottomSheet(
-      context: context,
-      builder: (_) {
-        // SafeArea 底部内边距不计入可用高度，否则内容溢出
-        final availableHeight = MediaQuery.of(context).size.height * 0.55
-            - MediaQuery.of(context).padding.bottom;
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text('热门榜单',
-                    style: Theme.of(context).textTheme.titleMedium),
-              ),
-              const Divider(height: 1),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: availableHeight,
-                ),
-                child: ListView.builder(
-                scrollCacheExtent: const ScrollCacheExtent.pixels(200),
-                itemCount: rankList.length,
-                itemBuilder: (_, i) {
-                  final r = rankList[i];
-                  return ListTile(
-                    leading: ClipRRect(
-                      borderRadius: AppShape.sm,
-                      child: r.coverUrl != null
-                          ? CachedNetworkImage(
-                              imageUrl: r.coverUrl!,
-                              width: 48,
-                              height: 48,
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) => _rankPlaceholder(),
-                              errorWidget: (_, __, ___) => _rankPlaceholder(),
-                            )
-                          : _rankPlaceholder(),
-                    ),
-                    title: Text(r.name,
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(context, '/rank/detail',
-                          arguments: {'id': r.id, 'name': r.name});
-                    },
-                  );
-                },
-              ),
+    if (Responsive.isDesktopLayout(context)) {
+      showM3Dialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('热门榜单'),
+          content: SizedBox(
+            width: 400,
+            child: _buildRankList(rankList, showTitle: false),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('关闭'),
             ),
           ],
         ),
       );
-    },
+    } else {
+      showM3ModalBottomSheet(
+        context: context,
+        builder: (_) => _buildRankList(rankList, showTitle: true),
+      );
+    }
+  }
+
+  Widget _buildRankList(List rankList, {bool showTitle = true}) {
+    // SafeArea 底部内边距不计入可用高度，否则内容溢出
+    final availableHeight = MediaQuery.of(context).size.height * 0.55 -
+        MediaQuery.of(context).padding.bottom;
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showTitle)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child:
+                  Text('热门榜单', style: Theme.of(context).textTheme.titleMedium),
+            ),
+          if (showTitle) const Divider(height: 1),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: availableHeight,
+            ),
+            child: ListView.builder(
+              scrollCacheExtent: const ScrollCacheExtent.pixels(200),
+              itemCount: rankList.length,
+              itemBuilder: (_, i) {
+                final r = rankList[i];
+                return ListTile(
+                  leading: ClipRRect(
+                    borderRadius: AppShape.sm,
+                    child: r.coverUrl != null
+                        ? CachedNetworkImage(
+                            imageUrl: r.coverUrl!,
+                            width: 48,
+                            height: 48,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) => _rankPlaceholder(),
+                            errorWidget: (_, __, ___) => _rankPlaceholder(),
+                          )
+                        : _rankPlaceholder(),
+                  ),
+                  title: Text(r.name,
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, AppRoutes.rankDetail,
+                        arguments: {'id': r.id, 'name': r.name});
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -45,6 +45,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
 
   double _accumulatedTime = 0.0;
   Duration _lastElapsed = Duration.zero;
+  Duration _lastTickElapsed = Duration.zero; // 帧节流用
   double _currentSpeed = 1.0; // 平滑插值速度
 
   @override
@@ -52,6 +53,20 @@ class _PlayerBackgroundState extends State<PlayerBackground>
     super.initState();
     _ticker = createTicker((elapsed) {
       if (!mounted) return;
+
+      // Ticker stop 后重新 start 会从 0 重新累计 elapsed；
+      // 检测到回退时重置基准，避免暂停恢复后流光冻结/回跳
+      if (elapsed < _lastElapsed) {
+        _lastElapsed = elapsed;
+        _lastTickElapsed = elapsed;
+        return;
+      }
+
+      // 30fps 节流：流光为慢速运动，30fps 足够且省一半 CPU
+      if (elapsed - _lastTickElapsed < const Duration(milliseconds: 33)) {
+        return;
+      }
+      _lastTickElapsed = elapsed;
 
       final delta = (elapsed - _lastElapsed).inMicroseconds / 1000000.0;
       _lastElapsed = elapsed;
@@ -76,13 +91,30 @@ class _PlayerBackgroundState extends State<PlayerBackground>
     });
   }
 
-  void _updateTickerState(bool isPlaying) {
+  void _updateTickerState(bool isPlaying, bool flowEnabled) {
+    // 流光关闭时无需驱动 ticker（无监听者，避免 30fps 空转）
+    if (!flowEnabled) {
+      if (_ticker.isActive) _ticker.stop();
+      return;
+    }
     // 播放时启动 ticker；暂停时让速度缓降到 0 后再停止，避免动画突兀中断。
     if (isPlaying && !_ticker.isActive) {
       _ticker.start();
     } else if (!isPlaying && _ticker.isActive && _currentSpeed < 0.001) {
       _ticker.stop();
     }
+  }
+
+  /// Layer 3b 的主题包背景图实例缓存（避免 AnimatedBuilder 每帧新建 FileImage）
+  String? _themeBgPath;
+  FileImage? _themeBgImage;
+
+  FileImage _getThemeBgImage() {
+    if (_themeBgPath != ThemeAssets.playerBg) {
+      _themeBgPath = ThemeAssets.playerBg;
+      _themeBgImage = FileImage(File(ThemeAssets.playerBg));
+    }
+    return _themeBgImage!;
   }
 
   @override
@@ -97,7 +129,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
   Widget build(BuildContext context) {
     final flowEnabled = context.watch<ThemeProvider>().flowLightEnabled;
     final isPlaying = context.select<PlayerProvider, bool>((p) => p.isPlaying);
-    _updateTickerState(isPlaying);
+    _updateTickerState(isPlaying, flowEnabled);
     final hasColors = widget.paletteColors.length >= 3;
 
     return Stack(
@@ -122,13 +154,16 @@ class _PlayerBackgroundState extends State<PlayerBackground>
               width: double.infinity,
               height: double.infinity,
               imageBuilder: (context, imageProvider) {
-                return ImageFiltered(
-                  imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                  child: Image(
-                    image: imageProvider,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
+                // RepaintBoundary 缓存模糊结果：父级滚动/透明度变化时只做合成
+                return RepaintBoundary(
+                  child: ImageFiltered(
+                    imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                    child: Image(
+                      image: imageProvider,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                    ),
                   ),
                 );
               },
@@ -138,16 +173,20 @@ class _PlayerBackgroundState extends State<PlayerBackground>
           ),
 
         // Layer 2b: Fallback to theme pack player background when no album art
-        if ((!flowEnabled || !hasColors) && widget.albumCoverUrl == null && ThemeAssets.playerBg.isNotEmpty)
+        if ((!flowEnabled || !hasColors) &&
+            widget.albumCoverUrl == null &&
+            ThemeAssets.playerBg.isNotEmpty)
           Positioned.fill(
-            child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-              child: Image.file(
-                File(ThemeAssets.playerBg),
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            child: RepaintBoundary(
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                child: Image.file(
+                  File(ThemeAssets.playerBg),
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
               ),
             ),
           ),
@@ -223,7 +262,9 @@ class _PlayerBackgroundState extends State<PlayerBackground>
           ),
 
         // Layer 3b: Fallback theme pack background with flowing effect
-        if (flowEnabled && widget.albumCoverUrl == null && ThemeAssets.playerBg.isNotEmpty)
+        if (flowEnabled &&
+            widget.albumCoverUrl == null &&
+            ThemeAssets.playerBg.isNotEmpty)
           Positioned.fill(
             child: IgnorePointer(
               child: RepaintBoundary(
@@ -232,7 +273,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
                   builder: (context, _) {
                     final elapsedVal = _elapsed.value;
                     final opacity = 1.0 - widget.scrollOffset * 0.5;
-                    final imageProvider = FileImage(File(ThemeAssets.playerBg));
+                    final imageProvider = _getThemeBgImage();
 
                     return Opacity(
                       opacity: opacity,
@@ -334,13 +375,13 @@ class FlowingImageLayer extends StatelessWidget {
   Widget build(BuildContext context) {
     // ── 模拟歌曲节奏 (120 BPM 鼓点 + 弱拍同步) ──
     // pi * 4.0 对应每秒 2 个主拍 (即 120 BPM)
-    final beat = (sin(elapsed * pi * 4.0).abs() * 0.75) + 
-                 (sin(elapsed * pi * 8.0).abs() * 0.25);
-    
+    final beat = (sin(elapsed * pi * 4.0).abs() * 0.75) +
+        (sin(elapsed * pi * 8.0).abs() * 0.25);
+
     // 节奏对缩放的影响：在鼓点处缩放轻微呼吸 (额外 8% 的缩放，避免剧烈跳动)
     final pulseScale = scalePulse * (1.0 + 0.08 * beat);
     final scale = scaleBase + pulseScale * sin(elapsed * speedScale);
-    
+
     // 节奏对平移的影响：在鼓点瞬间产生轻微的速度加快
     // 振幅 0.05 保证了该项的导数 > 0，因此流光只会加速减速，而不会倒退（时光倒流）
     final panTime = elapsed + 0.05 * sin(elapsed * pi * 4.0);
@@ -360,21 +401,24 @@ class FlowingImageLayer extends StatelessWidget {
       child: Transform(
         alignment: Alignment.center,
         transform: transform,
-        child: ImageFiltered(
-          imageFilter: ImageFilter.blur(
-            sigmaX: blurSigma,
-            sigmaY: blurSigma,
-            tileMode: TileMode.clamp,
-          ),
-          child: Image(
-            image: imageProvider,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
+        // RepaintBoundary 缓存高斯模糊结果：Ticker 每帧的位移/缩放/旋转
+        // 只做 GPU 合成变换，不再重复全屏模糊（原实现每帧模糊 ×2 层）
+        child: RepaintBoundary(
+          child: ImageFiltered(
+            imageFilter: ImageFilter.blur(
+              sigmaX: blurSigma,
+              sigmaY: blurSigma,
+              tileMode: TileMode.clamp,
+            ),
+            child: Image(
+              image: imageProvider,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+            ),
           ),
         ),
       ),
     );
   }
 }
-

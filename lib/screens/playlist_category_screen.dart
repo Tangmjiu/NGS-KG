@@ -3,7 +3,9 @@ import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/playlist.dart';
+import '../routes/app_routes.dart';
 import '../services/music_service.dart';
+import '../utils/responsive.dart';
 
 class PlaylistCategoryScreen extends StatefulWidget {
   final int categoryId;
@@ -59,53 +61,67 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.categoryName)),
-      body: _loading && _playlists.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                final crossAxisCount =
-                    (constraints.maxWidth / 160).floor().clamp(2, 6);
-                return GridView.builder(
-                  padding: const EdgeInsets.all(12),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
-                    childAspectRatio: 0.85,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: _playlists.length + (_hasMore ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index >= _playlists.length) {
-                      _loadPlaylists();
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    final p = _playlists[index];
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.pushNamed(
-                          context,
-                          '/playlist/detail',
-                          arguments: {
-                            'gcId': p.globalCollectionId ??
-                                'collection_3_${p.createUserId}_${p.id}_0',
-                            'name': p.name,
-                          },
-                        );
-                      },
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ClipRRect(
-                            borderRadius: AppShape.sm,
-                            child: (p.coverUrl != null &&
-                                    p.coverUrl!.isNotEmpty)
-                                ? CachedNetworkImage(
-                                    imageUrl: p.coverUrl!,
-                                    width: double.infinity,
-                                    height: 100,
-                                    fit: BoxFit.cover,
-                                    errorWidget: (_, __, ___) => Container(
+      appBar: Responsive.isDesktopLayout(context)
+          ? null
+          : AppBar(title: Text(widget.categoryName)),
+      body: Responsive.constrainedContent(
+        context,
+        maxWidth: Responsive.maxWidthContent,
+        child: _loading && _playlists.isEmpty
+            ? const Center(child: CircularProgressIndicator())
+            : LayoutBuilder(
+                builder: (context, constraints) {
+                  final crossAxisCount =
+                      (constraints.maxWidth / 160).floor().clamp(2, 6);
+                  return GridView.builder(
+                    padding: const EdgeInsets.all(12),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      childAspectRatio: 0.85,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    itemCount: _playlists.length + (_hasMore ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index >= _playlists.length) {
+                        _loadPlaylists();
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final p = _playlists[index];
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.pushNamed(
+                            context,
+                            AppRoutes.playlistDetail,
+                            arguments: {
+                              'gcId': p.globalCollectionId ??
+                                  'collection_3_${p.createUserId}_${p.id}_0',
+                              'name': p.name,
+                            },
+                          );
+                        },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ClipRRect(
+                              borderRadius: AppShape.sm,
+                              child: (p.coverUrl != null &&
+                                      p.coverUrl!.isNotEmpty)
+                                  ? CachedNetworkImage(
+                                      imageUrl: p.coverUrl!,
+                                      width: double.infinity,
+                                      height: 100,
+                                      fit: BoxFit.cover,
+                                      errorWidget: (_, __, ___) => Container(
+                                        width: double.infinity,
+                                        height: 100,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .surfaceContainerHighest,
+                                        child: const Icon(Icons.playlist_play),
+                                      ),
+                                    )
+                                  : Container(
                                       width: double.infinity,
                                       height: 100,
                                       color: Theme.of(context)
@@ -113,30 +129,22 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
                                           .surfaceContainerHighest,
                                       child: const Icon(Icons.playlist_play),
                                     ),
-                                  )
-                                : Container(
-                                    width: double.infinity,
-                                    height: 100,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .surfaceContainerHighest,
-                                    child: const Icon(Icons.playlist_play),
-                                  ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            p.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              p.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+      ),
     );
   }
 }

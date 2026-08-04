@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
+import '../utils/responsive.dart';
 import '../services/api_config.dart';
 import '../services/api_client.dart';
 
@@ -116,195 +117,206 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('API 服务器')),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        children: [
-          // ── 模式选择 ──
-          const _SectionHeader('模式'),
-          RadioListTile<String>(
-            title: const Text('mjiutang'),
-            subtitle: const Text('内置服务器，开箱即用'),
-            value: ApiConfig.modeMjiutang,
-            groupValue: _mode,
-            onChanged: (v) => setState(() => _mode = v!),
-          ),
-          RadioListTile<String>(
-            title: const Text('自定义'),
-            subtitle: const Text('使用自己搭建的 API 服务器'),
-            value: ApiConfig.modeCustom,
-            groupValue: _mode,
-            onChanged: (v) => setState(() => _mode = v!),
-          ),
-          const Divider(),
+      appBar: Responsive.isDesktopLayout(context)
+          ? null
+          : AppBar(
+              title: const Text('API 服务器'),
+              automaticallyImplyLeading: Responsive.isMobileLayout(context),
+            ),
+      body: Responsive.constrainedContent(
+        context,
+        maxWidth: Responsive.maxWidthSettings,
+        child: ListView(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          children: [
+            // ── 模式选择 ──
+            const _SectionHeader('模式'),
+            RadioListTile<String>(
+              title: const Text('mjiutang'),
+              subtitle: const Text('内置服务器，开箱即用'),
+              value: ApiConfig.modeMjiutang,
+              groupValue: _mode,
+              onChanged: (v) => setState(() => _mode = v!),
+            ),
+            RadioListTile<String>(
+              title: const Text('自定义'),
+              subtitle: const Text('使用自己搭建的 API 服务器'),
+              value: ApiConfig.modeCustom,
+              groupValue: _mode,
+              onChanged: (v) => setState(() => _mode = v!),
+            ),
+            const Divider(),
 
-          // ── mjiutang 路线 ──
-          if (_mode == ApiConfig.modeMjiutang) ...[
-            const _SectionHeader('路线'),
-            Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Column(
-                children: [
-                  RadioListTile<String>(
-                    title: const Text('默认域名路线'),
-                    subtitle: Text(
-                      '使用官方域名访问，大部分地区可直接解析；如果解析失败，可尝试自定义 IP 模式',
-                      style: Theme.of(context).textTheme.bodySmall,
+            // ── mjiutang 路线 ──
+            if (_mode == ApiConfig.modeMjiutang) ...[
+              const _SectionHeader('路线'),
+              Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Column(
+                  children: [
+                    RadioListTile<String>(
+                      title: const Text('默认域名路线'),
+                      subtitle: Text(
+                        '使用官方域名访问，大部分地区可直接解析；如果解析失败，可尝试自定义 IP 模式',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      value: ApiConfig.routeCloudflare,
+                      groupValue: _route,
+                      onChanged: (v) => setState(() => _route = v!),
                     ),
-                    value: ApiConfig.routeCloudflare,
-                    groupValue: _route,
-                    onChanged: (v) => setState(() => _route = v!),
-                  ),
-                  RadioListTile<String>(
-                    title: Row(
-                      children: [
-                        const Text('中国内地'),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.errorContainer,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '已停用',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onErrorContainer,
+                    RadioListTile<String>(
+                      title: Row(
+                        children: [
+                          const Text('中国内地'),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color:
+                                  Theme.of(context).colorScheme.errorContainer,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '已停用',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onErrorContainer,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                      subtitle: Text(
+                        '原国内加速节点已下线，选择后将自动回退到默认域名路线',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      value: ApiConfig.routeChina,
+                      groupValue: _route,
+                      onChanged: (v) => setState(() => _route = v!),
                     ),
-                    subtitle: Text(
-                      '原国内加速节点已下线，选择后将自动回退到默认域名路线',
-                      style: Theme.of(context).textTheme.bodySmall,
+                  ],
+                ),
+              ),
+            ],
+
+            // ── 自定义输入 ──
+            if (_mode == ApiConfig.modeCustom) ...[
+              const _SectionHeader('服务器地址'),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: TextField(
+                  controller: _urlCtrl,
+                  decoration: InputDecoration(
+                    hintText: 'http://your-server:port',
+                    border: OutlineInputBorder(
+                      borderRadius: AppShape.sm,
                     ),
-                    value: ApiConfig.routeChina,
-                    groupValue: _route,
-                    onChanged: (v) => setState(() => _route = v!),
+                    suffixIcon: _urlCtrl.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () {
+                              _urlCtrl.clear();
+                              setState(() {});
+                            },
+                          )
+                        : null,
+                  ),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 16),
+
+            // ── 操作按钮 ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      icon: _testing
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.wifi_find, size: 18),
+                      label: Text(_testing ? '测试中...' : '测试连接'),
+                      onPressed: _testing ? null : _testConnection,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.restore, size: 18),
+                      label: const Text('恢复默认'),
+                      onPressed: () async {
+                        await ApiConfig.instance.resetToDefault();
+                        ApiClient.instance.reinitialize();
+                        _load();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('已恢复默认设置')),
+                          );
+                        }
+                      },
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
 
-          // ── 自定义输入 ──
-          if (_mode == ApiConfig.modeCustom) ...[
-            const _SectionHeader('服务器地址'),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: TextField(
-                controller: _urlCtrl,
-                decoration: InputDecoration(
-                  hintText: 'http://your-server:port',
-                  border: OutlineInputBorder(
-                    borderRadius: AppShape.sm,
+            if (_testResult != null) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  _testResult!,
+                  style: TextStyle(
+                    color: _testResult!.startsWith('连接成功')
+                        ? Colors.green
+                        : Colors.redAccent,
                   ),
-                  suffixIcon: _urlCtrl.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
-                          onPressed: () {
-                            _urlCtrl.clear();
-                            setState(() {});
-                          },
-                        )
-                      : null,
                 ),
-                style: Theme.of(context).textTheme.bodyMedium,
-                onChanged: (_) => setState(() {}),
               ),
-            ),
-          ],
+            ],
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
-          // ── 操作按钮 ──
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    icon: _testing
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.wifi_find, size: 18),
-                    label: Text(_testing ? '测试中...' : '测试连接'),
-                    onPressed: _testing ? null : _testConnection,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.restore, size: 18),
-                    label: const Text('恢复默认'),
-                    onPressed: () async {
-                      await ApiConfig.instance.resetToDefault();
-                      ApiClient.instance.reinitialize();
-                      _load();
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('已恢复默认设置')),
-                        );
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          if (_testResult != null) ...[
-            const SizedBox(height: 12),
+            // ── 应用按钮 ──
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                _testResult!,
-                style: TextStyle(
-                  color: _testResult!.startsWith('连接成功')
-                      ? Colors.green
-                      : Colors.redAccent,
+              child: SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: FilledButton(
+                  onPressed: _apply,
+                  child: const Text('应用'),
                 ),
               ),
             ),
-          ],
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 12),
 
-          // ── 应用按钮 ──
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: FilledButton(
-                onPressed: _apply,
-                child: const Text('应用'),
+            // ── 当前地址状态 ──
+            Center(
+              child: Text(
+                _currentStatusText(),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
               ),
             ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // ── 当前地址状态 ──
-          Center(
-            child: Text(
-              _currentStatusText(),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-            ),
-          ),
-          const SizedBox(height: 32),
-        ],
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }
@@ -316,13 +328,16 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-      child: Text(title,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.primary,
-              )),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: cs.onSurfaceVariant,
+            ),
+      ),
     );
   }
 }

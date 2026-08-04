@@ -35,9 +35,9 @@ class ThemeAssets {
   static String hiResBadge = 'assets/images/hi_res_badge.jpg';
 
   // ─── 空状态 / 失败插画（主题包可覆盖） ───
-  static String emptyPlaylist = _defEmptyPlaylist;  // 歌单/收藏为空
-  static String emptyContent = _defEmptyContent;   // 通用空数据（暂无歌曲/评论等）
-  static String loadFailed = _defLoadFailed;       // 加载失败
+  static String emptyPlaylist = _defEmptyPlaylist; // 歌单/收藏为空
+  static String emptyContent = _defEmptyContent; // 通用空数据（暂无歌曲/评论等）
+  static String loadFailed = _defLoadFailed; // 加载失败
 
   /// 是否有自定义主题资源生效
   static bool get hasCustomAssets =>
@@ -57,11 +57,16 @@ class ThemeAssets {
     if (files.containsKey('ban')) ban = files['ban']!;
     if (files.containsKey('supportme')) supportMe = files['supportme']!;
     if (files.containsKey('icon')) icon = files['icon']!;
-    if (files.containsKey('album_placeholder')) albumPlaceholder = files['album_placeholder']!;
-    if (files.containsKey('playlist_placeholder')) playlistPlaceholder = files['playlist_placeholder']!;
-    if (files.containsKey('artist_placeholder')) artistPlaceholder = files['artist_placeholder']!;
-    if (files.containsKey('empty_playlist')) emptyPlaylist = files['empty_playlist']!;
-    if (files.containsKey('empty_content')) emptyContent = files['empty_content']!;
+    if (files.containsKey('album_placeholder'))
+      albumPlaceholder = files['album_placeholder']!;
+    if (files.containsKey('playlist_placeholder'))
+      playlistPlaceholder = files['playlist_placeholder']!;
+    if (files.containsKey('artist_placeholder'))
+      artistPlaceholder = files['artist_placeholder']!;
+    if (files.containsKey('empty_playlist'))
+      emptyPlaylist = files['empty_playlist']!;
+    if (files.containsKey('empty_content'))
+      emptyContent = files['empty_content']!;
     if (files.containsKey('load_failed')) loadFailed = files['load_failed']!;
     if (files.containsKey('hi_res_badge')) hiResBadge = files['hi_res_badge']!;
 
@@ -91,15 +96,18 @@ class ThemeAssets {
 
 /// 专辑封面加载失败时的占位图
 Widget albumPlaceholderWidget({double size = 48, Color? color}) =>
-    _themedPlaceholder(ThemeAssets.albumPlaceholder, Icons.album, size: size, color: color);
+    _themedPlaceholder(ThemeAssets.albumPlaceholder, Icons.album,
+        size: size, color: color);
 
 /// 歌单封面加载失败时的占位图
 Widget playlistPlaceholderWidget({double size = 48, Color? color}) =>
-    _themedPlaceholder(ThemeAssets.playlistPlaceholder, Icons.playlist_play, size: size, color: color);
+    _themedPlaceholder(ThemeAssets.playlistPlaceholder, Icons.playlist_play,
+        size: size, color: color);
 
 /// 歌手头像加载失败时的占位图
 Widget artistPlaceholderWidget({double size = 48, Color? color}) =>
-    _themedPlaceholder(ThemeAssets.artistPlaceholder, Icons.person, size: size, color: color);
+    _themedPlaceholder(ThemeAssets.artistPlaceholder, Icons.person,
+        size: size, color: color);
 
 /// 通用占位图：有自定义路径则显示图片，否则回退到 icon
 Widget _themedPlaceholder(String assetPath, IconData fallbackIcon,
@@ -107,22 +115,30 @@ Widget _themedPlaceholder(String assetPath, IconData fallbackIcon,
   if (assetPath.isNotEmpty) {
     final widget = assetPath.startsWith('assets/')
         ? Image.asset(assetPath, width: size, height: size, fit: BoxFit.cover)
-        : Image.file(File(assetPath), width: size, height: size, fit: BoxFit.cover);
+        : Image.file(File(assetPath),
+            width: size, height: size, fit: BoxFit.cover);
     return widget;
   }
   return Icon(fallbackIcon, size: size * 0.7, color: color);
 }
 
 /// 空状态组件：有主题图则显示图片，否则回退到 icon + 文字
-Widget emptyStateWidget(String assetPath, IconData fallbackIcon, String fallbackText,
+Widget emptyStateWidget(
+    String assetPath, IconData fallbackIcon, String fallbackText,
     {double iconSize = 80}) {
   if (assetPath.isNotEmpty) {
     Widget image;
     if (assetPath.startsWith('assets/')) {
-      image = Image.asset(assetPath, width: iconSize * 2, height: iconSize * 2, fit: BoxFit.contain,
+      image = Image.asset(assetPath,
+          width: iconSize * 2,
+          height: iconSize * 2,
+          fit: BoxFit.contain,
           errorBuilder: (_, __, ___) => const SizedBox.shrink());
     } else {
-      image = Image.file(File(assetPath), width: iconSize * 2, height: iconSize * 2, fit: BoxFit.contain,
+      image = Image.file(File(assetPath),
+          width: iconSize * 2,
+          height: iconSize * 2,
+          fit: BoxFit.contain,
           errorBuilder: (_, __, ___) => const SizedBox.shrink());
     }
     return Padding(

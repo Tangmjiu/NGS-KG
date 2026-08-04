@@ -23,17 +23,17 @@ class Song {
   final String? lyrics; // embedded LRC text (local files with companion .lrc)
   final int? climaxMs; // 歌曲高潮开始时间（毫秒），来自 /song/climax
   final int? mixSongId; // 酷狗 MixSongID，用于播放历史上传等场景
-  final int? artistId;  // 歌手 ID，用于导航到歌手详情
+  final int? artistId; // 歌手 ID，用于导航到歌手详情
   final Uint8List? coverData; // 内嵌封面原始数据（本地音乐用）
   // ─── 本地音乐扩展字段 ───
   final int? mediaStoreId; // Android MediaStore _ID
-  final int size;          // 文件大小（字节）
-  final int? bitrate;      // kbps
-  final String? codec;     // MP3 / FLAC / WAV / AAC / OGG / WMA
+  final int size; // 文件大小（字节）
+  final int? bitrate; // kbps
+  final String? codec; // MP3 / FLAC / WAV / AAC / OGG / WMA
   // ─── 私人 FM 扩展字段 ───
-  final String? recDesc;        // FM 推荐理由（如"根据您喜欢的华语流行"）
-  final String? language;       // 语言标签（CN/EN/JP/KR）
-  final String? similarDesc;    // 相似推荐说明（如"和您收藏的XX相似"）
+  final String? recDesc; // FM 推荐理由（如"根据您喜欢的华语流行"）
+  final String? language; // 语言标签（CN/EN/JP/KR）
+  final String? similarDesc; // 相似推荐说明（如"和您收藏的XX相似"）
   final List<Map<String, dynamic>>? relateGoods; // 音质层级数据
 
   const Song({
@@ -70,8 +70,7 @@ class Song {
 
   /// 小尺寸封面 URL（适合列表/缩略图），默认 240px。
   /// 如果原 URL 不含 {size} 占位符则原样返回。
-  String? get thumbnailCoverUrl =>
-      albumCoverUrl?.replaceAll('{size}', '240');
+  String? get thumbnailCoverUrl => albumCoverUrl?.replaceAll('{size}', '240');
 
   ImageProvider get coverImageProvider {
     if (coverData != null && coverData!.isNotEmpty) {
@@ -82,9 +81,8 @@ class Song {
     }
     final url = albumCoverUrl!;
     if (url.startsWith('file://') || _isRawFilePath(url)) {
-      final path = url.startsWith('file://')
-          ? Uri.parse(url).toFilePath()
-          : url;
+      final path =
+          url.startsWith('file://') ? Uri.parse(url).toFilePath() : url;
       return FileImage(File(path));
     }
     return NetworkImage(url);
@@ -138,9 +136,8 @@ class Song {
     String? lyrics,
     String? albumCoverPath,
   }) {
-    final coverUrl = albumCoverPath != null
-        ? Uri.file(albumCoverPath).toString()
-        : null;
+    final coverUrl =
+        albumCoverPath != null ? Uri.file(albumCoverPath).toString() : null;
     // 根据 codec/bitrate 构建品质映射
     final qualities = <String, String>{};
     if (codec == 'FLAC' || codec == 'WAV') {
@@ -152,7 +149,8 @@ class Song {
     }
     return Song(
       id: -(mediaStoreId ?? filePath.hashCode),
-      name: title.endsWith('.mp3') ? title.substring(0, title.length - 4) : title,
+      name:
+          title.endsWith('.mp3') ? title.substring(0, title.length - 4) : title,
       artists: artist != null ? [artist] : ['本地音乐'],
       albumName: album,
       albumCoverUrl: coverUrl,
@@ -229,7 +227,11 @@ class SongUrl {
         ? (urls.isNotEmpty ? urls[0].toString() : '')
         : (urls as String? ?? '');
     return SongUrl(
-      id: (json['mixsongid'] as int?) ?? (json['audio_id'] as int?) ?? (json['id'] as int?) ?? json['hash']?.hashCode ?? 0,
+      id: (json['mixsongid'] as int?) ??
+          (json['audio_id'] as int?) ??
+          (json['id'] as int?) ??
+          json['hash']?.hashCode ??
+          0,
       url: firstUrl,
       type: json['extName'] as String? ?? 'mp3',
       timeLength: json['timeLength'] as int?,

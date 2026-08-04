@@ -13,7 +13,8 @@ class SongMapper {
       final fileHash = json['FileHash'] as String?;
       return Song(
         id: tryInt(json['Audioid'] ?? json['id']),
-        name: (json['OriSongName'] ?? json['SongName'] ?? json['name'] ?? '') as String,
+        name: (json['OriSongName'] ?? json['SongName'] ?? json['name'] ?? '')
+            as String,
         artists: _splitArtists(json['SingerName'] as String?),
         albumName: json['AlbumName'] as String?,
         albumCoverUrl: cover,
@@ -21,9 +22,8 @@ class SongMapper {
         artistId: tryInt(json['SingerID']),
         duration: (json['Duration'] as int?) ?? 0,
         hash: fileHash,
-        qualities: fileHash != null && fileHash.isNotEmpty
-            ? {'128': fileHash}
-            : null,
+        qualities:
+            fileHash != null && fileHash.isNotEmpty ? {'128': fileHash} : null,
       );
     } catch (e, s) {
       Log.e('song_mapper', 'error', e, s);
@@ -80,7 +80,8 @@ class SongMapper {
       // 扁平 hash 不存在时从 audio_info 取
       if (hash == null || hash.isEmpty) {
         final audioInfo = json['audio_info'] as Map<String, dynamic>?;
-        hash = audioInfo?['hash'] as String? ?? audioInfo?['hash_128'] as String?;
+        hash =
+            audioInfo?['hash'] as String? ?? audioInfo?['hash_128'] as String?;
       }
       if (hash != null && hash.isNotEmpty) q['128'] = hash;
 
@@ -109,9 +110,13 @@ class SongMapper {
               final level = g['level'];
               final gh = g['hash'] as String?;
               if (gh != null && gh.isNotEmpty) {
-                if (level == 4) { q['320'] = gh; }
-                else if (level == 5) { q['flac'] = gh; }
-                else if (!q.containsKey('128')) { q['128'] = gh; }
+                if (level == 4) {
+                  q['320'] = gh;
+                } else if (level == 5) {
+                  q['flac'] = gh;
+                } else if (!q.containsKey('128')) {
+                  q['128'] = gh;
+                }
               }
             }
           }
@@ -123,12 +128,12 @@ class SongMapper {
       if (parts.length > 1) {
         artist = parts[0];
       } else {
-        artist = json['singername'] as String?
-            ?? json['artist'] as String?
-            ?? json['author'] as String?
-            ?? json['singer'] as String?
-            ?? nestedArtist
-            ?? '';
+        artist = json['singername'] as String? ??
+            json['artist'] as String? ??
+            json['author'] as String? ??
+            json['singer'] as String? ??
+            nestedArtist ??
+            '';
       }
 
       // ── 时长：优先扁平 timelen，回退到 audio_info.duration_128 ──
@@ -152,7 +157,8 @@ class SongMapper {
       return Song(
         id: tryInt(json['audio_id'] ?? base?['audio_id'] ?? json['id']),
         name: (parts.length > 1 ? parts.sublist(1).join(' - ') : rawName)
-            .replaceAll(RegExp(r'\.(mp3|flac|wav|m4a)$', caseSensitive: false), ''),
+            .replaceAll(
+                RegExp(r'\.(mp3|flac|wav|m4a)$', caseSensitive: false), ''),
         artists: _splitArtists(artist),
         albumCoverUrl: cover,
         albumId: albumId,
@@ -185,7 +191,10 @@ class SongMapper {
       final audioInfo = json['audio_info'];
       if (audioInfo is Map) {
         final v128 = audioInfo['hash_128'] as String?;
-        if (v128 != null && v128.isNotEmpty) { q['128'] = v128; hash = v128; }
+        if (v128 != null && v128.isNotEmpty) {
+          q['128'] = v128;
+          hash = v128;
+        }
         final v320 = audioInfo['hash_320'] as String?;
         if (v320 != null && v320.isNotEmpty) q['320'] = v320;
         final vFlac = audioInfo['hash_flac'] as String?;
@@ -225,20 +234,19 @@ class SongMapper {
   static Song? fromFmJson(Map<String, dynamic> json) {
     try {
       // ── 名称 ──
-      final rawName = (json['songname'] ?? json['ori_audio_name'] ?? '') as String;
+      final rawName =
+          (json['songname'] ?? json['ori_audio_name'] ?? '') as String;
       var parts = rawName.split(' - ');
       if (parts.length == 1 && rawName.contains('、')) {
         parts = ['', rawName];
       }
 
       // ── 歌手 ──
-      final artist = parts.length > 1
-          ? parts[0]
-          : (json['author_name'] as String? ?? '');
+      final artist =
+          parts.length > 1 ? parts[0] : (json['author_name'] as String? ?? '');
 
       // ── 封面 ──
-      var cover = json['cover'] as String? ??
-          json['imgUrl'] as String?;
+      var cover = json['cover'] as String? ?? json['imgUrl'] as String?;
       if (cover == null || cover.isEmpty) {
         final transParam = json['trans_param'] as Map<String, dynamic>?;
         cover = transParam?['union_cover'] as String?;
@@ -324,9 +332,8 @@ class SongMapper {
         recDesc: recInfo?['rec_desc'] as String?,
         language: json['language'] as String?,
         similarDesc: recInfo?['similar_desc'] as String?,
-        relateGoods: relateGoods
-            ?.map((e) => e as Map<String, dynamic>)
-            .toList(),
+        relateGoods:
+            relateGoods?.map((e) => e as Map<String, dynamic>).toList(),
       );
     } catch (e, s) {
       Log.e('song_mapper', 'fromFmJson error', e, s);

@@ -67,13 +67,17 @@ class Quality {
   }
 
   /// 获取音效显示标签
-  static String effectLabel(String effect) =>
-      effectLabels[effect] ?? effect;
+  static String effectLabel(String effect) => effectLabels[effect] ?? effect;
 
   /// 所有 /privilege/lite 中可能出现的 quality key（编码 + 音效）
   static const List<String> allKnown = [
-    '128', '320', 'flac', 'high',
-    'viper_atmos', 'viper_clear', 'viper_tape',
+    '128',
+    '320',
+    'flac',
+    'high',
+    'viper_atmos',
+    'viper_clear',
+    'viper_tape',
   ];
 }
 
@@ -136,7 +140,8 @@ class PrivilegeInfo {
       _addIfValid(item, seenQualities, seenEffects, options, effectOptions);
       final relateGoods = item['relate_goods'] as List<dynamic>? ?? [];
       for (final rg in relateGoods) {
-        if (rg is Map) _addIfValid(rg, seenQualities, seenEffects, options, effectOptions);
+        if (rg is Map)
+          _addIfValid(rg, seenQualities, seenEffects, options, effectOptions);
       }
     }
 

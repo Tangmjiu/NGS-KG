@@ -4,6 +4,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/theme_assets.dart';
 import '../utils/about_config.dart';
+import '../utils/responsive.dart';
 
 /// 关于页面
 ///
@@ -46,145 +47,155 @@ class _AboutScreenState extends State<AboutScreen> {
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('关于')),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        children: [
-          const SizedBox(height: 32),
+      appBar: Responsive.isDesktopLayout(context)
+          ? null
+          : AppBar(
+              title: const Text('关于'),
+              automaticallyImplyLeading: Responsive.isMobileLayout(context),
+            ),
+      body: Responsive.constrainedContent(
+        context,
+        maxWidth: Responsive.maxWidthSettings,
+        child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          children: [
+            const SizedBox(height: 32),
 
-          // ── 图标 + 名称 + 版本 ──
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ClipRRect(
-                  borderRadius: AppShape.full,
-                  child: Image.asset(
-                    ThemeAssets.icon,
-                    width: 80,
-                    height: 80,
-                    errorBuilder: (_, __, ___) => Container(
+            // ── 图标 + 名称 + 版本 ──
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ClipRRect(
+                    borderRadius: AppShape.full,
+                    child: Image.asset(
+                      ThemeAssets.icon,
                       width: 80,
                       height: 80,
-                      decoration: BoxDecoration(
-                        color: cs.primaryContainer,
-                        borderRadius: AppShape.full,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer,
+                          borderRadius: AppShape.full,
+                        ),
+                        child:
+                            Icon(Icons.music_note, size: 40, color: cs.primary),
                       ),
-                      child:
-                          Icon(Icons.music_note, size: 40, color: cs.primary),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Text(AboutConfig.appName,
-                    style: tt.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                Text('版本 $_version',
-                    style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                  const SizedBox(height: 16),
+                  Text(AboutConfig.appName,
+                      style: tt.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Text('版本 $_version',
+                      style:
+                          tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // ── 简介 ──
+            Text(
+              AboutConfig.description,
+              textAlign: TextAlign.center,
+              style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+            ),
+
+            const SizedBox(height: 32),
+
+            // ── 相关链接 ──
+            _LinkSection(
+              title: '相关链接',
+              items: [
+                _LinkItem(
+                    icon: Icons.code,
+                    label: 'GitHub 仓库',
+                    url: AboutConfig.githubUrl),
+                _LinkItem(
+                    icon: Icons.api, label: '接口文档', url: AboutConfig.apiDocUrl),
+                _LinkItem(
+                    icon: Icons.history,
+                    label: '更新日志',
+                    url: AboutConfig.changelogUrl),
+                _LinkItem(
+                    icon: Icons.help_outline,
+                    label: '常见问题',
+                    url: AboutConfig.faqUrl),
+                _LinkItem(
+                    icon: Icons.palette_outlined,
+                    label: '主题制作',
+                    url: AboutConfig.themeUrl),
               ],
             ),
-          ),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
-          // ── 简介 ──
-          Text(
-            AboutConfig.description,
-            textAlign: TextAlign.center,
-            style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-          ),
-
-          const SizedBox(height: 32),
-
-          // ── 相关链接 ──
-          _LinkSection(
-            title: '相关链接',
-            items: [
-              _LinkItem(
-                  icon: Icons.code,
-                  label: 'GitHub 仓库',
-                  url: AboutConfig.githubUrl),
-              _LinkItem(
-                  icon: Icons.api, label: '接口文档', url: AboutConfig.apiDocUrl),
-              _LinkItem(
-                  icon: Icons.history,
-                  label: '更新日志',
-                  url: AboutConfig.changelogUrl),
-              _LinkItem(
-                  icon: Icons.help_outline,
-                  label: '常见问题',
-                  url: AboutConfig.faqUrl),
-              _LinkItem(
-                  icon: Icons.palette_outlined,
-                  label: '主题制作',
-                  url: AboutConfig.themeUrl),
-            ],
-          ),
-
-          const SizedBox(height: 32),
-
-          // ── 版权信息（不可编辑） ──
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-              borderRadius: AppShape.md,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                RichText(
-                  textAlign: TextAlign.center,
-                  text: TextSpan(
-                    style: tt.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                    children: [
-                      const TextSpan(text: 'Copyright © 2025-2026 '),
-                      WidgetSpan(
-                        alignment: PlaceholderAlignment.middle,
-                        child: GestureDetector(
-                          onTap: () => launchUrl(
-                            Uri.parse(AboutConfig.mjiutangUrl),
-                            mode: LaunchMode.externalApplication,
-                          ),
-                          child: Text(
-                            'mjiutang',
-                            style: TextStyle(
-                              color: cs.primary,
-                              decoration: TextDecoration.underline,
+            // ── 版权信息（不可编辑） ──
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                borderRadius: AppShape.md,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  RichText(
+                    textAlign: TextAlign.center,
+                    text: TextSpan(
+                      style: tt.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                      children: [
+                        const TextSpan(text: 'Copyright © 2025-2026 '),
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: GestureDetector(
+                            onTap: () => launchUrl(
+                              Uri.parse(AboutConfig.mjiutangUrl),
+                              mode: LaunchMode.externalApplication,
+                            ),
+                            child: Text(
+                              'mjiutang',
+                              style: TextStyle(
+                                color: cs.primary,
+                                decoration: TextDecoration.underline,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const TextSpan(text: '. All Rights Reserved'),
-                    ],
+                        const TextSpan(text: '. All Rights Reserved'),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Copyright © 2004-2026 KuGou-Inc. All Rights Reserved',
-                  textAlign: TextAlign.center,
-                  style: tt.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
+                  const SizedBox(height: 4),
+                  Text(
+                    'Copyright © 2004-2026 KuGou-Inc. All Rights Reserved',
+                    textAlign: TextAlign.center,
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  AboutConfig.copyrightNotice,
-                  textAlign: TextAlign.center,
-                  style: tt.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
+                  const SizedBox(height: 8),
+                  Text(
+                    AboutConfig.copyrightNotice,
+                    textAlign: TextAlign.center,
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
 
-          const SizedBox(height: 32),
-        ],
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

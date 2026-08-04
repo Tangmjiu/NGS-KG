@@ -109,7 +109,8 @@ class MetadataReader {
             if (blockHeader.length < 4) break;
             lastBlock = (blockHeader[0] & 0x80) != 0;
             final blockType = blockHeader[0] & 0x7F;
-            final blockSize = _bytesToIntBE([0, blockHeader[1], blockHeader[2], blockHeader[3]]);
+            final blockSize = _bytesToIntBE(
+                [0, blockHeader[1], blockHeader[2], blockHeader[3]]);
 
             if (blockType == 4) {
               // VORBIS_COMMENT
@@ -119,15 +120,19 @@ class MetadataReader {
               var offset = 4 + vendorLen;
               // user comment list length (4 bytes LE)
               if (offset + 4 > blockData.length) break;
-              final commentCount = _bytesToIntLE(blockData.sublist(offset, offset + 4));
+              final commentCount =
+                  _bytesToIntLE(blockData.sublist(offset, offset + 4));
               offset += 4;
 
               for (var i = 0; i < commentCount; i++) {
                 if (offset + 4 > blockData.length) break;
-                final commentLen = _bytesToIntLE(blockData.sublist(offset, offset + 4));
+                final commentLen =
+                    _bytesToIntLE(blockData.sublist(offset, offset + 4));
                 offset += 4;
                 if (offset + commentLen > blockData.length) break;
-                final comment = utf8.decode(blockData.sublist(offset, offset + commentLen), allowMalformed: true);
+                final comment = utf8.decode(
+                    blockData.sublist(offset, offset + commentLen),
+                    allowMalformed: true);
                 offset += commentLen;
 
                 // 查找 LYRICS= 或 UNSYNCEDLYRICS=
@@ -191,30 +196,30 @@ class MetadataReader {
     if (effectiveMeta.albumArt != null && effectiveMeta.albumArt!.isNotEmpty) {
       try {
         final cacheDir = await getTemporaryDirectory();
-         final baseName = p.basenameWithoutExtension(fp);
-         final cacheFile = File('${cacheDir.path}/album_art_$baseName.jpg');
-         if (!await cacheFile.exists()) {
-           await cacheFile.writeAsBytes(effectiveMeta.albumArt!);
-         }
-         // Return the updated metadata with the cache path
-         _cache[fp] = AudioMetadata(
-           title: effectiveMeta.title,
-           artist: effectiveMeta.artist,
-           album: effectiveMeta.album,
-           durationMs: effectiveMeta.durationMs,
-           bitrate: effectiveMeta.bitrate,
-           albumArt: effectiveMeta.albumArt,
-           lyrics: effectiveMeta.lyrics,
-           albumCoverCachePath: cacheFile.path,
-         );
-         return _cache[fp];
-       } catch (e, s) {
-         Log.e('metadata_reader', 'cover cache error', e, s);
-       }
-     }
+        final baseName = p.basenameWithoutExtension(fp);
+        final cacheFile = File('${cacheDir.path}/album_art_$baseName.jpg');
+        if (!await cacheFile.exists()) {
+          await cacheFile.writeAsBytes(effectiveMeta.albumArt!);
+        }
+        // Return the updated metadata with the cache path
+        _cache[fp] = AudioMetadata(
+          title: effectiveMeta.title,
+          artist: effectiveMeta.artist,
+          album: effectiveMeta.album,
+          durationMs: effectiveMeta.durationMs,
+          bitrate: effectiveMeta.bitrate,
+          albumArt: effectiveMeta.albumArt,
+          lyrics: effectiveMeta.lyrics,
+          albumCoverCachePath: cacheFile.path,
+        );
+        return _cache[fp];
+      } catch (e, s) {
+        Log.e('metadata_reader', 'cover cache error', e, s);
+      }
+    }
 
-     _cache[fp] = effectiveMeta;
-     return effectiveMeta;
+    _cache[fp] = effectiveMeta;
+    return effectiveMeta;
   }
 
   /// Returns the cached cover path for [filePath], or null.

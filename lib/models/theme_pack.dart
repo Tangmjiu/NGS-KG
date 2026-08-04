@@ -54,16 +54,16 @@ class FontWeightFiles {
   // ── 序列化 ──
 
   Map<String, dynamic> toJson() => {
-    'regular': regular,
-    'medium': medium,
-    'bold': bold,
-  };
+        'regular': regular,
+        'medium': medium,
+        'bold': bold,
+      };
 
   static FontWeightFiles fromJson(Map<String, dynamic> json) => FontWeightFiles(
-    regular: json['regular'] as String? ?? '',
-    medium: json['medium'] as String?,
-    bold: json['bold'] as String?,
-  );
+        regular: json['regular'] as String? ?? '',
+        medium: json['medium'] as String?,
+        bold: json['bold'] as String?,
+      );
 }
 
 /// 统一主题包模型
@@ -133,10 +133,10 @@ class ThemePack {
   /// 将主题包序列化为 JSON-compatible map。
   Map<String, dynamic> toJson() {
     Map<String, dynamic> componentsJson() => {
-      'navigationBarElevation': components.navigationBarElevation,
-      'cardElevation': components.cardElevation,
-      'dialogElevation': components.dialogElevation,
-    };
+          'navigationBarElevation': components.navigationBarElevation,
+          'cardElevation': components.cardElevation,
+          'dialogElevation': components.dialogElevation,
+        };
 
     Map<String, double>? shapeJson(Map<String, double>? s) =>
         s?.map((k, v) => MapEntry(k, v));
@@ -161,8 +161,7 @@ class ThemePack {
       'components': componentsJson(),
       if (lightScheme != null)
         'lightScheme': _serializeColorScheme(lightScheme!),
-      if (darkScheme != null)
-        'darkScheme': _serializeColorScheme(darkScheme!),
+      if (darkScheme != null) 'darkScheme': _serializeColorScheme(darkScheme!),
       if (lyricSettingsOverride != null)
         'lyricSettingsOverride': lyricSettingsOverride,
     };
@@ -185,8 +184,8 @@ class ThemePack {
       description: json['description'] as String?,
       isBuiltIn: json['isBuiltIn'] as bool? ?? false,
       previewPath: json['previewPath'] as String?,
-      assetFiles: (json['assetFiles'] as Map<String, dynamic>?)
-          ?.cast<String, String>(),
+      assetFiles:
+          (json['assetFiles'] as Map<String, dynamic>?)?.cast<String, String>(),
       playerBgPath: json['playerBgPath'] as String?,
       fontFamily: json['fontFamily'] as String?,
       fontWeightFiles: json['fontWeightFiles'] != null
@@ -203,9 +202,10 @@ class ThemePack {
           : ThemeMotion.defaults,
       components: json['components'] != null
           ? ThemeComponents(
-              navigationBarElevation: (json['components']
-                      ['navigationBarElevation'] as num?)
-                  ?.toDouble() ?? 0,
+              navigationBarElevation:
+                  (json['components']['navigationBarElevation'] as num?)
+                          ?.toDouble() ??
+                      0,
               cardElevation:
                   (json['components']['cardElevation'] as num?)?.toDouble() ??
                       0,
@@ -222,8 +222,8 @@ class ThemePack {
           ? _parseColorScheme(
               json['darkScheme'] as Map<String, dynamic>, Brightness.dark)
           : null,
-      lyricSettingsOverride: json['lyricSettingsOverride']
-          as Map<String, dynamic>?,
+      lyricSettingsOverride:
+          json['lyricSettingsOverride'] as Map<String, dynamic>?,
     );
   }
 
@@ -251,41 +251,42 @@ Map<String, String> _serializeColorScheme(ColorScheme s) {
   String colorHex(Color c) =>
       '#${c.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
   return {
-      'primary': colorHex(s.primary),
-      'onPrimary': colorHex(s.onPrimary),
-      'primaryContainer': colorHex(s.primaryContainer),
-      'onPrimaryContainer': colorHex(s.onPrimaryContainer),
-      'secondary': colorHex(s.secondary),
-      'onSecondary': colorHex(s.onSecondary),
-      'secondaryContainer': colorHex(s.secondaryContainer),
-      'onSecondaryContainer': colorHex(s.onSecondaryContainer),
-      'tertiary': colorHex(s.tertiary),
-      'onTertiary': colorHex(s.onTertiary),
-      'tertiaryContainer': colorHex(s.tertiaryContainer),
-      'onTertiaryContainer': colorHex(s.onTertiaryContainer),
-      'error': colorHex(s.error),
-      'onError': colorHex(s.onError),
-      'errorContainer': colorHex(s.errorContainer),
-      'onErrorContainer': colorHex(s.onErrorContainer),
-      'surface': colorHex(s.surface),
-      'surfaceDim': colorHex(s.surfaceDim),
-      'surfaceBright': colorHex(s.surfaceBright),
-      'surfaceContainerLowest': colorHex(s.surfaceContainerLowest),
-      'surfaceContainerLow': colorHex(s.surfaceContainerLow),
-      'surfaceContainer': colorHex(s.surfaceContainer),
-      'surfaceContainerHigh': colorHex(s.surfaceContainerHigh),
-      'surfaceContainerHighest': colorHex(s.surfaceContainerHighest),
-      'onSurface': colorHex(s.onSurface),
-      'onSurfaceVariant': colorHex(s.onSurfaceVariant),
-      'outline': colorHex(s.outline),
-      'outlineVariant': colorHex(s.outlineVariant),
-      'inverseSurface': colorHex(s.inverseSurface),
-      'inversePrimary': colorHex(s.inversePrimary),
+    'primary': colorHex(s.primary),
+    'onPrimary': colorHex(s.onPrimary),
+    'primaryContainer': colorHex(s.primaryContainer),
+    'onPrimaryContainer': colorHex(s.onPrimaryContainer),
+    'secondary': colorHex(s.secondary),
+    'onSecondary': colorHex(s.onSecondary),
+    'secondaryContainer': colorHex(s.secondaryContainer),
+    'onSecondaryContainer': colorHex(s.onSecondaryContainer),
+    'tertiary': colorHex(s.tertiary),
+    'onTertiary': colorHex(s.onTertiary),
+    'tertiaryContainer': colorHex(s.tertiaryContainer),
+    'onTertiaryContainer': colorHex(s.onTertiaryContainer),
+    'error': colorHex(s.error),
+    'onError': colorHex(s.onError),
+    'errorContainer': colorHex(s.errorContainer),
+    'onErrorContainer': colorHex(s.onErrorContainer),
+    'surface': colorHex(s.surface),
+    'surfaceDim': colorHex(s.surfaceDim),
+    'surfaceBright': colorHex(s.surfaceBright),
+    'surfaceContainerLowest': colorHex(s.surfaceContainerLowest),
+    'surfaceContainerLow': colorHex(s.surfaceContainerLow),
+    'surfaceContainer': colorHex(s.surfaceContainer),
+    'surfaceContainerHigh': colorHex(s.surfaceContainerHigh),
+    'surfaceContainerHighest': colorHex(s.surfaceContainerHighest),
+    'onSurface': colorHex(s.onSurface),
+    'onSurfaceVariant': colorHex(s.onSurfaceVariant),
+    'outline': colorHex(s.outline),
+    'outlineVariant': colorHex(s.outlineVariant),
+    'inverseSurface': colorHex(s.inverseSurface),
+    'inversePrimary': colorHex(s.inversePrimary),
   };
 }
 
 /// 从 {属性名 → '#RRGGBB'} 映射反序列化 ColorScheme。
-ColorScheme _parseColorScheme(Map<String, dynamic> data, Brightness brightness) {
+ColorScheme _parseColorScheme(
+    Map<String, dynamic> data, Brightness brightness) {
   Color c(String key, Color fallback) {
     final v = data[key] as String?;
     if (v == null || v.isEmpty) return fallback;
@@ -316,11 +317,13 @@ ColorScheme _parseColorScheme(Map<String, dynamic> data, Brightness brightness) 
       surface: c('surface', const Color(0xFFFDF8FF)),
       surfaceDim: c('surfaceDim', const Color(0xFFDED8E1)),
       surfaceBright: c('surfaceBright', const Color(0xFFFDF8FF)),
-      surfaceContainerLowest: c('surfaceContainerLowest', const Color(0xFFFFFFFF)),
+      surfaceContainerLowest:
+          c('surfaceContainerLowest', const Color(0xFFFFFFFF)),
       surfaceContainerLow: c('surfaceContainerLow', const Color(0xFFF7F2FB)),
       surfaceContainer: c('surfaceContainer', const Color(0xFFF2ECF5)),
       surfaceContainerHigh: c('surfaceContainerHigh', const Color(0xFFEBE6EF)),
-      surfaceContainerHighest: c('surfaceContainerHighest', const Color(0xFFE0DAE3)),
+      surfaceContainerHighest:
+          c('surfaceContainerHighest', const Color(0xFFE0DAE3)),
       onSurface: c('onSurface', const Color(0xFF1C1B1F)),
       onSurfaceVariant: c('onSurfaceVariant', const Color(0xFF49454F)),
       outline: c('outline', const Color(0xFF7A7580)),
@@ -349,11 +352,13 @@ ColorScheme _parseColorScheme(Map<String, dynamic> data, Brightness brightness) 
       surface: c('surface', const Color(0xFF141318)),
       surfaceDim: c('surfaceDim', const Color(0xFF141318)),
       surfaceBright: c('surfaceBright', const Color(0xFF3A383E)),
-      surfaceContainerLowest: c('surfaceContainerLowest', const Color(0xFF0E0E13)),
+      surfaceContainerLowest:
+          c('surfaceContainerLowest', const Color(0xFF0E0E13)),
       surfaceContainerLow: c('surfaceContainerLow', const Color(0xFF1C1B20)),
       surfaceContainer: c('surfaceContainer', const Color(0xFF201F24)),
       surfaceContainerHigh: c('surfaceContainerHigh', const Color(0xFF2B292F)),
-      surfaceContainerHighest: c('surfaceContainerHighest', const Color(0xFF36343A)),
+      surfaceContainerHighest:
+          c('surfaceContainerHighest', const Color(0xFF36343A)),
       onSurface: c('onSurface', const Color(0xFFE6E1E6)),
       onSurfaceVariant: c('onSurfaceVariant', const Color(0xFFCAC4CD)),
       outline: c('outline', const Color(0xFF948F99)),

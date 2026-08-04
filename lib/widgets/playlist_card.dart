@@ -5,6 +5,7 @@ import '../models/playlist.dart';
 import '../providers/playlist_provider.dart';
 import '../theme/theme_assets.dart';
 import '../utils/theme.dart';
+import '../routes/app_routes.dart';
 
 class PlaylistCard extends StatelessWidget {
   final Playlist playlist;
@@ -28,7 +29,7 @@ class PlaylistCard extends StatelessWidget {
           child: InkWell(
             borderRadius: AppShape.lg,
             onTap: () {
-              Navigator.pushNamed(context, '/playlist/detail', arguments: {
+              Navigator.pushNamed(context, AppRoutes.playlistDetail, arguments: {
                 'gcId': playlist.globalCollectionId ??
                     'collection_3_${playlist.createUserId}_${playlist.id}_0',
                 'name': playlist.name,
@@ -63,7 +64,8 @@ class PlaylistCard extends StatelessWidget {
                                         .deletePlaylist(playlist.id);
                                     if (context.mounted) {
                                       Navigator.pop(context);
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         SnackBar(
                                             content: Text(ok ? '已删除' : '删除失败')),
                                       );
@@ -124,17 +126,20 @@ class PlaylistCard extends StatelessWidget {
                                 ?.copyWith(fontWeight: FontWeight.w600)),
                         const SizedBox(height: 6),
                         Text('${playlist.trackCount} 首',
-                            style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                            style: tt.bodyMedium
+                                ?.copyWith(color: cs.onSurfaceVariant)),
                       ],
                     ),
                   ),
-                  Icon(Icons.arrow_forward_ios_rounded, color: cs.onSurfaceVariant.withValues(alpha: 0.5), size: 16),
+                  Icon(Icons.arrow_forward_ios_rounded,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      size: 16),
                 ],
               ),
             ),
           ),
         ),
       ),
-     );
-   }
+    );
+  }
 }

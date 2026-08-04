@@ -39,9 +39,12 @@ void showErrorDialog({
     builder: (context) => AlertDialog(
       title: Row(
         children: [
-          Icon(Icons.error_outline, size: 22, color: Theme.of(context).colorScheme.error),
+          Icon(Icons.error_outline,
+              size: 22, color: Theme.of(context).colorScheme.error),
           const SizedBox(width: 8),
-          Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
+          Expanded(
+              child:
+                  Text(title, style: Theme.of(context).textTheme.titleMedium)),
         ],
       ),
       content: SingleChildScrollView(
@@ -67,15 +70,16 @@ void showErrorDialog({
                 child: Text(
                   errorCode,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onErrorContainer,
-                    fontWeight: FontWeight.w600,
-                  ),
+                        color: Theme.of(context).colorScheme.onErrorContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
               ),
               const SizedBox(height: 10),
             ],
             // 错误原因
-            SelectableText(message, style: Theme.of(context).textTheme.bodyMedium),
+            SelectableText(message,
+                style: Theme.of(context).textTheme.bodyMedium),
             // 详细信息
             if (detail != null && detail.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -89,8 +93,8 @@ void showErrorDialog({
                 child: SelectableText(
                   detail,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                  ),
+                        fontFamily: 'monospace',
+                      ),
                 ),
               ),
             ],
@@ -105,7 +109,8 @@ void showErrorDialog({
           onPressed: () {
             Clipboard.setData(ClipboardData(text: copyText.toString()));
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('已复制到剪贴板'), duration: Duration(seconds: 2)),
+              const SnackBar(
+                  content: Text('已复制到剪贴板'), duration: Duration(seconds: 2)),
             );
           },
         ),

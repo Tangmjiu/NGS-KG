@@ -24,10 +24,14 @@ class RankEntry {
       if (!s.startsWith('http')) return 'https:$s';
       return s;
     }
+
     return RankEntry(
       id: _toInt(json['rankid'] ?? json['id'] ?? 0),
       name: (json['rankname'] ?? json['name'] ?? '') as String,
-      coverUrl: parseCover(json['sizable_cover'] ?? json['imgurl'] ?? json['img_9'] ?? json['cover']),
+      coverUrl: parseCover(json['sizable_cover'] ??
+          json['imgurl'] ??
+          json['img_9'] ??
+          json['cover']),
       bannerUrl: json['banner_9'] as String?,
     );
   }

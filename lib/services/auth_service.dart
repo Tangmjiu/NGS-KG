@@ -5,13 +5,17 @@ class AuthService {
   final ApiClient _client = ApiClient.instance;
 
   Future<User?> loginWithPhone(String mobile, String code) async {
-    final res = await _client.get('/login/cellphone',
-        params: {'mobile': mobile, 'code': code});
+    final res = await _client
+        .get('/login/cellphone', params: {'mobile': mobile, 'code': code});
     return User.fromJson(res.data['data']);
   }
 
-  Future<User?> loginWithPassword(String username, String password, {String? captcha}) async {
-    final params = <String, dynamic>{'username': username, 'password': password};
+  Future<User?> loginWithPassword(String username, String password,
+      {String? captcha}) async {
+    final params = <String, dynamic>{
+      'username': username,
+      'password': password
+    };
     if (captcha != null && captcha.isNotEmpty) {
       params['captcha'] = captcha;
     }
@@ -26,12 +30,13 @@ class AuthService {
 
   Future<Map<String, dynamic>> getQrKey() async {
     final ts = DateTime.now().millisecondsSinceEpoch;
-    final res = await _client.get('/login/qr/key',
-        params: {'timestamp': ts.toString()});
+    final res = await _client
+        .get('/login/qr/key', params: {'timestamp': ts.toString()});
     return res.data['data'] as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getQrCreate(String key, {bool qrimg = false}) async {
+  Future<Map<String, dynamic>> getQrCreate(String key,
+      {bool qrimg = false}) async {
     final ts = DateTime.now().millisecondsSinceEpoch;
     final params = <String, dynamic>{'key': key, 'timestamp': ts.toString()};
     if (qrimg) params['qrimg'] = 1;
@@ -61,19 +66,22 @@ class AuthService {
     if (rawData is Map) {
       final status = (rawData['status'] as int?) ?? 0;
       if (status == 4) {
-        final token = (rawData['token'] as String?) ??
-            rawData['token']?.toString() ?? '';
+        final token =
+            (rawData['token'] as String?) ?? rawData['token']?.toString() ?? '';
         final userId = (rawData['userid'] as int?) ??
             int.tryParse(rawData['userid']?.toString() ?? '');
         if (token.isNotEmpty && userId != null) {
-          return (status, User(
-            userId: userId,
-            token: token,
-            nickname: rawData['nickname'] as String?,
-            avatarUrl: rawData['avatar'] as String?,
-            vipType: rawData['vip_type'] as int?,
-            isVip: rawData['is_vip'] as int?,
-          ));
+          return (
+            status,
+            User(
+              userId: userId,
+              token: token,
+              nickname: rawData['nickname'] as String?,
+              avatarUrl: rawData['avatar'] as String?,
+              vipType: rawData['vip_type'] as int?,
+              isVip: rawData['is_vip'] as int?,
+            )
+          );
         }
       }
       // status 不是 4（如 1=等待扫码, 2=已扫码待确认）→ 直接返回 status

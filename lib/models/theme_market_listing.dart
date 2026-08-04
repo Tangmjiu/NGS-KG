@@ -33,10 +33,9 @@ class ThemeMarketListing {
       description: json['description'] as String? ?? '',
       previewUrl: json['preview_url'] as String? ?? '',
       downloadUrl: json['download_url'] as String? ?? '',
-      tags: (json['tags'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
+      tags:
+          (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
+              [],
       fileSizeBytes: json['file_size_bytes'] as int? ?? 0,
       minAppVersion: json['min_app_version'] as String?,
     );

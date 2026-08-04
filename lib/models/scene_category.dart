@@ -26,7 +26,8 @@ class SceneCategory {
 
   static String? _fixUrl(String? url) {
     if (url == null || url.isEmpty) return null;
-    if (url.contains('{size}')) return url.replaceAll(RegExp(r'\{size\}'), '240');
+    if (url.contains('{size}'))
+      return url.replaceAll(RegExp(r'\{size\}'), '240');
     if (!url.startsWith('http')) return 'https:$url';
     return url;
   }

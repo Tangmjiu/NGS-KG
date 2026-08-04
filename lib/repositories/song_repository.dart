@@ -22,7 +22,9 @@ class SongRepository extends BaseRepository {
     final res = await get('/search', params: params);
     final data = res['data'] as Map<String, dynamic>?;
     if (data == null) return [];
-    final list = data['songs'] as List<dynamic>? ?? data['lists'] as List<dynamic>? ?? [];
+    final list = data['songs'] as List<dynamic>? ??
+        data['lists'] as List<dynamic>? ??
+        [];
     return list
         .map((e) => SongMapper.fromKugouJson(e as Map<String, dynamic>))
         .whereType<Song>()
@@ -48,7 +50,8 @@ class SongRepository extends BaseRepository {
   }
 
   Future<List<Map<String, dynamic>>> getHotSearch() async {
-    final res = await cachedGet('/search/hot', ttl: const Duration(minutes: 30));
+    final res =
+        await cachedGet('/search/hot', ttl: const Duration(minutes: 30));
     final data = res['data'];
     if (data is Map) {
       final list = data['list'] as List<dynamic>?;
@@ -69,7 +72,8 @@ class SongRepository extends BaseRepository {
     return [];
   }
 
-  Future<SongUrl> getSongUrl(int songId, {String? hash, String? quality}) async {
+  Future<SongUrl> getSongUrl(int songId,
+      {String? hash, String? quality}) async {
     final params = <String, dynamic>{};
     if (hash != null) {
       params['hash'] = hash;
@@ -96,7 +100,8 @@ class SongRepository extends BaseRepository {
     return get('/privilege/lite', params: {'hash': hash});
   }
 
-  Future<Map<String, dynamic>> searchLyricByHash(String hash, {String? keywords}) async {
+  Future<Map<String, dynamic>> searchLyricByHash(String hash,
+      {String? keywords}) async {
     final params = <String, dynamic>{'hash': hash};
     if (keywords != null && keywords.isNotEmpty) {
       params['keywords'] = keywords;
@@ -184,7 +189,8 @@ class SongRepository extends BaseRepository {
   ///
   /// 返回 data.song_list，每项含 hash/ori_audio_name/sizable_cover/author_name/time_length
   Future<List<Song>> getDailyRecommend() async {
-    final res = await get('/everyday/recommend', params: {'platform': 'android'});
+    final res =
+        await get('/everyday/recommend', params: {'platform': 'android'});
     final data = res['data'] as Map<String, dynamic>?;
     if (data == null) return [];
     final list = data['song_list'] as List<dynamic>? ?? [];
@@ -197,7 +203,8 @@ class SongRepository extends BaseRepository {
       }
       final timelength = SongMapper.tryInt(json['time_length']);
       return Song(
-        id: SongMapper.tryInt(json['mixsongid'] ?? json['audio_id'] ?? json['id']),
+        id: SongMapper.tryInt(
+            json['mixsongid'] ?? json['audio_id'] ?? json['id']),
         mixSongId: SongMapper.safeInt(json['mixsongid']),
         name: json['ori_audio_name'] as String? ?? '',
         artists: [(json['author_name'] as String? ?? '')],

@@ -186,11 +186,8 @@ class _NavidromeLoginScreenState extends State<NavidromeLoginScreen> {
                   child: Row(
                     children: [
                       Icon(
-                        _testSuccess == true
-                            ? Icons.check_circle
-                            : Icons.error,
-                        color:
-                            _testSuccess == true ? Colors.green : Colors.red,
+                        _testSuccess == true ? Icons.check_circle : Icons.error,
+                        color: _testSuccess == true ? Colors.green : Colors.red,
                         size: 20,
                       ),
                       const SizedBox(width: 8),

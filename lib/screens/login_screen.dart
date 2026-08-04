@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
+import '../utils/responsive.dart';
 import 'package:provider/provider.dart';
 import '../utils/logger.dart';
 import '../providers/auth_provider.dart';
@@ -31,7 +32,9 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
     final tabBody = TabBarView(
       controller: _tabCtrl,
       children: const [
@@ -39,188 +42,68 @@ class _LoginScreenState extends State<LoginScreen>
         _QrLogin(),
       ],
     );
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('登录'),
-        bottom: TabBar(
-          controller: _tabCtrl,
-          tabs: const [
-            Tab(text: '手机'),
-            Tab(text: '二维码'),
-          ],
-        ),
-      ),
-      body: isWide
-          ? Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
-                child: tabBody,
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Card(
+              elevation: 0,
+              color: cs.surfaceContainerLow,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
               ),
-            )
-          : tabBody,
-    );
-  }
-}
-
-// ─── 密码登录 ───
-
-class _PasswordLogin extends StatefulWidget {
-  const _PasswordLogin();
-
-  @override
-  State<_PasswordLogin> createState() => _PasswordLoginState();
-}
-
-class _PasswordLoginState extends State<_PasswordLogin> {
-  final _usernameCtrl = TextEditingController();
-  final _passwordCtrl = TextEditingController();
-  final _captchaCtrl = TextEditingController();
-  String? _errorMsg;
-  bool _showCaptcha = false;
-  bool _obscurePassword = true;
-
-  @override
-  void dispose() {
-    _usernameCtrl.dispose();
-    _passwordCtrl.dispose();
-    _captchaCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _login() async {
-    final username = _usernameCtrl.text.trim();
-    final password = _passwordCtrl.text.trim();
-    if (username.isEmpty) {
-      setState(() => _errorMsg = '请输入用户名');
-      return;
-    }
-    if (password.isEmpty) {
-      setState(() => _errorMsg = '请输入密码');
-      return;
-    }
-    setState(() => _errorMsg = null);
-    final auth = context.read<AuthProvider>();
-    String? captcha;
-    if (_showCaptcha) {
-      captcha = _captchaCtrl.text.trim();
-      if (captcha.isEmpty) {
-        setState(() => _errorMsg = '请输入验证码');
-        return;
-      }
-    }
-    final ok = await auth.loginWithPassword(
-      username,
-      password,
-      captcha: captcha,
-    );
-    if (ok && mounted) {
-      Navigator.pop(context);
-    } else if (auth.errorMessage != null) {
-      setState(() {
-        _errorMsg = auth.errorMessage;
-        if (_errorMsg?.contains('验证') == true) {
-          _showCaptcha = true;
-        }
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          TextField(
-            controller: _usernameCtrl,
-            autofillHints: const [AutofillHints.username],
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              labelText: '用户名',
-              prefixIcon: const Icon(Icons.person),
-              border: OutlineInputBorder(
-                borderRadius: AppShape.sm,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _passwordCtrl,
-            obscureText: _obscurePassword,
-            autofillHints: const [AutofillHints.password],
-            textInputAction: TextInputAction.done,
-            decoration: InputDecoration(
-              labelText: '密码',
-              prefixIcon: const Icon(Icons.lock),
-              suffixIcon: IconButton(
-                icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
-                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-              ),
-              border: OutlineInputBorder(
-                borderRadius: AppShape.sm,
-              ),
-            ),
-          ),
-          if (_showCaptcha) ...[
-            const SizedBox(height: 16),
-            TextField(
-              controller: _captchaCtrl,
-              decoration: InputDecoration(
-                labelText: '验证码',
-                prefixIcon: const Icon(Icons.security),
-                border: OutlineInputBorder(
-                  borderRadius: AppShape.sm,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(28, 28, 28, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      '登录',
+                      style: tt.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '登录后同步歌单、收藏与播放记录',
+                      style: tt.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // 标准 Flutter TabBar
+                    TabBar(
+                      controller: _tabCtrl,
+                      tabs: const [
+                        Tab(text: '手机'),
+                        Tab(text: '二维码'),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 300,
+                      child: tabBody,
+                    ),
+                    const SizedBox(height: 8),
+                    Divider(height: 1, color: cs.outlineVariant),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('取消'),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
-          if (_errorMsg != null) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.errorContainer,
-                borderRadius: AppShape.sm,
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.warning, color: Theme.of(context).colorScheme.error, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _errorMsg!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: 24),
-          Consumer<AuthProvider>(
-            builder: (_, auth, __) => SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: FilledButton(
-                onPressed: auth.isLoading ? null : _login,
-                child: auth.isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('登录'),
-              ),
-            ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            '提示：密码登录可能需要验证码验证，建议使用手机验证码登录',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-            textAlign: TextAlign.center,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -258,7 +141,9 @@ class _PhoneLoginState extends State<_PhoneLogin> {
     setState(() => _sendingCode = true);
     try {
       await context.read<AuthProvider>().sendCaptcha(phone);
-    } catch (e, s) { Log.e('login_screen', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('login_screen', 'error', e, s);
+    }
     setState(() => _sendingCode = false);
     _startCountdown();
   }
@@ -299,79 +184,93 @@ class _PhoneLoginState extends State<_PhoneLogin> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          TextField(
-            controller: _phoneCtrl,
-            keyboardType: TextInputType.phone,
-            autofillHints: const [AutofillHints.telephoneNumber],
-            textInputAction: TextInputAction.next,
-            maxLength: 11,
-            decoration: InputDecoration(
-              labelText: '手机号',
-              prefixIcon: const Icon(Icons.phone_android),
-              errorText: _phoneError,
-              border: OutlineInputBorder(
-                borderRadius: AppShape.sm,
+    final cs = Theme.of(context).colorScheme;
+    InputDecoration _dec({String? label, Widget? prefix, String? error}) {
+      return InputDecoration(
+        labelText: label,
+        prefixIcon: prefix,
+        errorText: error,
+        filled: true,
+        fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: cs.primary, width: 1.5),
+        ),
+      );
+    }
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        TextField(
+          controller: _phoneCtrl,
+          keyboardType: TextInputType.phone,
+          autofillHints: const [AutofillHints.telephoneNumber],
+          textInputAction: TextInputAction.next,
+          maxLength: 11,
+          decoration: _dec(
+            label: '手机号',
+            prefix: const Icon(Icons.phone_android),
+            error: _phoneError,
+          ),
+          onChanged: (_) {
+            if (_phoneError != null) setState(() => _phoneError = null);
+          },
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _codeCtrl,
+                keyboardType: TextInputType.number,
+                decoration: _dec(
+                  label: '验证码',
+                  prefix: const Icon(Icons.message),
+                ),
               ),
             ),
-            onChanged: (_) {
-              if (_phoneError != null) setState(() => _phoneError = null);
-            },
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _codeCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: '验证码',
-                    prefixIcon: const Icon(Icons.message),
-                    border: OutlineInputBorder(
-                      borderRadius: AppShape.sm,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                height: 48,
-                child: FilledButton.tonal(
-                  onPressed:
-                      _sendingCode || _countdown > 0 ? null : _sendCode,
-                  child: _sendingCode
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : Text(_countdown > 0 ? '${_countdown}s' : '获取验证码'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Consumer<AuthProvider>(
-            builder: (_, auth, __) => SizedBox(
-              width: double.infinity,
+            const SizedBox(width: 12),
+            SizedBox(
               height: 48,
-              child: FilledButton(
-                onPressed: auth.isLoading ? null : _login,
-                child: auth.isLoading
+              child: FilledButton.tonal(
+                onPressed:
+                    _sendingCode || _countdown > 0 ? null : _sendCode,
+                child: _sendingCode
                     ? const SizedBox(
-                        width: 20,
-                        height: 20,
+                        width: 16,
+                        height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('登录'),
+                    : Text(_countdown > 0 ? '${_countdown}s' : '获取验证码'),
               ),
             ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Consumer<AuthProvider>(
+          builder: (_, auth, __) => SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton(
+              onPressed: auth.isLoading ? null : _login,
+              child: auth.isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('登录'),
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -425,7 +324,10 @@ class _QrLoginState extends State<_QrLogin> {
       final keyData = await auth.getQrKey();
       final key = keyData['qrcode'] as String?;
       if (key == null || key.isEmpty) {
-        setState(() { _isLoading = false; _statusText = '获取二维码失败，请重试'; });
+        setState(() {
+          _isLoading = false;
+          _statusText = '获取二维码失败，请重试';
+        });
         return;
       }
       _qrKey = key;
@@ -442,7 +344,11 @@ class _QrLoginState extends State<_QrLogin> {
         _startPolling();
       }
     } catch (e) {
-      if (mounted) setState(() { _isLoading = false; _statusText = '获取二维码失败，请重试'; });
+      if (mounted)
+        setState(() {
+          _isLoading = false;
+          _statusText = '获取二维码失败，请重试';
+        });
     }
   }
 
@@ -471,26 +377,31 @@ class _QrLoginState extends State<_QrLogin> {
 
         // 0 = 过期 → 停止轮询
         if (code == 0) _pollTimer?.cancel();
-      } catch (e, s) { Log.e('login_screen', 'qr poll error', e, s); }
+      } catch (e, s) {
+        Log.e('login_screen', 'qr poll error', e, s);
+      }
     });
   }
 
   Widget _buildQrImage() {
+    final cs = Theme.of(context).colorScheme;
     final b64 = _base64Img;
     if (b64 == null || b64.isEmpty) {
-      return Icon(Icons.qr_code, size: 100, color: Theme.of(context).colorScheme.onSurface);
+      return Icon(Icons.qr_code, size: 80, color: cs.onSurface);
     }
     // base64 格式: data:image/png;base64,xxxx
     try {
       final data = b64.contains(',') ? b64.split(',')[1] : b64;
       return Image.memory(
         base64Decode(data),
-        width: 176, height: 176, fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => Icon(Icons.qr_code, size: 100,
-            color: Theme.of(context).colorScheme.onSurface),
+        width: 136,
+        height: 136,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) =>
+            Icon(Icons.qr_code, size: 80, color: cs.onSurface),
       );
     } catch (_) {
-      return Icon(Icons.qr_code, size: 100, color: Theme.of(context).colorScheme.onSurface);
+      return Icon(Icons.qr_code, size: 80, color: cs.onSurface);
     }
   }
 
@@ -501,37 +412,48 @@ class _QrLoginState extends State<_QrLogin> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (_isLoading)
-              const CircularProgressIndicator()
-            else ...[
-              Container(
-                width: 200, height: 200,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: AppShape.md,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (_isLoading)
+            const CircularProgressIndicator()
+          else ...[
+            // Music You 风格: 160×160 outlined 二维码卡片
+            Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: cs.outlineVariant,
+                  width: 1,
                 ),
-                padding: const EdgeInsets.all(12),
-                child: _base64Img != null ? _buildQrImage()
-                    : Icon(Icons.qr_code, size: 100,
-                        color: Theme.of(context).colorScheme.onSurface),
               ),
-              const SizedBox(height: 20),
-              Text(_statusText, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              TextButton.icon(
-                onPressed: _refresh,
-                icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('刷新二维码'),
-              ),
-            ],
+              padding: const EdgeInsets.all(12),
+              child: _base64Img != null
+                  ? _buildQrImage()
+                  : Icon(Icons.qr_code,
+                      size: 80, color: cs.onSurface),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _statusText,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: _refresh,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('刷新二维码'),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

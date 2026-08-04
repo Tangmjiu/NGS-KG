@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
+import '../utils/responsive.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
@@ -13,48 +14,57 @@ class ThemeSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('主题')),
+      appBar: Responsive.isDesktopLayout(context)
+          ? null
+          : AppBar(
+              title: const Text('主题'),
+              automaticallyImplyLeading: Responsive.isMobileLayout(context),
+            ),
       body: Consumer<ThemeProvider>(
-        builder: (_, tp, __) => ListView(
-          children: [
-            const SizedBox(height: 8),
-            // ── 水平主题包卡片列表 ──
-            _PackCarousel(tp: tp),
-            const Divider(height: 24),
-            // ── 当前主题详情 ──
-            _PackDetail(tp: tp),
-            const Divider(height: 24),
-            // ── 强调色 ──
-            _AccentSection(tp: tp),
-            const Divider(height: 8),
-            // ── Monet ──
-            _MonetSection(tp: tp),
-            const Divider(height: 8),
-            // ── 主题模式 ──
-            _ThemeModeSection(tp: tp),
-            const Divider(height: 8),
-            // ── Hi-Res 金标 ──
-            SwitchListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              secondary: const Icon(Icons.verified_outlined),
-              title: const Text('显示 Hi-Res 金标'),
-              subtitle: const Text('播放无损音质时在专辑封面上显示'),
-              value: tp.showHiResBadge,
-              onChanged: (v) => tp.setShowHiResBadge(v),
-            ),
-            const Divider(height: 8),
-            // ── 歌词设置 ──
-            ListTile(
-              leading: const Icon(Icons.lyrics_outlined),
-              title: const Text('歌词设置'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.pushNamed(context, AppRoutes.lyricSettings),
-            ),
-            const SizedBox(height: 24),
-          ],
+        builder: (_, tp, __) => Responsive.constrainedContent(
+          context,
+          maxWidth: Responsive.maxWidthSettings,
+          child: ListView(
+            children: [
+              const SizedBox(height: 8),
+              // ── 水平主题包卡片列表 ──
+              _PackCarousel(tp: tp),
+              const Divider(height: 24),
+              // ── 当前主题详情 ──
+              _PackDetail(tp: tp),
+              const Divider(height: 24),
+              // ── 强调色 ──
+              _AccentSection(tp: tp),
+              const Divider(height: 8),
+              // ── Monet ──
+              _MonetSection(tp: tp),
+              const Divider(height: 8),
+              // ── 主题模式 ──
+              _ThemeModeSection(tp: tp),
+              const Divider(height: 8),
+              // ── Hi-Res 金标 ──
+              SwitchListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                secondary: const Icon(Icons.verified_outlined),
+                title: const Text('显示 Hi-Res 金标'),
+                subtitle: const Text('播放无损音质时在专辑封面上显示'),
+                value: tp.showHiResBadge,
+                onChanged: (v) => tp.setShowHiResBadge(v),
+              ),
+              const Divider(height: 8),
+              // ── 歌词设置 ──
+              ListTile(
+                leading: const Icon(Icons.lyrics_outlined),
+                title: const Text('歌词设置'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.lyricSettings),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );
@@ -100,7 +110,8 @@ class _PackCarousel extends StatelessWidget {
         title: Text('删除「${pack.name}」'),
         content: const Text('此操作不可撤销。'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () {
               tp.deletePack(pack.id);
@@ -172,11 +183,12 @@ class _PackCardState extends State<_PackCard> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w400,
-                  color: widget.isSelected
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.onSurface,
-                ),
+                      fontWeight:
+                          widget.isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: widget.isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurface,
+                    ),
               ),
               // ── Author ──
               Text(
@@ -184,14 +196,15 @@ class _PackCardState extends State<_PackCard> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
               ),
               // ── Current badge ──
               if (widget.isSelected)
                 Container(
                   margin: const EdgeInsets.only(top: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.primary,
                     borderRadius: AppShape.sm,
@@ -199,9 +212,9 @@ class _PackCardState extends State<_PackCard> {
                   child: Text(
                     '当前',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
+                          color: Theme.of(context).colorScheme.onPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
                   ),
                 ),
             ],
@@ -277,18 +290,22 @@ class _ImportCard extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.add_rounded, size: 40, color: Theme.of(context).colorScheme.outline),
+                  Icon(Icons.add_rounded,
+                      size: 40, color: Theme.of(context).colorScheme.outline),
                   const SizedBox(height: 4),
                   Text('导入主题',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.outline)),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.outline)),
                 ],
               ),
             ),
             const SizedBox(height: 8),
             Text('导入 .zip',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
             Text('主题包',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ],
         ),
       ),
@@ -318,39 +335,60 @@ class _PackDetail extends StatelessWidget {
           Text(pack.name, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 2),
           Text(pack.author,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: cs.onSurfaceVariant)),
           if (pack.description != null) ...[
             const SizedBox(height: 4),
             Text(pack.description!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: cs.onSurfaceVariant)),
           ],
           const SizedBox(height: 12),
           // 覆盖清单
           if (tags.isNotEmpty) ...[
-            Text('覆盖内容', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: cs.primary)),
+            Text('覆盖内容',
+                style: Theme.of(context)
+                    .textTheme
+                    .labelLarge
+                    ?.copyWith(color: cs.primary)),
             const SizedBox(height: 6),
             Wrap(
               spacing: 8,
               runSpacing: 6,
-              children: tags.map((tag) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: cs.primaryContainer,
-                  borderRadius: AppShape.sm,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.check, size: 14, color: cs.onPrimaryContainer),
-                    const SizedBox(width: 4),
-                    Text(tag, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onPrimaryContainer)),
-                  ],
-                ),
-              )).toList(),
+              children: tags
+                  .map((tag) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer,
+                          borderRadius: AppShape.sm,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check,
+                                size: 14, color: cs.onPrimaryContainer),
+                            const SizedBox(width: 4),
+                            Text(tag,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: cs.onPrimaryContainer)),
+                          ],
+                        ),
+                      ))
+                  .toList(),
             ),
           ] else ...[
             Text('无自定义覆盖，使用默认值',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: cs.onSurfaceVariant)),
           ],
         ],
       ),
@@ -359,7 +397,7 @@ class _PackDetail extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  强调色
+//  强调色 (Music You 宫格风格)
 // ─────────────────────────────────────────────────────────────
 
 class _AccentSection extends StatelessWidget {
@@ -377,8 +415,9 @@ class _AccentSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('强调色', style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w600, color: cs.primary)),
+              Text('主题颜色',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
               const Spacer(),
               if (tp.hasAccentOverride)
                 TextButton.icon(
@@ -390,27 +429,43 @@ class _AccentSection extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            tp.hasAccentOverride
-                ? '当前覆盖: ${tp.accentLabel}'
-                : '使用主题包内置颜色',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            tp.hasAccentOverride ? '当前覆盖: ${tp.accentLabel}' : '使用主题包内置颜色',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: cs.onSurfaceVariant),
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            runSpacing: 14,
-            children: [
-              ...kThemePresets.map((preset) => _ColorDot(
-                    color: preset.lightPrimary,
+          _SegmentedGrid(
+            items: [
+              ...kThemePresets.map((preset) => _SegmentedItem(
+                    title: preset.label,
+                    leading: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: preset.lightPrimary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                     selected: tp.accentKey == preset.key,
-                    label: preset.label,
                     onTap: () => tp.setAccent(preset.key),
                   )),
-              _ColorDot(
-                color: tp.accentKey == 'custom' ? tp.customColor : Colors.grey,
+              _SegmentedItem(
+                title: '自定义',
+                leading: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: tp.accentKey == 'custom'
+                        ? tp.customColor
+                        : cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: cs.outlineVariant, width: 1),
+                  ),
+                  child: const Icon(Icons.colorize, size: 14),
+                ),
                 selected: tp.accentKey == 'custom',
-                label: '取色',
-                icon: Icons.colorize,
                 onTap: () => _showColorPicker(context, tp),
               ),
             ],
@@ -436,7 +491,8 @@ class _AccentSection extends StatelessWidget {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () {
               tp.setCustomColor(picked);
@@ -475,7 +531,7 @@ class _MonetSection extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  主题模式
+//  主题模式 (Music You 3 列宫格分段按钮)
 // ─────────────────────────────────────────────────────────────
 
 class _ThemeModeSection extends StatelessWidget {
@@ -484,36 +540,40 @@ class _ThemeModeSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('主题模式', style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: Theme.of(context).colorScheme.primary,
-          )),
-          const SizedBox(height: 4),
-          RadioListTile<ThemeMode>(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('跟随系统'),
-            value: ThemeMode.system,
-            groupValue: tp.themeMode,
-            onChanged: (v) => tp.setThemeMode(v ?? ThemeMode.system),
-          ),
-          RadioListTile<ThemeMode>(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('浅色模式'),
-            value: ThemeMode.light,
-            groupValue: tp.themeMode,
-            onChanged: (v) => tp.setThemeMode(v ?? ThemeMode.system),
-          ),
-          RadioListTile<ThemeMode>(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('深色模式'),
-            value: ThemeMode.dark,
-            groupValue: tp.themeMode,
-            onChanged: (v) => tp.setThemeMode(v ?? ThemeMode.system),
+          Text('外观',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurfaceVariant,
+                  )),
+          const SizedBox(height: 12),
+          _SegmentedGrid(
+            items: [
+              _SegmentedItem(
+                title: '浅色',
+                leading: const Icon(Icons.light_mode_rounded, size: 20),
+                selected: tp.themeMode == ThemeMode.light,
+                onTap: () => tp.setThemeMode(ThemeMode.light),
+              ),
+              _SegmentedItem(
+                title: '深色',
+                leading: const Icon(Icons.dark_mode_rounded, size: 20),
+                selected: tp.themeMode == ThemeMode.dark,
+                onTap: () => tp.setThemeMode(ThemeMode.dark),
+              ),
+              _SegmentedItem(
+                title: '跟随系统',
+                leading: const Icon(Icons.brightness_auto_rounded, size: 20),
+                selected: tp.themeMode == ThemeMode.system,
+                onTap: () => tp.setThemeMode(ThemeMode.system),
+              ),
+            ],
           ),
         ],
       ),
@@ -522,60 +582,117 @@ class _ThemeModeSection extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  组件
+//  Music You 宫格分段选择组件 (Group)
 // ─────────────────────────────────────────────────────────────
 
-class _ColorDot extends StatelessWidget {
-  final Color color;
+class _SegmentedItem {
+  final String title;
+  final String? subtitle;
+  final Widget leading;
   final bool selected;
-  final String label;
-  final IconData? icon;
   final VoidCallback onTap;
 
-  const _ColorDot({
-    required this.color,
+  const _SegmentedItem({
+    required this.title,
+    this.subtitle,
+    required this.leading,
     required this.selected,
-    required this.label,
-    this.icon,
     required this.onTap,
   });
+}
+
+class _SegmentedGrid extends StatelessWidget {
+  final List<_SegmentedItem> items;
+
+  const _SegmentedGrid({required this.items});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: selected
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.outlineVariant,
-                width: selected ? 3 : 1,
+    final cs = Theme.of(context).colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 16.0;
+        const columns = 3.0;
+        final width =
+            (constraints.maxWidth - spacing * (columns - 1)) / columns;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: items.map((item) {
+            return SizedBox(
+              width: width,
+              child: M3PressScale(
+                scaleDown: 0.96,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: item.onTap,
+                  child: AnimatedContainer(
+                    duration: AppMotion.dShort4,
+                    curve: AppMotion.emphasized,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: item.selected
+                          ? cs.primary
+                          : cs.surfaceContainerHighest.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        IconTheme(
+                          data: IconThemeData(
+                            color: item.selected
+                                ? cs.onPrimary
+                                : cs.onSurfaceVariant,
+                            size: 20,
+                          ),
+                          child: item.leading,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: item.selected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                  color: item.selected
+                                      ? cs.onPrimary
+                                      : cs.onSurface,
+                                ),
+                              ),
+                              if (item.subtitle != null) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  item.subtitle!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: item.selected
+                                        ? cs.onPrimary.withValues(alpha: 0.8)
+                                        : cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              boxShadow: selected
-                  ? [BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 8)]
-                  : null,
-            ),
-            child:
-                icon != null ? Icon(icon, color: Colors.white, size: 20) : null,
-          ),
-          const SizedBox(height: 4),
-          Text(label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: selected
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-              )),
-        ],
-      ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 }
+

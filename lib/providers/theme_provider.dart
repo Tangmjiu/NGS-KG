@@ -30,14 +30,46 @@ class ThemePreset {
 
 /// 预设色列表（8 种）
 const List<ThemePreset> kThemePresets = [
-  ThemePreset(key: 'kugou', label: '酷狗蓝', lightPrimary: Color(0xFF2CA1F4), darkPrimary: Color(0xFF5BB8F8)),
-  ThemePreset(key: 'nagisa', label: '凪砂红', lightPrimary: Color(0xFFFF6633), darkPrimary: Color(0xFFFF8866)),
-  ThemePreset(key: 'spotify', label: 'Spotify绿', lightPrimary: Color(0xFF1DB954), darkPrimary: Color(0xFF4CD47A)),
-  ThemePreset(key: 'purple', label: '优雅紫', lightPrimary: Color(0xFF9C27B0), darkPrimary: Color(0xFFCE93D8)),
-  ThemePreset(key: 'orange', label: '暖阳橙', lightPrimary: Color(0xFFFF9800), darkPrimary: Color(0xFFFFB74D)),
-  ThemePreset(key: 'pink', label: '樱花粉', lightPrimary: Color(0xFFE91E63), darkPrimary: Color(0xFFF06292)),
-  ThemePreset(key: 'cyan', label: '薄荷青', lightPrimary: Color(0xFF00BCD4), darkPrimary: Color(0xFF4DD0E1)),
-  ThemePreset(key: 'amber', label: '琥珀金', lightPrimary: Color(0xFFFFC107), darkPrimary: Color(0xFFFFD54F)),
+  ThemePreset(
+      key: 'kugou',
+      label: '酷狗蓝',
+      lightPrimary: Color(0xFF2CA1F4),
+      darkPrimary: Color(0xFF5BB8F8)),
+  ThemePreset(
+      key: 'nagisa',
+      label: '凪砂红',
+      lightPrimary: Color(0xFFFF6633),
+      darkPrimary: Color(0xFFFF8866)),
+  ThemePreset(
+      key: 'spotify',
+      label: 'Spotify绿',
+      lightPrimary: Color(0xFF1DB954),
+      darkPrimary: Color(0xFF4CD47A)),
+  ThemePreset(
+      key: 'purple',
+      label: '优雅紫',
+      lightPrimary: Color(0xFF9C27B0),
+      darkPrimary: Color(0xFFCE93D8)),
+  ThemePreset(
+      key: 'orange',
+      label: '暖阳橙',
+      lightPrimary: Color(0xFFFF9800),
+      darkPrimary: Color(0xFFFFB74D)),
+  ThemePreset(
+      key: 'pink',
+      label: '樱花粉',
+      lightPrimary: Color(0xFFE91E63),
+      darkPrimary: Color(0xFFF06292)),
+  ThemePreset(
+      key: 'cyan',
+      label: '薄荷青',
+      lightPrimary: Color(0xFF00BCD4),
+      darkPrimary: Color(0xFF4DD0E1)),
+  ThemePreset(
+      key: 'amber',
+      label: '琥珀金',
+      lightPrimary: Color(0xFFFFC107),
+      darkPrimary: Color(0xFFFFD54F)),
 ];
 
 /// 主题状态管理
@@ -152,7 +184,8 @@ class ThemeProvider extends ChangeNotifier {
 
       final modeIdx = prefs.getInt(_keyThemeMode);
       if (modeIdx != null) {
-        _themeMode = ThemeMode.values[modeIdx.clamp(0, ThemeMode.values.length - 1)];
+        _themeMode =
+            ThemeMode.values[modeIdx.clamp(0, ThemeMode.values.length - 1)];
       }
 
       _accentKey = prefs.getString(_keyAccent) ?? '';
@@ -169,7 +202,9 @@ class ThemeProvider extends ChangeNotifier {
         _showHiResBadge = prefs.getBool(_keyShowHiResBadge) ?? false;
       } else {
         // 判断是否为升级用户：在没有 _keyShowHiResBadge 的情况下，如果存在其他 theme 相关的配置，说明是升级用户
-        final hasThemeKeys = prefs.getKeys().any((k) => k.startsWith('theme_') && k != _keyShowHiResBadge);
+        final hasThemeKeys = prefs
+            .getKeys()
+            .any((k) => k.startsWith('theme_') && k != _keyShowHiResBadge);
         if (hasThemeKeys) {
           _showHiResBadge = true; // 升级过来的，保留开启设置
         } else {
@@ -198,12 +233,16 @@ class ThemeProvider extends ChangeNotifier {
             _packs.add(pack);
           } else {
             await ThemeLoader.deleteTheme(id);
-            try { await MarketService.uninstallTheme(id); } catch (_) {}
+            try {
+              await MarketService.uninstallTheme(id);
+            } catch (_) {}
           }
         } catch (e, s) {
           Log.e('ThemeProvider', 'Failed to load theme $id from disk', e, s);
           await ThemeLoader.deleteTheme(id);
-          try { await MarketService.uninstallTheme(id); } catch (_) {}
+          try {
+            await MarketService.uninstallTheme(id);
+          } catch (_) {}
         }
       }
 
@@ -450,7 +489,8 @@ class ThemeProvider extends ChangeNotifier {
   // ─── 构建 ThemeData ───
 
   /// 解析当前有效 ColorScheme
-  ColorScheme _resolveScheme(Brightness brightness, {ColorScheme? dynamicScheme}) {
+  ColorScheme _resolveScheme(Brightness brightness,
+      {ColorScheme? dynamicScheme}) {
     // 1. Monet 优先
     if (_useMonet) {
       if (dynamicScheme != null) return dynamicScheme;
@@ -483,13 +523,16 @@ class ThemeProvider extends ChangeNotifier {
     );
   }
 
-  ThemeData buildLightTheme(BuildContext context, {ColorScheme? dynamicScheme}) {
-    final scheme = _resolveScheme(Brightness.light, dynamicScheme: dynamicScheme);
+  ThemeData buildLightTheme(BuildContext context,
+      {ColorScheme? dynamicScheme}) {
+    final scheme =
+        _resolveScheme(Brightness.light, dynamicScheme: dynamicScheme);
     return buildThemeData(scheme, currentPack, hasGlobalBg: _hasValidBg);
   }
 
   ThemeData buildDarkTheme(BuildContext context, {ColorScheme? dynamicScheme}) {
-    final scheme = _resolveScheme(Brightness.dark, dynamicScheme: dynamicScheme);
+    final scheme =
+        _resolveScheme(Brightness.dark, dynamicScheme: dynamicScheme);
     return buildThemeData(scheme, currentPack, hasGlobalBg: _hasValidBg);
   }
 

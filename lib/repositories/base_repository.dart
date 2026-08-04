@@ -11,8 +11,10 @@ abstract class BaseRepository {
   /// [withCookie] = true 时将 cookie 认证信息作为 URL 查询参数附加（搜索/歌单等接口需要）。
   /// [silent] = true 时请求失败不弹错误弹窗（用于静默降级重试）。
   Future<Map<String, dynamic>> get(String path,
-      {Map<String, dynamic>? params, bool withAuth = true,
-      bool withCookie = false, bool silent = false}) async {
+      {Map<String, dynamic>? params,
+      bool withAuth = true,
+      bool withCookie = false,
+      bool silent = false}) async {
     if (withCookie) {
       params ??= <String, dynamic>{};
       if (!params.containsKey('cookie')) {
@@ -31,9 +33,11 @@ abstract class BaseRepository {
   }
 
   Future<Map<String, dynamic>> cachedGet(String path,
-      {Map<String, dynamic>? params, bool withAuth = true,
+      {Map<String, dynamic>? params,
+      bool withAuth = true,
       Duration? ttl}) async {
-    final res = await client.getCached(path, params: params,
+    final res = await client.getCached(path,
+        params: params,
         ttl: ttl ?? const Duration(hours: 2),
         withAuth: withAuth);
     final data = res.data;

@@ -7,6 +7,7 @@ import '../../../services/music_service.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/theme.dart';
 import '../../../widgets/song_tile.dart';
+import '../../../routes/app_routes.dart';
 
 /// Material Design 3 Expressive 快捷操作四宫格组件
 ///
@@ -80,12 +81,12 @@ class _QuickAction {
 final _actions = [
   _QuickAction(Icons.emoji_events_rounded, '排行榜', onTap: (context, rankList) {
     if (rankList.isNotEmpty) {
-      Navigator.pushNamed(context, '/rank/detail',
+      Navigator.pushNamed(context, AppRoutes.rankDetail,
           arguments: {'id': rankList.first.id, 'name': rankList.first.name});
     }
   }),
   _QuickAction(Icons.radio_rounded, '电台',
-      onTap: (context, _) => Navigator.pushNamed(context, '/fm')),
+      onTap: (context, _) => Navigator.pushNamed(context, AppRoutes.fm)),
   _QuickAction(Icons.auto_awesome_rounded, '每日推荐', onTap: (context, _) async {
     final musicService = MusicService();
     try {
@@ -148,7 +149,8 @@ void _showSongListSheet(
                     Expanded(
                       child: Text(
                         title,
-                        style: tt.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                        style: tt.titleLarge
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ),
                     if (songs.isNotEmpty)
@@ -174,7 +176,8 @@ void _showSongListSheet(
                   padding: const EdgeInsets.all(40),
                   child: Center(
                     child: Text('暂无推荐列表内容',
-                        style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                        style: tt.bodyMedium
+                            ?.copyWith(color: cs.onSurfaceVariant)),
                   ),
                 )
               else

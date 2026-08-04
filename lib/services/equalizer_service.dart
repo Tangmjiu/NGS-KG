@@ -43,7 +43,8 @@ class EqualizerService {
   /// 获取指定频段的中心频率（Hz）
   Future<int> getCenterFreq(int band) async {
     try {
-      final freq = await _channel.invokeMethod<int>('getCenterFreq', {'band': band});
+      final freq =
+          await _channel.invokeMethod<int>('getCenterFreq', {'band': band});
       // 返回的是 mHz，转为 Hz
       return (freq ?? 0) ~/ 1000;
     } catch (_) {
@@ -64,7 +65,8 @@ class EqualizerService {
   /// 获取指定频段的当前增益（毫分贝）
   Future<double> getBandLevel(int band) async {
     try {
-      final level = await _channel.invokeMethod<int>('getBandLevel', {'band': band});
+      final level =
+          await _channel.invokeMethod<int>('getBandLevel', {'band': band});
       return (level ?? 0).toDouble();
     } catch (_) {
       return 0;

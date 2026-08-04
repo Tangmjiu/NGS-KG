@@ -61,8 +61,7 @@ class _SupportMeDialogState extends State<_SupportMeDialog> {
                 ),
                 const SizedBox(width: 4),
                 GestureDetector(
-                  onTap: () =>
-                      setState(() => _dontShowAgain = !_dontShowAgain),
+                  onTap: () => setState(() => _dontShowAgain = !_dontShowAgain),
                   child: Text('不再显示',
                       style: Theme.of(context).textTheme.bodyMedium),
                 ),

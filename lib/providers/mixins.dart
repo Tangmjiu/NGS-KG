@@ -38,8 +38,7 @@ mixin SleepTimerMixin on ChangeNotifier {
   }
 
   void _checkSleepTimer() {
-    if (_sleepTimerRemaining != null &&
-        _sleepTimerRemaining!.inSeconds <= 0) {
+    if (_sleepTimerRemaining != null && _sleepTimerRemaining!.inSeconds <= 0) {
       onSleepTimerExpired();
       _sleepTimer?.cancel();
       _sleepTimerRemaining = null;

@@ -72,25 +72,28 @@ class _EqualizerPainter extends CustomPainter {
     final barCount = 4;
     final spacing = size.width * 0.15;
     final barWidth = (size.width - spacing * (barCount - 1)) / barCount;
-    
+
     // Using sine waves with different phases and frequencies to simulate an equalizer
     for (int i = 0; i < barCount; i++) {
       final phase = i * math.pi / 2.0;
       final frequency = 1.0 + (i % 2) * 1.5;
-      
+
       // Calculate height ratio between 0.3 and 1.0
-      final heightRatio = 0.3 + 0.7 * (math.sin(progress * math.pi * 2 * frequency + phase) * 0.5 + 0.5);
-      
+      final heightRatio = 0.3 +
+          0.7 *
+              (math.sin(progress * math.pi * 2 * frequency + phase) * 0.5 +
+                  0.5);
+
       final barHeight = size.height * heightRatio;
-      
+
       final x = i * (barWidth + spacing);
       final y = size.height - barHeight;
-      
+
       final rrect = RRect.fromRectAndRadius(
         Rect.fromLTWH(x, y, barWidth, barHeight),
         Radius.circular(barWidth / 2),
       );
-      
+
       canvas.drawRRect(rrect, paint);
     }
   }

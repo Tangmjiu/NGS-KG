@@ -67,7 +67,8 @@ class LocalLibraryDB {
   /// 加载所有缓存的本地歌曲。
   Future<List<Song>> loadAll() async {
     final db = await _database;
-    final rows = await db.query(_tableSongs, orderBy: 'title COLLATE NOCASE ASC');
+    final rows =
+        await db.query(_tableSongs, orderBy: 'title COLLATE NOCASE ASC');
     return rows.map(_rowToSong).toList();
   }
 
@@ -99,7 +100,8 @@ class LocalLibraryDB {
   /// 获取缓存中的歌曲数量。
   Future<int> get count async {
     final db = await _database;
-    final result = await db.rawQuery('SELECT COUNT(*) AS cnt FROM $_tableSongs');
+    final result =
+        await db.rawQuery('SELECT COUNT(*) AS cnt FROM $_tableSongs');
     return (result.first['cnt'] as int?) ?? 0;
   }
 

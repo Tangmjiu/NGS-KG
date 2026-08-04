@@ -24,8 +24,7 @@ class DiscoverIpRow extends StatelessWidget {
           final imgUrl =
               (ip['img'] as String? ?? ip['sizable_cover'] as String? ?? '')
                   .replaceAll('{size}', DiscoverConstants.ipImageSize);
-          final name =
-              ip['ip_name'] as String? ?? ip['name'] as String? ?? '';
+          final name = ip['ip_name'] as String? ?? ip['name'] as String? ?? '';
 
           return Container(
             width: 260,
@@ -59,8 +58,7 @@ class DiscoverIpRow extends StatelessWidget {
                             color: cs.surfaceContainerHighest,
                             child: Center(
                               child: Text(name,
-                                  style: TextStyle(
-                                      color: cs.onSurfaceVariant)),
+                                  style: TextStyle(color: cs.onSurfaceVariant)),
                             ),
                           ),
                         )
@@ -70,8 +68,7 @@ class DiscoverIpRow extends StatelessWidget {
                           color: cs.surfaceContainerHighest,
                           child: Center(
                             child: Text(name,
-                                style:
-                                    TextStyle(color: cs.onSurfaceVariant)),
+                                style: TextStyle(color: cs.onSurfaceVariant)),
                           ),
                         ),
                 ),
@@ -82,8 +79,10 @@ class DiscoverIpRow extends StatelessWidget {
                     name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w500),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(fontWeight: FontWeight.w500),
                   ),
                 ),
               ],

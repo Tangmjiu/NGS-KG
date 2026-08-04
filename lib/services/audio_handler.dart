@@ -1,7 +1,9 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
 
+import 'dart:io';
 import 'package:audio_service/audio_service.dart';
+import 'package:smtc_windows/smtc_windows.dart';
 import '../utils/logger.dart';
 
 /// audio_service 的 [AudioHandler] 实现。
@@ -11,6 +13,53 @@ import '../utils/logger.dart';
 ///   系统媒体通知和锁屏/蓝牙元数据。
 /// * 系统控制（通知栏按钮、蓝牙耳机、锁屏）→ 通过回调通知 PlayerProvider。
 class MusicAudioHandler extends BaseAudioHandler {
+  SMTCWindows? _smtc;
+
+  MusicAudioHandler() {
+    if (Platform.isWindows) {
+      _initSMTC();
+    }
+  }
+
+  Future<void> _initSMTC() async {
+    try {
+      _smtc = SMTCWindows(
+        config: const SMTCConfig(
+          playEnabled: true,
+          pauseEnabled: true,
+          stopEnabled: true,
+          nextEnabled: true,
+          prevEnabled: true,
+          fastForwardEnabled: false,
+          rewindEnabled: false,
+        ),
+      );
+      _smtc?.buttonPressStream.listen((event) {
+        switch (event) {
+          case PressedButton.play:
+            play();
+            break;
+          case PressedButton.pause:
+            pause();
+            break;
+          case PressedButton.next:
+            skipToNext();
+            break;
+          case PressedButton.previous:
+            skipToPrevious();
+            break;
+          case PressedButton.stop:
+            stop();
+            break;
+          default:
+            break;
+        }
+      });
+    } catch (e) {
+      Log.e('audio_handler', 'SMTC init failed', e);
+    }
+  }
+
   // ─── 使用系统原生 @android:drawable/ic_media_* 图标的按钮 ───
   static const _prevControl = MediaControl(
     androidIcon: 'drawable/ic_notif_prev',
@@ -101,8 +150,9 @@ class MusicAudioHandler extends BaseAudioHandler {
     // ── 播放状态（→ 通知进度/播放暂停图标） ──
     playbackState.add(playbackState.value.copyWith(
       playing: isPlaying,
-      processingState:
-          isBuffering ? AudioProcessingState.buffering : AudioProcessingState.ready,
+      processingState: isBuffering
+          ? AudioProcessingState.buffering
+          : AudioProcessingState.ready,
       controls: controls,
       androidCompactActionIndices: const [0, 1, 2], // 紧凑模式只显示前三个
       systemActions: const {MediaAction.seek},
@@ -110,6 +160,17 @@ class MusicAudioHandler extends BaseAudioHandler {
       bufferedPosition: Duration(seconds: durationSec),
       speed: speed,
     ));
+
+    if (Platform.isWindows && _smtc != null) {
+      _smtc!.updateMetadata(MusicMetadata(
+        title: title,
+        artist: artist,
+        album: artist,
+        thumbnail: albumArtUrl?.replaceFirst('{size}', '480'),
+      ));
+      _smtc!.setPlaybackStatus(
+          isPlaying ? PlaybackStatus.playing : PlaybackStatus.paused);
+    }
   }
 
   /// 清除当前媒体通知，释放资源。
@@ -120,6 +181,11 @@ class MusicAudioHandler extends BaseAudioHandler {
       playing: false,
       processingState: AudioProcessingState.idle,
     ));
+
+    if (Platform.isWindows && _smtc != null) {
+      _smtc!.setPlaybackStatus(PlaybackStatus.stopped);
+      _smtc!.clearMetadata();
+    }
   }
 
   // ─── 系统控制回调处理 ───

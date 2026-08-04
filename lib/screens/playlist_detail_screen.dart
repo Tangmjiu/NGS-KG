@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../models/song.dart';
 import '../providers/playlist_provider.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../theme/theme_assets.dart';
 import '../widgets/song_tile.dart';
+import '../widgets/song_table_header.dart';
+import '../widgets/detail_banner.dart';
 import '../widgets/list_bottom_spacer.dart';
+import '../utils/responsive.dart';
+import '../routes/app_routes.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
   final String? gcId;
@@ -54,6 +59,30 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     });
   }
 
+  Future<void> _removeSong(Song song, int playlistId) async {
+    final fileid = song.fileId;
+    if (fileid == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('无法移除：缺少歌曲标识')));
+      }
+      return;
+    }
+    try {
+      await MusicService()
+          .removeTracksFromPlaylist(playlistId, fileid.toString());
+      if (mounted) {
+        context.read<PlaylistProvider>().fetchPlaylistDetail(widget.gcId ?? '');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('移除失败: $e')));
+        context.read<PlaylistProvider>().fetchPlaylistDetail(widget.gcId ?? '');
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -70,6 +99,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
+    final isDesktop = Responsive.isDesktopLayout(context);
+
     return Scaffold(
       body: Consumer<PlaylistProvider>(
         builder: (_, provider, __) {
@@ -78,10 +109,12 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           }
           final detail = provider.currentPlaylist;
           if (detail == null) {
-            return emptyStateWidget(ThemeAssets.loadFailed, Icons.error_outline, '加载失败');
+            return emptyStateWidget(
+                ThemeAssets.loadFailed, Icons.error_outline, '加载失败');
           }
           if (detail.songs.isEmpty) {
-            return emptyStateWidget(ThemeAssets.emptyContent, Icons.music_note, '暂无歌曲');
+            return emptyStateWidget(
+                ThemeAssets.emptyContent, Icons.music_note, '暂无歌曲');
           }
 
           final pl = detail.playlist;
@@ -91,261 +124,354 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           final hasDesc = desc != null && desc.isNotEmpty;
           final songCount = detail.songs.length;
 
-          final isWide = MediaQuery.of(context).size.width >= 880;
+          Widget mainContent;
 
-          Widget mainContent = CustomScrollView(
-            slivers: [
-              SliverAppBar(
-                expandedHeight:
-                    MediaQuery.of(context).size.height * 0.32,
-                pinned: true,
-                title: _isSelecting
-                    ? Text('已选 ${_selectedIndices.length} 首')
-                    : null,
-                actions: [
-                  IconButton(
-                    icon: Icon(_isSelecting
-                        ? Icons.close
-                        : Icons.checklist),
-                    tooltip:
-                        _isSelecting ? '取消选择' : '多选',
+          if (isDesktop) {
+            // Banner 全宽出血 (与 Shell 内容区同宽), 歌曲列表限宽居中
+            final banner = DetailBanner(
+              coverUrl: cover,
+              label: '歌单',
+              title: name,
+              description: hasDesc ? desc : null,
+              stats: [
+                (
+                  value: '$songCount',
+                  label: '首歌曲',
+                ),
+                (
+                  value: _formatTotalDuration(detail.songs),
+                  label: '总时长',
+                ),
+              ],
+              actions: Row(
+                children: [
+                  PlayAllButton(
+                    onPressed: () => context
+                        .read<PlayerProvider>()
+                        .playSong(
+                          detail.songs.first,
+                          playlist: detail.songs,
+                        ),
+                  ),
+                  const SizedBox(width: 8),
+                  DetailMoreButton(
+                    icon: _isSelecting
+                        ? Icons.close_rounded
+                        : Icons.checklist_rounded,
                     onPressed: _toggleSelectMode,
                   ),
-                  if (!_isSelecting)
-                    IconButton(
-                      icon: const Icon(Icons.comment_outlined),
-                      tooltip: '评论',
-                      onPressed: () =>
-                          Navigator.pushNamed(context, '/comments',
-                              arguments: {
-                                'type': 'playlist',
-                                'id': pl.id
-                              }),
+                  const SizedBox(width: 4),
+                  DetailMoreButton(
+                    icon: Icons.comment_outlined,
+                    onPressed: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.comments,
+                      arguments: {'type': 'playlist', 'id': pl.id},
                     ),
+                  ),
+                  const SizedBox(width: 4),
+                  DetailMoreButton(
+                    icon: Icons.more_horiz_rounded,
+                    onPressed: () => _showPlaylistMore(context),
+                  ),
                 ],
-                flexibleSpace: FlexibleSpaceBar(
-                  background: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (cover != null && cover.isNotEmpty)
-                        CachedNetworkImage(
-                          imageUrl: cover.replaceAll('{size}', '500'),
-                          fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) => Container(
-                              color: cs.surfaceContainerHighest),
-                        )
-                      else
-                        Container(color: cs.surfaceContainerHighest),
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              cs.scrim.withValues(alpha: 0.7),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (!_isSelecting)
-                        Positioned(
-                          left: 16,
-                          bottom: 16,
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(name,
-                                  style: tt.titleLarge
-                                      ?.copyWith(color: Colors.white),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                              const SizedBox(height: 4),
-                              Text('$songCount 首',
-                                  style: tt.bodySmall
-                                      ?.copyWith(color: Colors.white70)),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              // 播放全部 + 描述
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding:
-                      const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.queue_music,
-                              size: 16, color: cs.onSurfaceVariant),
-                          const SizedBox(width: 6),
-                          Text('$songCount 首',
-                              style: tt.bodySmall?.copyWith(
-                                  color: cs.onSurfaceVariant)),
-                          const Spacer(),
-                          if (!_isSelecting)
-                            M3PressScale(
-                              child: FilledButton.tonalIcon(
-                                onPressed: () {
-                                  context
-                                      .read<PlayerProvider>()
-                                      .playSong(detail.songs.first,
-                                          playlist: detail.songs);
-                                },
-                                icon: const Icon(
-                                    Icons.play_arrow, size: 18),
-                                label: const Text('播放全部'),
-                              ),
-                            ),
-                        ],
-                      ),
-                      if (hasDesc) ...[
-                        const SizedBox(height: 12),
-                        Text(desc,
-                            style: tt.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant)),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              // 歌曲列表
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final song = detail.songs[index];
-
-                    if (_isSelecting) {
-                      final selected =
-                          _selectedIndices.contains(index);
-                      return M3StaggeredFadeIn(
-                        index: index,
-                        child: M3PressScale(
-                          child: ListTile(
-                            leading: Checkbox(
-                              value: selected,
-                              onChanged: (_) =>
-                                  _toggleSelection(index),
-                            ),
-                            title: Text(song.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis),
-                            subtitle: Text(song.artistDisplay,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis),
-                            onTap: () => _toggleSelection(index),
-                          ),
-                        ),
-                      );
-                    }
-
-                    final tile = SongTile(
-                      song: song,
-                      onTap: (s) => context
-                          .read<PlayerProvider>()
-                          .playSong(s,
-                              playlist: detail.songs),
-                    );
-                    final dismissible = Dismissible(
-                      key: ValueKey('pl_song_${song.id}'),
-                      direction: DismissDirection.endToStart,
-                      confirmDismiss: (_) async {
-                        return await showM3Dialog<bool>(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('移除'),
-                            content: Text(
-                                '从歌单移除「${song.name}」？'),
-                            actions: [
-                              TextButton(
-                                onPressed: () =>
-                                    Navigator.pop(ctx, false),
-                                child: const Text('取消'),
-                              ),
-                              FilledButton(
-                                onPressed: () =>
-                                    Navigator.pop(ctx, true),
-                                child: const Text('移除'),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                      onDismissed: (_) async {
-                        final fileid = song.fileId;
-                        if (fileid != null) {
-                          try {
-                            await MusicService()
-                                .removeTracksFromPlaylist(
-                                    detail.playlist.id,
-                                    fileid.toString());
-                            if (context.mounted) {
-                              context
-                                  .read<PlaylistProvider>()
-                                  .fetchPlaylistDetail(
-                                      widget.gcId ?? '');
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(SnackBar(
-                                      content:
-                                          Text('移除失败: $e')));
-                              context
-                                  .read<PlaylistProvider>()
-                                  .fetchPlaylistDetail(
-                                      widget.gcId ?? '');
-                            }
-                          }
-                        } else {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context)
-                                .showSnackBar(const SnackBar(
-                                    content: Text(
-                                        '无法移除：缺少歌曲标识')));
-                          }
-                        }
-                      },
-                      background: Container(
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 20),
-                        color: cs.error,
-                        child: Icon(Icons.delete, color: cs.onError),
-                      ),
-                      child: tile,
-                    );
-                    return M3StaggeredFadeIn(index: index, child: dismissible);
-                  },
-                  childCount: detail.songs.length,
-                ),
-              ),
-              const SliverToBoxAdapter(
-                child: ListBottomSpacer(isHome: false),
-              ),
-            ],
-          );
-
-          if (isWide) {
-            mainContent = Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: mainContent,
               ),
             );
+            mainContent = Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                banner,
+                Expanded(
+                  child: CustomScrollView(
+                    slivers: [
+                      const SliverToBoxAdapter(
+                        child: SongTableHeader(),
+                      ),
+                      SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final song = detail.songs[index];
+
+                            if (_isSelecting) {
+                              final selected =
+                                  _selectedIndices.contains(index);
+                              return M3StaggeredFadeIn(
+                                index: index,
+                                child: M3PressScale(
+                                  child: ListTile(
+                                    leading: Checkbox(
+                                      value: selected,
+                                      onChanged: (_) =>
+                                          _toggleSelection(index),
+                                    ),
+                                    title: Text(song.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis),
+                                    subtitle: Text(song.artistDisplay,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis),
+                                    onTap: () =>
+                                        _toggleSelection(index),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            final tile = SongTile(
+                              song: song,
+                              onTap: (s) => context
+                                  .read<PlayerProvider>()
+                                  .playSong(s, playlist: detail.songs),
+                              onDelete: () =>
+                                  _removeSong(song, detail.playlist.id),
+                              deleteLabel: '从歌单移除',
+                            );
+                            return M3StaggeredFadeIn(
+                                index: index, child: tile);
+                          },
+                          childCount: detail.songs.length,
+                        ),
+                      ),
+                      const SliverToBoxAdapter(
+                        child: ListBottomSpacer(isHome: false),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          } else {
+            mainContent = CustomScrollView(
+              slivers: [
+                SliverAppBar(
+                  expandedHeight: MediaQuery.of(context).size.height * 0.32,
+                  pinned: true,
+                  title: _isSelecting
+                      ? Text('已选 ${_selectedIndices.length} 首')
+                      : null,
+                  actions: [
+                    IconButton(
+                      icon: Icon(_isSelecting ? Icons.close : Icons.checklist),
+                      tooltip: _isSelecting ? '取消选择' : '多选',
+                      onPressed: _toggleSelectMode,
+                    ),
+                    if (!_isSelecting)
+                      IconButton(
+                        icon: const Icon(Icons.comment_outlined),
+                        tooltip: '评论',
+                        onPressed: () => Navigator.pushNamed(
+                            context, AppRoutes.comments,
+                            arguments: {'type': 'playlist', 'id': pl.id}),
+                      ),
+                  ],
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (cover != null && cover.isNotEmpty)
+                          CachedNetworkImage(
+                            imageUrl: cover.replaceAll('{size}', '500'),
+                            fit: BoxFit.cover,
+                            errorWidget: (_, __, ___) =>
+                                Container(color: cs.surfaceContainerHighest),
+                          )
+                        else
+                          Container(color: cs.surfaceContainerHighest),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                cs.scrim.withValues(alpha: 0.7),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (!_isSelecting)
+                          Positioned(
+                            left: 16,
+                            bottom: 16,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(name,
+                                    style: tt.titleLarge
+                                        ?.copyWith(color: Colors.white),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                                const SizedBox(height: 4),
+                                Text('$songCount 首',
+                                    style: tt.bodySmall
+                                        ?.copyWith(color: Colors.white70)),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.queue_music,
+                                size: 16, color: cs.onSurfaceVariant),
+                            const SizedBox(width: 6),
+                            Text('$songCount 首',
+                                style: tt.bodySmall
+                                    ?.copyWith(color: cs.onSurfaceVariant)),
+                            const Spacer(),
+                            if (!_isSelecting)
+                              M3PressScale(
+                                child: FilledButton.tonalIcon(
+                                  onPressed: () {
+                                    context.read<PlayerProvider>().playSong(
+                                        detail.songs.first,
+                                        playlist: detail.songs);
+                                  },
+                                  icon: const Icon(Icons.play_arrow, size: 18),
+                                  label: const Text('播放全部'),
+                                ),
+                              ),
+                          ],
+                        ),
+                        if (hasDesc) ...[
+                          const SizedBox(height: 12),
+                          Text(desc,
+                              style: tt.bodySmall
+                                  ?.copyWith(color: cs.onSurfaceVariant)),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SliverToBoxAdapter(
+                  child: SongTableHeader(),
+                ),
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final song = detail.songs[index];
+
+                      if (_isSelecting) {
+                        final selected = _selectedIndices.contains(index);
+                        return M3StaggeredFadeIn(
+                          index: index,
+                          child: M3PressScale(
+                            child: ListTile(
+                              leading: Checkbox(
+                                value: selected,
+                                onChanged: (_) => _toggleSelection(index),
+                              ),
+                              title: Text(song.name,
+                                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                              subtitle: Text(song.artistDisplay,
+                                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                              onTap: () => _toggleSelection(index),
+                            ),
+                          ),
+                        );
+                      }
+
+                      final tile = SongTile(
+                        song: song,
+                        onTap: (s) => context
+                            .read<PlayerProvider>()
+                            .playSong(s, playlist: detail.songs),
+                      );
+                      final dismissible = Dismissible(
+                        key: ValueKey('pl_song_${song.id}'),
+                        direction: DismissDirection.endToStart,
+                        confirmDismiss: (_) async {
+                          return await showM3Dialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('移除'),
+                              content: Text('从歌单移除「${song.name}」？'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('取消'),
+                                ),
+                                FilledButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('移除'),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        onDismissed: (_) =>
+                            _removeSong(song, detail.playlist.id),
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          color: cs.error,
+                          child: Icon(Icons.delete, color: cs.onError),
+                        ),
+                        child: tile,
+                      );
+                      return M3StaggeredFadeIn(
+                          index: index, child: dismissible);
+                    },
+                    childCount: detail.songs.length,
+                  ),
+                ),
+                const SliverToBoxAdapter(
+                  child: ListBottomSpacer(isHome: false),
+                ),
+              ],
+            );
           }
+
           return mainContent;
         },
       ),
-      bottomNavigationBar: _isSelecting
-          ? _buildSelectionBar(context)
-          : null,
+      bottomNavigationBar: _isSelecting ? _buildSelectionBar(context) : null,
+    );
+  }
+
+  String _formatTotalDuration(List<Song> songs) {
+    var total = 0;
+    for (final s in songs) {
+      total += s.duration;
+    }
+    if (total <= 0) return '--:--';
+    final h = total ~/ 3600;
+    final m = (total % 3600) ~/ 60;
+    final sec = (total % 60).toString().padLeft(2, '0');
+    return h > 0 ? '$h 小时 ${m} 分' : '$m:${sec}';
+  }
+
+  void _showPlaylistMore(BuildContext context) {
+    final provider = context.read<PlaylistProvider>();
+    final detail = provider.currentPlaylist;
+    if (detail == null) return;
+    final desc = detail.playlist.description;
+    showM3Dialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(detail.playlist.name),
+        content: SingleChildScrollView(
+          child: Text(
+            desc == null || desc.isEmpty ? '暂无简介' : desc,
+            style: Theme.of(ctx).textTheme.bodySmall,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -365,8 +491,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       ),
       decoration: BoxDecoration(
         color: cs.surfaceContainer,
-        border: Border(
-            top: BorderSide(color: cs.outlineVariant, width: 0.5)),
+        border: Border(top: BorderSide(color: cs.outlineVariant, width: 0.5)),
       ),
       child: Row(
         children: [
@@ -377,25 +502,20 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   : Icons.select_all,
               size: 18,
             ),
-            label: Text(
-                _selectedIndices.length == total ? '取消全选' : '全选'),
+            label: Text(_selectedIndices.length == total ? '取消全选' : '全选'),
             onPressed: () => _selectAll(total),
           ),
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.playlist_add),
             tooltip: '添加到歌单',
-            onPressed: count == 0
-                ? null
-                : () => _batchAddToPlaylist(context),
+            onPressed: count == 0 ? null : () => _batchAddToPlaylist(context),
           ),
           const SizedBox(width: 4),
           IconButton(
             icon: Icon(Icons.delete_sweep, color: cs.error),
             tooltip: '删除选中',
-            onPressed: count == 0
-                ? null
-                : () => _batchDelete(context),
+            onPressed: count == 0 ? null : () => _batchDelete(context),
           ),
         ],
       ),
@@ -403,14 +523,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   }
 
   void _batchAddToPlaylist(BuildContext context) {
-    final detail =
-        context.read<PlaylistProvider>().currentPlaylist;
+    final detail = context.read<PlaylistProvider>().currentPlaylist;
     if (detail == null) return;
-    final songs =
-        _selectedIndices.map((i) => detail.songs[i]).toList();
+    final songs = _selectedIndices.map((i) => detail.songs[i]).toList();
 
-    final playlists =
-        context.read<PlaylistProvider>().userPlaylists;
+    final playlists = context.read<PlaylistProvider>().userPlaylists;
     if (playlists.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('暂无歌单，请先创建')),
@@ -430,11 +547,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   style: Theme.of(context).textTheme.titleSmall),
             ),
             Divider(
-                height: 1,
-                color: Theme.of(context).colorScheme.outlineVariant),
+                height: 1, color: Theme.of(context).colorScheme.outlineVariant),
             SizedBox(
-              height:
-                  (playlists.length * 56.0).clamp(80.0, 320.0),
+              height: (playlists.length * 56.0).clamp(80.0, 320.0),
               child: ListView.builder(
                 shrinkWrap: true,
                 itemCount: playlists.length,
@@ -447,25 +562,20 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       Navigator.pop(ctx);
                       try {
                         for (final s in songs) {
-                          final data =
-                              (s.hash?.isNotEmpty ?? false)
-                                  ? '${s.name}|${s.hash}|${s.albumId}|${s.id}'
-                                  : s.name;
-                          await MusicService()
-                              .addTracksToPlaylist(pl.id, data);
+                          final data = (s.hash?.isNotEmpty ?? false)
+                              ? '${s.name}|${s.hash}|${s.albumId}|${s.id}'
+                              : s.name;
+                          await MusicService().addTracksToPlaylist(pl.id, data);
                         }
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context)
-                              .showSnackBar(SnackBar(
-                                  content: Text(
-                                      '已添加 ${songs.length} 首到「${pl.name}」')));
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content:
+                                  Text('已添加 ${songs.length} 首到「${pl.name}」')));
                         }
                       } catch (e) {
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context)
-                              .showSnackBar(SnackBar(
-                                  content:
-                                      Text('添加失败: $e')));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('添加失败: $e')));
                         }
                       }
                     },
@@ -480,11 +590,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   }
 
   void _batchDelete(BuildContext context) {
-    final detail =
-        context.read<PlaylistProvider>().currentPlaylist;
+    final detail = context.read<PlaylistProvider>().currentPlaylist;
     if (detail == null) return;
-    final songs =
-        _selectedIndices.map((i) => detail.songs[i]).toList();
+    final songs = _selectedIndices.map((i) => detail.songs[i]).toList();
 
     showM3Dialog(
       context: context,

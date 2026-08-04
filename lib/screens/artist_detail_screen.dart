@@ -8,13 +8,18 @@ import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
+import '../widgets/song_table_header.dart';
+import '../widgets/detail_banner.dart';
 import '../widgets/list_bottom_spacer.dart';
+import '../routes/app_routes.dart';
+import '../utils/responsive.dart';
 
 class ArtistDetailScreen extends StatefulWidget {
   final int artistId;
   final String? artistName;
 
-  const ArtistDetailScreen({super.key, required this.artistId, this.artistName});
+  const ArtistDetailScreen(
+      {super.key, required this.artistId, this.artistName});
 
   @override
   State<ArtistDetailScreen> createState() => _ArtistDetailScreenState();
@@ -106,6 +111,76 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final isDesktop = Responsive.isDesktopLayout(context);
+
+    if (isDesktop && !_isLoading) {
+      return Scaffold(
+        body: Column(
+          children: [
+            DetailBanner(
+              coverUrl: _avatarUrl,
+              label: '歌手',
+              title: _artistName,
+              stats: [
+                (value: '${_songs.length}', label: '首歌曲'),
+                (value: '${_albums.length}', label: '张专辑'),
+              ],
+              actions: Row(
+                children: [
+                  M3BounceFeedback(
+                    trigger: _isFollowing,
+                    child: FilledButton.icon(
+                      icon: Icon(
+                        _isFollowing ? Icons.favorite : Icons.favorite_border,
+                        size: 18,
+                        color: _isFollowing ? cs.error : null,
+                      ),
+                      label: Text(_isFollowing ? '已关注' : '关注'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: cs.primary.withValues(alpha: 0.12),
+                        foregroundColor: cs.onSurface,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: _toggleFollow,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // 标准 Flutter TabBar (Google M3 默认)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
+                  width: 220,
+                  child: TabBar(
+                    controller: _tabCtrl,
+                    tabs: const [
+                      Tab(text: '单曲'),
+                      Tab(text: '专辑'),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabCtrl,
+                children: [
+                  _buildSongsTab(cs, tt),
+                  _buildAlbumsTab(cs, tt),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Scaffold(
       body: _isLoading
@@ -133,10 +208,9 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                   ],
                   bottom: TabBar(
                     controller: _tabCtrl,
-                    tabs: [
-                      const Tab(text: '单曲'),
-                      const Tab(text: '专辑'),
-                      // MV: Tab(text: 'MV (${_videos.length})'),
+                    tabs: const [
+                      Tab(text: '单曲'),
+                      Tab(text: '专辑'),
                     ],
                   ),
                 ),
@@ -146,7 +220,6 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                 children: [
                   _buildSongsTab(cs, tt),
                   _buildAlbumsTab(cs, tt),
-                  // MV: _buildVideosTab(cs, tt),
                 ],
               ),
             ),
@@ -236,27 +309,23 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
     }
     return Column(
       children: [
-        // 播放全部
+        // 播放全部 (Music You 半透明按钮)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: Row(
             children: [
               Text('${_songs.length} 首单曲',
-                  style: tt.bodySmall
-                      ?.copyWith(color: cs.onSurfaceVariant)),
+                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
               const Spacer(),
-              M3PressScale(
-                child: FilledButton.tonalIcon(
-                  onPressed: () => context
-                      .read<PlayerProvider>()
-                      .playSong(_songs.first, playlist: _songs),
-                  icon: const Icon(Icons.play_arrow, size: 18),
-                  label: const Text('播放全部'),
-                ),
+              PlayAllButton(
+                onPressed: () => context
+                    .read<PlayerProvider>()
+                    .playSong(_songs.first, playlist: _songs),
               ),
             ],
           ),
         ),
+        const SongTableHeader(),
         Expanded(
           child: ListView.builder(
             itemCount: _songs.length + 1,
@@ -280,70 +349,76 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
     );
   }
 
-  // ─── 专辑 Tab ───
+  // ─── 专辑 Tab (自适应列数) ───
 
   Widget _buildAlbumsTab(ColorScheme cs, TextTheme tt) {
     if (_albums.isEmpty) {
       return const Center(child: Text('暂无专辑'));
     }
-    return GridView.builder(
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.85,
-      ),
-      itemCount: _albums.length,
-      itemBuilder: (_, i) {
-        final album = _albums[i];
-        return M3StaggeredFadeIn(
-          index: i,
-          child: M3PressScale(
-            child: GestureDetector(
-              onTap: () {
-                if (album.id > 0) {
-                  Navigator.pushNamed(context, '/album/detail',
-                      arguments: {'id': album.id, 'name': album.name});
-                }
-              },
-              child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: AppShape.sm,
-                  child: album.coverUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: album.coverUrl!,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) => Container(
-                            color: cs.surfaceContainerHighest,
-                            child: const Icon(Icons.album),
-                          ),
-                        )
-                      : Container(
-                          color: cs.surfaceContainerHighest,
-                          child: const Icon(Icons.album)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cols = (constraints.maxWidth / 200).floor().clamp(2, 5);
+        return GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: cols,
+            mainAxisSpacing: 16,
+            crossAxisSpacing: 16,
+            childAspectRatio: 0.8,
+          ),
+          itemCount: _albums.length,
+          itemBuilder: (_, i) {
+            final album = _albums[i];
+            return M3StaggeredFadeIn(
+              index: i,
+              child: M3PressScale(
+                child: GestureDetector(
+                  onTap: () {
+                    if (album.id > 0) {
+                      Navigator.pushNamed(context, AppRoutes.albumDetail,
+                          arguments: {'id': album.id, 'name': album.name});
+                    }
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: album.coverUrl != null
+                              ? CachedNetworkImage(
+                                  imageUrl: album.coverUrl!,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (_, __, ___) => Container(
+                                    color: cs.surfaceContainerHighest,
+                                    child: const Icon(Icons.album),
+                                  ),
+                                )
+                              : Container(
+                                  color: cs.surfaceContainerHighest,
+                                  child: const Icon(Icons.album)),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(album.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w500)),
+                      if (album.songCount != null && album.songCount! > 0)
+                        Text('${album.songCount} 首',
+                            style: tt.labelSmall
+                                ?.copyWith(color: cs.onSurfaceVariant)),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(album.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: tt.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                if (album.songCount != null && album.songCount! > 0)
-                  Text('${album.songCount} 首',
-                      style: tt.labelSmall
-                          ?.copyWith(color: cs.onSurfaceVariant)),
-              ],
-            ),
-          ),
-        ),
-      );
-    },
-  );
+            );
+          },
+        );
+      },
+    );
   }
 
   // ─── MV Tab ───

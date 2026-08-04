@@ -52,7 +52,8 @@ class LikedSongsProvider extends ChangeNotifier {
     if (!_hasLogin) return;
     try {
       // 优先使用新版接口（带 pagesize=1000 以便拉齐所有收藏）
-      List<Song> songs = await _musicService.getPlaylistTracksNew(likedListId, pageSize: 1000);
+      List<Song> songs =
+          await _musicService.getPlaylistTracksNew(likedListId, pageSize: 1000);
       if (songs.isEmpty) {
         songs = await _musicService.getPlaylistTracksById(likedListId);
       }

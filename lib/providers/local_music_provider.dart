@@ -103,7 +103,8 @@ class LocalMusicProvider extends ChangeNotifier {
           ? Uri.file(coverPath).toString()
           : (coverPath ?? old.albumCoverUrl),
       filePath: old.filePath,
-      duration: meta.durationMs > 0 ? (meta.durationMs / 1000).round() : old.duration,
+      duration:
+          meta.durationMs > 0 ? (meta.durationMs / 1000).round() : old.duration,
       coverData: meta.albumArt,
       mediaStoreId: old.mediaStoreId,
       size: old.size,
@@ -143,27 +144,27 @@ class LocalMusicProvider extends ChangeNotifier {
       return s.name.toLowerCase().contains(q) ||
           artist.toLowerCase().contains(q) ||
           (s.albumName?.toLowerCase().contains(q) ?? false);
-      }).toList();
+    }).toList();
 
-      result.sort((a, b) {
-        int cmp;
-        switch (_sortField) {
-          case 'artist':
-            final artistA = a.artists.isNotEmpty ? a.artists.first : '';
-            final artistB = b.artists.isNotEmpty ? b.artists.first : '';
-            cmp = artistA.compareTo(artistB);
-            break;
-          case 'album':
-            cmp = (a.albumName ?? '').compareTo(b.albumName ?? '');
-            break;
-          case 'duration':
-            cmp = a.duration.compareTo(b.duration);
-            break;
-          default: // 'title'
-            cmp = a.name.compareTo(b.name);
-        }
-        return _sortAscending ? cmp : -cmp;
-      });
+    result.sort((a, b) {
+      int cmp;
+      switch (_sortField) {
+        case 'artist':
+          final artistA = a.artists.isNotEmpty ? a.artists.first : '';
+          final artistB = b.artists.isNotEmpty ? b.artists.first : '';
+          cmp = artistA.compareTo(artistB);
+          break;
+        case 'album':
+          cmp = (a.albumName ?? '').compareTo(b.albumName ?? '');
+          break;
+        case 'duration':
+          cmp = a.duration.compareTo(b.duration);
+          break;
+        default: // 'title'
+          cmp = a.name.compareTo(b.name);
+      }
+      return _sortAscending ? cmp : -cmp;
+    });
 
     _filteredSongs = result;
   }
@@ -215,9 +216,8 @@ class LocalMusicProvider extends ChangeNotifier {
     for (final s in _songs) {
       final fp = s.filePath;
       if (fp == null) continue;
-      final parent = fp.contains('/')
-          ? fp.substring(0, fp.lastIndexOf('/'))
-          : '/';
+      final parent =
+          fp.contains('/') ? fp.substring(0, fp.lastIndexOf('/')) : '/';
       final folderName = parent.contains('/')
           ? parent.substring(parent.lastIndexOf('/') + 1)
           : parent;
@@ -289,14 +289,19 @@ class LocalMusicProvider extends ChangeNotifier {
 
       final meta = await MetadataReader.read(file);
       final stat = await file.stat();
-      final baseName = filePath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), '');
+      final baseName =
+          filePath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), '');
 
       final song = Song.fromLocal(
-        title: (meta?.title != null && meta!.title!.isNotEmpty) ? meta.title! : baseName,
+        title: (meta?.title != null && meta!.title!.isNotEmpty)
+            ? meta.title!
+            : baseName,
         artist: meta?.artist,
         album: meta?.album,
         filePath: filePath,
-        duration: meta != null && meta.durationMs > 0 ? (meta.durationMs / 1000).round() : 0,
+        duration: meta != null && meta.durationMs > 0
+            ? (meta.durationMs / 1000).round()
+            : 0,
         size: stat.size,
         codec: _detectCodecFromPath(filePath),
         bitrate: meta?.bitrate,
@@ -353,7 +358,6 @@ class LocalMusicProvider extends ChangeNotifier {
     }
   }
 }
-
 
 /// 分组条目：用于按专辑/歌手/文件夹浏览本地音乐。
 class LocalGroupEntry {

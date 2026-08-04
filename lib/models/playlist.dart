@@ -26,12 +26,23 @@ class Playlist {
     return Playlist(
       id: _toInt(json['specialid'] ?? json['id'] ?? json['listid'] ?? 0),
       name: (json['specialname'] ?? json['name'] ?? '') as String? ?? '',
-      coverUrl: _fixCover(json['imgurl'] as String? ?? json['coverImgUrl'] as String? ?? json['pic'] as String?),
+      coverUrl: _fixCover(json['imgurl'] as String? ??
+          json['coverImgUrl'] as String? ??
+          json['pic'] as String?),
       description: json['intro'] as String? ?? json['description'] as String?,
-      trackCount: _toInt(json['songcount'] ?? json['trackCount'] ?? json['count'] ?? 0),
-      globalCollectionId: json['global_collection_id'] as String? ?? json['parent_global_collection_id'] as String?,
-      createUserId: _toInt(json['list_create_userid'] ?? json['create_userid'] ?? json['suid'] ?? 0) != 0
-          ? _toInt(json['list_create_userid'] ?? json['create_userid'] ?? json['suid'] ?? 0)
+      trackCount:
+          _toInt(json['songcount'] ?? json['trackCount'] ?? json['count'] ?? 0),
+      globalCollectionId: json['global_collection_id'] as String? ??
+          json['parent_global_collection_id'] as String?,
+      createUserId: _toInt(json['list_create_userid'] ??
+                  json['create_userid'] ??
+                  json['suid'] ??
+                  0) !=
+              0
+          ? _toInt(json['list_create_userid'] ??
+              json['create_userid'] ??
+              json['suid'] ??
+              0)
           : null,
     );
   }
@@ -77,7 +88,11 @@ class PlaylistDetail {
   factory PlaylistDetail.fromKugouJson(Map<String, dynamic> json) {
     final pl = Playlist.fromJson(json);
     List<Song> songList = [];
-    final songsData = json['lists'] ?? json['songs'] ?? json['info'] ?? json['list'] ?? json['plist'];
+    final songsData = json['lists'] ??
+        json['songs'] ??
+        json['info'] ??
+        json['list'] ??
+        json['plist'];
     if (songsData is List) {
       songList = songsData
           .map((e) => SongMapper.fromTrackJson(e as Map<String, dynamic>))

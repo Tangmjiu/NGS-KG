@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
+import '../utils/responsive.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../models/theme_market_listing.dart';
@@ -144,17 +145,24 @@ class _ThemeMarketScreenState extends State<ThemeMarketScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('主题市场'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loading ? null : _refresh,
-            tooltip: '刷新',
-          ),
-        ],
+      appBar: Responsive.isDesktopLayout(context)
+          ? null
+          : AppBar(
+              title: const Text('主题市场'),
+              automaticallyImplyLeading: Responsive.isMobileLayout(context),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _loading ? null : _refresh,
+                  tooltip: '刷新',
+                ),
+              ],
+            ),
+      body: Responsive.constrainedContent(
+        context,
+        maxWidth: Responsive.maxWidthSettings,
+        child: _buildBody(),
       ),
-      body: _buildBody(),
     );
   }
 
@@ -201,18 +209,37 @@ class _ThemeMarketScreenState extends State<ThemeMarketScreen> {
       );
     }
 
+    final list = ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      itemCount: _listings.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (_, i) => _ThemeMarketCard(
+        listing: _listings[i],
+        installed: _installedIds.contains(_listings[i].id),
+        onInstall: () => _install(_listings[i]),
+      ),
+    );
+
+    if (Responsive.isDesktopLayout(context)) {
+      return Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loading ? null : _refresh,
+              tooltip: '刷新',
+            ),
+          ),
+          Expanded(child: list),
+        ],
+      );
+    }
+
     return RefreshIndicator(
       onRefresh: _refresh,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        itemCount: _listings.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (_, i) => _ThemeMarketCard(
-          listing: _listings[i],
-          installed: _installedIds.contains(_listings[i].id),
-          onInstall: () => _install(_listings[i]),
-        ),
-      ),
+      child: list,
     );
   }
 }
@@ -259,7 +286,8 @@ class _ThemeMarketCard extends StatelessWidget {
                   ),
                   errorWidget: (_, __, ___) => Container(
                     color: cs.surfaceContainerHighest,
-                    child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                    child: const Icon(Icons.broken_image_outlined,
+                        color: Colors.grey),
                   ),
                 ),
               ),
@@ -273,7 +301,8 @@ class _ThemeMarketCard extends StatelessWidget {
                   // 名称 + 版本 + 作者
                   Text(
                     listing.name,
-                    style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                    style:
+                        tt.titleMedium?.copyWith(fontWeight: FontWeight.w600),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -296,19 +325,27 @@ class _ThemeMarketCard extends StatelessWidget {
                     Wrap(
                       spacing: 6,
                       runSpacing: 4,
-                      children: listing.tags.map((tag) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: _tagColor(cs, listing.tagColorIndex).withValues(alpha: 0.15),
-                          borderRadius: AppShape.sm,
-                        ),
-                        child: Text(
-                          tag,
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: _tagColor(cs, listing.tagColorIndex),
-                          ),
-                        ),
-                      )).toList(),
+                      children: listing.tags
+                          .map((tag) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: _tagColor(cs, listing.tagColorIndex)
+                                      .withValues(alpha: 0.15),
+                                  borderRadius: AppShape.sm,
+                                ),
+                                child: Text(
+                                  tag,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(
+                                        color: _tagColor(
+                                            cs, listing.tagColorIndex),
+                                      ),
+                                ),
+                              ))
+                          .toList(),
                     ),
                   const SizedBox(height: 8),
                   // 底部：大小 + 按钮
@@ -316,7 +353,8 @@ class _ThemeMarketCard extends StatelessWidget {
                     children: [
                       Text(
                         listing.formattedSize,
-                        style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                        style:
+                            tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
                       ),
                       const Spacer(),
                       if (installed)
@@ -331,7 +369,8 @@ class _ThemeMarketCard extends StatelessWidget {
                           label: const Text('安装'),
                           onPressed: onInstall,
                           style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 6),
                             visualDensity: VisualDensity.compact,
                           ),
                         ),
@@ -385,7 +424,11 @@ class _StatusChip extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 4),
-          Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color, fontWeight: FontWeight.w500)),
+          Text(label,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: color, fontWeight: FontWeight.w500)),
         ],
       ),
     );

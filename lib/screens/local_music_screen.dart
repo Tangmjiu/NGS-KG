@@ -8,9 +8,10 @@ import '../providers/local_music_provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../navidrome/navidrome_provider.dart';
-import '../navidrome/navidrome_login_screen.dart';
 import '../navidrome/navidrome_screen.dart';
+import '../routes/app_routes.dart';
 import '../utils/logger.dart';
+import '../utils/responsive.dart';
 import '../widgets/list_bottom_spacer.dart';
 
 class LocalMusicScreen extends StatefulWidget {
@@ -68,6 +69,58 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = Responsive.isDesktopLayout(context);
+
+    Widget content = TabBarView(
+      controller: _tabCtrl,
+      children: [
+        _buildLocalTab(),
+        _buildNavidromeTab(),
+      ],
+    );
+
+    if (isDesktop) {
+      return Scaffold(
+        appBar: null,
+        body: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+              alignment: Alignment.centerLeft,
+              child: Row(
+                children: [
+                  Text(
+                    '本地音乐',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(width: 32),
+                  SizedBox(
+                    width: 240,
+                    child: TabBar(
+                      controller: _tabCtrl,
+                      tabs: const [
+                        Tab(text: '本地文件'),
+                        Tab(text: 'Navidrome'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Responsive.constrainedContent(
+                context,
+                maxWidth: Responsive.maxWidthContent,
+                child: content,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('本地音乐'),
@@ -79,13 +132,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabCtrl,
-        children: [
-          _buildLocalTab(),
-          _buildNavidromeTab(),
-        ],
-      ),
+      body: content,
     );
   }
 
@@ -97,7 +144,8 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.lock, size: 80, color: Theme.of(context).colorScheme.outline),
+            Icon(Icons.lock,
+                size: 80, color: Theme.of(context).colorScheme.outline),
             const SizedBox(height: 16),
             const Text('需要存储权限才能扫描本地音乐'),
             const SizedBox(height: 24),
@@ -129,7 +177,8 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.music_note, size: 64,
+                Icon(Icons.music_note,
+                    size: 64,
                     color: Theme.of(context).colorScheme.onSurfaceVariant),
                 const SizedBox(height: 12),
                 Text(prov.status,
@@ -293,8 +342,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
           children: [
             Icon(emptyIcon, size: 64, color: cs.onSurfaceVariant),
             const SizedBox(height: 12),
-            Text('暂无$emptyLabel',
-                style: TextStyle(color: cs.onSurfaceVariant)),
+            Text('暂无$emptyLabel', style: TextStyle(color: cs.onSurfaceVariant)),
           ],
         ),
       );
@@ -384,7 +432,8 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
 
   // ── Shared song list tile (used in both flat and grouped views) ──
 
-  Widget _buildSongTile(Song song, LocalMusicProvider prov, {bool isHighlighted = false}) {
+  Widget _buildSongTile(Song song, LocalMusicProvider prov,
+      {bool isHighlighted = false}) {
     final currentSongId = context.watch<PlayerProvider>().currentSong?.id;
     final isPlaying = song.id == currentSongId;
     final cs = Theme.of(context).colorScheme;
@@ -410,7 +459,8 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
         trailing: isPlaying
             ? Icon(Icons.equalizer, color: cs.primary)
             : IconButton(
-                icon: Icon(Icons.more_vert, color: cs.onSurfaceVariant, size: 20),
+                icon:
+                    Icon(Icons.more_vert, color: cs.onSurfaceVariant, size: 20),
                 onPressed: () => _showSongMenu(song, prov),
               ),
         onTap: () async {
@@ -427,7 +477,9 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
             orElse: () => playlist.first,
           );
           if (!mounted) return;
-          context.read<PlayerProvider>().playSong(updatedSong, playlist: playlist);
+          context
+              .read<PlayerProvider>()
+              .playSong(updatedSong, playlist: playlist);
         },
       ),
     );
@@ -436,70 +488,101 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
   /// 长按或点击更多时弹出操作菜单
   void _showSongMenu(Song song, LocalMusicProvider prov) {
     final cs = Theme.of(context).colorScheme;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: cs.surfaceContainerHigh,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    final isDesktop = Responsive.isDesktopLayout(context);
+
+    Widget buildMenuContent(BuildContext ctx) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 歌曲信息
+          Row(
             children: [
-              // 拖拽指示条
-              Container(
-                width: 32,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(2),
+              _buildCoverAvatar(song.albumCoverUrl, cs),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(song.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyLarge
+                            ?.copyWith(fontWeight: FontWeight.w600)),
+                    if (song.artists.isNotEmpty)
+                      Text(song.artists.join(', '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant, fontSize: 13)),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              // 歌曲信息
-              Row(
-                children: [
-                  _buildCoverAvatar(song.albumCoverUrl, cs),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(song.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                fontWeight: FontWeight.w600)),
-                        if (song.artists.isNotEmpty)
-                          Text(song.artists.join(', '),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  color: cs.onSurfaceVariant, fontSize: 13)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              const Divider(),
-              // 从列表移除
-              ListTile(
-                leading: Icon(Icons.playlist_remove, color: cs.onSurfaceVariant),
-                title: const Text('从列表中移除'),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _showDeleteDialog(song, prov);
-                },
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          const Divider(),
+          // 从列表移除
+          ListTile(
+            leading: Icon(Icons.playlist_remove, color: cs.onSurfaceVariant),
+            title: const Text('从列表中移除'),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onTap: () {
+              Navigator.pop(ctx);
+              _showDeleteDialog(song, prov);
+            },
+          ),
+        ],
+      );
+    }
+
+    if (isDesktop) {
+      showM3Dialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(song.name),
+          content: buildMenuContent(ctx),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+          ],
         ),
-      ),
-    );
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: cs.surfaceContainerHigh,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        builder: (ctx) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 拖拽指示条
+                Container(
+                  width: 32,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                buildMenuContent(ctx),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
   }
 
   /// M3E 风格删除确认弹窗
@@ -512,7 +595,8 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) {
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
             backgroundColor: cs.surfaceContainerHigh,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
@@ -534,16 +618,20 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                       ),
                       const SizedBox(width: 14),
                       Text('移除歌曲',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w600)),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w600)),
                     ],
                   ),
                   const SizedBox(height: 16),
                   // 歌曲名
                   Text(
                     song.name,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: cs.onSurface),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyLarge
+                        ?.copyWith(color: cs.onSurface),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -572,8 +660,8 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                       checkColor: cs.onError,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16)),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -617,7 +705,8 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
           SnackBar(
             content: Text(ok ? '已删除文件' : '删除失败，请检查权限'),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -639,8 +728,10 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: Text(prov.status,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant)),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: cs.onSurfaceVariant)),
           ),
           // Search field
           Expanded(
@@ -649,10 +740,12 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
               decoration: InputDecoration(
                 hintText: '搜索歌曲、歌手、专辑...',
                 isDense: true,
-                prefixIcon: Icon(Icons.search, size: 18, color: cs.onSurfaceVariant),
+                prefixIcon:
+                    Icon(Icons.search, size: 18, color: cs.onSurfaceVariant),
                 suffixIcon: _searchCtrl.text.isNotEmpty
                     ? IconButton(
-                        icon: Icon(Icons.close, size: 18, color: cs.onSurfaceVariant),
+                        icon: Icon(Icons.close,
+                            size: 18, color: cs.onSurfaceVariant),
                         onPressed: () {
                           _searchCtrl.clear();
                           prov.search('');
@@ -690,15 +783,15 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
           ),
           // Add folder
           IconButton(
-            icon: Icon(Icons.create_new_folder_outlined, size: 20,
-                color: cs.onSurfaceVariant),
+            icon: Icon(Icons.create_new_folder_outlined,
+                size: 20, color: cs.onSurfaceVariant),
             tooltip: '添加音乐文件夹',
             onPressed: prov.isScanning ? null : () => _pickDirectory(prov),
           ),
           // Manage folders
           IconButton(
-            icon: Icon(Icons.folder_outlined, size: 20,
-                color: cs.onSurfaceVariant),
+            icon: Icon(Icons.folder_outlined,
+                size: 20, color: cs.onSurfaceVariant),
             tooltip: '管理扫描文件夹',
             onPressed: prov.isScanning ? null : () => _showDirManager(prov),
           ),
@@ -722,9 +815,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
   PopupMenuItem<String> _sortItem(
       String label, String field, LocalMusicProvider prov) {
     final isSelected = prov.sortField == field;
-    final arrow = isSelected
-        ? (prov.sortAscending ? ' ↑' : ' ↓')
-        : '';
+    final arrow = isSelected ? (prov.sortAscending ? ' ↑' : ' ↓') : '';
     return PopupMenuItem(
       value: field,
       child: Text('$label$arrow',
@@ -761,20 +852,19 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
         content: SizedBox(
           width: 400,
           child: dirs.isEmpty
-              ? Text('暂无自定义文件夹',
-                  style: TextStyle(color: cs.onSurfaceVariant))
+              ? Text('暂无自定义文件夹', style: TextStyle(color: cs.onSurfaceVariant))
               : ListView.builder(
                   shrinkWrap: true,
                   itemCount: dirs.length,
                   itemBuilder: (_, i) => ListTile(
                     dense: true,
-                    leading: Icon(Icons.folder, size: 20,
-                        color: cs.onSurfaceVariant),
+                    leading: Icon(Icons.folder,
+                        size: 20, color: cs.onSurfaceVariant),
                     title: Text(dirs[i],
                         style: Theme.of(context).textTheme.bodyMedium),
                     trailing: IconButton(
-                      icon: Icon(Icons.remove_circle_outline, size: 18,
-                          color: cs.error),
+                      icon: Icon(Icons.remove_circle_outline,
+                          size: 18, color: cs.error),
                       tooltip: '移除',
                       onPressed: () {
                         Navigator.pop(ctx);
@@ -835,11 +925,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
               const SizedBox(height: 20),
               FilledButton.tonal(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const NavidromeLoginScreen()),
-                  );
+                  Navigator.pushNamed(context, AppRoutes.navidromeLogin);
                 },
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,

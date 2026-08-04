@@ -26,8 +26,8 @@ class NotificationService {
 
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-    await _plugin.initialize(
-        const InitializationSettings(android: androidSettings));
+    await _plugin
+        .initialize(const InitializationSettings(android: androidSettings));
 
     // Android 13+ 通知权限请求
     if (Platform.isAndroid) {
@@ -57,4 +57,3 @@ class NotificationService {
     );
   }
 }
-

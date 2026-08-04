@@ -5,15 +5,16 @@ import '../models/rank_entry.dart';
 import '../models/scene_category.dart';
 import '../models/song_mapper.dart';
 
-
 class AlbumRepository extends BaseRepository {
   AlbumRepository(super.client);
 
   Future<Album?> getAlbumDetail(int albumId) async {
-    final res = await get('/album/detail', params: {'id': albumId}, withAuth: false);
+    final res =
+        await get('/album/detail', params: {'id': albumId}, withAuth: false);
     final data = res['data'];
     if (data is Map) return Album.fromJson(Map<String, dynamic>.from(data));
-    if (data is List && data.isNotEmpty) return Album.fromJson(Map<String, dynamic>.from(data[0] as Map));
+    if (data is List && data.isNotEmpty)
+      return Album.fromJson(Map<String, dynamic>.from(data[0] as Map));
     return null;
   }
 
@@ -31,8 +32,8 @@ class AlbumRepository extends BaseRepository {
     }
 
     // 尝试 2: 不带 pagesize（兼容旧服务器）
-    final res2 = await get('/album/songs',
-        params: {'id': albumId}, withCookie: true);
+    final res2 =
+        await get('/album/songs', params: {'id': albumId}, withCookie: true);
     return _parseSongList(res2['data']) ?? [];
   }
 
@@ -40,14 +41,14 @@ class AlbumRepository extends BaseRepository {
   List<Song>? _parseSongList(dynamic data) {
     List<dynamic>? list;
     if (data is Map) {
-      list = data['lists'] as List<dynamic>?
-          ?? data['songs'] as List<dynamic>?
-          ?? data['info'] as List<dynamic>?
-          ?? data['list'] as List<dynamic>?
-          ?? data['audios'] as List<dynamic>?
-          ?? data['songlist'] as List<dynamic>?
-          ?? data['items'] as List<dynamic>?
-          ?? data['audio_list'] as List<dynamic>?;
+      list = data['lists'] as List<dynamic>? ??
+          data['songs'] as List<dynamic>? ??
+          data['info'] as List<dynamic>? ??
+          data['list'] as List<dynamic>? ??
+          data['audios'] as List<dynamic>? ??
+          data['songlist'] as List<dynamic>? ??
+          data['items'] as List<dynamic>? ??
+          data['audio_list'] as List<dynamic>?;
     } else if (data is List) {
       list = data;
     }
@@ -77,7 +78,8 @@ class AlbumRepository extends BaseRepository {
     return [];
   }
 
-  Future<List<Album>> getTopAlbums({int? type, int page = 1, int pageSize = 30}) async {
+  Future<List<Album>> getTopAlbums(
+      {int? type, int page = 1, int pageSize = 30}) async {
     // 该服务器不支持 page/pagesize 参数（返回 20010），仅传 type
     final params = <String, dynamic>{};
     if (type != null) params['type'] = type;
@@ -85,9 +87,7 @@ class AlbumRepository extends BaseRepository {
     final body = res;
     final raw = body['data'];
     if (raw is List) {
-      return raw
-          .map((e) => Album.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return raw.map((e) => Album.fromJson(e as Map<String, dynamic>)).toList();
     }
     // 某些代理返回按地区分组 Map
     if (raw is Map) {
@@ -118,8 +118,7 @@ class AlbumRepository extends BaseRepository {
   }
 
   Future<List<Map<String, dynamic>>> getTopIp() async {
-    final res =
-        await cachedGet('/top/ip', ttl: const Duration(minutes: 30));
+    final res = await cachedGet('/top/ip', ttl: const Duration(minutes: 30));
     final raw = res['data'];
     if (raw is List) return raw.cast<Map<String, dynamic>>();
     return [];
@@ -149,7 +148,9 @@ class AlbumRepository extends BaseRepository {
           final json = e as Map<String, dynamic>;
           return Song(
             id: json['audio_id'] as int? ?? json['songid'] as int? ?? 0,
-            name: json['songname'] as String? ?? json['audio_name'] as String? ?? '',
+            name: json['songname'] as String? ??
+                json['audio_name'] as String? ??
+                '',
             artists: [(json['author_name'] as String? ?? '')],
             albumName: json['album_name'] as String?,
             albumId: (json['album_id'] as int?) ?? 0,
@@ -174,5 +175,4 @@ class AlbumRepository extends BaseRepository {
     final res = await get('/ip/zone/home', params: {'id': id});
     return res;
   }
-
 }

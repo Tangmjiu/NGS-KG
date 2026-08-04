@@ -13,11 +13,16 @@ import '../widgets/update_dialog.dart';
 import '../services/announcement_service.dart';
 import '../widgets/announcement_dialog.dart';
 import '../utils/theme.dart';
+import '../routes/app_routes.dart';
 import 'm3_expressive_mini_player.dart';
+import 'package:desktop_drop/desktop_drop.dart';
+import '../providers/local_music_provider.dart';
 
-/// 移动端外壳，嵌套在 MaterialApp.builder 中
+import 'desktop_shell.dart';
+
+/// App外壳组件，根据屏幕宽度响应式分发移动端与桌面端外壳
 ///
-/// Stack(child + MiniPlayer + overlays)
+/// Stack(child + MiniPlayer + overlays) / DesktopShell
 class AppShell extends StatefulWidget {
   final Widget? child;
   const AppShell({super.key, this.child});
@@ -29,7 +34,27 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
-    return _mobileShell();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        Widget shell;
+        if (constraints.maxWidth >= 600) {
+          shell = DesktopShell(child: widget.child);
+        } else {
+          shell = _mobileShell();
+        }
+
+        return DropTarget(
+          onDragDone: (detail) async {
+            if (detail.files.isEmpty) return;
+            final localProv = context.read<LocalMusicProvider>();
+            for (var file in detail.files) {
+              await localProv.addSongFromPath(file.path);
+            }
+          },
+          child: shell,
+        );
+      },
+    );
   }
 
   // ══════════════════════════════════════════════�?
@@ -51,7 +76,7 @@ class _AppShellState extends State<AppShell> {
         // 2. 且非核心专注/全屏播放等隐藏页面（登录页 '/login'、全屏播放页 '/player'）
         // 3. 且用户没有手动关闭它
         final isHiddenRoute =
-            currentRoute == '/login' || currentRoute == '/player';
+            currentRoute == AppRoutes.login || currentRoute == AppRoutes.player;
         final showMini =
             currentSongId != null && !isHiddenRoute && !isMiniDismissed;
 
@@ -360,7 +385,7 @@ class _LoginPromptOverlayState extends State<_LoginPromptOverlay> {
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
-              Navigator.pushNamed(navCtx, '/login');
+              Navigator.pushNamed(navCtx, AppRoutes.login);
             },
             child: const Text('登录'),
           ),

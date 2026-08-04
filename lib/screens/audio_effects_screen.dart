@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../utils/responsive.dart';
 import '../providers/player_provider.dart';
 import '../providers/audio_settings_provider.dart';
 import '../services/equalizer_service.dart';
@@ -52,7 +53,6 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
   Widget build(BuildContext context) {
     final player = context.read<PlayerProvider>();
     final audioSettings = context.watch<AudioSettingsProvider>();
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final body = ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -151,39 +151,54 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
         else
           Column(
             children: [
-              ...['60Hz', '230Hz', '910Hz', '3.6kHz', '14kHz'].map((freq) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  children: [
-                    SizedBox(width: 60, child: Text(freq, style: Theme.of(context).textTheme.bodySmall)),
-                    Expanded(
-                      child: Slider(
-                        value: 0,
-                        min: -12,
-                        max: 12,
-                        divisions: 24,
-                        onChanged: (_) {},
-                      ),
+              ...[
+                '60Hz',
+                '230Hz',
+                '910Hz',
+                '3.6kHz',
+                '14kHz'
+              ].map((freq) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                            width: 60,
+                            child: Text(freq,
+                                style: Theme.of(context).textTheme.bodySmall)),
+                        Expanded(
+                          child: Slider(
+                            value: 0,
+                            min: -12,
+                            max: 12,
+                            divisions: 24,
+                            onChanged: (_) {},
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              )),
+                  )),
               const SizedBox(height: 16),
               Text('均衡器需要设备支持，当前版本暂不可调',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.outline)),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: Theme.of(context).colorScheme.outline)),
             ],
           ),
       ],
     );
     return Scaffold(
-      appBar: AppBar(title: const Text('音效')),
-      body: isWide
-          ? Center(child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: body,
-            ))
-          : body,
+      appBar: Responsive.isDesktopLayout(context)
+          ? null
+          : AppBar(
+              title: const Text('音效'),
+              automaticallyImplyLeading: Responsive.isMobileLayout(context),
+            ),
+      body: Responsive.constrainedContent(
+        context,
+        maxWidth: Responsive.maxWidthSettings,
+        child: body,
+      ),
     );
   }
 }

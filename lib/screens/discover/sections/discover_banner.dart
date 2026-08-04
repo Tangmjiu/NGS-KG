@@ -21,10 +21,9 @@ class DiscoverBanner extends StatelessWidget {
         itemCount: banners.length,
         itemBuilder: (_, i) {
           final banner = banners[i];
-          final imgUrl = (banner['banner'] as String? ??
-                  banner['img'] as String? ??
-                  '')
-              .replaceAll('{size}', DiscoverConstants.bannerImageSize);
+          final imgUrl =
+              (banner['banner'] as String? ?? banner['img'] as String? ?? '')
+                  .replaceAll('{size}', DiscoverConstants.bannerImageSize);
           final title =
               banner['title'] as String? ?? banner['name'] as String? ?? '';
 
@@ -70,10 +69,13 @@ class DiscoverBanner extends StatelessWidget {
                           left: 16,
                           child: Text(
                             title,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
                           ),
                         ),
                       ],
@@ -81,9 +83,10 @@ class DiscoverBanner extends StatelessWidget {
                   : Center(
                       child: Text(
                         title,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
                       ),
                     ),
             ),

@@ -6,7 +6,9 @@ import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
+import '../utils/responsive.dart';
 import '../widgets/song_tile.dart';
+import '../widgets/detail_banner.dart';
 import '../widgets/list_bottom_spacer.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -61,30 +63,25 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   /// 取第一首歌的封面作为背景
-  String? get _bgCover =>
-      _songs.isNotEmpty ? _songs.first.albumCoverUrl : null;
+  String? get _bgCover => _songs.isNotEmpty ? _songs.first.albumCoverUrl : null;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDesktop = Responsive.isDesktopLayout(context);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isDesktop = constraints.maxWidth >= 880;
-
-        return Scaffold(
-          extendBodyBehindAppBar: !isDesktop,
-          backgroundColor: isDesktop ? cs.surface : null,
-          appBar: AppBar(
-            title: const Text('听歌历史'),
-            backgroundColor:
-                isDesktop ? cs.surface : Colors.transparent,
-            foregroundColor: cs.onSurface,
-            elevation: 0,
-          ),
-          body: _buildBody(cs, isDesktop),
-        );
-      },
+    return Scaffold(
+      extendBodyBehindAppBar: !isDesktop,
+      backgroundColor: isDesktop ? cs.surface : null,
+      appBar: isDesktop
+          ? null
+          : AppBar(
+              title: const Text('听歌历史'),
+              backgroundColor: Colors.transparent,
+              foregroundColor: cs.onSurface,
+              elevation: 0,
+            ),
+      body: _buildBody(cs, isDesktop),
     );
   }
 
@@ -100,31 +97,57 @@ class _HistoryScreenState extends State<HistoryScreen> {
           children: [
             Icon(Icons.history, size: 80, color: cs.onSurfaceVariant),
             const SizedBox(height: 16),
-            Text('暂无听歌历史',
-                style: TextStyle(color: cs.onSurfaceVariant)),
+            Text('暂无听歌历史', style: TextStyle(color: cs.onSurfaceVariant)),
           ],
         ),
       );
     }
 
     if (isDesktop) {
-      return RefreshIndicator(
-        onRefresh: _load,
-        color: cs.onSurface,
-        child: ListView.builder(
-          padding: const EdgeInsets.only(top: 16, bottom: 24),
-          itemCount: _songs.length + 1,
-          itemBuilder: (_, i) {
-            if (i == _songs.length) {
-              return const ListBottomSpacer(isHome: false, showText: false);
-            }
-            return SongTile(
-              song: _songs[i],
-              onTap: (s) => context
-                  .read<PlayerProvider>()
-                  .playSong(s, playlist: _songs),
-            );
-          },
+      return Responsive.constrainedContent(
+        context,
+        maxWidth: Responsive.maxWidthList,
+        child: RefreshIndicator(
+          onRefresh: _load,
+          color: cs.onSurface,
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            itemCount: _songs.length + 2,
+            itemBuilder: (_, i) {
+              if (i == 0) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '听歌历史',
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      PlayAllButton(
+                        onPressed: () => context
+                            .read<PlayerProvider>()
+                            .playSong(_songs.first, playlist: _songs),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              if (i == _songs.length + 1) {
+                return const ListBottomSpacer(isHome: false, showText: false);
+              }
+              return SongTile(
+                song: _songs[i - 1],
+                onTap: (s) => context
+                    .read<PlayerProvider>()
+                    .playSong(s, playlist: _songs),
+              );
+            },
+          ),
         ),
       );
     }

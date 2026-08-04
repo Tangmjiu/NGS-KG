@@ -76,7 +76,8 @@ class MusicService {
 
   Future<bool> uploadMixPlayHistory(String mixSongId) async {
     try {
-      final ot = (DateTime.now().millisecondsSinceEpoch / 1000).round().toString();
+      final ot =
+          (DateTime.now().millisecondsSinceEpoch / 1000).round().toString();
       await _oneShotGet('/playhistory/upload', params: {
         'mxid': mixSongId,
         'ot': ot,
@@ -89,7 +90,8 @@ class MusicService {
 
   Future<List<Song>> getUserListenHistory({int type = 0}) async {
     try {
-      final res = await _oneShotGet('/user/listen', params: {'type': type.toString()});
+      final res =
+          await _oneShotGet('/user/listen', params: {'type': type.toString()});
       final data = res;
       final songs = (data['data'] ?? data['list'] ?? []) as List<dynamic>;
       return songs
@@ -101,7 +103,8 @@ class MusicService {
     }
   }
 
-  Future<Map<String, dynamic>> searchLyricByHash(String hash, {String? keywords}) =>
+  Future<Map<String, dynamic>> searchLyricByHash(String hash,
+          {String? keywords}) =>
       song.searchLyricByHash(hash, keywords: keywords);
 
   Future<String> fetchLyricContent(int lyricId, String accessKey) =>
@@ -160,10 +163,14 @@ class MusicService {
       playlist.getPlaylistTracksNew(listid, page: page, pageSize: pageSize);
 
   Future<Map<String, dynamic>> createPlaylist(String name,
-          {int type = 0, int isPri = 0, int? listCreateListid,
-           int? listCreateUserid}) async {
+      {int type = 0,
+      int isPri = 0,
+      int? listCreateListid,
+      int? listCreateUserid}) async {
     return playlist.createPlaylist(name,
-        type: type, isPri: isPri, listCreateListid: listCreateListid,
+        type: type,
+        isPri: isPri,
+        listCreateListid: listCreateListid,
         listCreateUserid: listCreateUserid);
   }
 
@@ -184,11 +191,9 @@ class MusicService {
 
   // ─── Album ───
 
-  Future<Album?> getAlbumDetail(int albumId) =>
-      album.getAlbumDetail(albumId);
+  Future<Album?> getAlbumDetail(int albumId) => album.getAlbumDetail(albumId);
 
-  Future<List<Song>> getAlbumSongs(int albumId) =>
-      album.getAlbumSongs(albumId);
+  Future<List<Song>> getAlbumSongs(int albumId) => album.getAlbumSongs(albumId);
 
   Future<List<RankEntry>> getRankList() => album.getRankList();
 
@@ -197,7 +202,8 @@ class MusicService {
       album.getRankAudios(rankId,
           page: page, pageSize: pageSize, rankCid: rankCid);
 
-  Future<List<Album>> getTopAlbums({int? type, int page = 1, int pageSize = 30}) =>
+  Future<List<Album>> getTopAlbums(
+          {int? type, int page = 1, int pageSize = 30}) =>
       album.getTopAlbums(type: type, page: page, pageSize: pageSize);
 
   Future<List<SceneCategory>> getSceneLists() => album.getSceneLists();
@@ -206,11 +212,11 @@ class MusicService {
 
   Future<List<Map<String, dynamic>>> getIpZone() => album.getIpZone();
 
-  Future<Map<String, dynamic>> getIpZoneHome(int id) =>
-      album.getIpZoneHome(id);
+  Future<Map<String, dynamic>> getIpZoneHome(int id) => album.getIpZoneHome(id);
 
   Future<List<Map<String, dynamic>>> getStyleTags() async {
-    final res = await _oneShotGet('/everyday/style/recommend', params: {'platform': 'android'});
+    final res = await _oneShotGet('/everyday/style/recommend',
+        params: {'platform': 'android'});
     final data = res['data'];
     if (data is Map) {
       final list = data['tag_list'] as List<dynamic>?;
@@ -243,8 +249,7 @@ class MusicService {
 
   Future<void> followArtist(int artistId) => artist.followArtist(artistId);
 
-  Future<void> unfollowArtist(int artistId) =>
-      artist.unfollowArtist(artistId);
+  Future<void> unfollowArtist(int artistId) => artist.unfollowArtist(artistId);
 
   // ─── User ───
 
@@ -374,20 +379,25 @@ class MusicService {
   // ─── 乐库 / 电台 ───
 
   Future<List<Map<String, dynamic>>> getYuekuRadio() =>
-      _oneShotGet('/yueku/fm')
-          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+      _oneShotGet('/yueku/fm').then((res) => res['data'] is List
+          ? (res['data'] as List).cast<Map<String, dynamic>>()
+          : []);
 
   Future<List<Map<String, dynamic>>> getYuekuAll() =>
-      _oneShotGet('/yueku')
-          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+      _oneShotGet('/yueku').then((res) => res['data'] is List
+          ? (res['data'] as List).cast<Map<String, dynamic>>()
+          : []);
 
   Future<List<Map<String, dynamic>>> getFmClass() =>
-      _oneShotGet('/fm/class')
-          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+      _oneShotGet('/fm/class').then((res) => res['data'] is List
+          ? (res['data'] as List).cast<Map<String, dynamic>>()
+          : []);
 
   Future<List<Map<String, dynamic>>> getRadioImages(String fmid) =>
-      _oneShotGet('/fm/image', params: {'fmid': fmid})
-          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+      _oneShotGet('/fm/image', params: {'fmid': fmid}).then((res) =>
+          res['data'] is List
+              ? (res['data'] as List).cast<Map<String, dynamic>>()
+              : []);
 
   // ─── 推荐 ───
 
@@ -437,19 +447,24 @@ class MusicService {
   /// API 文档: GET /everyday/history
   /// mode=list 返回历史推荐列表, mode=song 需传 history_name 和 date
   Future<List<Map<String, dynamic>>> getHistoryRecommend() =>
-      _oneShotGet('/everyday/history', params: {'mode': 'list', 'platform': 'android'})
-          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+      _oneShotGet('/everyday/history',
+              params: {'mode': 'list', 'platform': 'android'})
+          .then((res) => res['data'] is List
+              ? (res['data'] as List).cast<Map<String, dynamic>>()
+              : []);
 
   /// AI 推荐
   Future<List<Map<String, dynamic>>> getAiRecommend() =>
-      _oneShotGet('/ai/recommend')
-          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+      _oneShotGet('/ai/recommend').then((res) => res['data'] is List
+          ? (res['data'] as List).cast<Map<String, dynamic>>()
+          : []);
 
   // ─── 主题音乐 ───
 
   Future<List<Map<String, dynamic>>> getThemeMusic() =>
-      _oneShotGet('/theme/music')
-          .then((res) => res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+      _oneShotGet('/theme/music').then((res) => res['data'] is List
+          ? (res['data'] as List).cast<Map<String, dynamic>>()
+          : []);
 
   Future<Map<String, dynamic>> getThemeMusicDetail(int id) =>
       _oneShotGet('/theme/music/detail', params: {'id': id});
@@ -463,14 +478,17 @@ class MusicService {
           {int page = 1, int pageSize = 200}) =>
       _oneShotGet('/artist/follow/newsongs',
               params: {'id': artistId, 'page': page, 'pagesize': pageSize})
-          .then((res) =>
-              res['data'] is List ? (res['data'] as List).cast<Map<String, dynamic>>() : []);
+          .then((res) => res['data'] is List
+              ? (res['data'] as List).cast<Map<String, dynamic>>()
+              : []);
 
   // ─── 内部辅助 ───
 
   /// 认证信息已由 ApiClient._AuthInterceptor 自动注入 Authorization 头
   Future<Map<String, dynamic>> _oneShotGet(String path,
-      {Map<String, dynamic>? params, bool withAuth = true, bool silent = false}) async {
+      {Map<String, dynamic>? params,
+      bool withAuth = true,
+      bool silent = false}) async {
     final client = ApiClient.instance;
     final extra = <String, dynamic>{};
     if (!withAuth) extra['noAuth'] = true;
@@ -495,7 +513,8 @@ class MusicService {
     final res = await _oneShotGet('/search', params: params);
     final data = res['data'];
     if (data == null) return [];
-    final lists = data['lists'] as List<dynamic>? ?? data['list'] as List<dynamic>? ?? [];
+    final lists =
+        data['lists'] as List<dynamic>? ?? data['list'] as List<dynamic>? ?? [];
     return lists.map((e) => e as Map<String, dynamic>).toList();
   }
 

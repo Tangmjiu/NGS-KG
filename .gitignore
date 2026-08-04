@@ -37,5 +37,10 @@ gradle-user-home/
 # Android signing
 *.jks
 *.keystore
-# 本地 API 文档参考
+# Local API docs
 APIDOCS/
+check_temp.dart
+
+# Tooling
+.fvm/
+.reasonix/

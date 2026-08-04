@@ -49,13 +49,15 @@ class DiscoverRankRow extends StatelessWidget {
                                   memCacheHeight: 200,
                                   fit: BoxFit.cover,
                                 )
-                              : Icon(Icons.leaderboard, color: cs.onSurfaceVariant),
+                              : Icon(Icons.leaderboard,
+                                  color: cs.onSurfaceVariant),
                         ),
                         Material(
                           color: Colors.transparent,
                           child: InkWell(
                             borderRadius: AppShape.lg,
-                            onTap: () => Navigator.pushNamed(context, '/rank/detail',
+                            onTap: () => Navigator.pushNamed(
+                                context, '/rank/detail',
                                 arguments: {'id': rank.id, 'name': rank.name}),
                           ),
                         ),
@@ -67,7 +69,10 @@ class DiscoverRankRow extends StatelessWidget {
                     rank.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(fontWeight: FontWeight.w500),
                   ),
                 ],
               ),

@@ -32,12 +32,12 @@ class DiscoverProvider extends ChangeNotifier {
   List<Song> _personalFmSongs = [];
 
   // ─── 私人 FM 状态 ───
-  String _fmMode = 'normal';                       // normal=红心 small=小众 peak=速览
-  int _fmPoolId = 0;                               // 0=口味(Alpha) 1=风格(Beta) 2=探索(Gamma)
-  List<Song> _personalFmBuffer = [];               // 预取缓冲池
-  static const int _fmBufferThreshold = 4;          // 自动补货阈值
-  bool _isFmActive = false;                        // 当前是否处于 FM 播放模式
-  Map<String, dynamic>? _currentFmFeedback;         // 当前歌曲反馈数据 {hash, songid, playtime}
+  String _fmMode = 'normal'; // normal=红心 small=小众 peak=速览
+  int _fmPoolId = 0; // 0=口味(Alpha) 1=风格(Beta) 2=探索(Gamma)
+  List<Song> _personalFmBuffer = []; // 预取缓冲池
+  static const int _fmBufferThreshold = 4; // 自动补货阈值
+  bool _isFmActive = false; // 当前是否处于 FM 播放模式
+  Map<String, dynamic>? _currentFmFeedback; // 当前歌曲反馈数据 {hash, songid, playtime}
 
   // ─── 状态 ───
 
@@ -111,8 +111,8 @@ class DiscoverProvider extends ChangeNotifier {
 
   Future<void> _loadPlaylists() async {
     try {
-      _topPlaylists =
-          await _musicService.getTopPlaylists(limit: DiscoverConstants.playlistLimit);
+      _topPlaylists = await _musicService.getTopPlaylists(
+          limit: DiscoverConstants.playlistLimit);
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadPlaylists error', e, s);
     }
@@ -166,22 +166,26 @@ class DiscoverProvider extends ChangeNotifier {
 
   Future<void> _loadPersonalFm() async {
     try {
-      final raw = await _musicService.getPersonalFm(mode: _fmMode, songPoolId: _fmPoolId);
+      final raw = await _musicService.getPersonalFm(
+          mode: _fmMode, songPoolId: _fmPoolId);
       debugPrint('[FM] getPersonalFm raw count: ${raw.length}');
-      final songs = raw
-          .map((e) => SongMapper.fromFmJson(e))
-          .whereType<Song>()
-          .toList();
+      final songs =
+          raw.map((e) => SongMapper.fromFmJson(e)).whereType<Song>().toList();
       debugPrint('[FM] after mapping: ${songs.length} songs');
       if (songs.isNotEmpty) {
-        debugPrint('[FM] first song: ${songs.first.name} / ${songs.first.artistDisplay} / cover: ${songs.first.albumCoverUrl}');
+        debugPrint(
+            '[FM] first song: ${songs.first.name} / ${songs.first.artistDisplay} / cover: ${songs.first.albumCoverUrl}');
       }
       // 去重（id==0 不参与去重，因 fromFmJson 回退到 0）
       final deduped = <Song>[];
       for (final song in songs) {
         if (!deduped.any((existing) =>
-            (existing.hash != null && song.hash != null && existing.hash == song.hash) ||
-            (existing.mixSongId != null && song.mixSongId != null && existing.mixSongId == song.mixSongId) ||
+            (existing.hash != null &&
+                song.hash != null &&
+                existing.hash == song.hash) ||
+            (existing.mixSongId != null &&
+                song.mixSongId != null &&
+                existing.mixSongId == song.mixSongId) ||
             (existing.id > 0 && existing.id == song.id))) {
           deduped.add(song);
         }
@@ -221,14 +225,17 @@ class DiscoverProvider extends ChangeNotifier {
     // 先补货
     await _refillFmBuffer();
     // 从 buffer 取最多 10 首
-    final batchSize = _personalFmBuffer.length >= 10 ? 10 : _personalFmBuffer.length;
+    final batchSize =
+        _personalFmBuffer.length >= 10 ? 10 : _personalFmBuffer.length;
     if (batchSize == 0) {
-      debugPrint('[FM] fetchNextFmBatch: buffer empty after refill — returning []');
+      debugPrint(
+          '[FM] fetchNextFmBatch: buffer empty after refill — returning []');
       return [];
     }
     final batch = _personalFmBuffer.take(batchSize).toList();
     _personalFmBuffer.removeRange(0, batch.length);
-    debugPrint('[FM] fetchNextFmBatch: took $batchSize, buffer now has ${_personalFmBuffer.length}');
+    debugPrint(
+        '[FM] fetchNextFmBatch: took $batchSize, buffer now has ${_personalFmBuffer.length}');
     notifyListeners();
     return batch;
   }
@@ -255,11 +262,10 @@ class DiscoverProvider extends ChangeNotifier {
         remainSongcnt: _personalFmBuffer.length,
       );
       debugPrint('[FM] _refillFmBuffer: API returned ${raw.length} raw items');
-      final newSongs = raw
-          .map((e) => SongMapper.fromFmJson(e))
-          .whereType<Song>()
-          .toList();
-      debugPrint('[FM] _refillFmBuffer: after mapping ${newSongs.length} songs');
+      final newSongs =
+          raw.map((e) => SongMapper.fromFmJson(e)).whereType<Song>().toList();
+      debugPrint(
+          '[FM] _refillFmBuffer: after mapping ${newSongs.length} songs');
       // 去重合并：以 hash > mixSongId > id 三级 key 去重（id==0 不参与）
       int added = 0, skipped = 0;
       for (final song in newSongs) {
@@ -328,10 +334,8 @@ class DiscoverProvider extends ChangeNotifier {
         isOverplay: 0,
         remainSongcnt: _personalFmBuffer.length,
       );
-      final newSongs = raw
-          .map((e) => SongMapper.fromFmJson(e))
-          .whereType<Song>()
-          .toList();
+      final newSongs =
+          raw.map((e) => SongMapper.fromFmJson(e)).whereType<Song>().toList();
       // 去重合并
       for (final song in newSongs) {
         if (!_songExistsInBuffer(song)) {

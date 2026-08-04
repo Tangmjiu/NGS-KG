@@ -87,7 +87,8 @@ class PaletteExtractor {
     final crop = generator.colors
         .where((c) => c != generator.dominantColor?.color)
         .toList();
-    crop.sort((a, b) => HSLColor.fromColor(a).lightness
+    crop.sort((a, b) => HSLColor.fromColor(a)
+        .lightness
         .compareTo(HSLColor.fromColor(b).lightness));
     final topColors = <Color>[];
     if (crop.isNotEmpty) {
