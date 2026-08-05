@@ -246,6 +246,9 @@ class AudioEngine {
           _lastUrlFetchTime = DateTime.now();
           if (_playWhenReady) {
             await _player.play();
+            // 显式同步播放状态：just_audio 的 stop() 会异步广播 playing=false，
+            // 若不在此强制同步，事件乱序会导致 UI/系统控制栏显示与真实状态颠倒
+            isPlaying.value = _player.playing;
             _hasActivePlayback = true;
           }
         } else {
@@ -260,6 +263,7 @@ class AudioEngine {
           _lastUrlFetchTime = DateTime.now();
           if (_playWhenReady) {
             await _player.play();
+            isPlaying.value = _player.playing;
             _hasActivePlayback = true;
           }
         }
@@ -291,6 +295,7 @@ class AudioEngine {
                 _lastUrlFetchTime = DateTime.now();
                 if (_playWhenReady) {
                   await _player.play();
+                  isPlaying.value = _player.playing;
                   _hasActivePlayback = true;
                 }
                 played = true;
@@ -332,6 +337,7 @@ class AudioEngine {
             _lastUrlFetchTime = DateTime.now();
             if (_playWhenReady) {
               await _player.play();
+              isPlaying.value = _player.playing;
               _hasActivePlayback = true;
             }
             played = true;
@@ -422,6 +428,7 @@ class AudioEngine {
       await _player.setUrl(songUrl.url);
       await _player.seek(pos);
       await _player.play();
+      isPlaying.value = _player.playing;
       isLoading.value = false;
     } catch (e, s) {
       Log.e('audio_engine', 'refresh URL error', e, s);
@@ -540,6 +547,9 @@ class AudioEngine {
     _currentEffectOptions = [];
     _playWhenReady = true;
     _hasActivePlayback = false;
+    // 切歌前显式同步播放状态为 false，避免 stop() 的异步事件与新歌播放事件
+    // 乱序时把 isPlaying 覆盖成错误值（UI 与系统控制栏显示颠倒）
+    isPlaying.value = false;
     _player.stop(); // 立即停止上一首播放
   }
 
