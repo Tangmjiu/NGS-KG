@@ -10,6 +10,31 @@ import '../models/song.dart';
 import 'metadata_reader.dart';
 import 'local_library_db.dart';
 
+/// 扫描进度快照，由 [LocalMusicService.scanMusic] 通过回调上报。
+class ScanProgress {
+  /// 已处理的文件数。
+  final int scanned;
+
+  /// 待处理文件总数（0 表示未知，如收集阶段）。
+  final int total;
+
+  /// 已发现的有效音频文件数。
+  final int found;
+
+  /// 当前正在处理的文件路径。
+  final String? currentPath;
+
+  const ScanProgress({
+    required this.scanned,
+    required this.total,
+    required this.found,
+    this.currentPath,
+  });
+
+  /// 0.0 ~ 1.0 的进度（total 未知时为 -1）。
+  double get ratio => total <= 0 ? -1 : (scanned / total).clamp(0.0, 1.0);
+}
+
 class LocalMusicService {
   static const _audioExtensions = [
     '.mp3',
@@ -55,16 +80,25 @@ class LocalMusicService {
   // ─── Public API ─────────────────────────────────────────────
 
   /// 扫描本地音乐。有缓存时快速加载，首次或 forced 时全量扫描。
-  Future<List<Song>> scanMusic({bool forceFull = false}) async {
+  ///
+  /// [onProgress] 在扫描过程中上报进度快照；[isCancelled] 返回 true 时
+  /// 尽快中止扫描（已完成的批次结果仍会返回）。
+  Future<List<Song>> scanMusic({
+    bool forceFull = false,
+    void Function(ScanProgress progress)? onProgress,
+    bool Function()? isCancelled,
+  }) async {
     if (!forceFull) {
       final cached = await _db.loadAll();
       if (cached.isNotEmpty) return cached;
     }
     // 全量扫描
     if (Platform.isAndroid) {
-      final songs = await _scanAndroid();
+      final songs =
+          await _scanAndroid(onProgress: onProgress, isCancelled: isCancelled);
       // 批量提取无封面歌曲的内嵌封面
-      final coverMap = await _batchExtractCovers(songs);
+      final coverMap = await _batchExtractCovers(songs,
+          onProgress: onProgress, isCancelled: isCancelled);
       if (coverMap.isNotEmpty) {
         for (var i = 0; i < songs.length; i++) {
           final s = songs[i];
@@ -91,7 +125,8 @@ class LocalMusicService {
       await _db.saveSongs(songs);
       return songs;
     }
-    final songs = await _scanLegacy();
+    final songs =
+        await _scanDesktop(onProgress: onProgress, isCancelled: isCancelled);
     await _db.clear();
     await _db.saveSongs(songs);
     return songs;
@@ -133,7 +168,11 @@ class LocalMusicService {
   }
 
   /// 批量提取内嵌封面（并发 4 路），返回 Map<filePath, coverCachePath>。
-  Future<Map<String, String>> _batchExtractCovers(List<Song> songs) async {
+  Future<Map<String, String>> _batchExtractCovers(
+    List<Song> songs, {
+    void Function(ScanProgress progress)? onProgress,
+    bool Function()? isCancelled,
+  }) async {
     const concurrency = 4;
     final result = <String, String>{};
     final noCover = songs
@@ -141,7 +180,9 @@ class LocalMusicService {
         .toList();
     if (noCover.isEmpty) return result;
 
+    var done = 0;
     for (var i = 0; i < noCover.length; i += concurrency) {
+      if (isCancelled?.call() ?? false) break;
       final batch = noCover.skip(i).take(concurrency);
       final results = await Future.wait(batch.map((s) async {
         final fp = s.filePath;
@@ -157,6 +198,13 @@ class LocalMusicService {
         } catch (_) {}
         return null;
       }));
+      done += batch.length;
+      onProgress?.call(ScanProgress(
+        scanned: done,
+        total: noCover.length,
+        found: result.length,
+        currentPath: batch.first.filePath,
+      ));
       for (final r in results) {
         if (r != null) result[r.key] = r.value;
       }
@@ -316,7 +364,10 @@ class LocalMusicService {
 
   // ─── Android: MediaStore via on_audio_query ─────────────────
 
-  Future<List<Song>> _scanAndroid() async {
+  Future<List<Song>> _scanAndroid({
+    void Function(ScanProgress progress)? onProgress,
+    bool Function()? isCancelled,
+  }) async {
     final audioQuery = OnAudioQuery();
 
     // 权限检查 & 请求
@@ -340,6 +391,7 @@ class LocalMusicService {
 
     final songs = <Song>[];
     for (final s in raw) {
+      if (isCancelled?.call() ?? false) break;
       final title = s.title;
       final data = s.data;
       if (title == null || title.isEmpty) continue;
@@ -382,20 +434,146 @@ class LocalMusicService {
         lyrics: lyrics,
         albumCoverPath: coverPath,
       ));
+      onProgress?.call(ScanProgress(
+        scanned: songs.length,
+        total: raw.length,
+        found: songs.length,
+        currentPath: data,
+      ));
     }
 
     return songs;
   }
 
-  // ─── Windows fallback: filesystem crawl + per-file MMR ──────
+  // ─── Windows/Linux/macOS: filesystem crawl + pure-Dart MMR ──
 
-  Future<List<Song>> _scanLegacy() async {
-    final songs = <Song>[];
+  Future<List<Song>> _scanDesktop({
+    void Function(ScanProgress progress)? onProgress,
+    bool Function()? isCancelled,
+  }) async {
     final dirs = await _getSearchDirs();
+
+    // 1. 收集阶段：递归遍历目录，收集音频文件路径（快速，无 I/O 解析）
+    final files = <String>[];
+    var found = 0;
     for (final dir in dirs) {
-      await _scanDirLegacy(dir, songs);
+      if (isCancelled?.call() ?? false) break;
+      await _collectAudioFiles(dir, files, onFound: () {
+        found++;
+        onProgress?.call(ScanProgress(
+          scanned: files.length,
+          total: 0,
+          found: found,
+          currentPath: dir.path,
+        ));
+      });
     }
+
+    // 2. 解析阶段：并发 4 路读取元数据（标签/封面/时长/码率）
+    const concurrency = 4;
+    final songs = <Song>[];
+    var scanned = 0;
+    for (var i = 0; i < files.length; i += concurrency) {
+      if (isCancelled?.call() ?? false) break;
+      final batch = files.skip(i).take(concurrency).toList();
+      final results = await Future.wait(batch.map((f) async {
+        final s = await _buildSongFromFile(f);
+        return s;
+      }));
+      scanned += batch.length;
+      for (final r in results) {
+        if (r != null) songs.add(r);
+      }
+      onProgress?.call(ScanProgress(
+        scanned: scanned,
+        total: files.length,
+        found: songs.length,
+        currentPath: batch.last,
+      ));
+    }
+
     return songs;
+  }
+
+  /// 递归收集目录下的所有音频文件（不解析元数据，速度优先）。
+  Future<void> _collectAudioFiles(
+    Directory dir,
+    List<String> out, {
+    void Function()? onFound,
+  }) async {
+    if (!await dir.exists()) return;
+    try {
+      await for (final entry in dir.list(recursive: true, followLinks: false)) {
+        if (entry is File && _isAudioFile(entry.path)) {
+          if (_isEncrypted(entry.path)) continue; // 跳过加密文件
+          out.add(entry.path);
+          onFound?.call();
+        }
+      }
+    } catch (e, s) {
+      Log.e('local_music_service', 'collect error', e, s);
+    }
+  }
+
+  /// 读取单个音频文件的完整元数据并构建 Song。
+  Future<Song?> _buildSongFromFile(String path) async {
+    try {
+      final file = File(path);
+      if (!await file.exists()) return null;
+      final name = path.split(RegExp(r'[\\/]')).last;
+      final ext = p.extension(path).toLowerCase();
+
+      String title = name.replaceAll(RegExp(r'\.[^.]+$'), '');
+      String? artist;
+      String? album;
+      int duration = 0;
+      int? bitrate;
+      String? codec = _detectCodec(ext);
+      String? lyrics;
+      String? coverCachePath;
+
+      final meta = await MetadataReader.read(file);
+      if (meta != null) {
+        if (meta.title != null && meta.title!.isNotEmpty) title = meta.title!;
+        if (meta.artist != null && meta.artist!.isNotEmpty)
+          artist = meta.artist!;
+        if (meta.album != null && meta.album!.isNotEmpty) album = meta.album!;
+        if (meta.durationMs > 0) duration = (meta.durationMs / 1000).round();
+        if (meta.bitrate != null && meta.bitrate! > 0) bitrate = meta.bitrate!;
+        if (meta.albumArt != null && meta.albumArt!.isNotEmpty) {
+          coverCachePath = await _cacheAlbumArt(path, meta.albumArt!);
+        }
+        if (meta.lyrics != null && meta.lyrics!.isNotEmpty) {
+          lyrics = meta.lyrics;
+        }
+      }
+      coverCachePath ??= await _findFolderCover(path);
+
+      // 无内嵌歌词时读取配套 .lrc
+      if (lyrics == null || lyrics.isEmpty) {
+        lyrics = await _readCompanionLrc(path);
+      }
+
+      if (ext == '.wav' && bitrate == null) bitrate = 1411;
+      if (ext == '.flac' && bitrate == null) bitrate = 900;
+
+      final stat = await file.stat();
+      return Song.fromLocal(
+        title: title,
+        artist: artist,
+        album: album,
+        filePath: path,
+        duration: duration,
+        size: stat.size,
+        codec: codec,
+        bitrate: bitrate,
+        lyrics: lyrics,
+        albumCoverPath: coverCachePath,
+      );
+    } catch (e, s) {
+      Log.e('local_music_service', 'metadata error: $path', e, s);
+      return null;
+    }
   }
 
   Future<List<Directory>> _getSearchDirs() async {
@@ -421,84 +599,6 @@ class LocalMusicService {
       }
     } catch (_) {}
     return dirs;
-  }
-
-  Future<void> _scanDirLegacy(Directory dir, List<Song> results) async {
-    if (!await dir.exists()) return;
-    try {
-      await for (final entry in dir.list(recursive: true, followLinks: false)) {
-        if (entry is File && _isAudioFile(entry.path)) {
-          if (_isEncrypted(entry.path)) continue; // 跳过加密文件
-          final name = entry.path.split('/').last;
-          final ext = p.extension(entry.path).toLowerCase();
-
-          String title = name.replaceAll(RegExp(r'\.[^.]+$'), '');
-          String? artist;
-          String? album;
-          int duration = 0;
-          int? bitrate;
-          String? codec;
-          String? coverCachePath;
-
-          final meta = await MetadataReader.read(entry);
-          if (meta != null) {
-            if (meta.title != null && meta.title!.isNotEmpty)
-              title = meta.title!;
-            if (meta.artist != null && meta.artist!.isNotEmpty)
-              artist = meta.artist!;
-            if (meta.album != null && meta.album!.isNotEmpty)
-              album = meta.album!;
-            if (meta.durationMs > 0)
-              duration = (meta.durationMs / 1000).round();
-            if (meta.bitrate != null && meta.bitrate! > 0)
-              bitrate = meta.bitrate!;
-            if (meta.albumArt != null && meta.albumArt!.isNotEmpty) {
-              coverCachePath = await _cacheAlbumArt(entry.path, meta.albumArt!);
-            }
-          }
-          coverCachePath ??= await _findFolderCover(entry.path);
-
-          if (ext == '.flac') {
-            codec = 'FLAC';
-            bitrate ??= 900;
-          } else if (ext == '.wav') {
-            codec = 'WAV';
-            bitrate ??= 1411;
-          } else if (ext == '.mp3') {
-            codec = 'MP3';
-          } else if (ext == '.aac' || ext == '.m4a') {
-            codec = 'AAC';
-          } else if (ext == '.ogg') {
-            codec = 'OGG';
-          } else if (ext == '.wma') {
-            codec = 'WMA';
-          }
-
-          String? lyrics = await _readCompanionLrc(entry.path);
-          if ((lyrics == null || lyrics.isEmpty) &&
-              meta?.lyrics != null &&
-              meta!.lyrics!.isNotEmpty) {
-            lyrics = meta.lyrics;
-          }
-
-          final stat = await entry.stat();
-          results.add(Song.fromLocal(
-            title: title,
-            artist: artist,
-            album: album,
-            filePath: entry.path,
-            duration: duration,
-            size: stat.size,
-            codec: codec,
-            bitrate: bitrate,
-            lyrics: lyrics,
-            albumCoverPath: coverCachePath,
-          ));
-        }
-      }
-    } catch (e, s) {
-      Log.e('local_music_service', 'error', e, s);
-    }
   }
 
   // ─── Shared helpers ─────────────────────────────────────────

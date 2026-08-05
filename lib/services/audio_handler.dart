@@ -23,6 +23,9 @@ class MusicAudioHandler extends BaseAudioHandler {
 
   Future<void> _initSMTC() async {
     try {
+      // smtc_windows 底层是 flutter_rust_bridge，必须先初始化 RustLib，
+      // 否则 SMTCWindows 构造会抛 "flutter_rust_bridge has not been initialized"
+      await SMTCWindows.initialize();
       _smtc = SMTCWindows(
         config: const SMTCConfig(
           playEnabled: true,
@@ -111,9 +114,12 @@ class MusicAudioHandler extends BaseAudioHandler {
     String playMode = 'sequential',
   }) {
     // ── MediaItem（→ 通知标题/歌手/封面 + 锁屏/蓝牙歌词） ──
-    final uri = albumArtUrl != null
-        ? Uri.tryParse(albumArtUrl.replaceFirst('{size}', '480'))
-        : null;
+    // 本地封面（file:// 或裸路径）不传给系统媒体会话：audio_service/SMTC
+    // 的 artUri 只支持 http(s) 可下载 URL，本地路径会导致 "No host specified"。
+    final art = albumArtUrl?.replaceFirst('{size}', '480');
+    final isRemoteArt = art != null &&
+        (art.startsWith('http://') || art.startsWith('https://'));
+    final uri = isRemoteArt ? Uri.tryParse(art) : null;
     mediaItem.add(MediaItem(
       id: id,
       title: title,
@@ -166,11 +172,33 @@ class MusicAudioHandler extends BaseAudioHandler {
         title: title,
         artist: artist,
         album: artist,
-        thumbnail: albumArtUrl?.replaceFirst('{size}', '480'),
+        thumbnail: isRemoteArt ? art : null,
       ));
       _smtc!.setPlaybackStatus(
           isPlaying ? PlaybackStatus.playing : PlaybackStatus.paused);
+      // 同步进度时间线，让系统媒体控件显示/拖动进度
+      _smtc!.updateTimeline(PlaybackTimeline(
+        startTimeMs: 0,
+        endTimeMs: durationSec * 1000,
+        positionMs: positionSec * 1000,
+        minSeekTimeMs: 0,
+        maxSeekTimeMs: durationSec * 1000,
+      ));
     }
+  }
+
+  /// 更新 SMTC 播放进度时间线（Windows 系统媒体控件进度显示/拖动）。
+  /// 由 PlayerProvider 在位置变化时以节流频率调用，避免高频 IPC。
+  void updateTimeline(
+      {required Duration position, required Duration duration}) {
+    if (!Platform.isWindows || _smtc == null) return;
+    _smtc!.updateTimeline(PlaybackTimeline(
+      startTimeMs: 0,
+      endTimeMs: duration.inMilliseconds,
+      positionMs: position.inMilliseconds,
+      minSeekTimeMs: 0,
+      maxSeekTimeMs: duration.inMilliseconds,
+    ));
   }
 
   /// 清除当前媒体通知，释放资源。

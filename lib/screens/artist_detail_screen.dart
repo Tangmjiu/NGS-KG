@@ -248,7 +248,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
               end: Alignment.bottomCenter,
               colors: [
                 Colors.transparent,
-                Colors.black.withValues(alpha: 0.7),
+                cs.scrim.withValues(alpha: 0.7),
               ],
             ),
           ),

@@ -49,6 +49,25 @@ class SongRepository extends BaseRepository {
     return [];
   }
 
+  /// 默认搜索关键词（/search/default）
+  ///
+  /// 返回搜索框占位关键词，如 "明天会更好"。
+  Future<String?> getDefaultSearchKeyword() async {
+    try {
+      final res = await cachedGet('/search/default',
+          ttl: const Duration(minutes: 30), withAuth: false);
+      final data = res['data'];
+      if (data is Map) {
+        final keyword = data['keyword'] ?? data['keywords'] ?? data['word'];
+        if (keyword is String && keyword.isNotEmpty) return keyword;
+      }
+      if (data is String && data.isNotEmpty) return data;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getHotSearch() async {
     final res =
         await cachedGet('/search/hot', ttl: const Duration(minutes: 30));
@@ -90,6 +109,25 @@ class SongRepository extends BaseRepository {
     if (cookie != null) params['cookie'] = cookie;
     final res = await get('/song/url', params: params);
     return SongUrl.fromJson(res);
+  }
+
+  /// 获取音乐 URL（新版，/song/url/new）
+  ///
+  /// 一次性返回该歌曲所有支持音质的音频 URL。
+  /// ⚠️ 文档注明：该接口返回的音频存在加密（目前无法解码），请谨慎使用；
+  /// 未登录或非会员可能返回为空。调用前需先走 /register/dev 获取 dfid。
+  Future<Map<String, dynamic>> getSongUrlNew(String hash,
+      {int? albumAudioId, bool freePart = false}) async {
+    final params = <String, dynamic>{'hash': hash};
+    if (albumAudioId != null) params['album_audio_id'] = albumAudioId;
+    if (freePart) params['free_part'] = 1;
+    // 与 /song/url 一致，需要 cookie 查询参数防止 20028
+    final cookie = await _getCookieString();
+    if (cookie != null) params['cookie'] = cookie;
+    final res = await get('/song/url/new', params: params);
+    final data = res['data'];
+    if (data is Map<String, dynamic>) return data;
+    return <String, dynamic>{};
   }
 
   /// 获取歌曲的音质特权信息（/privilege/lite）

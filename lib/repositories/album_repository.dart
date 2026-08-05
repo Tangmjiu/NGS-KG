@@ -117,6 +117,50 @@ class AlbumRepository extends BaseRepository {
     return [];
   }
 
+  /// 排行榜推荐列表（/rank/top）
+  Future<List<Map<String, dynamic>>> getRankTop() async {
+    final res = await cachedGet('/rank/top', ttl: const Duration(minutes: 30));
+    final raw = res['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    if (raw is Map) {
+      final info =
+          raw['info'] as List<dynamic>? ?? raw['list'] as List<dynamic>?;
+      if (info != null) return info.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
+  /// 排行榜往期列表（/rank/vol）
+  ///
+  /// 返回值中的 volid 可作为 /rank/audio 的 rank_cid 获取往期歌曲。
+  Future<List<Map<String, dynamic>>> getRankVol(int rankId,
+      {int? rankCid}) async {
+    final params = <String, dynamic>{'rankid': rankId};
+    if (rankCid != null) params['rank_cid'] = rankCid;
+    final res = await get('/rank/vol', params: params);
+    final raw = res['data'];
+    if (raw is List) return raw.cast<Map<String, dynamic>>();
+    if (raw is Map) {
+      final info =
+          raw['info'] as List<dynamic>? ?? raw['list'] as List<dynamic>?;
+      if (info != null) return info.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
+  /// 排行榜信息（/rank/info）
+  Future<Map<String, dynamic>> getRankInfo(int rankId,
+      {int? rankCid, int? albumImg, String? zone}) async {
+    final params = <String, dynamic>{'rankid': rankId};
+    if (rankCid != null) params['rank_cid'] = rankCid;
+    if (albumImg != null) params['album_img'] = albumImg;
+    if (zone != null && zone.isNotEmpty) params['zone'] = zone;
+    final res = await get('/rank/info', params: params);
+    final raw = res['data'];
+    if (raw is Map<String, dynamic>) return raw;
+    return <String, dynamic>{};
+  }
+
   Future<List<Map<String, dynamic>>> getTopIp() async {
     final res = await cachedGet('/top/ip', ttl: const Duration(minutes: 30));
     final raw = res['data'];

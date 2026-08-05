@@ -72,6 +72,7 @@ class PlayerProvider extends ChangeNotifier
   List<KrcLyricLineModel>? _krcLines;
   int _selectedLyricLang = 0;
   bool _showTranslation = true;
+  bool _showRomaji = true;
   String? _lastLoadedHash;
   int? _lastLoadedSongId;
 
@@ -129,6 +130,7 @@ class PlayerProvider extends ChangeNotifier
   int _lastNotifUpdateMs = 0;
   int _lastNotifLyricIdx = -1;
   int _lastPositionNotifyMs = 0;
+  int _lastSmtcTimelineMs = 0;
 
   // ─── 播放状态持久化（杀进程恢复） ───
   static const _keySavedSongId = 'playback_saved_song_id';
@@ -224,7 +226,11 @@ class PlayerProvider extends ChangeNotifier
   List<KrcLyricLineModel>? get krcLines => _krcLines;
   int get selectedLyricLang => _selectedLyricLang;
   bool get showTranslation => _showTranslation;
+  bool get showRomaji => _showRomaji;
   bool get hasLangData => _lyricLangMap.isNotEmpty;
+
+  /// KRC 音译(罗马音)数据是否存在 (language=1)
+  bool get hasRomajiData => _lyricLangMap.containsKey(1);
 
   /// Returns all available palette colours for the flowing light effect.
   /// Prefers the quantized [topColors] for richer variety, falls back to
@@ -321,9 +327,14 @@ class PlayerProvider extends ChangeNotifier
     _onPositionChanged = () {
       _position = _engine.position.value;
       _lyricController.setProgress(_position);
+      // SMTC 进度时间线节流：2 秒同步一次（与参考实现一致，避免高频 IPC）
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (now - _lastSmtcTimelineMs > 2000) {
+        _lastSmtcTimelineMs = now;
+        _audioHandler.updateTimeline(position: _position, duration: _duration);
+      }
       // 对 UI rebuild 节流：200ms 内最多通知一次。
       // 歌词同步仍保持高精度，不随 notifyListeners 节流。
-      final now = DateTime.now().millisecondsSinceEpoch;
       if (now - _lastPositionNotifyMs > 200) {
         _lastPositionNotifyMs = now;
         notifyListeners();
@@ -360,8 +371,10 @@ class PlayerProvider extends ChangeNotifier
     _onLoadingChanged = () {
       _isLoading = _engine.isLoading.value;
       if (!_isLoading) {
-        // 加载完成（成功或失败）时同步底层的播放状态
-        _isPlaying = _engine.isPlaying.value;
+        // 只刷新通知/SMTC，不在这里同步 _isPlaying：
+        // engine 的 isPlaying 事件可能滞后于 isLoading 完成（微任务时序），
+        // 此时同步会把切歌/恢复时手动置的 true 覆盖成 false，导致"在播放但显示暂停"
+        _updateNotification();
       }
       notifyListeners();
     };
@@ -369,13 +382,19 @@ class PlayerProvider extends ChangeNotifier
 
     _onErrorChanged = () {
       _error = _engine.error.value;
+      if (_error != null) {
+        // 播放失败：立即纠正乐观的播放状态
+        _isPlaying = false;
+        _updateNotification();
+      }
       notifyListeners();
     };
     _engine.error.addListener(_onErrorChanged);
 
     _onPlayingChanged = () {
-      if (_engine.isLoading.value) {
-        // 正在加载新歌时，不要让上一首 stop() 引起的 isPlaying=false 覆盖当前为 true 的状态
+      if (_engine.hasActivePlayRequest) {
+        // 有播放请求进行中时，engine 的 stop()/playing 事件可能属于旧请求，
+        // 不覆盖新歌的手动播放状态
         return;
       }
       _isPlaying = _engine.isPlaying.value;
@@ -401,6 +420,16 @@ class PlayerProvider extends ChangeNotifier
   /// Clears the entire playlist.
   void clearPlaylist() {
     _queue.setPlaylist([]);
+    // 清空队列后必须停止引擎，否则音频继续播放而 currentSong 已为 null，
+    // 会引发播放栏/通知/UI 状态错乱
+    _engine.pause();
+    _isPlaying = false;
+    _isLoading = false;
+    _position = Duration.zero;
+    _duration = Duration.zero;
+    _lyricController.loadLyricModel(LyricModel(lines: []));
+    _climaxMs = null;
+    _updateNotification();
     notifyListeners();
   }
 
@@ -625,15 +654,19 @@ class PlayerProvider extends ChangeNotifier
       _engine.precheckPrivilege(current);
     }
 
+    // 恢复后立即同步系统媒体通知/SMTC 状态，
+    // 否则 Windows SMTC 与系统媒体控件不会激活（按钮灰色/状态缺失）
+    _updateNotification();
+
     notifyListeners();
   }
 
   /// 应用音质设置后直接调用引擎播放（用于自动切歌等非用户触发的播放）
-  void _enginePlayWithQuality(Song? song, {int? version}) {
+  Future<void> _enginePlayWithQuality(Song? song, {int? version}) async {
     final s = song ?? _queue.currentSong;
     if (s == null) return;
     _applyQualityFromSettings();
-    _engine.play(s,
+    await _engine.play(s,
         version: version ?? _engine.currentVersion, effectKey: _effectKey);
   }
 
@@ -667,36 +700,31 @@ class PlayerProvider extends ChangeNotifier
           _handlingComplete = false;
           return;
         }
-        _engine.resetForNewSong();
-        _queue.playIndex(idx);
-        _enginePlayWithQuality(_queue.currentSong ?? current);
-        break;
+        _startNextSong(idx);
+        return;
       case PlayMode.sequential:
         if (_queue.currentIndex + 1 < _queue.playlist.length) {
-          _engine.resetForNewSong();
-          _queue.playIndex(_queue.currentIndex + 1);
-          _enginePlayWithQuality(_queue.currentSong ?? current);
+          _startNextSong(_queue.currentIndex + 1);
         } else if (_queue.playlistEndProvider != null) {
           _loadMoreAndContinue();
-          return;
         } else {
-          _engine.resetForNewSong();
-          _queue.playIndex(0);
-          _enginePlayWithQuality(_queue.currentSong ?? current);
+          _startNextSong(0);
         }
-        break;
+        return;
       case PlayMode.radio:
         if (_queue.currentIndex + 1 < _queue.playlist.length) {
-          _engine.resetForNewSong();
-          _queue.playIndex(_queue.currentIndex + 1);
-          _enginePlayWithQuality(_queue.currentSong ?? current);
+          _startNextSong(_queue.currentIndex + 1);
         } else {
           _loadMoreAndContinue();
-          return;
         }
-        break;
+        return;
     }
-    _handlingComplete = false;
+  }
+
+  /// 自动切到队列 [index]，等播放请求真正完成后才释放重入锁
+  void _startNextSong(int index) {
+    _engine.resetForNewSong();
+    _queue.playIndex(index);
     // 通知 UI 更新歌词、封面等信息
     _lyricController.loadLyricModel(LyricModel(lines: []));
     _climaxMs = null;
@@ -709,6 +737,9 @@ class PlayerProvider extends ChangeNotifier
       _engine.precheckPrivilege(nextSong);
     }
     notifyListeners();
+    unawaited(_enginePlayWithQuality(_queue.currentSong).whenComplete(() {
+      _handlingComplete = false;
+    }));
   }
 
   Future<void> _loadMoreAndContinue() async {
@@ -731,8 +762,10 @@ class PlayerProvider extends ChangeNotifier
           loadLyricsForSong(next);
           _onSongChanged(next);
           _engine.precheckPrivilege(next);
-          _enginePlayWithQuality(next);
-          _handlingComplete = false;
+          // 播放请求完成后才释放重入锁
+          unawaited(_enginePlayWithQuality(next).whenComplete(() {
+            _handlingComplete = false;
+          }));
           return;
         }
       }
@@ -785,11 +818,12 @@ class PlayerProvider extends ChangeNotifier
     loadLyricsForSong(current);
     // 2. 立即提取专辑流光和KRM元数据
     _onSongChanged(current);
-    // 3. 异步预查特权以立刻在 UI 展现最高可用音质
-    _engine.precheckPrivilege(current);
 
     _applyQualityFromSettings();
     _engine.resetForNewSong();
+    // 3. resetForNewSong 已递增播放版本，此处的特权预查快照属于新歌；
+    //    快速切歌时旧歌的预查结果会因版本不匹配被丢弃
+    _engine.precheckPrivilege(current);
     _isPlaying = true; // ← 立即标记，UI 及时响应
     notifyListeners();
     final version = _engine.currentVersion;
@@ -956,12 +990,26 @@ class PlayerProvider extends ChangeNotifier
         await _engine.play(song, version: version, effectKey: _effectKey);
       } else {
         _engine.clearError();
-        _isLoading = false;
         await _engine.togglePlayPause(song);
       }
     }
     notifyListeners();
     _updateNotification();
+  }
+
+  /// 播放（幂等：已在播放则忽略）。
+  /// 供系统媒体控制（SMTC/通知栏）的 Play 事件使用 —— 与 toggle 不同，
+  /// Play 事件不会因本地状态不同步而错误地暂停。
+  Future<void> play() async {
+    if (_isPlaying) return;
+    await togglePlayPause();
+  }
+
+  /// 暂停（幂等：已暂停则忽略）。
+  /// 供系统媒体控制（SMTC/通知栏）的 Pause 事件使用。
+  Future<void> pause() async {
+    if (!_isPlaying) return;
+    await togglePlayPause();
   }
 
   void playNext() {
@@ -996,12 +1044,11 @@ class PlayerProvider extends ChangeNotifier
   }
 
   void setPlaylist(List<Song> songs, {int startIndex = 0}) {
-    _queue.setPlaylist(songs, startIndex: startIndex);
     if (songs.isEmpty) {
-      _engine.pause();
-      _isPlaying = false;
-      notifyListeners();
+      clearPlaylist();
+      return;
     }
+    _queue.setPlaylist(songs, startIndex: startIndex);
   }
 
   void setPlayMode(PlayMode mode) {
@@ -1013,7 +1060,20 @@ class PlayerProvider extends ChangeNotifier
   void removeFromQueue(int index) {
     final wasCurrent = index == _queue.currentIndex;
     _queue.removeAt(index);
-    if (wasCurrent && _queue.playlist.isNotEmpty) {
+    if (_queue.playlist.isEmpty) {
+      // 移除后队列为空：停止引擎并清理状态
+      _engine.pause();
+      _isPlaying = false;
+      _isLoading = false;
+      _position = Duration.zero;
+      _duration = Duration.zero;
+      _lyricController.loadLyricModel(LyricModel(lines: []));
+      _climaxMs = null;
+      _updateNotification();
+      notifyListeners();
+      return;
+    }
+    if (wasCurrent) {
       playIndex(_queue.currentIndex);
     }
   }
@@ -1157,6 +1217,7 @@ class PlayerProvider extends ChangeNotifier
     if (success) {
       _lyricController.loadLyricModel(LyricModel(lines: []));
     }
+    _savePlaybackState();
     notifyListeners();
     return success;
   }
@@ -1257,6 +1318,7 @@ class PlayerProvider extends ChangeNotifier
     _lyricLangMap = {};
     _krcLines = null;
     _selectedLyricLang = 0;
+    _showRomaji = true;
     _lyricController.loadLyricModel(LyricModel(lines: []));
     notifyListeners();
     _updateNotification();
@@ -1268,6 +1330,7 @@ class PlayerProvider extends ChangeNotifier
     _lyricLangMap = {};
     _krcLines = null;
     _selectedLyricLang = 0;
+    _showRomaji = true;
 
     // 1. 本地/已嵌入歌词直接加载
     if (song.lyrics != null && song.lyrics!.isNotEmpty) {
@@ -1441,6 +1504,13 @@ class PlayerProvider extends ChangeNotifier
       _lyricController.loadLyricModel(LyricModel(lines: lines));
       notifyListeners();
     }
+  }
+
+  /// 切换 KRC 音译(罗马音)显示。桌面全屏歌词视图直接读取
+  /// [showRomaji] / [lyricLangMap]，不依赖 flutter_lyric 模型。
+  void toggleRomaji() {
+    _showRomaji = !_showRomaji;
+    notifyListeners();
   }
 
   @override

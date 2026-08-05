@@ -120,7 +120,7 @@ class _AnnouncementDialogWidgetState extends State<_AnnouncementDialogWidget> {
                         ),
                         code: theme.textTheme.bodyMedium?.copyWith(
                           backgroundColor: colorScheme.surfaceContainerHighest,
-                          fontFamily: 'monospace',
+                          fontFamily: 'HarmonyOS Sans',
                         ),
                       ),
                       onTapLink: (text, href, title) => _handleLinkTap(href),

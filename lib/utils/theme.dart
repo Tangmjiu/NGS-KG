@@ -112,6 +112,21 @@ abstract final class AppMotion {
   static const Curve linear = Curves.linear;
 }
 
+/// 播放器深色面板的 ColorScheme。
+///
+/// 播放器（移动端播放页/桌面全屏播放器）保持 Apple Music 式深色美学，
+/// 背景不随亮暗主题改变；但面板/文字颜色取自当前主题的"深色分支"：
+/// - 暗色主题下直接复用当前 ColorScheme（与主题包/Monet 完全一致）
+/// - 亮色主题下从主色推导强制深色方案（保持深色设计，同时跟随强调色）
+ColorScheme playerSchemeOf(BuildContext context) {
+  final cs = Theme.of(context).colorScheme;
+  if (cs.brightness == Brightness.dark) return cs;
+  return ColorScheme.fromSeed(
+    seedColor: cs.primary,
+    brightness: Brightness.dark,
+  );
+}
+
 /// 基于 ColorScheme + ThemePack 构建纯原生 MD3 ThemeData
 ///
 /// 所有组件主题统一使用 AppShape/AppMotion 令牌，禁止 magic number。

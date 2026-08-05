@@ -135,8 +135,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ],
                   ),
                   const SizedBox(height: 20),
-                  if (auth.isLoggedIn)
-                    _buildPlaylistsGrid(playlistProv, auth),
+                  if (auth.isLoggedIn) _buildPlaylistsGrid(playlistProv, auth),
                   const ListBottomSpacer(isHome: true),
                 ],
               ),
@@ -242,8 +241,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                   if (user.userId != null) ...[
                     const SizedBox(height: 4),
                     Text('ID: ${user.userId}',
-                        style: tt.bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant)),
+                        style:
+                            tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                   ],
                 ],
               ),
@@ -308,8 +307,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                             color: cs.primary, size: 28),
                         const SizedBox(height: 10),
                         Text('我的收藏',
-                            style: tt.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold)),
+                            style: tt.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
                         Text(
                           auth.isLoggedIn
@@ -326,8 +325,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                         padding: const EdgeInsets.only(left: 8),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                        child: CachedNetworkImage(
-                          imageUrl: url!.replaceAll('{size}', '240'),
+                          child: CachedNetworkImage(
+                            imageUrl: url!.replaceAll('{size}', '240'),
                             width: 72,
                             height: 72,
                             fit: BoxFit.cover,
@@ -347,7 +346,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                       width: 72,
                       height: 72,
                       decoration: BoxDecoration(
-                        color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
+                        color:
+                            cs.surfaceContainerHighest.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                             color: cs.outlineVariant.withValues(alpha: 0.3)),
@@ -420,13 +420,23 @@ class _ProfileScreenState extends State<ProfileScreen>
             child: Row(
               children: [
                 Expanded(
-                  child: _buildQuickCard(cards[0].icon, cards[0].title,
-                      cards[0].value, cards[0].color, cards[0].onColor, cards[0].onTap),
+                  child: _buildQuickCard(
+                      cards[0].icon,
+                      cards[0].title,
+                      cards[0].value,
+                      cards[0].color,
+                      cards[0].onColor,
+                      cards[0].onTap),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _buildQuickCard(cards[1].icon, cards[1].title,
-                      cards[1].value, cards[1].color, cards[1].onColor, cards[1].onTap),
+                  child: _buildQuickCard(
+                      cards[1].icon,
+                      cards[1].title,
+                      cards[1].value,
+                      cards[1].color,
+                      cards[1].onColor,
+                      cards[1].onTap),
                 ),
               ],
             ),
@@ -436,13 +446,23 @@ class _ProfileScreenState extends State<ProfileScreen>
             child: Row(
               children: [
                 Expanded(
-                  child: _buildQuickCard(cards[2].icon, cards[2].title,
-                      cards[2].value, cards[2].color, cards[2].onColor, cards[2].onTap),
+                  child: _buildQuickCard(
+                      cards[2].icon,
+                      cards[2].title,
+                      cards[2].value,
+                      cards[2].color,
+                      cards[2].onColor,
+                      cards[2].onTap),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _buildQuickCard(cards[3].icon, cards[3].title,
-                      cards[3].value, cards[3].color, cards[3].onColor, cards[3].onTap),
+                  child: _buildQuickCard(
+                      cards[3].icon,
+                      cards[3].title,
+                      cards[3].value,
+                      cards[3].color,
+                      cards[3].onColor,
+                      cards[3].onTap),
                 ),
               ],
             ),
@@ -482,8 +502,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                       Text(value,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: tt.labelSmall?.copyWith(
-                              color: fg.withValues(alpha: 0.7))),
+                          style: tt.labelSmall
+                              ?.copyWith(color: fg.withValues(alpha: 0.7))),
                   ],
                 ),
               ],
@@ -511,7 +531,9 @@ class _ProfileScreenState extends State<ProfileScreen>
     final List<Playlist> collected = [];
 
     for (final pl in playlistProv.userPlaylists) {
-      if (pl.createUserId != null && userId != null && pl.createUserId == userId) {
+      if (pl.createUserId != null &&
+          userId != null &&
+          pl.createUserId == userId) {
         personal.add(pl);
       } else {
         collected.add(pl);
@@ -543,8 +565,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                           }),
                       onPlay: () async {
                         try {
-                          final detail = await MusicService()
-                              .getPlaylistDetail(pl.globalCollectionId ??
+                          final detail = await MusicService().getPlaylistDetail(
+                              pl.globalCollectionId ??
                                   'collection_3_${pl.createUserId}_${pl.id}_0');
                           if (detail.songs.isNotEmpty && context.mounted) {
                             context.read<PlayerProvider>().playSong(

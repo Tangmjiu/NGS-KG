@@ -62,8 +62,8 @@ class _PlayerBackgroundState extends State<PlayerBackground>
         return;
       }
 
-      // 30fps 节流：流光为慢速运动，30fps 足够且省一半 CPU
-      if (elapsed - _lastTickElapsed < const Duration(milliseconds: 33)) {
+      // 帧节流：vsync 原生 ~60fps，16ms 节流几乎不丢帧（流畅优先）
+      if (elapsed - _lastTickElapsed < const Duration(milliseconds: 16)) {
         return;
       }
       _lastTickElapsed = elapsed;
@@ -77,14 +77,15 @@ class _PlayerBackgroundState extends State<PlayerBackground>
         isPlaying = context.read<PlayerProvider>().isPlaying;
       } catch (_) {}
 
-      // 平滑插值计算当前速度（实现 Apple Music 播放时加速、暂停时缓停的效果）
-      final targetSpeed = isPlaying ? 1.0 : 0.0;
-      _currentSpeed += (targetSpeed - _currentSpeed) * (delta * 3.0);
-
-      // 当速度极小且目标为0时，直接清零以省计算
-      if (!isPlaying && _currentSpeed < 0.001) {
+      if (!isPlaying) {
+        // 暂停：流光立即静止，不产生任何残余运动，
+        // 避免暂停后点按/调音量时"动一下又停回去"
         _currentSpeed = 0.0;
+        return;
       }
+
+      // 播放：向 1.0 平滑加速（快速启动、平稳收敛）
+      _currentSpeed += (1.0 - _currentSpeed) * (delta * 3.0);
 
       _accumulatedTime += delta * _currentSpeed;
       _elapsed.value = _accumulatedTime;
@@ -92,15 +93,16 @@ class _PlayerBackgroundState extends State<PlayerBackground>
   }
 
   void _updateTickerState(bool isPlaying, bool flowEnabled) {
-    // 流光关闭时无需驱动 ticker（无监听者，避免 30fps 空转）
+    // 流光关闭时无需驱动 ticker（无监听者，避免空转）
     if (!flowEnabled) {
       if (_ticker.isActive) _ticker.stop();
       return;
     }
-    // 播放时启动 ticker；暂停时让速度缓降到 0 后再停止，避免动画突兀中断。
     if (isPlaying && !_ticker.isActive) {
       _ticker.start();
-    } else if (!isPlaying && _ticker.isActive && _currentSpeed < 0.001) {
+    } else if (!isPlaying && _ticker.isActive) {
+      // 暂停立即停止，杜绝空转与残余运动
+      _currentSpeed = 0.0;
       _ticker.stop();
     }
   }

@@ -94,11 +94,18 @@ class _RecommendedPlaylistsScreenState
                     builder: (context, constraints) {
                       final crossAxisCount =
                           (constraints.maxWidth / 160).floor().clamp(2, 6);
+                      // 网格单元格宽度 = (总宽 - padding - 间距) / 列数
+                      final cellWidth = (constraints.maxWidth -
+                              24 -
+                              (crossAxisCount - 1) * 12) /
+                          crossAxisCount;
+                      // 封面 1:1 + 文字区（间距 6 + 最多 2 行文字约 38px）
+                      final cellRatio = cellWidth / (cellWidth + 44);
                       return GridView.builder(
                         padding: const EdgeInsets.all(12),
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: crossAxisCount,
-                          childAspectRatio: 0.85,
+                          childAspectRatio: cellRatio,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
                         ),
@@ -128,33 +135,36 @@ class _RecommendedPlaylistsScreenState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                ClipRRect(
-                                  borderRadius: AppShape.sm,
-                                  child: (p.coverUrl != null &&
-                                          p.coverUrl!.isNotEmpty)
-                                      ? CachedNetworkImage(
-                                          imageUrl: p.coverUrl!,
-                                          width: double.infinity,
-                                          height: 100,
-                                          fit: BoxFit.cover,
-                                          errorWidget: (_, __, ___) =>
-                                              Container(
+                                AspectRatio(
+                                  aspectRatio: 1,
+                                  child: ClipRRect(
+                                    borderRadius: AppShape.sm,
+                                    child: (p.coverUrl != null &&
+                                            p.coverUrl!.isNotEmpty)
+                                        ? CachedNetworkImage(
+                                            imageUrl: p.coverUrl!,
                                             width: double.infinity,
-                                            height: 100,
+                                            height: double.infinity,
+                                            fit: BoxFit.cover,
+                                            errorWidget: (_, __, ___) =>
+                                                Container(
+                                              width: double.infinity,
+                                              height: double.infinity,
+                                              color: cs.surfaceContainerHighest,
+                                              child: const Icon(
+                                                  Icons.playlist_play),
+                                            ),
+                                          )
+                                        : Container(
+                                            width: double.infinity,
+                                            height: double.infinity,
                                             color: cs.surfaceContainerHighest,
                                             child:
                                                 const Icon(Icons.playlist_play),
                                           ),
-                                        )
-                                      : Container(
-                                          width: double.infinity,
-                                          height: 100,
-                                          color: cs.surfaceContainerHighest,
-                                          child:
-                                              const Icon(Icons.playlist_play),
-                                        ),
+                                  ),
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 6),
                                 Text(
                                   p.name,
                                   maxLines: 2,

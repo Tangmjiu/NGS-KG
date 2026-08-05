@@ -251,7 +251,8 @@ class _PackCardState extends State<_PackCard> {
   }
 
   Widget _fallbackIcon() {
-    return const Icon(Icons.archive_outlined, size: 48, color: Colors.grey);
+    return Icon(Icons.archive_outlined,
+        size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant);
   }
 }
 
@@ -695,4 +696,3 @@ class _SegmentedGrid extends StatelessWidget {
     );
   }
 }
-

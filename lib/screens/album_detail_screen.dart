@@ -6,6 +6,7 @@ import '../models/album.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../providers/playlist_provider.dart';
+import '../providers/download_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
@@ -53,6 +54,23 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
         _selectedIndices.add(index);
       }
     });
+  }
+
+  void _downloadAll(BuildContext context) {
+    final dp = context.read<DownloadProvider>();
+    var added = 0;
+    for (final s in _songs) {
+      if (s.hash != null && s.hash!.isNotEmpty && !dp.isDownloaded(s)) {
+        dp.download(s);
+        added++;
+      }
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(added > 0 ? '已加入下载队列 $added 首' : '专辑歌曲已全部下载'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _selectAll(int total) {
@@ -125,9 +143,8 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
             ),
             const SizedBox(width: 8),
             DetailMoreButton(
-              icon: _isSelecting
-                  ? Icons.close_rounded
-                  : Icons.checklist_rounded,
+              icon:
+                  _isSelecting ? Icons.close_rounded : Icons.checklist_rounded,
               onPressed: _toggleSelectMode,
             ),
           ],
@@ -164,8 +181,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                               child: ListTile(
                                 leading: Checkbox(
                                   value: selected,
-                                  onChanged: (_) =>
-                                      _toggleSelection(index),
+                                  onChanged: (_) => _toggleSelection(index),
                                 ),
                                 title: Text(song.name,
                                     maxLines: 1,
@@ -234,7 +250,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withValues(alpha: 0.7),
+                          cs.scrim.withValues(alpha: 0.7),
                         ],
                       ),
                     ),
@@ -294,7 +310,16 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                       style:
                           tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                   const Spacer(),
-                  if (!_isSelecting)
+                  if (!_isSelecting) ...[
+                    M3PressScale(
+                      child: FilledButton.tonalIcon(
+                        onPressed:
+                            _songs.isEmpty ? null : () => _downloadAll(context),
+                        icon: const Icon(Icons.download, size: 18),
+                        label: const Text('全部下载'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     M3PressScale(
                       child: FilledButton.tonalIcon(
                         onPressed: _songs.isEmpty
@@ -308,6 +333,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                         label: const Text('播放全部'),
                       ),
                     ),
+                  ],
                 ],
               ),
             ),

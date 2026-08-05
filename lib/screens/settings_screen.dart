@@ -206,6 +206,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 }
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.download_for_offline_outlined),
+              title: const Text('下载与缓存'),
+              subtitle: const Text('下载管理、播放缓存、已下载歌曲'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.pushNamed(context, AppRoutes.downloads),
+            ),
             const Divider(),
 
             // ── 关于 ──

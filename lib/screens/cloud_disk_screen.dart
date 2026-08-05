@@ -52,16 +52,16 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
   Future<void> _playSong(int index, Map<String, dynamic> item) async {
     setState(() => _playingIndex = index);
     final hash = item['hash'] as String?;
-    if (hash == null) {
+    if (hash == null || hash.isEmpty) {
       setState(() => _playingIndex = null);
       return;
     }
     try {
       final url = await _musicService.getCloudSongUrl(
         hash,
-        albumId: item['album_id'] as int?,
+        albumId: item['albumId'] as int?,
         name: item['name'] as String?,
-        albumAudioId: item['album_audio_id'] as int?,
+        albumAudioId: item['albumAudioId'] as int?,
       );
       if (!mounted) {
         return;
@@ -73,15 +73,15 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
         return;
       }
       final song = Song(
-        id: hash.hashCode,
+        id: item['mixSongId'] as int? ?? hash.hashCode,
         name: item['name'] as String? ?? '',
-        artists: [item['author_name'] as String? ?? ''],
-        albumName: item['album_name'] as String?,
+        artists: [item['artist'] as String? ?? ''],
+        albumName: item['albumName'] as String?,
         albumCoverUrl: item['cover'] as String?,
-        duration: ((item['timelength'] as int?) ?? 0) ~/ 1000,
+        duration: (item['duration'] as int?) ?? 0,
         hash: hash,
-        mixSongId: int.tryParse(item['mixsongid']?.toString() ?? ''),
-        qualities: hash.isNotEmpty ? {'128': hash} : null,
+        mixSongId: item['mixSongId'] as int?,
+        qualities: {'128': hash},
         filePath: url,
       );
       if (!mounted) {
@@ -92,6 +92,53 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
       Log.e('CloudDisk', 'play error', e, s);
     }
     if (mounted) setState(() => _playingIndex = null);
+  }
+
+  Future<void> _deleteSong(int index, Map<String, dynamic> item) async {
+    final name = item['name'] as String? ?? '';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除云盘歌曲'),
+        content: Text('确定要从云盘中删除「$name」吗？此操作不可恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final hash = item['hash'] as String?;
+    // 文档：优先使用 fileid（列表返回的 kv_id）与 album_audio_id
+    final kvId = item['kvId'] as int?;
+    final albumAudioId = item['albumAudioId'] as int?;
+    try {
+      await _musicService.deleteCloudSongs(
+        hash: hash,
+        fileids: kvId?.toString(),
+        albumAudioIds: albumAudioId?.toString(),
+      );
+      if (mounted) {
+        setState(() => _songs.removeAt(index));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已删除「$name」')),
+        );
+      }
+    } catch (e, s) {
+      Log.e('CloudDisk', 'delete error', e, s);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('删除失败，请稍后重试')),
+        );
+      }
+    }
   }
 
   @override
@@ -139,7 +186,7 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                       itemBuilder: (_, i) {
                         final item = _songs[i];
                         final name = item['name'] as String? ?? '';
-                        final author = item['author_name'] as String? ?? '';
+                        final author = item['artist'] as String? ?? '';
                         final cover = item['cover'] as String?;
                         final isPlaying = _playingIndex == i;
                         return ListTile(
@@ -184,6 +231,14 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                                   color: Theme.of(context)
                                       .colorScheme
                                       .onSurfaceVariant)),
+                          trailing: IconButton(
+                            icon: Icon(Icons.delete_outline,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant),
+                            tooltip: '删除',
+                            onPressed: () => _deleteSong(i, item),
+                          ),
                           enabled: !isPlaying,
                           onTap: isPlaying ? null : () => _playSong(i, item),
                         );

@@ -5,16 +5,16 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:webview_windows/webview_windows.dart';
 import '../utils/navigation.dart' as app;
 import '../routes/app_routes.dart';
 import '../providers/auth_provider.dart';
 import '../providers/navigation_provider.dart';
 import '../utils/theme.dart';
 import '../providers/player_provider.dart';
-import '../services/amll_webview_manager.dart';
 import 'desktop_player_bar.dart';
 import 'desktop_fullscreen_player.dart';
+import 'playlist_queue_panel.dart';
+import 'desktop_title_bar.dart';
 
 /// 桌面端 Material 3 响应式 Shell 外壳 (`DesktopShell`)
 ///
@@ -32,6 +32,7 @@ class DesktopShell extends StatefulWidget {
 
 class _DesktopShellState extends State<DesktopShell> {
   bool isRailExpanded = true;
+  bool _queuePanelVisible = false;
   VoidCallback? _routeListenerRemover;
 
   @override
@@ -63,17 +64,22 @@ class _DesktopShellState extends State<DesktopShell> {
         route == AppRoutes.about ||
         route == AppRoutes.themeSettings ||
         route == AppRoutes.themeMarket) {
-      return 6;
+      return 7;
     }
 
     // 播放历史
     if (route == AppRoutes.history) {
+      return 5;
+    }
+
+    // 下载管理
+    if (route == AppRoutes.downloads) {
       return 4;
     }
 
     // 云盘
     if (route == AppRoutes.cloud) {
-      return 5;
+      return 6;
     }
 
     // 本地音乐
@@ -138,17 +144,22 @@ class _DesktopShellState extends State<DesktopShell> {
           navState?.pushNamed(AppRoutes.localMusic);
         }
         break;
-      case 4: // 播放历史
+      case 4: // 下载管理
+        if (currentRoute != AppRoutes.downloads) {
+          navState?.pushNamed(AppRoutes.downloads);
+        }
+        break;
+      case 5: // 播放历史
         if (currentRoute != AppRoutes.history) {
           navState?.pushNamed(AppRoutes.history);
         }
         break;
-      case 5: // 云盘
+      case 6: // 云盘
         if (currentRoute != AppRoutes.cloud) {
           navState?.pushNamed(AppRoutes.cloud);
         }
         break;
-      case 6: // 设置
+      case 7: // 设置
         if (currentRoute != AppRoutes.settings) {
           navState?.pushNamed(AppRoutes.settings);
         }
@@ -168,170 +179,232 @@ class _DesktopShellState extends State<DesktopShell> {
 
     // 注意: DesktopShell 位于 MaterialApp.builder (Navigator 之外),
     // Tooltip 等需要 Overlay 祖先, 因此这里自建一个稳定 Overlay。
+    // 自建 Navigator 用于承载桌面 UI 内的弹窗（showM3Dialog /
+    // showM3ModalBottomSheet: 播放队列、播放选项、歌词设置等），
+    // 否则弹窗 API 依赖的 Navigator.of(context) 会找不到 Navigator 而失效。
     return Overlay(
       initialEntries: [
         OverlayEntry(
-          builder: (overlayContext) => Scaffold(
-            body: Stack(
-              children: [
-                Row(
+          builder: (overlayContext) => Navigator(
+            onGenerateRoute: (settings) => MaterialPageRoute(
+              settings: settings,
+              builder: (_) => Scaffold(
+                body: Stack(
                   children: [
-                    // ─── 左侧导航侧边栏 (Music You 风格) ───
-                    AnimatedContainer(
-                      duration: AppMotion.dMedium1,
-                      curve: Curves.easeInOutCubic,
-                      width: isRailExpanded ? 256.0 : 72.0,
-                      color: colorScheme.surface,
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(
-                        children: [
-                          _buildRailTopBar(context),
-                          Expanded(
-                            child: ListView(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              children: [
-                                if (isRailExpanded)
-                                  _buildSectionHeader(context, '发现音乐'),
-                                _buildSidebarItem(
-                                  icon: Icons.home_outlined,
-                                  selectedIcon: Icons.home_rounded,
-                                  label: '推荐首页',
-                                  isSelected: selectedIndex == 0,
-                                  onTap: () => _onSidebarTap(0),
-                                ),
-                                _buildSidebarItem(
-                                  icon: Icons.explore_outlined,
-                                  selectedIcon: Icons.explore_rounded,
-                                  label: '发现音乐',
-                                  isSelected: selectedIndex == 1,
-                                  onTap: () => _onSidebarTap(1),
-                                ),
-                                const SizedBox(height: 12),
-                                if (isRailExpanded)
-                                  _buildSectionHeader(context, '我的音乐'),
-                                _buildSidebarItem(
-                                  icon: Icons.person_outline_rounded,
-                                  selectedIcon: Icons.person_rounded,
-                                  label: '个人中心',
-                                  isSelected: selectedIndex == 2,
-                                  onTap: () => _onSidebarTap(2),
-                                ),
-                                _buildSidebarItem(
-                                  icon: Icons.music_note_outlined,
-                                  selectedIcon: Icons.music_note_rounded,
-                                  label: '本地音乐',
-                                  isSelected: selectedIndex == 3,
-                                  onTap: () => _onSidebarTap(3),
-                                ),
-                                _buildSidebarItem(
-                                  icon: Icons.history_rounded,
-                                  selectedIcon: Icons.history_rounded,
-                                  label: '播放历史',
-                                  isSelected: selectedIndex == 4,
-                                  onTap: () => _onSidebarTap(4),
-                                ),
-                                _buildSidebarItem(
-                                  icon: Icons.cloud_outlined,
-                                  selectedIcon: Icons.cloud_queue_rounded,
-                                  label: '云盘歌曲',
-                                  isSelected: selectedIndex == 5,
-                                  onTap: () => _onSidebarTap(5),
-                                ),
-                                const SizedBox(height: 12),
-                                if (isRailExpanded)
-                                  _buildSectionHeader(context, '设置'),
-                                _buildSidebarItem(
-                                  icon: Icons.settings_outlined,
-                                  selectedIcon: Icons.settings_rounded,
-                                  label: '设置中心',
-                                  isSelected: selectedIndex == 6,
-                                  onTap: () => _onSidebarTap(6),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    Column(
+                      children: [
+                        // 自绘标题栏（应用图标 + 当前播放信息 + 窗口按钮）
+                        const DesktopTitleBar(),
+                        Expanded(
+                          child: Stack(
+                            children: [
+                              Row(
+                                children: [
+                                  // ─── 左侧导航侧边栏 (Music You 风格) ───
+                                  AnimatedContainer(
+                                    duration: AppMotion.dMedium1,
+                                    curve: Curves.easeInOutCubic,
+                                    width: isRailExpanded ? 256.0 : 72.0,
+                                    color: colorScheme.surface,
+                                    clipBehavior: Clip.antiAlias,
+                                    child: Column(
+                                      children: [
+                                        _buildRailTopBar(context),
+                                        Expanded(
+                                          child: ListView(
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 4),
+                                            children: [
+                                              if (isRailExpanded)
+                                                _buildSectionHeader(
+                                                    context, '发现音乐'),
+                                              _buildSidebarItem(
+                                                icon: Icons.home_outlined,
+                                                selectedIcon:
+                                                    Icons.home_rounded,
+                                                label: '推荐首页',
+                                                isSelected: selectedIndex == 0,
+                                                onTap: () => _onSidebarTap(0),
+                                              ),
+                                              _buildSidebarItem(
+                                                icon: Icons.explore_outlined,
+                                                selectedIcon:
+                                                    Icons.explore_rounded,
+                                                label: '发现音乐',
+                                                isSelected: selectedIndex == 1,
+                                                onTap: () => _onSidebarTap(1),
+                                              ),
+                                              const SizedBox(height: 12),
+                                              if (isRailExpanded)
+                                                _buildSectionHeader(
+                                                    context, '我的音乐'),
+                                              _buildSidebarItem(
+                                                icon: Icons
+                                                    .person_outline_rounded,
+                                                selectedIcon:
+                                                    Icons.person_rounded,
+                                                label: '个人中心',
+                                                isSelected: selectedIndex == 2,
+                                                onTap: () => _onSidebarTap(2),
+                                              ),
+                                              _buildSidebarItem(
+                                                icon: Icons.music_note_outlined,
+                                                selectedIcon:
+                                                    Icons.music_note_rounded,
+                                                label: '本地音乐',
+                                                isSelected: selectedIndex == 3,
+                                                onTap: () => _onSidebarTap(3),
+                                              ),
+                                              _buildSidebarItem(
+                                                icon: Icons
+                                                    .download_for_offline_outlined,
+                                                selectedIcon: Icons
+                                                    .download_for_offline_rounded,
+                                                label: '下载管理',
+                                                isSelected: selectedIndex == 4,
+                                                onTap: () => _onSidebarTap(4),
+                                              ),
+                                              _buildSidebarItem(
+                                                icon: Icons.history_rounded,
+                                                selectedIcon:
+                                                    Icons.history_rounded,
+                                                label: '播放历史',
+                                                isSelected: selectedIndex == 5,
+                                                onTap: () => _onSidebarTap(5),
+                                              ),
+                                              _buildSidebarItem(
+                                                icon: Icons.cloud_outlined,
+                                                selectedIcon:
+                                                    Icons.cloud_queue_rounded,
+                                                label: '云盘歌曲',
+                                                isSelected: selectedIndex == 6,
+                                                onTap: () => _onSidebarTap(6),
+                                              ),
+                                              const SizedBox(height: 12),
+                                              if (isRailExpanded)
+                                                _buildSectionHeader(
+                                                    context, '设置'),
+                                              _buildSidebarItem(
+                                                icon: Icons.settings_outlined,
+                                                selectedIcon:
+                                                    Icons.settings_rounded,
+                                                label: '设置中心',
+                                                isSelected: selectedIndex == 7,
+                                                onTap: () => _onSidebarTap(7),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
 
-                    // 垂直分割线
-                    VerticalDivider(
-                      thickness: 1,
-                      width: 1,
-                      color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-                    ),
+                                  // 垂直分割线
+                                  VerticalDivider(
+                                    thickness: 1,
+                                    width: 1,
+                                    color: colorScheme.outlineVariant
+                                        .withValues(alpha: 0.3),
+                                  ),
 
-                    // ─── 桌面端主视图区域 ───
-                    Expanded(
-                      child: Column(
-                        children: [
-                          // 统一的桌面端顶部栏
-                          _DesktopHeader(currentRoute: currentRoute, cs: colorScheme),
-                          Expanded(
-                            child: Stack(
-                              children: [
-                                Positioned.fill(
-                                  child: widget.child ?? const SizedBox.shrink(),
+                                  // ─── 桌面端主视图区域 ───
+                                  Expanded(
+                                    child: Column(
+                                      children: [
+                                        // 统一的桌面端顶部栏
+                                        _DesktopHeader(
+                                            currentRoute: currentRoute,
+                                            cs: colorScheme),
+                                        Expanded(
+                                          child: Stack(
+                                            children: [
+                                              Positioned.fill(
+                                                child: widget.child ??
+                                                    const SizedBox.shrink(),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // 播放队列常驻侧栏（主流播放器方式，位于主区域右侧）
+                                  AnimatedContainer(
+                                    duration: AppMotion.dMedium2,
+                                    curve: AppMotion.emphasizedDecelerate,
+                                    width: _queuePanelVisible ? 340 : 0,
+                                    clipBehavior: Clip.antiAlias,
+                                    decoration: BoxDecoration(
+                                      color: _queuePanelVisible
+                                          ? colorScheme.surfaceContainerLow
+                                          : Colors.transparent,
+                                    ),
+                                    child: _queuePanelVisible
+                                        ? SafeArea(
+                                            child: Consumer<PlayerProvider>(
+                                              builder: (_, player, __) =>
+                                                  PlaylistQueuePanel(
+                                                player: player,
+                                                onClose: () => setState(() =>
+                                                    _queuePanelVisible = false),
+                                              ),
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                ],
+                              ),
+                              // 桌面端底部悬浮常驻 PlayBar
+                              // 横跨主区域+队列侧栏（侧栏展开时播放条不变窄，避免溢出）
+                              Positioned(
+                                left: (isRailExpanded ? 256.0 : 72.0) + 33,
+                                right: 32,
+                                bottom: 24,
+                                height: 72,
+                                child: DesktopPlayerBar(
+                                  queueVisible: _queuePanelVisible,
+                                  onToggleQueue: () => setState(() =>
+                                      _queuePanelVisible = !_queuePanelVisible),
                                 ),
-                                // 桌面端底部悬浮常驻 PlayBar (MD3E 胶囊风格)
-                                const DesktopPlayerBar(),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                    // 桌面端全屏播放界面 (覆盖侧边栏)
+                    Positioned.fill(
+                      child: Consumer<PlayerProvider>(
+                        builder: (context, player, _) {
+                          return AnimatedSwitcher(
+                            duration: AppMotion.dMedium2,
+                            switchInCurve: AppMotion.emphasizedDecelerate,
+                            switchOutCurve: AppMotion.emphasizedAccelerate,
+                            transitionBuilder: (child, animation) {
+                              return SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0, 0.15),
+                                  end: Offset.zero,
+                                ).animate(animation),
+                                child: FadeTransition(
+                                    opacity: animation, child: child),
+                              );
+                            },
+                            child: player.isPlayerScreenVisible
+                                ? DesktopFullscreenPlayer(
+                                    key: const ValueKey(
+                                        'DesktopFullscreenPlayer'),
+                                    onClose: () =>
+                                        player.setPlayerScreenVisible(false),
+                                  )
+                                : const SizedBox.shrink(key: ValueKey('Empty')),
+                          );
+                        },
                       ),
                     ),
                   ],
                 ),
-                // 常驻 AMLL Webview（应用启动时预加载, 全屏播放器即开即用）
-                // 置于全屏播放器层之下: Offstage 控制显隐, Webview 纹理始终挂载
-                Positioned.fill(
-                  child: Consumer<PlayerProvider>(
-                    builder: (context, player, _) {
-                      return Offstage(
-                        offstage: !player.isPlayerScreenVisible,
-                        child: ValueListenableBuilder<bool>(
-                          valueListenable:
-                              AmllWebviewManager.instance.isReady,
-                          builder: (context, ready, _) {
-                            return ready
-                                ? Webview(
-                                    AmllWebviewManager.instance.controller)
-                                : const ColoredBox(color: Colors.black);
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                // 桌面端全屏播放界面 (覆盖侧边栏)
-                Positioned.fill(
-                  child: Consumer<PlayerProvider>(
-                    builder: (context, player, _) {
-                      return AnimatedSwitcher(
-                        duration: AppMotion.dMedium2,
-                        switchInCurve: AppMotion.emphasizedDecelerate,
-                        switchOutCurve: AppMotion.emphasizedAccelerate,
-                        transitionBuilder: (child, animation) {
-                          return SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.15),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: FadeTransition(opacity: animation, child: child),
-                          );
-                        },
-                        child: player.isPlayerScreenVisible
-                            ? DesktopFullscreenPlayer(
-                                key: const ValueKey('DesktopFullscreenPlayer'),
-                                onClose: () => player.setPlayerScreenVisible(false),
-                              )
-                            : const SizedBox.shrink(key: ValueKey('Empty')),
-                      );
-                    },
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -460,13 +533,10 @@ class _SidebarItemState extends State<_SidebarItem> {
                     ? Row(
                         children: [
                           Icon(
-                            isSelected
-                                ? widget.selectedIcon
-                                : widget.icon,
+                            isSelected ? widget.selectedIcon : widget.icon,
                             size: 20,
-                            color: isSelected
-                                ? cs.primary
-                                : cs.onSurfaceVariant,
+                            color:
+                                isSelected ? cs.primary : cs.onSurfaceVariant,
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -479,8 +549,7 @@ class _SidebarItemState extends State<_SidebarItem> {
                                 fontWeight: isSelected
                                     ? FontWeight.w600
                                     : FontWeight.normal,
-                                color:
-                                    isSelected ? cs.primary : cs.onSurface,
+                                color: isSelected ? cs.primary : cs.onSurface,
                               ),
                             ),
                           ),
@@ -567,9 +636,7 @@ class _DesktopHeaderState extends State<_DesktopHeader> {
                   icon: Icons.arrow_forward_ios_rounded,
                   enabled: canForward,
                   tooltip: '前进',
-                  onPressed: canForward
-                      ? () => observer.forward()
-                      : null,
+                  onPressed: canForward ? () => observer.forward() : null,
                 ),
               ),
               const SizedBox(width: 20),
@@ -601,21 +668,21 @@ class _DesktopHeaderState extends State<_DesktopHeader> {
                       app.navKey.currentState?.pushNamed(AppRoutes.userProfile),
                   borderRadius: BorderRadius.circular(24),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     child: Row(
                       children: [
                         CircleAvatar(
                           radius: 18,
                           backgroundImage: auth.user!.avatarUrl != null &&
                                   auth.user!.avatarUrl!.isNotEmpty
-                              ? CachedNetworkImageProvider(auth.user!.avatarUrl!)
+                              ? CachedNetworkImageProvider(
+                                  auth.user!.avatarUrl!)
                               : null,
                           child: auth.user!.avatarUrl == null ||
                                   auth.user!.avatarUrl!.isEmpty
                               ? Icon(Icons.person,
-                                  size: 18,
-                                  color: cs.onSurfaceVariant)
+                                  size: 18, color: cs.onSurfaceVariant)
                               : null,
                         ),
                         const SizedBox(width: 10),
@@ -653,7 +720,8 @@ class _DesktopHeaderState extends State<_DesktopHeader> {
     VoidCallback? onPressed,
   }) {
     final cs = widget.cs;
-    return IconButton(      onPressed: enabled ? onPressed : null,
+    return IconButton(
+      onPressed: enabled ? onPressed : null,
       tooltip: tooltip,
       style: IconButton.styleFrom(
         foregroundColor:

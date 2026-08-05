@@ -32,6 +32,7 @@ import 'services/audio_handler.dart';
 import 'services/cache_service.dart';
 import 'services/remote_config_service.dart';
 import 'providers/audio_settings_provider.dart';
+import 'providers/download_provider.dart';
 import 'navidrome/navidrome_provider.dart';
 import 'providers/local_music_provider.dart';
 import 'providers/navigation_provider.dart';
@@ -41,8 +42,6 @@ import 'utils/navigation.dart';
 import 'services/intent_handler_service.dart';
 import 'utils/desktop_manager.dart';
 import 'utils/single_instance.dart';
-import 'utils/local_server.dart';
-import 'services/amll_webview_manager.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,7 +55,9 @@ Future<void> main() async {
       center: true,
       backgroundColor: Colors.transparent,
       skipTaskbar: false,
-      titleBarStyle: TitleBarStyle.normal,
+      // 隐藏系统原生标题栏，使用应用内自绘标题栏
+      titleBarStyle: TitleBarStyle.hidden,
+      windowButtonVisibility: false,
       title: 'NGS-KG+ / NGS-KG Plus',
     );
     windowManager.waitUntilReadyToShow(windowOptions, () async {
@@ -70,12 +71,6 @@ Future<void> main() async {
 
     // 初始化系统托盘等桌面行为
     await DesktopManager.instance.init();
-    
-    // 初始化本地静态资源服务器 (供WebView用)
-    await LocalServer.start();
-
-    // 预初始化 AMLL Webview（全屏播放器即开即用，后台进行不阻塞启动）
-    unawaited(AmllWebviewManager.instance.init());
   }
 
   await Log.init();
@@ -197,8 +192,11 @@ Future<void> main() async {
     Log.e('audio_service', 'asyncError', error);
   });
   // 系统控制回调 → PlayerProvider（通过 navKey 获取 context）
-  audioHandler.onPlay = () => _notifAction('play_pause');
-  audioHandler.onPause = () => _notifAction('play_pause');
+  // 注意: Play/Pause 分开处理（非 toggle）。SMTC/系统媒体控件的按钮
+  // 是状态化的：显示"播放"时点击发送 Play，显示"暂停"时点击发送 Pause。
+  // 若统一走 toggle，一旦本地状态与系统状态不同步（如启动恢复后）就会方向相反。
+  audioHandler.onPlay = () => _notifAction('play');
+  audioHandler.onPause = () => _notifAction('pause');
   audioHandler.onSkipNext = () => _notifAction('next');
   audioHandler.onSkipPrevious = () => _notifAction('prev');
   audioHandler.onSeek = (pos) {
@@ -254,11 +252,18 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => DiscoverProvider(musicService)),
         ChangeNotifierProvider(create: (_) => NavidromeProvider()),
         ChangeNotifierProvider(create: (_) => LocalMusicProvider()),
+        ChangeNotifierProvider(create: (_) => DownloadProvider()),
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
       ],
       child: const NGSKGApp(),
     ),
   );
+  // 首个帧后把播放器绑定到系统托盘（托盘图标/提示/播放控制联动）
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final ctx = navKey.currentState?.overlay?.context;
+    if (ctx == null) return;
+    DesktopManager.instance.bindPlayer(ctx.read<PlayerProvider>());
+  });
   // 启动外部文件打开监听（Android Intent）
   IntentHandlerService.instance.start();
   IntentHandlerService.instance.onFileOpen.listen((filePath) async {
@@ -318,6 +323,12 @@ void _notifAction(String action) {
   switch (action) {
     case 'prev':
       player.playPrevious();
+    case 'play':
+      // SMTC/通知栏 Play：仅当未播放时恢复，状态不同步时不会误暂停
+      player.play();
+    case 'pause':
+      // SMTC/通知栏 Pause：仅当播放中时暂停
+      player.pause();
     case 'play_pause':
       player.togglePlayPause();
     case 'next':

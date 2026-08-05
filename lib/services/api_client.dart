@@ -48,9 +48,7 @@ class _RetryInterceptor extends Interceptor {
     // 代理服务器偶发 5xx (网关不稳定) 时, 对 GET 请求重试
     if (err.type == DioExceptionType.badResponse) {
       final status = err.response?.statusCode ?? 0;
-      if (status >= 500 &&
-          status < 600 &&
-          err.requestOptions.method == 'GET') {
+      if (status >= 500 && status < 600 && err.requestOptions.method == 'GET') {
         return true;
       }
     }

@@ -245,6 +245,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
 
   Widget _buildLevelChip(String level, String label) {
     final selected = _levelFilter == level;
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => setState(() => _levelFilter = level),
       child: Container(
@@ -253,7 +254,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           color: selected ? _levelColor(level) : Colors.transparent,
           borderRadius: AppShape.xs,
           border: Border.all(
-            color: selected ? Colors.transparent : Colors.grey,
+            color: selected ? Colors.transparent : cs.outlineVariant,
             width: 0.5,
           ),
         ),
@@ -269,6 +270,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   Widget _buildLogRow(LogEntry e, Color bg) {
+    final cs = Theme.of(context).colorScheme;
     if (_showDetail) {
       return Container(
         padding: const EdgeInsets.all(4),
@@ -290,7 +292,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                     style: Theme.of(context)
                         .textTheme
                         .labelSmall
-                        ?.copyWith(color: Colors.grey)),
+                        ?.copyWith(color: cs.onSurfaceVariant)),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Container(
@@ -319,7 +321,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                   style: Theme.of(context)
                       .textTheme
                       .labelSmall
-                      ?.copyWith(color: Colors.red.shade300),
+                      ?.copyWith(color: cs.error),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis),
           ],
@@ -340,7 +342,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
               style: Theme.of(context)
                   .textTheme
                   .labelSmall
-                  ?.copyWith(color: Colors.grey)),
+                  ?.copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(width: 4),
           Flexible(
               child: Text('[${e.tag}]',

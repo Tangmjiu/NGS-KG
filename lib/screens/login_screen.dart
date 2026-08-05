@@ -242,8 +242,7 @@ class _PhoneLoginState extends State<_PhoneLogin> {
             SizedBox(
               height: 48,
               child: FilledButton.tonal(
-                onPressed:
-                    _sendingCode || _countdown > 0 ? null : _sendCode,
+                onPressed: _sendingCode || _countdown > 0 ? null : _sendCode,
                 child: _sendingCode
                     ? const SizedBox(
                         width: 16,
@@ -435,8 +434,7 @@ class _QrLoginState extends State<_QrLogin> {
               padding: const EdgeInsets.all(12),
               child: _base64Img != null
                   ? _buildQrImage()
-                  : Icon(Icons.qr_code,
-                      size: 80, color: cs.onSurface),
+                  : Icon(Icons.qr_code, size: 80, color: cs.onSurface),
             ),
             const SizedBox(height: 16),
             Text(

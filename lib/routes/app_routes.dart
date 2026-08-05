@@ -29,6 +29,7 @@ import '../screens/about_screen.dart';
 import '../screens/log_viewer_screen.dart';
 import '../screens/lyric_settings_screen.dart';
 import '../screens/profile_screen.dart' show LikedSongsScreen;
+import '../screens/download_screen.dart';
 import '../navidrome/navidrome_login_screen.dart';
 
 class AppRoutes {
@@ -63,18 +64,22 @@ class AppRoutes {
   static const String logViewer = '/settings/developer/log';
   static const String lyricSettings = '/settings/lyric';
   static const String likedSongs = '/liked/songs';
+  static const String downloads = '/downloads';
   static const String navidromeLogin = '/navidrome/login';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case home:
-        return MaterialPageRoute(builder: (_) => const HomeScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const HomeScreen());
       case login:
-        return MaterialPageRoute(builder: (_) => const LoginScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const LoginScreen());
       case playlistDetail:
         final args = settings.arguments;
         if (args is! Map<String, dynamic>) return _fallback();
         return MaterialPageRoute(
+          settings: settings,
           builder: (_) => PlaylistDetailScreen(
             gcId: args['gcId'] as String?,
             playlistName: args['name'] as String?,
@@ -89,17 +94,20 @@ class AppRoutes {
         final args = settings.arguments;
         if (args is! Map<String, dynamic>) return _fallback();
         return MaterialPageRoute(
+          settings: settings,
           builder: (_) => RankDetailScreen(
             rankId: args['id'] as int,
             rankName: args['name'] as String?,
           ),
         );
       case artistList:
-        return MaterialPageRoute(builder: (_) => const ArtistListScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const ArtistListScreen());
       case artistDetail:
         final args = settings.arguments;
         if (args is! Map<String, dynamic>) return _fallback();
         return MaterialPageRoute(
+          settings: settings,
           builder: (_) => ArtistDetailScreen(
             artistId: args['id'] as int,
             artistName: args['name'] as String?,
@@ -109,38 +117,51 @@ class AppRoutes {
         final args = settings.arguments;
         if (args is! Map<String, dynamic>) return _fallback();
         return MaterialPageRoute(
+          settings: settings,
           builder: (_) => CommentsScreen(
             type: args['type'] as String? ?? 'music',
             id: args['id'] as int,
+            gcId: args['gcId'] as String?,
           ),
         );
       case fm:
-        return MaterialPageRoute(builder: (_) => const FmScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const FmScreen());
       case localMusic:
-        return MaterialPageRoute(builder: (_) => const LocalMusicScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const LocalMusicScreen());
       case player:
-        return MaterialPageRoute(builder: (_) => const PlayerScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const PlayerScreen());
       case history:
-        return MaterialPageRoute(builder: (_) => const HistoryScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const HistoryScreen());
       case AppRoutes.cloud:
-        return MaterialPageRoute(builder: (_) => const CloudDiskScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const CloudDiskScreen());
       case AppRoutes.settings:
-        return MaterialPageRoute(builder: (_) => const SettingsScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const SettingsScreen());
       case AppRoutes.userProfile:
-        return MaterialPageRoute(builder: (_) => const UserProfileScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const UserProfileScreen());
       case AppRoutes.messages:
-        return MaterialPageRoute(builder: (_) => const MessagesScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const MessagesScreen());
       // MV: case AppRoutes.favoriteVideos:
       // MV:   return MaterialPageRoute(builder: (_) => const VideosScreen());
       // MV: case AppRoutes.likedVideos:
-      // MV:   return MaterialPageRoute(builder: (_) => const VideosScreen(showLiked: true));
+      // MV:   return MaterialPageRoute(
+      // MV:       builder: (_) => const VideosScreen(showLiked: true));
       case artistFollowedNews:
         return MaterialPageRoute(
+            settings: settings,
             builder: (_) => const ArtistFollowedNewsScreen());
       case albumDetail:
         final args = settings.arguments;
         if (args is! Map<String, dynamic>) return _fallback();
         return MaterialPageRoute(
+          settings: settings,
           builder: (_) => AlbumDetailScreen(
             albumId: args['id'] as int,
             albumName: args['name'] as String?,
@@ -157,6 +178,7 @@ class AppRoutes {
       // MV:   );
       case AppRoutes.recommendedPlaylists:
         return MaterialPageRoute(
+          settings: settings,
           builder: (_) => const RecommendedPlaylistsScreen(),
         );
       case AppRoutes.playlistCategory:
@@ -166,29 +188,42 @@ class AppRoutes {
         final categoryName = args['name'] as String?;
         if (categoryId == null || categoryName == null) return _fallback();
         return MaterialPageRoute(
+          settings: settings,
           builder: (_) => PlaylistCategoryScreen(
             categoryId: categoryId,
             categoryName: categoryName,
           ),
         );
       case AppRoutes.apiSettings:
-        return MaterialPageRoute(builder: (_) => const ApiSettingsScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const ApiSettingsScreen());
       case AppRoutes.themeSettings:
-        return MaterialPageRoute(builder: (_) => const ThemeSettingsScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const ThemeSettingsScreen());
       case AppRoutes.themeMarket:
-        return MaterialPageRoute(builder: (_) => const ThemeMarketScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const ThemeMarketScreen());
       case AppRoutes.audioEffects:
-        return MaterialPageRoute(builder: (_) => const AudioEffectsScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const AudioEffectsScreen());
       case AppRoutes.about:
-        return MaterialPageRoute(builder: (_) => const AboutScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const AboutScreen());
       case AppRoutes.logViewer:
-        return MaterialPageRoute(builder: (_) => const LogViewerScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const LogViewerScreen());
       case AppRoutes.lyricSettings:
-        return MaterialPageRoute(builder: (_) => const LyricSettingsScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const LyricSettingsScreen());
       case AppRoutes.likedSongs:
-        return MaterialPageRoute(builder: (_) => const LikedSongsScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const LikedSongsScreen());
+      case AppRoutes.downloads:
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const DownloadScreen());
       case AppRoutes.navidromeLogin:
-        return MaterialPageRoute(builder: (_) => const NavidromeLoginScreen());
+        return MaterialPageRoute(
+            settings: settings, builder: (_) => const NavidromeLoginScreen());
       default:
         return _fallback();
     }

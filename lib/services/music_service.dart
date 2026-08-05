@@ -68,6 +68,15 @@ class MusicService {
   Future<SongUrl> getSongUrl(int songId, {String? hash, String? quality}) =>
       song.getSongUrl(songId, hash: hash, quality: quality);
 
+  /// 获取音乐 URL（新版，一次性返回全部音质）
+  /// ⚠️ 返回音频存在加密（无法解码），请谨慎使用
+  Future<Map<String, dynamic>> getSongUrlNew(String hash,
+          {int? albumAudioId, bool freePart = false}) =>
+      song.getSongUrlNew(hash, albumAudioId: albumAudioId, freePart: freePart);
+
+  /// 默认搜索关键词（搜索框占位）
+  Future<String?> getDefaultSearchKeyword() => song.getDefaultSearchKeyword();
+
   /// 获取歌曲可用音质列表（特权信息）
   Future<Map<String, dynamic>> getPrivilegeLite(String hash) =>
       song.getPrivilegeLite(hash);
@@ -151,9 +160,10 @@ class MusicService {
 
   Future<List<PlaylistTag>> getPlaylistTags() => playlist.getPlaylistTags();
 
-  Future<List<Comment>> getPlaylistComments(int playlistId,
+  Future<List<Comment>> getPlaylistComments(String playlistGcId,
           {int page = 1, int pageSize = 200}) =>
-      playlist.getPlaylistComments(playlistId, page: page, pageSize: pageSize);
+      playlist.getPlaylistComments(playlistGcId,
+          page: page, pageSize: pageSize);
 
   Future<List<Playlist>> getSimilarPlaylists(String ids) =>
       playlist.getSimilarPlaylists(ids);
@@ -201,6 +211,19 @@ class MusicService {
           {int page = 1, int pageSize = 200, int? rankCid}) =>
       album.getRankAudios(rankId,
           page: page, pageSize: pageSize, rankCid: rankCid);
+
+  /// 排行榜推荐列表（/rank/top）
+  Future<List<Map<String, dynamic>>> getRankTop() => album.getRankTop();
+
+  /// 排行榜往期列表（/rank/vol，volid 可用作 rank_cid 获取往期歌曲）
+  Future<List<Map<String, dynamic>>> getRankVol(int rankId, {int? rankCid}) =>
+      album.getRankVol(rankId, rankCid: rankCid);
+
+  /// 排行榜信息（/rank/info）
+  Future<Map<String, dynamic>> getRankInfo(int rankId,
+          {int? rankCid, int? albumImg, String? zone}) =>
+      album.getRankInfo(rankId,
+          rankCid: rankCid, albumImg: albumImg, zone: zone);
 
   Future<List<Album>> getTopAlbums(
           {int? type, int page = 1, int pageSize = 30}) =>
@@ -274,6 +297,19 @@ class MusicService {
       user.getCloudSongUrl(hash,
           albumId: albumId, name: name, albumAudioId: albumAudioId);
 
+  /// 删除用户云盘音乐（/user/cloud/del）
+  ///
+  /// 优先传 [fileids]（云盘列表返回的 kv_id）+ [albumAudioIds]，
+  /// 未知时退回 [hash]（多个均以逗号分隔）。
+  Future<void> deleteCloudSongs(
+          {String? hash, String? fileids, String? albumAudioIds}) =>
+      user.deleteCloudSongs(
+          hash: hash, fileids: fileids, albumAudioIds: albumAudioIds);
+
+  /// 获取用户关注的歌手/用户列表（/user/follow）
+  Future<List<Map<String, dynamic>>> getFollowedArtists() =>
+      user.getFollowedArtists();
+
   // MV: Future<List<Map<String, dynamic>>> getFavoriteVideos(
   // MV:         {int page = 1, int pageSize = 200}) =>
   // MV:     user.getFavoriteVideos(page: page, pageSize: pageSize);
@@ -289,6 +325,45 @@ class MusicService {
   Future<List<Comment>> getMusicComments(int songId,
           {int page = 1, int pageSize = 200}) =>
       user.getMusicComments(songId, page: page, pageSize: pageSize);
+
+  /// 专辑评论（/comment/album）
+  Future<List<Comment>> getAlbumComments(String albumId,
+          {int page = 1, int pageSize = 30}) =>
+      user.getAlbumComments(albumId, page: page, pageSize: pageSize);
+
+  /// 歌曲评论-根据分类返回（/comment/music/classify）
+  Future<List<Comment>> getMusicCommentsByClassify(int mixsongid, int typeId,
+          {int page = 1, int pageSize = 30, int? sort}) =>
+      user.getMusicCommentsByClassify(mixsongid, typeId,
+          page: page, pageSize: pageSize, sort: sort);
+
+  /// 歌曲评论-根据热词返回（/comment/music/hotword）
+  Future<List<Comment>> getMusicCommentsByHotword(int mixsongid, String hotWord,
+          {int page = 1, int pageSize = 30}) =>
+      user.getMusicCommentsByHotword(mixsongid, hotWord,
+          page: page, pageSize: pageSize);
+
+  /// 楼层评论（/comment/floor）
+  Future<List<Comment>> getFloorComments(
+          {required int specialId,
+          required int mixsongid,
+          required int tid,
+          int page = 1,
+          int pageSize = 30}) =>
+      user.getFloorComments(
+          specialId: specialId,
+          mixsongid: mixsongid,
+          tid: tid,
+          page: page,
+          pageSize: pageSize);
+
+  /// 歌曲评论数（/comment/count）
+  Future<int> getCommentCount({String? hash, int? specialId}) =>
+      user.getCommentCount(hash: hash, specialId: specialId);
+
+  /// 歌曲收藏数（/favorite/count），返回 mixsongid → 收藏数
+  Future<Map<int, int>> getFavoriteCount(String mixsongids) =>
+      user.getFavoriteCount(mixsongids);
 
   Future<void> uploadPlayHistory(int songId, {int? duration}) =>
       user.uploadPlayHistory(songId, duration: duration);
@@ -453,11 +528,16 @@ class MusicService {
               ? (res['data'] as List).cast<Map<String, dynamic>>()
               : []);
 
-  /// AI 推荐
-  Future<List<Map<String, dynamic>>> getAiRecommend() =>
-      _oneShotGet('/ai/recommend').then((res) => res['data'] is List
-          ? (res['data'] as List).cast<Map<String, dynamic>>()
-          : []);
+  /// AI 推荐（/ai/recommend）
+  ///
+  /// [albumAudioId] 专辑音乐 id（album_audio_id/MixSongID 均可），
+  /// 文档中为必选参数，可传多个以逗号分隔。
+  Future<List<Map<String, dynamic>>> getAiRecommend(String albumAudioId) =>
+      _oneShotGet('/ai/recommend',
+              params: {'album_audio_id': albumAudioId}, silent: true)
+          .then((res) => res['data'] is List
+              ? (res['data'] as List).cast<Map<String, dynamic>>()
+              : []);
 
   // ─── 主题音乐 ───
 

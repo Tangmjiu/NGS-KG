@@ -84,11 +84,9 @@ class LyricLineContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scale = isActive ? 1.12 : 1.0;
-    
+
     // 区分已唱过、活动中、未唱到的不透明度
-    final opacity = isActive
-        ? 1.0
-        : (isPlayed ? 0.62 : 0.32);
+    final opacity = isActive ? 1.0 : (isPlayed ? 0.62 : 0.32);
 
     Widget content;
 
@@ -201,7 +199,8 @@ class _AppleMusicLyricsViewState extends State<AppleMusicLyricsView> {
   @override
   void dispose() {
     widget.controller.lyricNotifier.removeListener(_onLyricModelChanged);
-    widget.controller.activeIndexNotifiter.removeListener(_onActiveIndexChanged);
+    widget.controller.activeIndexNotifiter
+        .removeListener(_onActiveIndexChanged);
     _scrollController.dispose();
     _dragEndTimer?.cancel();
     super.dispose();
@@ -238,7 +237,8 @@ class _AppleMusicLyricsViewState extends State<AppleMusicLyricsView> {
     final double estimateHeight = widget.style.lineGap + 48.0;
     final double viewportHeight = _scrollController.position.viewportDimension;
     // 将活动行居中对齐在屏幕视口的 38% 高度位置，带来更好的沉浸视觉
-    final double targetOffset = (_activeIndex * estimateHeight) - (viewportHeight * 0.38);
+    final double targetOffset =
+        (_activeIndex * estimateHeight) - (viewportHeight * 0.38);
     final double maxScroll = _scrollController.position.maxScrollExtent;
     final double finalOffset = targetOffset.clamp(0.0, maxScroll);
 
@@ -261,7 +261,8 @@ class _AppleMusicLyricsViewState extends State<AppleMusicLyricsView> {
     final double centerOffset = offset + (viewportHeight * 0.4);
 
     final double estimateHeight = widget.style.lineGap + 48.0;
-    final int index = (centerOffset / estimateHeight).round().clamp(0, _lines.length - 1);
+    final int index =
+        (centerOffset / estimateHeight).round().clamp(0, _lines.length - 1);
 
     if (index != _centerIndex) {
       setState(() {
@@ -372,14 +373,18 @@ class _AppleMusicLyricsViewState extends State<AppleMusicLyricsView> {
                 ),
               ),
 
-            if (_isUserDragging && _centerIndex >= 0 && _centerIndex < _lines.length)
+            if (_isUserDragging &&
+                _centerIndex >= 0 &&
+                _centerIndex < _lines.length)
               Positioned(
                 right: 28,
                 child: M3PressScale(
                   child: FloatingActionButton.small(
                     elevation: 4,
-                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                    foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                    backgroundColor:
+                        Theme.of(context).colorScheme.primaryContainer,
+                    foregroundColor:
+                        Theme.of(context).colorScheme.onPrimaryContainer,
                     onPressed: () {
                       HapticFeedback.mediumImpact();
                       final line = _lines[_centerIndex];
@@ -397,11 +402,14 @@ class _AppleMusicLyricsViewState extends State<AppleMusicLyricsView> {
                 ),
               ),
 
-            if (_isUserDragging && _centerIndex >= 0 && _centerIndex < _lines.length)
+            if (_isUserDragging &&
+                _centerIndex >= 0 &&
+                _centerIndex < _lines.length)
               Positioned(
                 left: 28,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.black54,
                     borderRadius: BorderRadius.circular(12),
@@ -409,9 +417,10 @@ class _AppleMusicLyricsViewState extends State<AppleMusicLyricsView> {
                   child: Text(
                     _formatDuration(_lines[_centerIndex].start),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Colors.white70,
-                          fontFamily: 'monospace',
-                        ),
+                      color: Colors.white70,
+                      fontFamily: 'HarmonyOS Sans',
+                      fontFeatures: const [ui.FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
               ),

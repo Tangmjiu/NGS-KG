@@ -25,6 +25,31 @@ class LocalMusicProvider extends ChangeNotifier {
   bool _scanned = false;
   bool get scanned => _scanned;
 
+  // ── 扫描进度 ──
+  double _scanProgress = 0;
+  double get scanProgress => _scanProgress;
+
+  int _scanScanned = 0;
+  int get scanScanned => _scanScanned;
+
+  int _scanTotal = 0;
+  int get scanTotal => _scanTotal;
+
+  int _scanFound = 0;
+  int get scanFound => _scanFound;
+
+  String? _scanCurrentPath;
+  String? get scanCurrentPath => _scanCurrentPath;
+
+  bool _cancelRequested = false;
+  bool get cancelRequested => _cancelRequested;
+
+  /// 请求取消当前扫描（仅标记，扫描循环检查后尽快退出）。
+  void cancelScan() {
+    _cancelRequested = true;
+    notifyListeners();
+  }
+
   // Search / Sort
   String _searchQuery = '';
   String get searchQuery => _searchQuery;
@@ -49,11 +74,31 @@ class LocalMusicProvider extends ChangeNotifier {
   Future<void> scanMusic({bool forceFull = false}) async {
     if (_isScanning) return;
     _isScanning = true;
+    _cancelRequested = false;
     _error = null;
+    _scanProgress = 0;
+    _scanScanned = 0;
+    _scanTotal = 0;
+    _scanFound = 0;
+    _scanCurrentPath = null;
     _status = forceFull ? '正在扫描...' : '正在加载...';
     notifyListeners();
     try {
-      final songs = await _service.scanMusic(forceFull: forceFull);
+      final songs = await _service.scanMusic(
+        forceFull: forceFull,
+        onProgress: (p) {
+          _scanProgress = p.ratio;
+          _scanScanned = p.scanned;
+          _scanTotal = p.total;
+          _scanFound = p.found;
+          _scanCurrentPath = p.currentPath;
+          _status = p.total > 0
+              ? '正在扫描 ${p.scanned}/${p.total} · 已发现 ${p.found} 首'
+              : (p.scanned > 0 ? '正在收集文件... 已发现 ${p.found} 首' : '正在扫描...');
+          notifyListeners();
+        },
+        isCancelled: () => _cancelRequested,
+      );
       // Dedup by filePath
       final seen = <String>{};
       _songs = [];
@@ -62,13 +107,16 @@ class LocalMusicProvider extends ChangeNotifier {
       }
       _scanned = true;
       _applyFilterAndSort();
-      _status = _songs.isEmpty ? '未找到本地音乐' : '找到 ${_songs.length} 首';
+      _status = _cancelRequested
+          ? (_songs.isEmpty ? '扫描已取消' : '扫描已取消，找到 ${_songs.length} 首')
+          : (_songs.isEmpty ? '未找到本地音乐' : '找到 ${_songs.length} 首');
     } catch (e, s) {
       Log.e('local_music_provider', 'scan error', e, s);
       _error = '扫描失败';
       _status = '扫描失败';
     }
     _isScanning = false;
+    _cancelRequested = false;
     notifyListeners();
   }
 
@@ -99,9 +147,7 @@ class LocalMusicProvider extends ChangeNotifier {
           ? [meta.artist!]
           : old.artists,
       albumName: meta.album ?? old.albumName,
-      albumCoverUrl: coverPath != null && coverPath.startsWith('/')
-          ? Uri.file(coverPath).toString()
-          : (coverPath ?? old.albumCoverUrl),
+      albumCoverUrl: _normalizeCoverUrl(coverPath, old.albumCoverUrl),
       filePath: old.filePath,
       duration:
           meta.durationMs > 0 ? (meta.durationMs / 1000).round() : old.duration,
@@ -117,6 +163,31 @@ class LocalMusicProvider extends ChangeNotifier {
     _songs[idx] = updated;
     _applyFilterAndSort();
     notifyListeners();
+  }
+
+  /// 封面引用归一化：本地文件路径统一转为 `file://` URL，
+  /// 已 http(s)/file:// 开头的 URL 原样保留。
+  ///
+  /// Windows 路径（`C:\...` / `c:/...`）必须以 file:// 形式存储，
+  /// 否则会被播放栏/列表当作网络 URL 请求而无法显示封面。
+  static String? _normalizeCoverUrl(String? coverPath, String? fallback) {
+    if (coverPath == null || coverPath.isEmpty) return fallback;
+    final c = coverPath.trim();
+    if (c.startsWith('http://') ||
+        c.startsWith('https://') ||
+        c.startsWith('file://')) {
+      return c;
+    }
+    // 本地绝对路径：POSIX（/）或 Windows 盘符（C:\ 或 c:/）
+    if (c.startsWith('/') || RegExp(r'^[a-zA-Z]:[\\/]').hasMatch(c)) {
+      // 兼容旧版本误存的 percent-encoded 路径（如 c:/Users/...%E7%BD%97.jpg）
+      final decoded = RegExp(r'%[0-9a-fA-F]{2}').hasMatch(c)
+          ? Uri.decodeComponent(c)
+          : c;
+      return Uri.file(decoded).toString();
+    }
+    // 其余视为已有 URL（如历史坏数据 c:/...，保留原样避免二次破坏）
+    return c;
   }
 
   void search(String query) {

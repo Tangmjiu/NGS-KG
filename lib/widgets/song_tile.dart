@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -5,6 +7,7 @@ import '../models/song.dart';
 import '../providers/liked_songs_provider.dart';
 import '../providers/player_provider.dart';
 import '../providers/playlist_provider.dart';
+import '../providers/download_provider.dart';
 import '../services/music_service.dart';
 import '../theme/theme_assets.dart';
 import '../utils/theme.dart';
@@ -35,6 +38,37 @@ class SongTile extends StatefulWidget {
 
 class _SongTileState extends State<SongTile> {
   bool _isHovered = false;
+
+  /// 封面组件：本地文件（file:// 或裸路径）用 Image.file，其余走网络缓存。
+  Widget _buildCover(Song song, ColorScheme cs) {
+    final url = song.thumbnailCoverUrl!;
+    final isLocal = url.startsWith('file:') ||
+        url.startsWith('/') ||
+        RegExp(r'^[a-zA-Z]:[\\/]').hasMatch(url);
+    if (isLocal) {
+      final path =
+          url.startsWith('file:') ? Uri.parse(url).toFilePath() : url;
+      final file = File(path);
+      if (file.existsSync()) {
+        return Image.file(file,
+            width: 48,
+            height: 48,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _placeholder(cs));
+      }
+      return _placeholder(cs);
+    }
+    return CachedNetworkImage(
+      imageUrl: url,
+      width: 48,
+      height: 48,
+      fit: BoxFit.cover,
+      memCacheWidth: 112,
+      memCacheHeight: 112,
+      placeholder: (_, __) => _placeholder(cs),
+      errorWidget: (_, __, ___) => _placeholder(cs),
+    );
+  }
 
   String _formatDuration(int seconds) {
     if (seconds <= 0) return '--:--';
@@ -101,7 +135,8 @@ class _SongTileState extends State<SongTile> {
                           child: Text(
                             '${widget.index}',
                             style: tt.bodyMedium?.copyWith(
-                              color: isCurrent ? cs.primary : cs.onSurfaceVariant,
+                              color:
+                                  isCurrent ? cs.primary : cs.onSurfaceVariant,
                               fontWeight: isCurrent
                                   ? FontWeight.w600
                                   : FontWeight.normal,
@@ -116,16 +151,7 @@ class _SongTileState extends State<SongTile> {
                         ClipRRect(
                           borderRadius: AppShape.sm,
                           child: widget.song.thumbnailCoverUrl != null
-                              ? CachedNetworkImage(
-                                  imageUrl: widget.song.thumbnailCoverUrl!,
-                                  width: 48,
-                                  height: 48,
-                                  fit: BoxFit.cover,
-                                  memCacheWidth: 112,
-                                  memCacheHeight: 112,
-                                  placeholder: (_, __) => _placeholder(cs),
-                                  errorWidget: (_, __, ___) => _placeholder(cs),
-                                )
+                              ? _buildCover(widget.song, cs)
                               : _placeholder(cs),
                         ),
                         // Playing Indicator Overlay
@@ -159,8 +185,9 @@ class _SongTileState extends State<SongTile> {
                           style: tt.bodyLarge?.copyWith(
                             fontWeight:
                                 isCurrent ? FontWeight.bold : FontWeight.normal,
-                            color:
-                                isCurrent ? cs.onPrimaryContainer : cs.onSurface,
+                            color: isCurrent
+                                ? cs.onPrimaryContainer
+                                : cs.onSurface,
                           ),
                         ),
                       ),
@@ -204,46 +231,53 @@ class _SongTileState extends State<SongTile> {
                       ),
                       // hover 时浮现的操作按钮
                       SizedBox(
-                        width: 48,
+                        width: 96,
                         child: AnimatedSlide(
-                          offset: Offset(0, (_isHovered || isCurrent) ? 0 : 0.5),
+                          offset:
+                              Offset(0, (_isHovered || isCurrent) ? 0 : 0.5),
                           duration: AppMotion.dShort4,
                           curve: AppMotion.emphasized,
                           child: AnimatedOpacity(
                             opacity: (_isHovered || isCurrent) ? 1 : 0,
                             duration: AppMotion.dShort4,
-                            child: Consumer<LikedSongsProvider>(
-                              builder: (_, lp, __) {
-                                final liked =
-                                    lp.likedIds.contains(widget.song.id);
-                                return M3BounceFeedback(
-                                  trigger: liked,
-                                  child: IconButton(
-                                    icon: Icon(
-                                      liked
-                                          ? Icons.favorite_rounded
-                                          : Icons.favorite_border_rounded,
-                                      size: 20,
-                                    ),
-                                    color: liked
-                                        ? cs.error
-                                        : (isCurrent
-                                            ? cs.onPrimaryContainer
-                                            : cs.onSurfaceVariant),
-                                    tooltip: liked ? '取消喜欢' : '喜欢',
-                                    onPressed: () async {
-                                      final info = SongInfo(
-                                        id: widget.song.id,
-                                        name: widget.song.name,
-                                        hash: widget.song.hash ?? '',
-                                        albumId: widget.song.albumId,
-                                        audioId: widget.song.id,
-                                      );
-                                      await lp.toggle(info);
-                                    },
-                                  ),
-                                );
-                              },
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                _DownloadButton(song: widget.song),
+                                Consumer<LikedSongsProvider>(
+                                  builder: (_, lp, __) {
+                                    final liked =
+                                        lp.likedIds.contains(widget.song.id);
+                                    return M3BounceFeedback(
+                                      trigger: liked,
+                                      child: IconButton(
+                                        icon: Icon(
+                                          liked
+                                              ? Icons.favorite_rounded
+                                              : Icons.favorite_border_rounded,
+                                          size: 20,
+                                        ),
+                                        color: liked
+                                            ? cs.error
+                                            : (isCurrent
+                                                ? cs.onPrimaryContainer
+                                                : cs.onSurfaceVariant),
+                                        tooltip: liked ? '取消喜欢' : '喜欢',
+                                        onPressed: () async {
+                                          final info = SongInfo(
+                                            id: widget.song.id,
+                                            name: widget.song.name,
+                                            hash: widget.song.hash ?? '',
+                                            albumId: widget.song.albumId,
+                                            audioId: widget.song.id,
+                                          );
+                                          await lp.toggle(info);
+                                        },
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -273,7 +307,8 @@ class _SongTileState extends State<SongTile> {
                               overflow: TextOverflow.ellipsis,
                               style: tt.bodyMedium?.copyWith(
                                 color: isCurrent
-                                    ? cs.onPrimaryContainer.withValues(alpha: 0.8)
+                                    ? cs.onPrimaryContainer
+                                        .withValues(alpha: 0.8)
                                     : cs.onSurfaceVariant,
                               ),
                             ),
@@ -283,38 +318,44 @@ class _SongTileState extends State<SongTile> {
                     // Mobile trailing actions
                     if (!isDesktop)
                       if (_isHovered || isCurrent)
-                        Consumer<LikedSongsProvider>(
-                          builder: (_, lp, __) {
-                            final liked =
-                                lp.likedIds.contains(widget.song.id);
-                            return M3BounceFeedback(
-                              trigger: liked,
-                              child: IconButton(
-                                icon: Icon(
-                                  liked
-                                      ? Icons.favorite_rounded
-                                      : Icons.favorite_border_rounded,
-                                  size: 24,
-                                ),
-                                color: liked
-                                    ? cs.error
-                                    : (isCurrent
-                                        ? cs.onPrimaryContainer
-                                        : cs.onSurfaceVariant),
-                                tooltip: liked ? '取消喜欢' : '喜欢',
-                                onPressed: () async {
-                                  final info = SongInfo(
-                                    id: widget.song.id,
-                                    name: widget.song.name,
-                                    hash: widget.song.hash ?? '',
-                                    albumId: widget.song.albumId,
-                                    audioId: widget.song.id,
-                                  );
-                                  await lp.toggle(info);
-                                },
-                              ),
-                            );
-                          },
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _DownloadButton(song: widget.song),
+                            Consumer<LikedSongsProvider>(
+                              builder: (_, lp, __) {
+                                final liked =
+                                    lp.likedIds.contains(widget.song.id);
+                                return M3BounceFeedback(
+                                  trigger: liked,
+                                  child: IconButton(
+                                    icon: Icon(
+                                      liked
+                                          ? Icons.favorite_rounded
+                                          : Icons.favorite_border_rounded,
+                                      size: 24,
+                                    ),
+                                    color: liked
+                                        ? cs.error
+                                        : (isCurrent
+                                            ? cs.onPrimaryContainer
+                                            : cs.onSurfaceVariant),
+                                    tooltip: liked ? '取消喜欢' : '喜欢',
+                                    onPressed: () async {
+                                      final info = SongInfo(
+                                        id: widget.song.id,
+                                        name: widget.song.name,
+                                        hash: widget.song.hash ?? '',
+                                        albumId: widget.song.albumId,
+                                        audioId: widget.song.id,
+                                      );
+                                      await lp.toggle(info);
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
                         ),
                   ],
                 ),
@@ -337,7 +378,22 @@ class _SongTileState extends State<SongTile> {
 
   void _showContextMenu(BuildContext context) {
     final isDesktop = Responsive.isDesktopLayout(context);
+    final dlProvider = context.read<DownloadProvider>();
+    final downloaded = dlProvider.isDownloaded(widget.song);
     final items = [
+      _menuItem(
+        context,
+        icon: downloaded ? Icons.delete_outline : Icons.download,
+        label: downloaded ? '删除下载' : '下载',
+        onTap: () {
+          Navigator.pop(context);
+          if (downloaded) {
+            dlProvider.removeDownload(widget.song);
+          } else {
+            dlProvider.download(widget.song);
+          }
+        },
+      ),
       _menuItem(
         context,
         icon: Icons.skip_next,
@@ -508,6 +564,40 @@ class _SongTileState extends State<SongTile> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 歌曲下载按钮：未下载 → 加入队列；已下载 → 显示完成状态
+class _DownloadButton extends StatelessWidget {
+  final Song song;
+  const _DownloadButton({required this.song});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Consumer<DownloadProvider>(
+      builder: (_, dp, __) {
+        final downloaded = dp.isDownloaded(song);
+        if (downloaded) {
+          return IconButton(
+            icon: const Icon(Icons.check_circle_outline, size: 20),
+            color: cs.primary,
+            tooltip: '已下载',
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('这首歌已下载')),
+            ),
+          );
+        }
+        return IconButton(
+          icon: const Icon(Icons.download_outlined, size: 20),
+          color: cs.onSurfaceVariant,
+          tooltip: '下载',
+          onPressed: song.isLocal || song.hash == null
+              ? null
+              : () => dp.download(song),
+        );
+      },
     );
   }
 }

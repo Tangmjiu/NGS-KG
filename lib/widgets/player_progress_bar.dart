@@ -81,7 +81,8 @@ class _PlayerProgressBarState extends State<PlayerProgressBar>
                   _formatDuration(widget.position),
                   style: tt.labelSmall?.copyWith(
                     color: Colors.white60,
-                    fontFamily: 'monospace',
+                    fontFamily: 'HarmonyOS Sans',
+                    fontFeatures: const [FontFeature.tabularFigures()],
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -91,7 +92,8 @@ class _PlayerProgressBarState extends State<PlayerProgressBar>
                 child: AnimatedBuilder(
                   animation: _thumbAnimation,
                   builder: (context, child) {
-                    final double radius = lerpDouble(6, 11, _thumbAnimation.value)!;
+                    final double radius =
+                        lerpDouble(6, 11, _thumbAnimation.value)!;
                     return SliderTheme(
                       data: SliderThemeData(
                         trackHeight: 3.5,
@@ -99,7 +101,8 @@ class _PlayerProgressBarState extends State<PlayerProgressBar>
                           enabledThumbRadius: radius,
                           pressedElevation: 3,
                         ),
-                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
+                        overlayShape:
+                            const RoundSliderOverlayShape(overlayRadius: 20),
                         activeTrackColor: Colors.white,
                         inactiveTrackColor: Colors.white24,
                         thumbColor: Colors.white,
@@ -112,7 +115,8 @@ class _PlayerProgressBarState extends State<PlayerProgressBar>
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
-                        valueIndicatorShape: const RectangularSliderValueIndicatorShape(),
+                        valueIndicatorShape:
+                            const RectangularSliderValueIndicatorShape(),
                       ),
                       child: Slider(
                         value: widget.progress.clamp(0.0, 1.0),
@@ -131,7 +135,8 @@ class _PlayerProgressBarState extends State<PlayerProgressBar>
                         onChanged: (v) {
                           widget.onSeek(v);
                           // 物理触感反馈：每滑动改变 1 秒产生一次微小滴答感
-                          final currentSec = (v * widget.duration.inSeconds).round();
+                          final currentSec =
+                              (v * widget.duration.inSeconds).round();
                           if (currentSec != _lastVibratedSec) {
                             HapticFeedback.selectionClick();
                             _lastVibratedSec = currentSec;
@@ -150,7 +155,8 @@ class _PlayerProgressBarState extends State<PlayerProgressBar>
                   textAlign: TextAlign.end,
                   style: tt.labelSmall?.copyWith(
                     color: Colors.white60,
-                    fontFamily: 'monospace',
+                    fontFamily: 'HarmonyOS Sans',
+                    fontFeatures: const [FontFeature.tabularFigures()],
                     fontWeight: FontWeight.w500,
                   ),
                 ),

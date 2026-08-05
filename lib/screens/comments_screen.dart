@@ -9,7 +9,12 @@ class CommentsScreen extends StatefulWidget {
   final String type;
   final int id;
 
-  const CommentsScreen({super.key, required this.type, required this.id});
+  /// 歌单 global_collection_id（type == 'playlist' 时使用，
+  /// 文档要求 /comment/playlist 传该格式而非 int listid）
+  final String? gcId;
+
+  const CommentsScreen(
+      {super.key, required this.type, required this.id, this.gcId});
 
   @override
   State<CommentsScreen> createState() => _CommentsScreenState();
@@ -31,7 +36,8 @@ class _CommentsScreenState extends State<CommentsScreen> {
       if (widget.type == 'music') {
         _comments = await _musicService.getMusicComments(widget.id);
       } else {
-        _comments = await _musicService.getPlaylistComments(widget.id);
+        _comments = await _musicService
+            .getPlaylistComments(widget.gcId ?? widget.id.toString());
       }
       if (mounted) {
         setState(() => _isLoading = false);

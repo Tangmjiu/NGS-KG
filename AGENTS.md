@@ -51,6 +51,16 @@
 - **Card IDs** for `/top/card`: 1=私人专属好歌, 2=经典怀旧金曲, 3=热门好歌精选, 4=小众宝藏佳作, 5=潮流尝鲜, 6=VIP专属推.
 - **Error codes**: 20010=login expired (triggers `clearAuth()` + re-login dialog), 20028=account risk control, 20006=rate limited, 31136=bad params.
 
+## Download & cache (下载与缓存)
+
+- **DownloadService** (`lib/services/download_service.dart`, singleton + ChangeNotifier) is the single entry for both song downloads and playback caching. UI goes through `DownloadProvider` (`lib/providers/download_provider.dart`).
+- **Formal download**: saves to `{appDocDir}/music/` as `歌手 - 歌名.ext`; writes metadata via **phonic** (`TitleTag`/`ArtistTag`/`AlbumTag`/`LyricsTag`/`ArtworkData.immediate`) + raw KRC as `CustomTag('NGSKG_KRC:<base64>')`. KRC→LRC conversion uses `KrcLyricUtil.parseLyrics` + `KrcLanguage` (translation lines appended). Done tasks auto-register into `LocalMusicProvider` via `addSongFromPath` (reads back the embedded tags/lyrics).
+- **Playback cache (先播后缓)**: `AudioEngine.play()` checks `getLocalPlayPath(hash, quality)` before network (downloaded any-quality first, then same-quality cache) and plays local file via `setFilePath`. After successful online play it fires `maybeCacheSong(song, resolvedQuality)` in the background. Cache files live in `{appDocDir}/cache/audio/`, capped at 2GB with LRU cleanup.
+- **DB**: `downloads.db` (sqflite) table `downloads` with `kind = 'download' | 'cache'`. Task key format: `{hash}_{quality}_{dl|cache}`.
+- **Settings**: cache on/off (`download_cache_enabled`, default on) and WiFi-only (`download_cache_only_wifi`) persisted in SharedPreferences; exposed in DownloadScreen.
+- **Quality for downloads** comes from `AudioSettingsProvider.downloadQuality` (default `high`).
+- Remember: `DownloadService` uses its own Dio (direct CDN links) for file/cover downloads; all API queries go through `MusicService`.
+
 ## Device flow
 
 1. First launch: `_initDevice()` → `DeviceService.registerDevice()` → calls `/register/dev` → persists `DeviceInfo` (dfid/mid/guid/serverDev/mac) in `SharedPreferences`.

@@ -29,11 +29,12 @@ class PlaylistCard extends StatelessWidget {
           child: InkWell(
             borderRadius: AppShape.lg,
             onTap: () {
-              Navigator.pushNamed(context, AppRoutes.playlistDetail, arguments: {
-                'gcId': playlist.globalCollectionId ??
-                    'collection_3_${playlist.createUserId}_${playlist.id}_0',
-                'name': playlist.name,
-              });
+              Navigator.pushNamed(context, AppRoutes.playlistDetail,
+                  arguments: {
+                    'gcId': playlist.globalCollectionId ??
+                        'collection_3_${playlist.createUserId}_${playlist.id}_0',
+                    'name': playlist.name,
+                  });
             },
             onLongPress: () {
               showM3ModalBottomSheet(

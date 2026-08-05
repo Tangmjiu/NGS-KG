@@ -220,23 +220,35 @@ class PlaylistRepository extends BaseRepository {
     return [];
   }
 
-  Future<List<Comment>> getPlaylistComments(int playlistId,
+  /// 歌单评论（/comment/playlist，不需要登录）
+  ///
+  /// [playlistGcId] 歌单 global_collection_id（如
+  /// `collection_3_1373407643_366_0`），文档要求该格式，传普通 int
+  /// listid 服务器查不到评论。
+  Future<List<Comment>> getPlaylistComments(String playlistGcId,
       {int page = 1, int pageSize = 200}) async {
-    final res = await get('/comment/playlist',
-        params: {'id': playlistId, 'page': page, 'pagesize': pageSize});
+    final res = await get('/comment/playlist', params: {
+      'id': playlistGcId,
+      'page': page,
+      'pagesize': pageSize,
+      'show_classify': 0,
+      'show_hotword_list': 0,
+    });
     final raw = res['data'];
+    List<dynamic>? list;
     if (raw is List) {
-      return raw
-          .map((e) => Comment.fromJson(e as Map<String, dynamic>))
-          .toList();
+      list = raw;
+    } else if (raw is Map) {
+      // 兼容 comments/list/lists 多种容器字段
+      list = raw['comments'] as List<dynamic>? ??
+          raw['list'] as List<dynamic>? ??
+          raw['lists'] as List<dynamic>?;
     }
-    final list = (raw as Map<String, dynamic>)['comments'] as List<dynamic>?;
-    if (list != null) {
-      return list
-          .map((e) => Comment.fromJson(e as Map<String, dynamic>))
-          .toList();
-    }
-    return [];
+    if (list == null) return [];
+    return list
+        .whereType<Map>()
+        .map((e) => Comment.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
   Future<List<Playlist>> getSimilarPlaylists(String ids) async {

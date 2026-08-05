@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
+import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -24,15 +24,20 @@ class MetadataReader {
 
   /// Reads metadata from [file].  Returns null if reading fails.
   static Future<AudioMetadata?> read(File file) async {
-    try {
-      final result = await _channel.invokeMethod<Map>('readMetadata', {
-        'path': file.path,
-      });
-      if (result == null) return null;
-      return AudioMetadata.fromMap(result);
-    } catch (_) {
-      return null;
+    if (Platform.isAndroid) {
+      try {
+        final result = await _channel.invokeMethod<Map>('readMetadata', {
+          'path': file.path,
+        });
+        if (result == null) return null;
+        return AudioMetadata.fromMap(result);
+      } catch (_) {
+        return null;
+      }
     }
+    // 桌面端：Android MethodChannel 不可用，委托给纯 Dart 的
+    // audio_metadata_reader 库（同步解析，无原生依赖）。
+    return DesktopMetadataParser.read(file);
   }
 
   /// 直接从音频文件读取内嵌歌词（ID3v2 USLT / FLAC VorbisComment）。
@@ -41,7 +46,7 @@ class MetadataReader {
     try {
       final raf = await file.open(mode: FileMode.read);
       try {
-        final header = await raf.read(4);
+        final header = raf.readSync(4);
 
         // ── MP3: ID3v2 标签 ──
         if (header.length >= 3 &&
@@ -49,23 +54,23 @@ class MetadataReader {
             header[1] == 0x44 /*D*/ &&
             header[2] == 0x33 /*3*/) {
           // 跳过 header (10 bytes)
-          await raf.setPosition(6);
-          final sizeBytes = await raf.read(4);
+          raf.setPositionSync(6);
+          final sizeBytes = raf.readSync(4);
           final tagSize = _synchsafeInt(sizeBytes);
           final tagEnd = 10 + tagSize;
 
           // 扫描 ID3v2 帧，查找 USLT
           var pos = 10;
           while (pos < tagEnd - 10) {
-            await raf.setPosition(pos);
-            final frameHeader = await raf.read(10);
+            raf.setPositionSync(pos);
+            final frameHeader = raf.readSync(10);
             if (frameHeader.length < 10) break;
 
             final frameId = String.fromCharCodes(frameHeader.sublist(0, 4));
             final frameSize = _bytesToIntBE(frameHeader.sublist(4, 8));
 
             if (frameId == 'USLT' && frameSize > 4) {
-              final frameData = await raf.read(frameSize);
+              final frameData = raf.readSync(frameSize);
               // USLT: encoding(1) + language(3) + descriptor(null-term) + lyrics
               final enc = frameData[0];
               int start = 4; // skip encoding + language
@@ -102,10 +107,10 @@ class MetadataReader {
             header[2] == 0x61 /*a*/ &&
             header[3] == 0x43 /*C*/) {
           // Parse metadata blocks until VORBIS_COMMENT
-          await raf.setPosition(4);
+          raf.setPositionSync(4);
           var lastBlock = false;
           while (!lastBlock) {
-            final blockHeader = await raf.read(4);
+            final blockHeader = raf.readSync(4);
             if (blockHeader.length < 4) break;
             lastBlock = (blockHeader[0] & 0x80) != 0;
             final blockType = blockHeader[0] & 0x7F;
@@ -114,7 +119,7 @@ class MetadataReader {
 
             if (blockType == 4) {
               // VORBIS_COMMENT
-              final blockData = await raf.read(blockSize);
+              final blockData = raf.readSync(blockSize);
               // vendor length (4 bytes LE)
               final vendorLen = _bytesToIntLE(blockData.sublist(0, 4));
               var offset = 4 + vendorLen;
@@ -147,7 +152,7 @@ class MetadataReader {
               break;
             }
             // skip non-VORBIS_COMMENT blocks
-            await raf.setPosition(raf.positionSync() + blockSize);
+            raf.setPositionSync(raf.positionSync() + blockSize);
           }
           return null;
         }
@@ -172,7 +177,7 @@ class MetadataReader {
     if (!await file.exists()) return null;
 
     final meta = await read(file);
-    // MMR 不返回内嵌歌词 → 直接从文件字节解析
+    // 库/MMR 未返回内嵌歌词时，直接从文件字节解析
     String? embeddedLyrics;
     if (meta == null || meta.lyrics == null || meta.lyrics!.isEmpty) {
       embeddedLyrics = await _extractEmbeddedLyrics(file);
@@ -318,12 +323,277 @@ class MetadataReader {
     }
     if (hi >= 0xB0 && hi <= 0xF7 && lo >= 0xA1 && lo <= 0xFE) {
       final offset = (hi - 0xB0) * 94 + (lo - 0xA1);
-      if (hi >= 0xB0 && hi < 0xD8) {
-        return 0x4E00 + offset;
-      }
       return 0x4E00 + offset;
     }
     return 0xFFFD;
+  }
+}
+
+/// 桌面端（Windows/Linux/macOS）音频元数据解析。
+///
+/// 使用纯 Dart 的 `audio_metadata_reader` 库解析标签/封面/歌词，
+/// 并补充库不支持的部分：MP3 时长估算（MPEG 帧头 / Xing 帧数）。
+class DesktopMetadataParser {
+  static Future<AudioMetadata?> read(File file) async {
+    try {
+      final md = readMetadata(file, getImage: true);
+
+      Uint8List? art;
+      if (md.pictures.isNotEmpty) {
+        final pic = md.pictures.firstWhere(
+          (p) => p.bytes.length >= 32,
+          orElse: () => md.pictures.first,
+        );
+        if (pic.bytes.length >= 32) art = pic.bytes;
+      }
+
+      var durationMs = md.duration?.inMilliseconds ?? 0;
+      // MP3 的 ID3 标签不含时长，库无法给出 → 用 MPEG 帧头估算
+      if (durationMs <= 0 && file.path.toLowerCase().endsWith('.mp3')) {
+        durationMs = _estimateMp3Duration(file);
+      }
+
+      int? bitrate = md.bitrate;
+      if (bitrate == null && durationMs > 0) {
+        bitrate = (file.lengthSync() * 8 / durationMs * 1000 / 1000).round();
+      }
+
+      if (md.title == null &&
+          md.artist == null &&
+          md.album == null &&
+          art == null &&
+          md.lyrics == null &&
+          durationMs == 0) {
+        return null;
+      }
+
+      return AudioMetadata(
+        title: md.title,
+        artist: md.artist,
+        album: md.album,
+        durationMs: durationMs,
+        bitrate: bitrate,
+        albumArt: art,
+        lyrics: md.lyrics,
+      );
+    } catch (_) {
+      // 解析失败（格式不支持/损坏）返回 null，由调用方回退文件名标题
+      return null;
+    }
+  }
+
+  /// 估算 MP3 时长：解析第一个 MPEG 帧头（支持 Xing/Info VBR 帧数）。
+  static int _estimateMp3Duration(File file) {
+    try {
+      final raf = file.openSync(mode: FileMode.read);
+      try {
+        final length = raf.lengthSync();
+        if (length < 4) return 0;
+
+        // 跳过 ID3v2 标签区
+        raf.setPositionSync(0);
+        final head = raf.readSync(10);
+        int start = 0;
+        if (head.length >= 10 &&
+            head[0] == 0x49 &&
+            head[1] == 0x44 &&
+            head[2] == 0x33) {
+          start = 10 +
+              ((head[6] << 21) | (head[7] << 14) | (head[8] << 7) | head[9]);
+        }
+        if (start >= length) return 0;
+
+        // 前 64KB 内找帧同步
+        final window = length - start > 65536 ? 65536 : length - start;
+        raf.setPositionSync(start);
+        final buf = raf.readSync(window);
+        final fh = _findMpegFrameHeader(buf);
+        if (fh == null) return 0;
+
+        final bitrate = fh['bitrate'] as int;
+        final sampleRate = fh['sampleRate'] as int;
+        final samplesPerFrame = fh['samplesPerFrame'] as int;
+        final fhOffset = fh['offset'] as int;
+
+        // Xing / Info VBR 头（帧头 4 字节后的 4 字节）
+        if (buf.length >= fhOffset + 8 &&
+            buf[fhOffset + 4] == 0x58 && // 'X'
+            buf[fhOffset + 5] == 0x69 && // 'i'
+            buf[fhOffset + 6] == 0x6E && // 'n'
+            buf[fhOffset + 7] == 0x67) {
+          final flags = _bytesToIntBE(buf.sublist(fhOffset + 8, fhOffset + 12));
+          if ((flags & 1) != 0 && buf.length >= fhOffset + 16) {
+            final frames =
+                _bytesToIntBE(buf.sublist(fhOffset + 12, fhOffset + 16));
+            if (frames > 0) {
+              return (frames * samplesPerFrame * 1000 / sampleRate).round();
+            }
+          }
+        } else if (buf.length >= fhOffset + 8 &&
+            buf[fhOffset + 4] == 0x49 && // 'I' (Info 头，CBR)
+            buf[fhOffset + 5] == 0x6E &&
+            buf[fhOffset + 6] == 0x66 &&
+            buf[fhOffset + 7] == 0x6F) {
+          final flags = _bytesToIntBE(buf.sublist(fhOffset + 8, fhOffset + 12));
+          if ((flags & 1) != 0 && buf.length >= fhOffset + 16) {
+            final frames =
+                _bytesToIntBE(buf.sublist(fhOffset + 12, fhOffset + 16));
+            if (frames > 0) {
+              return (frames * samplesPerFrame * 1000 / sampleRate).round();
+            }
+          }
+        }
+
+        // CBR：文件大小 / 位率
+        if (bitrate <= 0) return 0;
+        return ((length - start) * 8 * 1000 / bitrate).round();
+      } finally {
+        raf.closeSync();
+      }
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// 在缓冲区中寻找第一个 MPEG 音频帧头。
+  static Map<String, int>? _findMpegFrameHeader(List<int> buf) {
+    for (var i = 0; i + 3 < buf.length; i++) {
+      if (buf[i] != 0xFF || (buf[i + 1] & 0xE0) != 0xE0) continue;
+      final ver = (buf[i + 1] >> 3) & 0x03; // 0=2.5 2=2 3=1
+      final layer = (buf[i + 1] >> 1) & 0x03; // 1=L3 2=L2 3=L1
+      if (ver == 1 || layer == 0) continue; // reserved
+      final bitrateIdx = (buf[i + 2] >> 4) & 0x0F;
+      final sampleIdx = (buf[i + 2] >> 2) & 0x03;
+      if (bitrateIdx == 0 || bitrateIdx == 15) continue;
+      if (sampleIdx == 3) continue;
+
+      const l1 = [
+        0,
+        32,
+        64,
+        96,
+        128,
+        160,
+        192,
+        224,
+        256,
+        288,
+        320,
+        352,
+        384,
+        416,
+        448,
+        0
+      ];
+      const l2 = [
+        0,
+        32,
+        48,
+        56,
+        64,
+        80,
+        96,
+        112,
+        128,
+        160,
+        192,
+        224,
+        256,
+        320,
+        384,
+        0
+      ];
+      const l3 = [
+        0,
+        32,
+        40,
+        48,
+        56,
+        64,
+        80,
+        96,
+        112,
+        128,
+        160,
+        192,
+        224,
+        256,
+        320,
+        0
+      ];
+      const l1b = [
+        0,
+        32,
+        48,
+        56,
+        64,
+        80,
+        96,
+        112,
+        128,
+        144,
+        160,
+        176,
+        192,
+        224,
+        256,
+        0
+      ];
+      const l2b = [
+        0,
+        8,
+        16,
+        24,
+        32,
+        40,
+        48,
+        56,
+        64,
+        80,
+        96,
+        112,
+        128,
+        144,
+        160,
+        0
+      ];
+
+      int? bitrate;
+      int? sampleRate;
+      int samplesPerFrame;
+      if (ver == 3) {
+        // MPEG1
+        sampleRate = [44100, 48000, 32000, 0][sampleIdx];
+        if (layer == 3) bitrate = l1[bitrateIdx];
+        if (layer == 2) bitrate = l2[bitrateIdx];
+        if (layer == 1) bitrate = l3[bitrateIdx];
+        samplesPerFrame = layer == 3 ? 384 : 1152;
+      } else {
+        // MPEG2 / 2.5
+        sampleRate = ver == 2
+            ? [22050, 24000, 16000, 0][sampleIdx]
+            : [11025, 12000, 8000, 0][sampleIdx];
+        if (layer == 3) bitrate = l1b[bitrateIdx];
+        if (layer == 2 || layer == 1) bitrate = l2b[bitrateIdx];
+        samplesPerFrame = layer == 3 ? 384 : 576;
+      }
+      if (bitrate == null || bitrate == 0) continue;
+      return {
+        'offset': i,
+        'bitrate': bitrate * 1000,
+        'sampleRate': sampleRate,
+        'samplesPerFrame': samplesPerFrame,
+      };
+    }
+    return null;
+  }
+
+  static int _bytesToIntBE(List<int> bytes) {
+    int result = 0;
+    for (final b in bytes) {
+      result = (result << 8) | b;
+    }
+    return result;
   }
 }
 

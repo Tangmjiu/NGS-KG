@@ -44,3 +44,4 @@ check_temp.dart
 # Tooling
 .fvm/
 .reasonix/
+.workbuddy/

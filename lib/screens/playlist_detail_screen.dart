@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/song.dart';
 import '../providers/playlist_provider.dart';
 import '../providers/player_provider.dart';
+import '../providers/download_provider.dart';
 import '../services/music_service.dart';
 import '../theme/theme_assets.dart';
 import '../widgets/song_tile.dart';
@@ -57,6 +58,25 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         _selectedIndices.addAll(List.generate(total, (i) => i));
       }
     });
+  }
+
+  void _downloadAll(BuildContext context, List<Song> songs) {
+    final dp = context.read<DownloadProvider>();
+    final targets =
+        _isSelecting ? _selectedIndices.map((i) => songs[i]).toList() : songs;
+    var added = 0;
+    for (final s in targets) {
+      if (s.hash != null && s.hash!.isNotEmpty && !dp.isDownloaded(s)) {
+        dp.download(s);
+        added++;
+      }
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(added > 0 ? '已加入下载队列 $added 首' : '所选歌曲已全部下载'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   Future<void> _removeSong(Song song, int playlistId) async {
@@ -146,9 +166,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               actions: Row(
                 children: [
                   PlayAllButton(
-                    onPressed: () => context
-                        .read<PlayerProvider>()
-                        .playSong(
+                    onPressed: () => context.read<PlayerProvider>().playSong(
                           detail.songs.first,
                           playlist: detail.songs,
                         ),
@@ -166,7 +184,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     onPressed: () => Navigator.pushNamed(
                       context,
                       AppRoutes.comments,
-                      arguments: {'type': 'playlist', 'id': pl.id},
+                      arguments: {
+                        'type': 'playlist',
+                        'id': pl.id,
+                        'gcId': pl.globalCollectionId,
+                      },
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -193,16 +215,14 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                             final song = detail.songs[index];
 
                             if (_isSelecting) {
-                              final selected =
-                                  _selectedIndices.contains(index);
+                              final selected = _selectedIndices.contains(index);
                               return M3StaggeredFadeIn(
                                 index: index,
                                 child: M3PressScale(
                                   child: ListTile(
                                     leading: Checkbox(
                                       value: selected,
-                                      onChanged: (_) =>
-                                          _toggleSelection(index),
+                                      onChanged: (_) => _toggleSelection(index),
                                     ),
                                     title: Text(song.name,
                                         maxLines: 1,
@@ -210,8 +230,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                     subtitle: Text(song.artistDisplay,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis),
-                                    onTap: () =>
-                                        _toggleSelection(index),
+                                    onTap: () => _toggleSelection(index),
                                   ),
                                 ),
                               );
@@ -226,8 +245,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                   _removeSong(song, detail.playlist.id),
                               deleteLabel: '从歌单移除',
                             );
-                            return M3StaggeredFadeIn(
-                                index: index, child: tile);
+                            return M3StaggeredFadeIn(index: index, child: tile);
                           },
                           childCount: detail.songs.length,
                         ),
@@ -261,7 +279,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         tooltip: '评论',
                         onPressed: () => Navigator.pushNamed(
                             context, AppRoutes.comments,
-                            arguments: {'type': 'playlist', 'id': pl.id}),
+                            arguments: {
+                              'type': 'playlist',
+                              'id': pl.id,
+                              'gcId': pl.globalCollectionId,
+                            }),
                       ),
                   ],
                   flexibleSpace: FlexibleSpaceBar(
@@ -328,7 +350,16 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                 style: tt.bodySmall
                                     ?.copyWith(color: cs.onSurfaceVariant)),
                             const Spacer(),
-                            if (!_isSelecting)
+                            if (!_isSelecting) ...[
+                              M3PressScale(
+                                child: FilledButton.tonalIcon(
+                                  onPressed: () =>
+                                      _downloadAll(context, detail.songs),
+                                  icon: const Icon(Icons.download, size: 18),
+                                  label: const Text('全部下载'),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               M3PressScale(
                                 child: FilledButton.tonalIcon(
                                   onPressed: () {
@@ -340,6 +371,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                   label: const Text('播放全部'),
                                 ),
                               ),
+                            ],
                           ],
                         ),
                         if (hasDesc) ...[

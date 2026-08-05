@@ -66,8 +66,7 @@ class _PlaylistCoverCardState extends State<PlaylistCoverCard> {
                                 Icons.playlist_play,
                                 color: cs.onSurfaceVariant),
                           )
-                        : Icon(Icons.playlist_play,
-                            color: cs.onSurfaceVariant),
+                        : Icon(Icons.playlist_play, color: cs.onSurfaceVariant),
                   ),
                   // hover 变暗遮罩
                   AnimatedOpacity(

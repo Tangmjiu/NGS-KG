@@ -139,7 +139,8 @@ class M3ExpressiveMiniPlayer extends StatefulWidget {
                     scale: animation,
                     child: RotationTransition(
                       // 从播放到暂停时微微自旋 90 度，营造物理旋转感
-                      turns: Tween<double>(begin: -0.25, end: 0.0).animate(animation),
+                      turns: Tween<double>(begin: -0.25, end: 0.0)
+                          .animate(animation),
                       child: FadeTransition(opacity: animation, child: child),
                     ),
                   );
@@ -210,7 +211,8 @@ class _M3ExpressiveMiniPlayerState extends State<M3ExpressiveMiniPlayer>
         }
 
         final swipeThreshold = 75.0;
-        final dragPercent = (_dragOffset.abs() / swipeThreshold).clamp(0.0, 1.0);
+        final dragPercent =
+            (_dragOffset.abs() / swipeThreshold).clamp(0.0, 1.0);
 
         return Material(
           color: Colors.transparent,
@@ -226,15 +228,18 @@ class _M3ExpressiveMiniPlayerState extends State<M3ExpressiveMiniPlayer>
                     child: Opacity(
                       opacity: dragPercent,
                       child: _buildSwipeIndicator(
-                          cs, Icons.skip_previous_rounded, '上一首', Alignment.centerLeft),
+                          cs,
+                          Icons.skip_previous_rounded,
+                          '上一首',
+                          Alignment.centerLeft),
                     ),
                   ),
                 if (_dragOffset < 0)
                   Positioned.fill(
                     child: Opacity(
                       opacity: dragPercent,
-                      child: _buildSwipeIndicator(
-                          cs, Icons.skip_next_rounded, '下一首', Alignment.centerRight),
+                      child: _buildSwipeIndicator(cs, Icons.skip_next_rounded,
+                          '下一首', Alignment.centerRight),
                     ),
                   ),
 
@@ -247,7 +252,7 @@ class _M3ExpressiveMiniPlayerState extends State<M3ExpressiveMiniPlayer>
                     setState(() {
                       // 带有阻尼感的拖拽位移
                       _dragOffset += details.delta.dx * 0.75;
-                      
+
                       // 刚超过阈值时触发一次短触感振动
                       if (_dragOffset.abs() >= swipeThreshold) {
                         if (!_hasVibrated) {
@@ -294,11 +299,13 @@ class _M3ExpressiveMiniPlayerState extends State<M3ExpressiveMiniPlayer>
                           child: ClipRRect(
                             borderRadius: AppShape.full,
                             child: BackdropFilter(
-                              filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                              filter:
+                                  ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                               child: Container(
                                 height: 64.0,
                                 decoration: BoxDecoration(
-                                  color: cs.surfaceContainer.withValues(alpha: 0.76),
+                                  color: cs.surfaceContainer
+                                      .withValues(alpha: 0.76),
                                   borderRadius: AppShape.full,
                                   border: Border.all(
                                     color: cs.primary.withValues(alpha: 0.14),
@@ -312,16 +319,20 @@ class _M3ExpressiveMiniPlayerState extends State<M3ExpressiveMiniPlayer>
 
                                     // 主交互排版区
                                     Padding(
-                                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                                      padding:
+                                          const EdgeInsets.fromLTRB(8, 8, 8, 8),
                                       child: Opacity(
                                         // 滑动时内容微微渐隐
-                                        opacity: (1.0 - (dragPercent * 0.45)).clamp(0.55, 1.0),
+                                        opacity: (1.0 - (dragPercent * 0.45))
+                                            .clamp(0.55, 1.0),
                                         child: Row(
                                           children: [
                                             // 专辑封面（含安全过渡与 Hero 动效）
                                             Hero(
-                                              tag: 'album_art_${song.hash ?? song.id}',
-                                              flightShuttleBuilder: _safeFlightShuttle,
+                                              tag:
+                                                  'album_art_${song.hash ?? song.id}',
+                                              flightShuttleBuilder:
+                                                  _safeFlightShuttle,
                                               child: _MiniCoverArt(song: song),
                                             ),
                                             const SizedBox(width: 10),
@@ -332,7 +343,8 @@ class _M3ExpressiveMiniPlayerState extends State<M3ExpressiveMiniPlayer>
                                                 fit: BoxFit.scaleDown,
                                                 alignment: Alignment.centerLeft,
                                                 child: Column(
-                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
                                                   crossAxisAlignment:
                                                       CrossAxisAlignment.start,
                                                   mainAxisAlignment:
@@ -341,9 +353,12 @@ class _M3ExpressiveMiniPlayerState extends State<M3ExpressiveMiniPlayer>
                                                     Text(
                                                       song.name,
                                                       maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                      style: tt.bodyMedium?.copyWith(
-                                                        fontWeight: FontWeight.w600,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: tt.bodyMedium
+                                                          ?.copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w600,
                                                         color: cs.onSurface,
                                                         letterSpacing: -0.2,
                                                         height: 1.2,
@@ -353,9 +368,12 @@ class _M3ExpressiveMiniPlayerState extends State<M3ExpressiveMiniPlayer>
                                                     Text(
                                                       song.artistDisplay,
                                                       maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                      style: tt.labelSmall?.copyWith(
-                                                        color: cs.onSurfaceVariant,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: tt.labelSmall
+                                                          ?.copyWith(
+                                                        color:
+                                                            cs.onSurfaceVariant,
                                                         height: 1.15,
                                                       ),
                                                     ),
@@ -384,8 +402,9 @@ class _M3ExpressiveMiniPlayerState extends State<M3ExpressiveMiniPlayer>
                                               icon: Icons.skip_next_rounded,
                                               tooltip: '下一首',
                                               cs: cs,
-                                              onTap: () =>
-                                                  context.read<PlayerProvider>().playNext(),
+                                              onTap: () => context
+                                                  .read<PlayerProvider>()
+                                                  .playNext(),
                                             ),
                                           ],
                                         ),
@@ -494,8 +513,6 @@ class _M3ExpressiveMiniPlayerState extends State<M3ExpressiveMiniPlayer>
     );
   }
 
-
-
   /// 基础控制按钮
   Widget _buildControlButton({
     required IconData icon,
@@ -514,8 +531,6 @@ class _M3ExpressiveMiniPlayerState extends State<M3ExpressiveMiniPlayer>
       ),
     );
   }
-
-
 
   void _openPlayerScreen(BuildContext context) {
     final player = context.read<PlayerProvider>();

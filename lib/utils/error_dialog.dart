@@ -93,7 +93,7 @@ void showErrorDialog({
                 child: SelectableText(
                   detail,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
+                        fontFamily: 'HarmonyOS Sans',
                       ),
                 ),
               ),

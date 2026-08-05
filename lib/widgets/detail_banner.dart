@@ -198,7 +198,8 @@ class DetailMoreButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final IconData icon;
 
-  const DetailMoreButton({super.key, this.onPressed, this.icon = Icons.more_horiz_rounded});
+  const DetailMoreButton(
+      {super.key, this.onPressed, this.icon = Icons.more_horiz_rounded});
 
   @override
   Widget build(BuildContext context) {

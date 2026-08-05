@@ -13,6 +13,7 @@ import '../routes/app_routes.dart';
 import '../utils/logger.dart';
 import '../utils/responsive.dart';
 import '../widgets/list_bottom_spacer.dart';
+import '../widgets/local_scan_panel.dart';
 
 class LocalMusicScreen extends StatefulWidget {
   const LocalMusicScreen({super.key});
@@ -169,7 +170,14 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
     return Consumer<LocalMusicProvider>(
       builder: (context, prov, _) {
         if (prov.isScanning && prov.songs.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
+          return const Column(
+            children: [
+              LocalScanPanel(),
+              Expanded(
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ],
+          );
         }
 
         if (prov.songs.isEmpty && !prov.isScanning) {
@@ -213,6 +221,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
 
         return Column(
           children: [
+            const LocalScanPanel(showSummary: true),
             _buildToolbar(prov),
             _buildInnerTabBar(),
             Expanded(

@@ -38,7 +38,8 @@ class PlayerControlsBar extends StatelessWidget {
         // -- Previous --
         M3PressScale(
           child: IconButton(
-            icon: const Icon(Icons.skip_previous_rounded, size: 38, color: Colors.white),
+            icon: const Icon(Icons.skip_previous_rounded,
+                size: 38, color: Colors.white),
             onPressed: () {
               HapticFeedback.lightImpact();
               onPrevious();
@@ -80,7 +81,8 @@ class PlayerControlsBar extends StatelessWidget {
                   return ScaleTransition(
                     scale: animation,
                     child: RotationTransition(
-                      turns: Tween<double>(begin: -0.25, end: 0.0).animate(animation),
+                      turns: Tween<double>(begin: -0.25, end: 0.0)
+                          .animate(animation),
                       child: FadeTransition(opacity: animation, child: child),
                     ),
                   );
@@ -96,7 +98,8 @@ class PlayerControlsBar extends StatelessWidget {
         // -- Next --
         M3PressScale(
           child: IconButton(
-            icon: const Icon(Icons.skip_next_rounded, size: 38, color: Colors.white),
+            icon: const Icon(Icons.skip_next_rounded,
+                size: 38, color: Colors.white),
             onPressed: () {
               HapticFeedback.lightImpact();
               onNext();
@@ -120,7 +123,8 @@ class PlayerControlsBar extends StatelessWidget {
       children: [
         M3PressScale(
           child: IconButton(
-            icon: Icon(Icons.skip_previous_rounded, size: 32, color: cs.onSurface),
+            icon: Icon(Icons.skip_previous_rounded,
+                size: 32, color: cs.onSurface),
             onPressed: () {
               HapticFeedback.lightImpact();
               onPrevious();
@@ -158,7 +162,8 @@ class PlayerControlsBar extends StatelessWidget {
                   return ScaleTransition(
                     scale: animation,
                     child: RotationTransition(
-                      turns: Tween<double>(begin: -0.25, end: 0.0).animate(animation),
+                      turns: Tween<double>(begin: -0.25, end: 0.0)
+                          .animate(animation),
                       child: FadeTransition(opacity: animation, child: child),
                     ),
                   );

@@ -16,6 +16,8 @@ import '../providers/player_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/liked_songs_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/download_provider.dart';
+import '../providers/audio_settings_provider.dart';
 import '../constants/quality.dart';
 import '../utils/palette_extractor.dart';
 import '../widgets/player_background.dart';
@@ -89,19 +91,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
             (player.sleepTimerRemaining!.inMinutes - duration.inMinutes).abs() <
                 2);
     final isDesktop = Responsive.isDesktopLayout(ctx);
+    final darkCs = playerSchemeOf(ctx);
 
     return ListTile(
       title: Text(
         label,
         style: TextStyle(
-          color: isDesktop ? Theme.of(ctx).colorScheme.onSurface : Colors.white,
+          color: isDesktop
+              ? Theme.of(ctx).colorScheme.onSurface
+              : darkCs.onSurface,
         ),
       ),
       trailing: isSelected
           ? Icon(Icons.check,
               color: isDesktop
                   ? Theme.of(ctx).colorScheme.primary
-                  : Colors.blueAccent)
+                  : darkCs.primary)
           : null,
       onTap: () {
         Navigator.pop(ctx);
@@ -116,6 +121,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   void _showSleepTimerSheet() {
     final isDesktop = Responsive.isDesktopLayout(context);
+    final darkCs = playerSchemeOf(context);
     final content = _buildSleepTimerContent();
     if (isDesktop) {
       showM3Dialog(
@@ -134,7 +140,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     } else {
       showM3ModalBottomSheet(
         context: context,
-        backgroundColor: Colors.grey[900],
+        backgroundColor: darkCs.surfaceContainerHigh,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
@@ -145,6 +151,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Widget _buildSleepTimerContent() {
     final isDesktop = Responsive.isDesktopLayout(context);
+    final darkCs = playerSchemeOf(context);
     final player = context.read<PlayerProvider>();
     return SafeArea(
       child: Padding(
@@ -154,9 +161,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (!isDesktop)
-                const Text('定时关闭',
+                Text('定时关闭',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: darkCs.onSurface,
                         fontSize: 16,
                         fontWeight: FontWeight.w600)),
               if (!isDesktop) const SizedBox(height: 16),
@@ -216,6 +223,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             .toList();
 
     final isDesktop = Responsive.isDesktopLayout(context);
+    final darkCs = playerSchemeOf(context);
     final content = Builder(
       builder: (ctx) {
         final cs = Theme.of(ctx).colorScheme;
@@ -227,9 +235,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (!isDesktop)
-                    const Text('选择歌手',
+                    Text('选择歌手',
                         style: TextStyle(
-                            color: Colors.white,
+                            color: darkCs.onSurface,
                             fontSize: 16,
                             fontWeight: FontWeight.w600)),
                   if (!isDesktop) const SizedBox(height: 12),
@@ -239,15 +247,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     final hasDetailId = artistId != null && artistId > 0;
                     return ListTile(
                       leading: Icon(Icons.person,
-                          color:
-                              isDesktop ? cs.onSurfaceVariant : Colors.white70,
+                          color: isDesktop
+                              ? cs.onSurfaceVariant
+                              : darkCs.onSurfaceVariant,
                           size: 20),
                       title: Text(artistName,
                           style: TextStyle(
-                              color: isDesktop ? cs.onSurface : Colors.white)),
+                              color:
+                                  isDesktop ? cs.onSurface : darkCs.onSurface)),
                       trailing: Icon(Icons.chevron_right,
-                          color:
-                              isDesktop ? cs.onSurfaceVariant : Colors.white38,
+                          color: isDesktop
+                              ? cs.onSurfaceVariant
+                              : darkCs.onSurfaceVariant.withValues(alpha: 0.6),
                           size: 20),
                       onTap: () {
                         Navigator.pop(ctx);
@@ -290,7 +301,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     } else {
       showM3ModalBottomSheet(
         context: context,
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: darkCs.surfaceContainerHigh,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
@@ -302,6 +313,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _showMoreSheet() {
     const spds = [1.0, 0.5, 0.75, 1.25, 1.5, 2.0];
     final isDesktop = Responsive.isDesktopLayout(context);
+    final darkCs = playerSchemeOf(context);
     final content = Consumer<PlayerProvider>(
       builder: (context, p, _) {
         final cs = Theme.of(context).colorScheme;
@@ -327,19 +339,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
             ? displayArtistsList.join(' / ')
             : (song?.artistDisplay ?? '');
 
-        final Color textColor = isDesktop ? cs.onSurface : Colors.white;
+        final Color textColor = isDesktop ? cs.onSurface : darkCs.onSurface;
         final Color secondaryColor =
-            isDesktop ? cs.onSurfaceVariant : Colors.white70;
-        final Color hintColor =
-            isDesktop ? cs.onSurfaceVariant : Colors.white38;
-        final Color chipBg =
-            (isDesktop ? cs.onSurface : Colors.white).withValues(alpha: 0.1);
+            isDesktop ? cs.onSurfaceVariant : darkCs.onSurfaceVariant;
+        final Color hintColor = isDesktop
+            ? cs.onSurfaceVariant
+            : darkCs.onSurfaceVariant.withValues(alpha: 0.6);
+        final Color chipBg = (isDesktop ? cs.onSurface : darkCs.onSurface)
+            .withValues(alpha: 0.1);
         final Color chipBorderSelected =
-            (isDesktop ? cs.onSurface : Colors.white).withValues(alpha: 0.3);
+            (isDesktop ? cs.onSurface : darkCs.onSurface)
+                .withValues(alpha: 0.3);
         final Color chipBorderNormal =
-            (isDesktop ? cs.onSurface : Colors.white).withValues(alpha: 0.1);
+            (isDesktop ? cs.onSurface : darkCs.onSurface)
+                .withValues(alpha: 0.1);
         final Color chipBgSelected =
-            (isDesktop ? cs.onSurface : Colors.white).withValues(alpha: 0.15);
+            (isDesktop ? cs.onSurface : darkCs.onSurface)
+                .withValues(alpha: 0.15);
 
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -433,8 +449,36 @@ class _PlayerScreenState extends State<PlayerScreen> {
             Divider(
                 color: isDesktop
                     ? cs.outlineVariant.withValues(alpha: 0.3)
-                    : Colors.white12,
+                    : darkCs.outlineVariant.withValues(alpha: 0.3),
                 height: 16),
+            // 下载
+            if (song != null && !song.isLocal)
+              Consumer<DownloadProvider>(
+                builder: (context, dp, _) {
+                  final downloaded = dp.isDownloaded(song);
+                  return ListTile(
+                    leading: Icon(
+                      downloaded ? Icons.check_circle_outline : Icons.download,
+                      color: downloaded ? cs.primary : secondaryColor,
+                      size: 20,
+                    ),
+                    title: Text(downloaded ? '已下载（点击删除）' : '下载',
+                        style: TextStyle(color: textColor)),
+                    subtitle: const Text('包含元数据与 KRC 歌词'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      if (downloaded) {
+                        dp.removeDownload(song);
+                      } else {
+                        final dlQuality = context
+                            .read<AudioSettingsProvider>()
+                            .downloadQuality;
+                        dp.download(song, quality: dlQuality);
+                      }
+                    },
+                  );
+                },
+              ),
             // 查看专辑
             if (hasAlbum)
               ListTile(
@@ -499,7 +543,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               Divider(
                   color: isDesktop
                       ? cs.outlineVariant.withValues(alpha: 0.3)
-                      : Colors.white12,
+                      : darkCs.outlineVariant.withValues(alpha: 0.3),
                   height: 1),
             // 定时关闭
             ListTile(
@@ -515,7 +559,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             Divider(
                 color: isDesktop
                     ? cs.outlineVariant.withValues(alpha: 0.3)
-                    : Colors.white12,
+                    : darkCs.outlineVariant.withValues(alpha: 0.3),
                 height: 1),
             // 编码音质
             ListTile(
@@ -541,7 +585,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             Divider(
                 color: isDesktop
                     ? cs.outlineVariant.withValues(alpha: 0.3)
-                    : Colors.white12,
+                    : darkCs.outlineVariant.withValues(alpha: 0.3),
                 height: 1),
             // 音效
             ListTile(
@@ -587,7 +631,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     } else {
       showM3ModalBottomSheet(
         context: context,
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: darkCs.surfaceContainerHigh,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
@@ -603,17 +647,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   void _showEffectSheet() {
     final isDesktop = Responsive.isDesktopLayout(context);
+    final darkCs = playerSchemeOf(context);
     final content = Builder(
       builder: (ctx) {
         final p = context.read<PlayerProvider>();
         final cs = Theme.of(ctx).colorScheme;
         final currentEffect = p.effectKey;
-        final textColor = isDesktop ? cs.onSurface : Colors.white;
-        final secondaryColor = isDesktop ? cs.onSurfaceVariant : Colors.white70;
-        final hintColor = isDesktop ? cs.onSurfaceVariant : Colors.white38;
+        final textColor = isDesktop ? cs.onSurface : darkCs.onSurface;
+        final secondaryColor =
+            isDesktop ? cs.onSurfaceVariant : darkCs.onSurfaceVariant;
+        final hintColor = isDesktop
+            ? cs.onSurfaceVariant
+            : darkCs.onSurfaceVariant.withValues(alpha: 0.6);
         final disabledColor = isDesktop
             ? cs.onSurfaceVariant.withValues(alpha: 0.3)
-            : Colors.white24;
+            : darkCs.onSurfaceVariant.withValues(alpha: 0.4);
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -622,9 +670,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (!isDesktop)
-                    const Text('音效',
+                    Text('音效',
                         style: TextStyle(
-                            color: Colors.white,
+                            color: darkCs.onSurface,
                             fontSize: 16,
                             fontWeight: FontWeight.w600)),
                   if (!isDesktop) const SizedBox(height: 12),
@@ -635,7 +683,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           ? Icons.radio_button_checked
                           : Icons.radio_button_unchecked,
                       color: currentEffect == 'none'
-                          ? (isDesktop ? cs.primary : Colors.white)
+                          ? (isDesktop ? cs.primary : darkCs.primary)
                           : hintColor,
                       size: 20,
                     ),
@@ -660,7 +708,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             ? Icons.radio_button_checked
                             : Icons.radio_button_unchecked,
                         color: isSelected
-                            ? (isDesktop ? cs.primary : Colors.white)
+                            ? (isDesktop ? cs.primary : darkCs.primary)
                             : (isAvailable ? hintColor : disabledColor),
                         size: 20,
                       ),
@@ -716,7 +764,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     } else {
       showM3ModalBottomSheet(
         context: context,
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: darkCs.surfaceContainerHigh,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
@@ -731,17 +779,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
         Quality.levels[player.qualityLevel % Quality.levels.length];
     final availableQualities = player.getAvailableQualities();
     final isDesktop = Responsive.isDesktopLayout(context);
+    final darkCs = playerSchemeOf(context);
 
     final content = Builder(
       builder: (ctx) {
         final p = context.read<PlayerProvider>();
         final cs = Theme.of(ctx).colorScheme;
-        final textColor = isDesktop ? cs.onSurface : Colors.white;
-        final secondaryColor = isDesktop ? cs.onSurfaceVariant : Colors.white70;
-        final hintColor = isDesktop ? cs.onSurfaceVariant : Colors.white38;
+        final textColor = isDesktop ? cs.onSurface : darkCs.onSurface;
+        final secondaryColor =
+            isDesktop ? cs.onSurfaceVariant : darkCs.onSurfaceVariant;
+        final hintColor = isDesktop
+            ? cs.onSurfaceVariant
+            : darkCs.onSurfaceVariant.withValues(alpha: 0.6);
         final disabledColor = isDesktop
             ? cs.onSurfaceVariant.withValues(alpha: 0.3)
-            : Colors.white24;
+            : darkCs.onSurfaceVariant.withValues(alpha: 0.4);
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -750,9 +802,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (!isDesktop)
-                    const Text('音质选择',
+                    Text('音质选择',
                         style: TextStyle(
-                            color: Colors.white,
+                            color: darkCs.onSurface,
                             fontSize: 16,
                             fontWeight: FontWeight.w600)),
                   if (!isDesktop) const SizedBox(height: 12),
@@ -766,7 +818,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             ? Icons.radio_button_checked
                             : Icons.radio_button_unchecked,
                         color: isSelected
-                            ? (isDesktop ? cs.primary : Colors.white)
+                            ? (isDesktop ? cs.primary : darkCs.primary)
                             : (isAvailable ? hintColor : disabledColor),
                         size: 20,
                       ),
@@ -803,7 +855,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 4, vertical: 1),
                               decoration: BoxDecoration(
-                                color: (isDesktop ? cs.onSurface : Colors.white)
+                                color: (isDesktop
+                                        ? cs.onSurface
+                                        : darkCs.onSurface)
                                     .withValues(alpha: 0.1),
                                 borderRadius: AppShape.xs,
                               ),
@@ -863,7 +917,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     } else {
       showM3ModalBottomSheet(
         context: context,
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: darkCs.surfaceContainerHigh,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),

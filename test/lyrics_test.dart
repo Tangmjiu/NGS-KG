@@ -56,8 +56,7 @@ void main() {
     });
 
     test('skips metadata lines', () {
-      final raw =
-          '[ti:Title]\n[ar:Artist]\n[00:01.00]Lyric\n';
+      final raw = '[ti:Title]\n[ar:Artist]\n[00:01.00]Lyric\n';
       final lines = parseLyrics(raw);
       expect(lines.length, 1);
       expect(lines[0].text, 'Lyric');

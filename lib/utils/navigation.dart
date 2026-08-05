@@ -95,7 +95,8 @@ class AppRouteObserver extends NavigatorObserver {
     }
     if (_forwardStack.isEmpty) return;
     final route = _forwardStack.removeLast();
-    navKey.currentState?.pushNamed(route.settings.name!, arguments: route.settings.arguments);
+    navKey.currentState
+        ?.pushNamed(route.settings.name!, arguments: route.settings.arguments);
   }
 
   /// 切换侧边栏顶层栏目时，清空 forward 栈，避免跨层级前进。

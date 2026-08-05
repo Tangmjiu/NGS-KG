@@ -43,13 +43,35 @@ class Comment {
 
   factory Comment.fromJson(Map<String, dynamic> json) {
     final user = json['user'] as Map<String, dynamic>?;
+    final like = json['like'] as Map<String, dynamic>?;
+    // 酷狗评论返回下划线字段（user_name/user_pic/like_count/addtime/
+    // comment_id/like.count），需兼容驼峰与嵌套结构。
+    String? str(dynamic v) => v?.toString();
+    int cnt(dynamic v) {
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      return int.tryParse(v?.toString() ?? '') ?? 0;
+    }
+
+    final idRaw = json['comment_id'] ?? json['id'] ?? 0;
     return Comment(
-      id: json['id'] as int? ?? 0,
-      content: json['content'] as String? ?? '',
-      userName: user?['nickname'] as String? ?? user?['name'] as String?,
-      userAvatar: user?['avatarUrl'] as String?,
-      likedCount: json['likedCount'] as int? ?? 0,
-      time: json['time'] as String?,
+      id: cnt(idRaw),
+      content: str(json['content']) ?? '',
+      userName: str(json['user_name'] ??
+          json['nickname'] ??
+          user?['name'] ??
+          user?['nickname']),
+      userAvatar: str(json['user_pic'] ??
+          json['user_img'] ??
+          json['avatar'] ??
+          user?['avatar'] ??
+          user?['pic']),
+      likedCount: cnt(like?['count'] ??
+          json['like_count'] ??
+          json['likedCount'] ??
+          json['like_num'] ??
+          json['count']),
+      time: str(json['addtime'] ?? json['add_time'] ?? json['time']),
     );
   }
 }
