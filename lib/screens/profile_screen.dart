@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import '../utils/app_icons.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';
+import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/user.dart';
 import '../models/playlist.dart';
-import '../models/song.dart';
 import '../models/vip_info.dart';
 import '../providers/auth_provider.dart';
 import '../providers/playlist_provider.dart';
@@ -15,7 +16,6 @@ import '../widgets/playlist_card.dart';
 import '../widgets/create_playlist_dialog.dart';
 import '../widgets/list_bottom_spacer.dart';
 import '../theme/theme_assets.dart';
-import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
 import '../providers/local_music_provider.dart';
 
@@ -139,7 +139,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 CircleAvatar(
                   radius: 32,
                   backgroundColor: cs.surfaceContainerHighest,
-                  child: Icon(Icons.person_outline_rounded, size: 32, color: cs.onSurfaceVariant),
+                  child: AppIcon(AppIcons.person, size: 32, color: cs.onSurfaceVariant),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -158,7 +158,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
+                AppIcon(Symbols.chevron_right_rounded, color: cs.onSurfaceVariant),
               ],
             ),
           ),
@@ -187,7 +187,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ? CachedNetworkImageProvider(user.avatarUrl!)
                     : null,
                 child: user.avatarUrl == null
-                    ? const Icon(Icons.person, size: 32)
+                    ? const AppIcon(AppIcons.person, size: 32)
                     : null,
               ),
             ),
@@ -258,13 +258,13 @@ class _ProfileScreenState extends State<ProfileScreen>
       childAspectRatio: 1.55,
       children: [
         _buildGridItem(
-          icon: Icons.audiotrack_rounded,
+          icon: Symbols.audiotrack_rounded,
           title: '本地音乐',
           value: localCount > 0 ? '$localCount' : '',
           onTap: () => Navigator.pushNamed(context, '/local/music'),
         ),
         _buildGridItem(
-          icon: Icons.favorite_rounded,
+          icon: AppIcons.favorite,
           title: '我的收藏',
           value: auth.isLoggedIn && likedCount > 0 ? '$likedCount' : '',
           onTap: () {
@@ -280,13 +280,13 @@ class _ProfileScreenState extends State<ProfileScreen>
           isLocked: !auth.isLoggedIn,
         ),
         _buildGridItem(
-          icon: Icons.history_rounded,
+          icon: AppIcons.history,
           title: '听歌历史',
           value: '',
           onTap: () => Navigator.pushNamed(context, '/history'),
         ),
         _buildGridItem(
-          icon: Icons.cloud_rounded,
+          icon: Symbols.cloud_rounded,
           title: '云盘',
           value: '',
           onTap: () {
@@ -299,13 +299,13 @@ class _ProfileScreenState extends State<ProfileScreen>
           isLocked: !auth.isLoggedIn,
         ),
         _buildGridItem(
-          icon: Icons.message_rounded,
+          icon: Symbols.message_rounded,
           title: '消息',
           value: '',
           onTap: () => Navigator.pushNamed(context, '/messages'),
         ),
         _buildGridItem(
-          icon: Icons.settings_rounded,
+          icon: AppIcons.settings,
           title: '设置',
           value: '',
           onTap: () => Navigator.pushNamed(context, '/settings'),
@@ -342,13 +342,13 @@ class _ProfileScreenState extends State<ProfileScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(
+                    AppIcon(
                       icon,
                       color: isLocked ? cs.onSurfaceVariant.withValues(alpha: 0.4) : cs.primary,
                       size: 24,
                     ),
                     if (isLocked)
-                      Icon(Icons.lock_outline_rounded, color: cs.onSurfaceVariant.withValues(alpha: 0.4), size: 18)
+                      AppIcon(Symbols.lock_rounded, color: cs.onSurfaceVariant.withValues(alpha: 0.4), size: 18)
                     else if (value.isNotEmpty)
                       Text(
                         value,
@@ -390,7 +390,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
 
     if (playlistProv.userPlaylists.isEmpty) {
-      return emptyStateWidget(ThemeAssets.emptyPlaylist, Icons.playlist_play, '暂无歌单');
+      return emptyStateWidget(ThemeAssets.emptyPlaylist, AppIcons.playlistPlay, '暂无歌单');
     }
 
     final userId = auth.user?.userId;
@@ -423,7 +423,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             children: [
               Text('我的歌单', style: Theme.of(context).textTheme.titleLarge),
               TextButton.icon(
-                icon: const Icon(Icons.add, size: 18),
+                icon: const AppIcon(AppIcons.add, size: 18),
                 label: const Text('新建'),
                 onPressed: () => showM3Dialog(
                     context: context,
@@ -479,7 +479,7 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : songs.isEmpty
-              ? emptyStateWidget(ThemeAssets.emptyPlaylist, Icons.favorite, '暂无收藏')
+              ? emptyStateWidget(ThemeAssets.emptyPlaylist, AppIcons.favorite, '暂无收藏')
               : ListView.builder(
                   itemCount: songs.length + 1,
                   itemBuilder: (_, i) {

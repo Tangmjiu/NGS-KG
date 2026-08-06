@@ -108,6 +108,10 @@ abstract final class AppIcons {
   static const IconData lyrics = Symbols.lyrics_rounded;
   static const IconData tune = Symbols.tune_rounded;
   static const IconData moreHoriz = Symbols.more_horiz_rounded;
+  static const IconData album = Symbols.album_rounded;
+  static const IconData dragHandle = Symbols.drag_handle_rounded;
+  static const IconData delete = Symbols.delete_rounded;
+  static const IconData add = Symbols.add_rounded;
 
   // ── 导航/通用 ──
   static const IconData home = Symbols.home_rounded;
@@ -118,4 +122,17 @@ abstract final class AppIcons {
   static const IconData chevronRight = Symbols.chevron_right_rounded;
   static const IconData close = Symbols.close_rounded;
   static const IconData arrowBack = Symbols.arrow_back_rounded;
+
+  // ── 设置/工具 ──
+  static const IconData terminal = Symbols.terminal_rounded;
+  static const IconData storefront = Symbols.storefront_rounded;
+  static const IconData speed = Symbols.speed_rounded;
+  static const IconData palette = Symbols.palette_rounded;
+  static const IconData logout = Symbols.logout_rounded;
+  static const IconData login = Symbols.login_rounded;
+  static const IconData info = Symbols.info_rounded;
+  static const IconData history = Symbols.history_rounded;
+  static const IconData dns = Symbols.dns_rounded;
+  static const IconData cleaningServices = Symbols.cleaning_services_rounded;
+  static const IconData blurOn = Symbols.blur_on_rounded;
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../utils/app_icons.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -199,8 +200,8 @@ class _SearchScreenState extends State<SearchScreen>
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              Icon(
-                Icons.search,
+              AppIcon(
+                AppIcons.search,
                 size: 20,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -243,8 +244,8 @@ class _SearchScreenState extends State<SearchScreen>
                     },
                     child: Padding(
                       padding: const EdgeInsets.all(6),
-                      child: Icon(
-                        Icons.clear,
+                      child: AppIcon(
+                        AppIcons.close,
                         size: 18,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -324,7 +325,7 @@ class _SearchScreenState extends State<SearchScreen>
           index: i,
           child: M3PressScale(
             child: ListTile(
-              leading: const Icon(Icons.search, size: 20),
+              leading: const AppIcon(AppIcons.search, size: 20),
               title: Text(_suggestions[i]),
               onTap: () {
                 _searchCtrl.text = _suggestions[i];
@@ -383,13 +384,13 @@ class _SearchScreenState extends State<SearchScreen>
                                     errorWidget: (_, __, ___) => Container(
                                       width: 72, height: 72,
                                       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                      child: const Icon(Icons.music_note),
+                                      child: const AppIcon(AppIcons.musicNote),
                                     ),
                                   )
                                 : Container(
                                     width: 72, height: 72,
                                     color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                    child: const Icon(Icons.music_note),
+                                    child: const AppIcon(AppIcons.musicNote),
                                   ),
                           ),
                           const SizedBox(height: 4),
@@ -518,7 +519,7 @@ class _SearchScreenState extends State<SearchScreen>
                   : Container(
                       width: 48, height: 48,
                       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: const Icon(Icons.queue_music),
+                      child: const AppIcon(AppIcons.queueMusic),
                     ),
               title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text('$count首歌'),
@@ -575,7 +576,7 @@ class _SearchScreenState extends State<SearchScreen>
                   : Container(
                       width: 48, height: 48,
                       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: const Icon(Icons.album),
+                      child: const AppIcon(AppIcons.album),
                     ),
               title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -622,7 +623,7 @@ class _SearchScreenState extends State<SearchScreen>
                         color: Theme.of(context).colorScheme.surfaceContainerHighest,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.person),
+                      child: const AppIcon(AppIcons.person),
                     ),
               title: Text(name),
               onTap: () {
@@ -659,7 +660,7 @@ class _SearchScreenState extends State<SearchScreen>
   // MV:             : Container(
   // MV:                 width: 48, height: 48,
   // MV:                 color: Theme.of(context).colorScheme.surfaceContainerHighest,
-  // MV:                 child: const Icon(Icons.video_library),
+  // MV:                 child: const AppIcon(Icons.video_library),
   // MV:               ),
   // MV:         title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
   // MV:         subtitle: Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),

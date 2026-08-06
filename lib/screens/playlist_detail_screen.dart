@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';
+import 'package:material_symbols_icons/material_symbols_icons.dart';
+import '../utils/app_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/playlist_provider.dart';
 import '../providers/player_provider.dart';
@@ -78,10 +80,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           }
           final detail = provider.currentPlaylist;
           if (detail == null) {
-            return emptyStateWidget(ThemeAssets.loadFailed, Icons.error_outline, '加载失败');
+            return emptyStateWidget(ThemeAssets.loadFailed, Symbols.error_outline_rounded, '加载失败');
           }
           if (detail.songs.isEmpty) {
-            return emptyStateWidget(ThemeAssets.emptyContent, Icons.music_note, '暂无歌曲');
+            return emptyStateWidget(ThemeAssets.emptyContent, AppIcons.musicNote, '暂无歌曲');
           }
 
           final pl = detail.playlist;
@@ -104,16 +106,16 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     : null,
                 actions: [
                   IconButton(
-                    icon: Icon(_isSelecting
-                        ? Icons.close
-                        : Icons.checklist),
+                    icon: AppIcon(_isSelecting
+                        ? AppIcons.close
+                        : Symbols.checklist_rounded),
                     tooltip:
                         _isSelecting ? '取消选择' : '多选',
                     onPressed: _toggleSelectMode,
                   ),
                   if (!_isSelecting)
                     IconButton(
-                      icon: const Icon(Icons.comment_outlined),
+                      icon: const AppIcon(Symbols.comment_rounded),
                       tooltip: '评论',
                       onPressed: () =>
                           Navigator.pushNamed(context, '/comments',
@@ -183,7 +185,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.queue_music,
+                          AppIcon(AppIcons.queueMusic,
                               size: 16, color: cs.onSurfaceVariant),
                           const SizedBox(width: 6),
                           Text('$songCount 首',
@@ -199,8 +201,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                       .playSong(detail.songs.first,
                                           playlist: detail.songs);
                                 },
-                                icon: const Icon(
-                                    Icons.play_arrow, size: 18),
+                                icon: const AppIcon(
+                                    AppIcons.play, size: 18),
                                 label: const Text('播放全部'),
                               ),
                             ),
@@ -317,7 +319,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         alignment: Alignment.centerRight,
                         padding: const EdgeInsets.only(right: 20),
                         color: cs.error,
-                        child: Icon(Icons.delete, color: cs.onError),
+                        child: AppIcon(AppIcons.delete, color: cs.onError),
                       ),
                       child: tile,
                     );
@@ -371,10 +373,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       child: Row(
         children: [
           TextButton.icon(
-            icon: Icon(
+            icon: AppIcon(
               _selectedIndices.length == total
-                  ? Icons.deselect
-                  : Icons.select_all,
+                  ? Symbols.deselect_rounded
+                  : Symbols.select_all_rounded,
               size: 18,
             ),
             label: Text(
@@ -383,7 +385,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.playlist_add),
+            icon: const AppIcon(Symbols.playlist_add_rounded),
             tooltip: '添加到歌单',
             onPressed: count == 0
                 ? null
@@ -391,7 +393,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           ),
           const SizedBox(width: 4),
           IconButton(
-            icon: Icon(Icons.delete_sweep, color: cs.error),
+            icon: AppIcon(Symbols.delete_sweep_rounded, color: cs.error),
             tooltip: '删除选中',
             onPressed: count == 0
                 ? null
@@ -441,7 +443,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 itemBuilder: (_, i) {
                   final pl = playlists[i];
                   return ListTile(
-                    leading: const Icon(Icons.playlist_play),
+                    leading: const AppIcon(AppIcons.playlistPlay),
                     title: Text(pl.name),
                     onTap: () async {
                       Navigator.pop(ctx);

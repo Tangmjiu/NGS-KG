@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import 'package:flutter/material.dart';
+import '../utils/app_icons.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -9,12 +10,10 @@ import '../utils/preview_config.dart';
 import '../providers/auth_provider.dart';
 import '../providers/audio_settings_provider.dart';
 import '../providers/theme_provider.dart';
-import '../services/music_service.dart';
 import '../services/api_client.dart';
 import '../services/api_config.dart';
 import '../services/cache_service.dart';
 import '../services/device_service.dart';
-import '../utils/logger.dart';
 import 'audio_quality_screen.dart';
 import '../widgets/support_me_dialog.dart';
 
@@ -57,7 +56,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: Text(auth.isLoggedIn
                   ? '当前: ${auth.user?.nickname ?? "未知"}'
                   : '未登录'),
-              trailing: Icon(auth.isLoggedIn ? Icons.logout : Icons.login),
+              trailing: Icon(auth.isLoggedIn ? AppIcons.logout : AppIcons.login),
               onTap: () {
                 if (auth.isLoggedIn) {
                   auth.logout();
@@ -72,7 +71,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           Consumer<AudioSettingsProvider>(
             builder: (_, settings, __) => SwitchListTile(
-              secondary: const Icon(Icons.history),
+              secondary: const Icon(AppIcons.history),
               title: const Text('提交听歌历史'),
               subtitle: const Text('关闭后不会向服务器上报播放记录'),
               value: settings.uploadHistory,
@@ -84,10 +83,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ── API 服务 ──
           const _SectionHeader('API 服务'),
           ListTile(
-            leading: const Icon(Icons.dns_outlined),
+            leading: const Icon(AppIcons.dns),
             title: const Text('API 服务器'),
             subtitle: const Text('选择服务器路线或自定义地址'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => Navigator.pushNamed(context, '/settings/api'),
           ),
           const Divider(),
@@ -95,22 +94,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ── 主题 ──
           const _SectionHeader('主题'),
           ListTile(
-            leading: const Icon(Icons.palette_outlined),
+            leading: const Icon(AppIcons.palette),
             title: const Text('主题设置'),
             subtitle: const Text('主题模式、强调色、动态取色'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => Navigator.pushNamed(context, '/settings/theme'),
           ),
           ListTile(
-            leading: const Icon(Icons.storefront_outlined),
+            leading: const Icon(AppIcons.storefront),
             title: const Text('主题市场'),
             subtitle: const Text('发现、下载、应用社区主题'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => Navigator.pushNamed(context, '/settings/theme/market'),
           ),
           Consumer<ThemeProvider>(
             builder: (_, tp, __) => SwitchListTile(
-              secondary: const Icon(Icons.blur_on),
+              secondary: const Icon(AppIcons.blurOn),
               title: const Text('动态流光'),
               subtitle: const Text('播放器背景根据专辑封面产生流动光效'),
               value: tp.flowLightEnabled,
@@ -122,24 +121,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ── 播放与音质 ──
           const _SectionHeader('播放与音质'),
           ListTile(
-            leading: const Icon(Icons.tune),
+            leading: const Icon(AppIcons.tune),
             title: const Text('音效'),
             subtitle: const Text('音量、播放速度、均衡器'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => Navigator.pushNamed(context, '/settings/audio/effects'),
           ),
           ListTile(
-            leading: const Icon(Icons.speed),
+            leading: const Icon(AppIcons.speed),
             title: const Text('音质设置'),
             subtitle: const Text('WiFi/蜂窝/下载音质、智能模式'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const AudioQualityScreen()),
             ),
           ),
           ListTile(
-            leading: const Icon(Icons.cleaning_services_outlined),
+            leading: const Icon(AppIcons.cleaningServices),
             title: const Text('清除缓存'),
             subtitle: const Text('清除临时数据和请求缓存'),
             onTap: () async {
@@ -158,24 +157,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ── 关于 ──
           const _SectionHeader('关于'),
           ListTile(
-            leading: const Icon(Icons.info_outline),
+            leading: const Icon(AppIcons.info),
             title: const Text('关于 NGS-KG+'),
             subtitle: Text('版本 $_appVersion${PreviewConfig.enabled ? ' · preview' : ''} · 开源声明'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => Navigator.pushNamed(context, '/about'),
           ),
           ListTile(
-            leading: const Icon(Icons.favorite_outline),
+            leading: const Icon(AppIcons.favoriteBorder),
             title: const Text('支持作者'),
             subtitle: const Text('去 GitHub 点个 star 或者赞助'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => showSupportMeDialog(context),
           ),
           ListTile(
-            leading: const Icon(Icons.terminal),
+            leading: const Icon(AppIcons.terminal),
             title: const Text('开发者'),
             subtitle: const Text('调试功能'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () {
               showM3Dialog(
                 context: context,
@@ -338,10 +337,10 @@ class _DeveloperScreenState extends State<DeveloperScreen> {
             onTap: _clearCookie,
           ),
           ListTile(
-            leading: const Icon(Icons.terminal),
+            leading: const Icon(AppIcons.terminal),
             title: const Text('输出日志'),
             subtitle: const Text('实时查看完整日志'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => Navigator.pushNamed(context, '/settings/developer/log'),
           ),
         ],
