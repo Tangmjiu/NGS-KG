@@ -80,8 +80,9 @@ class _ShimmerBoxState extends State<ShimmerBox>
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final base = widget.baseColor ?? cs.surfaceContainerHighest;
+    // 柔和高光：用前景色的低透明度，而非纯白高亮（避免刺眼的"镭射"感）
     final highlight =
-        widget.highlightColor ?? cs.surface.withValues(alpha: 0.9);
+        widget.highlightColor ?? cs.onSurface.withValues(alpha: 0.10);
 
     return AnimatedBuilder(
       animation: _controller,
@@ -107,10 +108,10 @@ class _ShimmerBoxState extends State<ShimmerBox>
                 end: Alignment(endX, 1),
                 colors: [
                   highlight.withValues(alpha: 0.0),
-                  highlight.withValues(alpha: 0.7),
+                  highlight.withValues(alpha: 0.45),
                   highlight.withValues(alpha: 0.0),
                 ],
-                stops: const [0.2, 0.5, 0.8],
+                stops: const [0.3, 0.5, 0.7],
               ).createShader(bounds);
             },
             child: Container(

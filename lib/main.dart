@@ -34,7 +34,6 @@ import 'utils/preview_config.dart';
 import 'theme/theme_assets.dart';
 import 'utils/navigation.dart';
 import 'services/intent_handler_service.dart';
-import 'widgets/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -355,10 +354,6 @@ class NGSKGApp extends StatelessWidget {
                   ),
                 // AppShell 自适应外壳：桌面全宽壳 / 移动 MiniPlayer + overlays
                 AppShell(child: child),
-                // 启动页浮层：初始化完成后自动缩放淡出（不阻塞底层路由）
-                const Positioned.fill(
-                  child: SplashGate(),
-                ),
               ],
             );
           },

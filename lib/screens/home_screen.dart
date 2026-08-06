@@ -370,23 +370,31 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const SizedBox(height: 10),
-        // 指示点：当前页拉长为胶囊并高亮
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(playlists.length, (i) {
-            final active = i == _playlistPage % playlists.length;
-            return AnimatedContainer(
-              duration: AppMotion.dShort4,
-              curve: AppMotion.emphasizedDecelerate,
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: active ? 18 : 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: active ? cs.primary : cs.outlineVariant,
-                borderRadius: BorderRadius.circular(3),
+        // 指示点：当前页拉长为胶囊并高亮；FittedBox 防御极端数量溢出
+        SizedBox(
+          height: 6,
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(playlists.length, (i) {
+                  final active = i == _playlistPage % playlists.length;
+                  return AnimatedContainer(
+                    duration: AppMotion.dShort4,
+                    curve: AppMotion.emphasizedDecelerate,
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: active ? 18 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: active ? cs.primary : cs.outlineVariant,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  );
+                }),
               ),
-            );
-          }),
+            ),
+          ),
         ),
         const SizedBox(height: 4),
       ],
@@ -880,7 +888,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ],
                               ),
                             ),
-                            _buildPlaylistCarousel(provider.topPlaylists),
+                            // 只轮播前 5 个推荐歌单，避免页数/指示点过多导致溢出
+                            _buildPlaylistCarousel(
+                                provider.topPlaylists.take(5).toList()),
                           ],
                           if (_dailyLoading || _dailySongs.isNotEmpty)
                             _buildDailyRecommend(),
