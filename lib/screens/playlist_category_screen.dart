@@ -59,81 +59,94 @@ class _PlaylistCategoryScreenState extends State<PlaylistCategoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.categoryName)),
       body: _loading && _playlists.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : LayoutBuilder(
               builder: (context, constraints) {
                 final crossAxisCount =
                     (constraints.maxWidth / 160).floor().clamp(2, 6);
-                return GridView.builder(
-                  padding: const EdgeInsets.all(12),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
-                    childAspectRatio: 0.85,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: _playlists.length + (_hasMore ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index >= _playlists.length) {
-                      _loadPlaylists();
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    final p = _playlists[index];
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.pushNamed(
-                          context,
-                          '/playlist/detail',
-                          arguments: {
-                            'gcId': p.globalCollectionId ??
-                                'collection_3_${p.createUserId}_${p.id}_0',
-                            'name': p.name,
-                          },
-                        );
-                      },
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ClipRRect(
-                            borderRadius: AppShape.sm,
-                            child: (p.coverUrl != null &&
-                                    p.coverUrl!.isNotEmpty)
-                                ? CachedNetworkImage(
-                                    imageUrl: p.coverUrl!,
-                                    width: double.infinity,
-                                    height: 100,
-                                    fit: BoxFit.cover,
-                                    errorWidget: (_, __, ___) => Container(
-                                      width: double.infinity,
-                                      height: 100,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .surfaceContainerHighest,
-                                      child: const Icon(Icons.playlist_play),
-                                    ),
-                                  )
-                                : Container(
-                                    width: double.infinity,
-                                    height: 100,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .surfaceContainerHighest,
-                                    child: const Icon(Icons.playlist_play),
+                return CustomScrollView(
+                  slivers: [
+                    SliverAppBar.large(title: Text(widget.categoryName)),
+                    SliverPadding(
+                      padding: const EdgeInsets.all(12),
+                      sliver: SliverGrid(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          childAspectRatio: 0.85,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          if (index >= _playlists.length) {
+                            _loadPlaylists();
+                            return const Center(
+                                child: CircularProgressIndicator());
+                          }
+                          final p = _playlists[index];
+                          return M3StaggeredFadeIn(
+                            index: index,
+                            child: GestureDetector(
+                              onTap: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/playlist/detail',
+                                  arguments: {
+                                    'gcId': p.globalCollectionId ??
+                                        'collection_3_${p.createUserId}_${p.id}_0',
+                                    'name': p.name,
+                                  },
+                                );
+                              },
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: AppShape.sm,
+                                    child: (p.coverUrl != null &&
+                                            p.coverUrl!.isNotEmpty)
+                                        ? CachedNetworkImage(
+                                            imageUrl: p.coverUrl!,
+                                            width: double.infinity,
+                                            height: 100,
+                                            fit: BoxFit.cover,
+                                            errorWidget: (_, __, ___) =>
+                                                Container(
+                                              width: double.infinity,
+                                              height: 100,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .surfaceContainerHighest,
+                                              child: const Icon(
+                                                  Icons.playlist_play),
+                                            ),
+                                          )
+                                        : Container(
+                                            width: double.infinity,
+                                            height: 100,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .surfaceContainerHighest,
+                                            child:
+                                                const Icon(Icons.playlist_play),
+                                          ),
                                   ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            p.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    p.name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }, childCount: _playlists.length + (_hasMore ? 1 : 0)),
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 );
               },
             ),

@@ -439,6 +439,18 @@ ThemeData buildThemeData(
         borderRadius: BorderRadius.horizontal(right: Radius.circular(16)),
       ),
     ),
+
+    // ── TabBar (M3 滑动胶囊指示器) ──
+    tabBarTheme: TabBarThemeData(
+      indicator: const ShapeDecoration(shape: StadiumBorder()),
+      indicatorSize: TabBarIndicatorSize.tab,
+      indicatorColor: colorScheme.primary,
+      labelColor: colorScheme.primary,
+      unselectedLabelColor: colorScheme.onSurfaceVariant,
+      labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      unselectedLabelStyle: const TextStyle(fontSize: 14),
+      dividerColor: Colors.transparent,
+    ),
   );
 }
 

@@ -4,6 +4,7 @@ import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
+import '../utils/theme.dart';
 import '../widgets/song_tile.dart';
 
 class RankDetailScreen extends StatefulWidget {
@@ -86,30 +87,33 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
         SliverList(
           delegate: SliverChildBuilderDelegate((_, i) {
             final song = _songs![i];
-            return Row(
-              children: [
-                SizedBox(
-                  width: 40,
-                  child: Center(
-                    child: Text('${i + 1}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: i < 3
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.outline,
-                        )),
+            return M3StaggeredFadeIn(
+              index: i,
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 40,
+                    child: Center(
+                      child: Text('${i + 1}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: i < 3
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.outline,
+                          )),
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: SongTile(
-                    song: song,
-                    onTap: (s) => context
-                        .read<PlayerProvider>()
-                        .playSong(s, playlist: _songs),
+                  Expanded(
+                    child: SongTile(
+                      song: song,
+                      onTap: (s) => context
+                          .read<PlayerProvider>()
+                          .playSong(s, playlist: _songs),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             );
           }, childCount: _songs!.length),
         ),

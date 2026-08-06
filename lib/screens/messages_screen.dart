@@ -35,59 +35,55 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final isWide = MediaQuery.of(context).size.width >= 880;
     final body = _isLoading
         ? const Center(child: CircularProgressIndicator())
-        : ListView(
-            children: [
-              _sectionTile(Icons.person_add, '关注歌手消息',
-                  subtitle: '${_news.length} 条动态',
-                  onTap: () => Navigator.pushNamed(context, '/artist/followed/news')),
-              const Divider(),
-              _sectionTile(Icons.notifications_outlined, '系统通知',
-                  subtitle: '暂无新通知'),
-              const Divider(),
-              _sectionTile(Icons.favorite_outline, '点赞与收藏',
-                  subtitle: '暂无新消息',
-                  onTap: () => Navigator.pushNamed(context, '/messages')), // Placeholder
-              const Divider(),
-              _sectionTile(Icons.video_library, '收藏的视频',
-                  onTap: () => Navigator.pushNamed(context, '/videos/favorite')),
-              const Divider(),
-              _sectionTile(Icons.thumb_up, '喜欢的视频',
-                  onTap: () => Navigator.pushNamed(context, '/videos/liked')),
+        : CustomScrollView(
+            slivers: [
+              const SliverAppBar.large(title: Text('消息')),
+              SliverList(
+                delegate: SliverChildListDelegate([
+                  _sectionTile(Icons.person_add, '关注歌手消息',
+                      subtitle: '${_news.length} 条动态',
+                      onTap: () => Navigator.pushNamed(
+                          context, '/artist/followed/news')),
+                  const Divider(),
+                  _sectionTile(Icons.notifications_outlined, '系统通知',
+                      subtitle: '暂无新通知'),
+                  const Divider(),
+                  _sectionTile(Icons.favorite_outline, '点赞与收藏',
+                      subtitle: '暂无新消息',
+                      onTap: () => Navigator.pushNamed(context, '/messages')),
+                  const Divider(),
+                  // MV:
+                  // MV: _sectionTile(Icons.video_library, '收藏的视频',
+                  // MV:     onTap: () => Navigator.pushNamed(context, '/videos/favorite')),
+                  // MV: const Divider(),
+                  // MV: _sectionTile(Icons.thumb_up, '喜欢的视频',
+                  // MV:     onTap: () => Navigator.pushNamed(context, '/videos/liked')),
+                ]),
+              ),
             ],
           );
     return Scaffold(
-      appBar: AppBar(title: const Text('消息')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              children: [
-                _sectionTile(Icons.person_add, '关注歌手消息',
-                    subtitle: '${_news.length} 条动态',
-                    onTap: () => Navigator.pushNamed(context, '/artist/followed/news')),
-                const Divider(),
-                _sectionTile(Icons.notifications_outlined, '系统通知',
-                    subtitle: '暂无新通知'),
-                const Divider(),
-                _sectionTile(Icons.favorite_outline, '点赞与收藏',
-                    subtitle: '暂无新消息',
-                    onTap: () => Navigator.pushNamed(context, '/messages')), // Placeholder
-                const Divider(),
-                // MV:
-                // MV: _sectionTile(Icons.video_library, '收藏的视频',
-                // MV:     onTap: () => Navigator.pushNamed(context, '/videos/favorite')),
-                // MV: const Divider(),
-                // MV: _sectionTile(Icons.thumb_up, '喜欢的视频',
-                // MV:     onTap: () => Navigator.pushNamed(context, '/videos/liked')),
-              ],
-            ),
+      body: isWide
+          ? Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: body,
+              ),
+            )
+          : body,
     );
   }
 
-  Widget _sectionTile(IconData icon, String title, {String? subtitle, VoidCallback? onTap}) {
+  Widget _sectionTile(IconData icon, String title,
+      {String? subtitle, VoidCallback? onTap}) {
     return ListTile(
       leading: Icon(icon),
       title: Text(title),
-      subtitle: subtitle != null ? Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)) : null,
+      subtitle: subtitle != null
+          ? Text(subtitle,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant))
+          : null,
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
     );
