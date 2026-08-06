@@ -9,6 +9,9 @@ import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../theme/theme_assets.dart';
 import '../widgets/song_tile.dart';
+import '../models/song.dart';
+import '../utils/responsive.dart';
+import '../widgets/song_grid_tile.dart';
 import '../widgets/list_bottom_spacer.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
@@ -54,6 +57,100 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         _selectedIndices.addAll(List.generate(total, (i) => i));
       }
     });
+  }
+
+  /// ✅ 新增适配代码：从歌单移除（平板网格长按菜单 / 手机滑动删除共用）
+  Future<void> _removeFromPlaylist(Song song) async {
+    if (!mounted) return;
+    final confirmed = await showM3Dialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('移除'),
+        content: Text('从歌单移除「${song.name}」？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('移除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final fileid = song.fileId;
+    final playlistDetail = context.read<PlaylistProvider>().currentPlaylist;
+    if (fileid != null && playlistDetail != null) {
+      try {
+        await MusicService().removeTracksFromPlaylist(
+            playlistDetail.playlist.id, fileid.toString());
+        if (mounted) {
+          context
+              .read<PlaylistProvider>()
+              .fetchPlaylistDetail(widget.gcId ?? '');
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('移除失败: $e')));
+        }
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('无法移除：缺少歌曲标识')));
+      }
+    }
+  }
+
+  /// ✅ 新增适配代码：平板歌单网格（多选角标 + 长按移除菜单）
+  Widget _buildSongsGrid(List<Song> songs) {
+    return SliverGrid(
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 180,
+        childAspectRatio: 0.75,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+      ),
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final song = songs[index];
+          if (_isSelecting) {
+            return M3StaggeredFadeIn(
+              index: index,
+              child: SongGridTile(
+                song: song,
+                selectionMode: true,
+                selected: _selectedIndices.contains(index),
+                onSelectionToggle: () => _toggleSelection(index),
+              ),
+            );
+          }
+          return M3StaggeredFadeIn(
+            index: index,
+            child: SongGridTile(
+              song: song,
+              onTap: (s) => context
+                  .read<PlayerProvider>()
+                  .playSong(s, playlist: songs),
+              contextMenuExtras: [
+                ListTile(
+                  leading: const Icon(Icons.delete_outline),
+                  title: const Text('从歌单移除'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _removeFromPlaylist(song);
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+        childCount: songs.length,
+      ),
+    );
   }
 
   @override
@@ -218,8 +315,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   ),
                 ),
               ),
-              // 歌曲列表
-              SliverList(
+              // 歌曲列表（✅ 平板网格 / 手机线性列表）
+              context.isTablet
+                  ? _buildSongsGrid(detail.songs)
+                  : SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final song = detail.songs[index];

@@ -8,6 +8,7 @@ import '../models/song.dart';
 import '../utils/app_icons.dart';
 import '../utils/navigation.dart' as app;
 import '../utils/theme.dart';
+import '../utils/responsive.dart';
 import '../screens/player_screen.dart';
 
 /// Material Design 3 Expressive 悬浮媒体胶囊 (Floating MiniPlayer)
@@ -60,9 +61,9 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
                 return false;
               },
               background: _buildSwipeIndicator(
-                  cs, AppIcons.skipPrevious, '上一首', Alignment.centerLeft),
+                  context, cs, AppIcons.skipPrevious, '上一首', Alignment.centerLeft),
               secondaryBackground: _buildSwipeIndicator(
-                  cs, AppIcons.skipNext, '下一首', Alignment.centerRight),
+                  context, cs, AppIcons.skipNext, '下一首', Alignment.centerRight),
               child: M3PressScale(
                 child: GestureDetector(
                   onTap: () => _openPlayerScreen(context),
@@ -74,7 +75,7 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
                     elevation: 4,
                     shadowColor: cs.shadow.withValues(alpha: 0.12),
                     child: Container(
-                      height: 64.0,
+                      height: context.isTablet ? 80.0 : 64.0,
                       decoration: BoxDecoration(
                         borderRadius: AppShape.full,
                         border: Border.all(
@@ -131,6 +132,11 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
                                             height: 1.15,
                                           ),
                                         ),
+                                        // ✅ 新增适配代码：平板迷你播放条歌词（独立订阅，不随播放进度重建整条）
+                                        if (context.isTablet) ...[
+                                          const SizedBox(height: 2),
+                                          const _MiniLyricLine(),
+                                        ],
                                       ],
                                     ),
                                   ),
@@ -189,10 +195,10 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
 
   /// 滑动切歌时的底部提示背景
   Widget _buildSwipeIndicator(
-      ColorScheme cs, IconData icon, String label, Alignment alignment) {
+      BuildContext context, ColorScheme cs, IconData icon, String label, Alignment alignment) {
     final isLeft = alignment == Alignment.centerLeft;
     return Container(
-      height: 64.0,
+      height: context.isTablet ? 80.0 : 64.0,
       decoration: BoxDecoration(
         color: cs.secondaryContainer.withValues(alpha: 0.88),
         borderRadius: AppShape.full,
@@ -426,6 +432,41 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
           ),
         )
         .then((_) => player.setPlayerScreenVisible(false));
+  }
+}
+
+/// ✅ 新增适配代码：平板迷你播放条歌词行
+///
+/// 仅订阅当前歌词行文本（activeIndex + lyric model），
+/// 不随播放进度重建整条 MiniPlayer（与 _MiniProgressBar 同样的独立订阅模式）。
+class _MiniLyricLine extends StatelessWidget {
+  const _MiniLyricLine();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Selector<PlayerProvider, String>(
+      selector: (_, p) {
+        final lc = p.lyricController;
+        final idx = lc.activeIndexNotifiter.value;
+        final model = lc.lyricNotifier.value;
+        if (model == null || idx < 0 || idx >= model.lines.length) return '';
+        return model.lines[idx].text;
+      },
+      builder: (_, line, __) {
+        if (line.isEmpty) return const SizedBox.shrink();
+        return Text(
+          line,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: cs.onSurfaceVariant.withValues(alpha: 0.85),
+                fontSize: 11,
+                height: 1.15,
+              ),
+        );
+      },
+    );
   }
 }
 

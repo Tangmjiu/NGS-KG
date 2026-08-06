@@ -13,6 +13,7 @@ import '../navidrome/navidrome_provider.dart';
 import '../navidrome/navidrome_screen.dart';
 import '../routes/app_routes.dart';
 import '../widgets/list_bottom_spacer.dart';
+import '../utils/responsive.dart';
 
 class LocalMusicScreen extends StatefulWidget {
   const LocalMusicScreen({super.key});
@@ -261,7 +262,29 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
       }
     }
 
-    return ListView.builder(
+    return context.isTablet
+        // ✅ 新增适配代码：平板本地歌曲网格封面墙 / 手机线性列表
+        ? GridView.builder(
+            controller: _allSongsScrollCtrl,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 180,
+              childAspectRatio: 0.75,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+            ),
+            itemCount: songs.length,
+            itemBuilder: (_, i) {
+              final song = songs[i];
+              final isHighlighted = song.filePath == highlightPath;
+              return M3StaggeredFadeIn(
+                index: i,
+                child: _buildSongGridCard(song, prov,
+                    isHighlighted: isHighlighted),
+              );
+            },
+          )
+        : ListView.builder(
       controller: _allSongsScrollCtrl,
       itemCount: songs.length + 1,
       itemBuilder: (_, i) {
@@ -416,22 +439,126 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                 icon: AppIcon(Symbols.more_vert_rounded, color: cs.onSurfaceVariant, size: 20),
                 onPressed: () => _showSongMenu(song, prov),
               ),
-        onTap: () async {
-          // 清除高亮
-          prov.clearHighlight();
-          // 按需加载完整元数据（内嵌封面 + 歌词），必须 await 再播放
-          await prov.loadDeferredMetadata(song);
+        onTap: () => _playLocalSong(song, prov),
+      ),
+    );
+  }
 
-          // metadata 已刷新，songs 列表已更新，取出最新版本播放
-          if (!mounted) return;
-          final playlist = prov.songs;
-          final updatedSong = playlist.firstWhere(
-            (s) => s.filePath == song.filePath,
-            orElse: () => playlist.first,
-          );
-          if (!mounted) return;
-          context.read<PlayerProvider>().playSong(updatedSong, playlist: playlist);
-        },
+  /// ✅ 新增适配代码：播放本地歌曲（网格卡片 / 线性列表共用）
+  Future<void> _playLocalSong(Song song, LocalMusicProvider prov) async {
+    // 清除高亮
+    prov.clearHighlight();
+    // 按需加载完整元数据（内嵌封面 + 歌词），必须 await 再播放
+    await prov.loadDeferredMetadata(song);
+
+    // metadata 已刷新，songs 列表已更新，取出最新版本播放
+    if (!mounted) return;
+    final playlist = prov.songs;
+    final updatedSong = playlist.firstWhere(
+      (s) => s.filePath == song.filePath,
+      orElse: () => playlist.first,
+    );
+    if (!mounted) return;
+    context.read<PlayerProvider>().playSong(updatedSong, playlist: playlist);
+  }
+
+  /// ✅ 新增适配代码：平板本地歌曲网格卡片（封面 + 歌名 + 歌手，长按更多菜单）
+  Widget _buildSongGridCard(Song song, LocalMusicProvider prov,
+      {bool isHighlighted = false}) {
+    // 精确选择：只订阅当前歌曲 ID，避免进度变化重建所有网格卡片
+    final currentSongId =
+        context.select<PlayerProvider, int?>((p) => p.currentSong?.id);
+    final isPlaying = song.id == currentSongId;
+    final cs = Theme.of(context).colorScheme;
+
+    // 封面（本地文件 / 网络 / 占位图标）
+    Widget cover;
+    final coverUrl = song.albumCoverUrl;
+    final hasCover = coverUrl != null && coverUrl.isNotEmpty;
+    ImageProvider? image;
+    if (hasCover) {
+      if (coverUrl.startsWith('file:') || coverUrl.startsWith('/')) {
+        final path = coverUrl.startsWith('file:')
+            ? Uri.parse(coverUrl).toFilePath()
+            : coverUrl;
+        image = FileImage(File(path));
+      } else {
+        image = NetworkImage(coverUrl);
+      }
+    }
+    cover = Container(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: AppShape.md,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: image != null
+          ? Image(
+              image: image,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Center(
+                child: AppIcon(Symbols.music_note, size: 48, color: cs.primary),
+              ),
+            )
+          : Center(
+              child: AppIcon(Symbols.music_note, size: 48, color: cs.primary),
+            ),
+    );
+    if (isPlaying) {
+      cover = Stack(
+        fit: StackFit.expand,
+        children: [
+          cover,
+          Container(
+            color: Colors.black.withValues(alpha: 0.4),
+            child: Center(
+              child: AppIcon(Symbols.equalizer_rounded,
+                  size: 36, color: cs.primary),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      decoration: isHighlighted
+          ? BoxDecoration(
+              color: cs.primaryContainer.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(12),
+            )
+          : null,
+      child: InkWell(
+        borderRadius: AppShape.md,
+        onTap: () => _playLocalSong(song, prov),
+        onLongPress: () => _showSongMenu(song, prov),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(aspectRatio: 1, child: cover),
+            const SizedBox(height: 8),
+            Text(
+              song.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              song.artistDisplay,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ],
+        ),
       ),
     );
   }

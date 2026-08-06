@@ -8,6 +8,7 @@ import '../providers/auth_provider.dart';
 import '../providers/player_provider.dart';
 import '../utils/logger.dart';
 import '../services/music_service.dart';
+import '../utils/responsive.dart';
 
 class CloudDiskScreen extends StatefulWidget {
   const CloudDiskScreen({super.key});
@@ -110,7 +111,79 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                   )
                 : RefreshIndicator(
                 onRefresh: _load,
-                child: ListView.builder(
+                // ✅ 新增适配代码：平板网格封面墙（云盘歌曲无封面，图标卡片）/ 手机线性列表
+                child: context.isTablet
+                    ? GridView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 180,
+                          childAspectRatio: 0.75,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 16,
+                        ),
+                        itemCount: _songs.length,
+                        itemBuilder: (_, i) {
+                          final item = _songs[i];
+                          final name = item['name'] as String? ?? '';
+                          final author =
+                              item['author_name'] as String? ?? '';
+                          final isPlaying = _playingIndex == i;
+                          final cs = Theme.of(context).colorScheme;
+                          return InkWell(
+                            borderRadius: AppShape.md,
+                            onTap: isPlaying
+                                ? null
+                                : () => _playSong(i, item),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                AspectRatio(
+                                  aspectRatio: 1,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: cs.surfaceContainerHighest,
+                                      borderRadius: AppShape.md,
+                                    ),
+                                    child: isPlaying
+                                        ? const Padding(
+                                            padding: EdgeInsets.all(32),
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 2),
+                                          )
+                                        : AppIcon(Symbols.cloud_done_rounded,
+                                            size: 64,
+                                            color: cs.primary),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
+                                          fontWeight: FontWeight.w500),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  author,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                          color: cs.onSurfaceVariant),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      )
+                    : ListView.builder(
                   padding: const EdgeInsets.only(top: 8),
                   itemCount: _songs.length,
                   itemBuilder: (_, i) {

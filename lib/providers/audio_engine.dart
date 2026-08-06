@@ -574,6 +574,9 @@ class AudioEngine {
     _player.setVolume(volume);
   }
 
+  // ✅ 新增适配代码：当前音量（平板手势调音量基准）
+  double get volume => _player.volume;
+
   void setSpeed(double speed) {
     _speed = speed;
     _player.setSpeed(speed);

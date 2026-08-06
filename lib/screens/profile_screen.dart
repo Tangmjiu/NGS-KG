@@ -17,6 +17,8 @@ import '../widgets/create_playlist_dialog.dart';
 import '../widgets/list_bottom_spacer.dart';
 import '../theme/theme_assets.dart';
 import '../widgets/song_tile.dart';
+import '../utils/responsive.dart';
+import '../widgets/song_grid_tile.dart';
 import '../providers/local_music_provider.dart';
 import '../routes/app_routes.dart';
 
@@ -478,21 +480,41 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
           ? const Center(child: CircularProgressIndicator())
           : songs.isEmpty
               ? emptyStateWidget(ThemeAssets.emptyPlaylist, AppIcons.favorite, '暂无收藏')
-              : ListView.builder(
-                  itemCount: songs.length + 1,
-                  itemBuilder: (_, i) {
-                    if (i == songs.length) {
-                      return const ListBottomSpacer(isHome: false, showText: false);
-                    }
-                    final song = songs[i];
-                    return SongTile(
-                      song: song,
-                      onTap: (s) => context
-                          .read<PlayerProvider>()
-                          .playSong(s, playlist: songs),
-                    );
-                  },
-                ),
+              // ✅ 新增适配代码：平板网格封面墙 / 手机线性列表
+              : context.isTablet
+                  ? GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 180,
+                        childAspectRatio: 0.75,
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 16,
+                      ),
+                      itemCount: songs.length,
+                      itemBuilder: (_, i) => SongGridTile(
+                        song: songs[i],
+                        onTap: (s) => context
+                            .read<PlayerProvider>()
+                            .playSong(s, playlist: songs),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: songs.length + 1,
+                      itemBuilder: (_, i) {
+                        if (i == songs.length) {
+                          return const ListBottomSpacer(
+                              isHome: false, showText: false);
+                        }
+                        final song = songs[i];
+                        return SongTile(
+                          song: song,
+                          onTap: (s) => context
+                              .read<PlayerProvider>()
+                              .playSong(s, playlist: songs),
+                        );
+                      },
+                    ),
     );
   }
 }

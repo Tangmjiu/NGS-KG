@@ -13,6 +13,8 @@ import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
 import '../widgets/list_bottom_spacer.dart';
+import '../utils/responsive.dart';
+import '../widgets/song_grid_tile.dart';
 import '../theme/theme_assets.dart';
 import '../constants/banned_words.dart';
 
@@ -472,6 +474,28 @@ class _SearchScreenState extends State<SearchScreen>
   Widget _buildSongsTab() {
     if (_songs.isEmpty) {
       return _emptyResult('未找到歌曲');
+    }
+    // ✅ 新增适配代码：平板网格封面墙 / 手机线性列表
+    if (context.isTablet) {
+      return GridView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 180,
+          childAspectRatio: 0.75,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
+        ),
+        itemCount: _songs.length,
+        itemBuilder: (_, i) => M3StaggeredFadeIn(
+          index: i,
+          child: SongGridTile(
+            song: _songs[i],
+            onTap: (s) => context
+                .read<PlayerProvider>()
+                .playSong(s, playlist: _songs),
+          ),
+        ),
+      );
     }
     return ListView.builder(
       itemCount: _songs.length + 1,

@@ -23,6 +23,9 @@ class PlayerControlsBar extends StatefulWidget {
   final VoidCallback onPrevious;
   final VoidCallback onNext;
 
+  // ✅ 新增适配代码：长按播放/暂停键回调（平板沉浸模式，Salt Player 风格）
+  final VoidCallback? onLongPressPlayPause;
+
   const PlayerControlsBar({
     super.key,
     required this.isPlaying,
@@ -30,6 +33,7 @@ class PlayerControlsBar extends StatefulWidget {
     required this.onPlayPause,
     required this.onPrevious,
     required this.onNext,
+    this.onLongPressPlayPause,
   });
 
   @override
@@ -93,6 +97,7 @@ class _PlayerControlsBarState extends State<PlayerControlsBar> {
               unawaited(haptic(HapticKind.medium));
               widget.onPlayPause();
             },
+            onLongPress: widget.onLongPressPlayPause,
           ),
         ),
 
@@ -173,11 +178,14 @@ class _PlayPauseButton extends StatefulWidget {
   final bool isPlaying;
   final bool isLoading;
   final VoidCallback onTap;
+  // ✅ 新增适配代码：长按播放/暂停键回调（平板沉浸模式）
+  final VoidCallback? onLongPress;
 
   const _PlayPauseButton({
     required this.isPlaying,
     required this.isLoading,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -217,6 +225,7 @@ class _PlayPauseButtonState extends State<_PlayPauseButton>
       onTapUp: (_) => _pressController.reverse(),
       onTapCancel: () => _pressController.reverse(),
       onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
       child: ScaleTransition(
         scale: _pressScale,
         child: Container(

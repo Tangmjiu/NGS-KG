@@ -12,6 +12,7 @@ import '../models/song_mapper.dart';
 import '../utils/logger.dart';
 import '../utils/app_icons.dart';
 import '../utils/theme.dart';
+import '../utils/responsive.dart';
 import 'discover_screen.dart';
 import 'profile_screen.dart';
 import 'search_screen.dart';
@@ -397,13 +398,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     final mq = MediaQuery.of(context);
+    // 平板：底部 NavigationBar 切换为左侧 NavigationRail
+    final isTablet = context.isTablet;
     final childMediaQuery = showMini
         ? mq.copyWith(
             padding: mq.padding.copyWith(
-              bottom: mq.padding.bottom + 76.0,
+              bottom: mq.padding.bottom + (isTablet ? 92.0 : 76.0),
             ),
             viewPadding: mq.viewPadding.copyWith(
-              bottom: mq.viewPadding.bottom + 76.0,
+              bottom: mq.viewPadding.bottom + (isTablet ? 92.0 : 76.0),
             ),
           )
         : mq;
@@ -411,24 +414,82 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: MediaQuery(
         data: childMediaQuery,
-        child: AnimatedSwitcher(
-          duration: AppMotion.dMedium2,
-          switchInCurve: AppMotion.emphasizedDecelerate,
-          switchOutCurve: AppMotion.emphasizedAccelerate,
-          transitionBuilder: (child, animation) {
-            return M3FadeThroughTransition(
-                animation: animation, child: child);
-          },
-          // 按需构建当前 tab，避免 DiscoverScreen / ProfileScreen 在后台同时构建/重建。
-          // 如需保留 tab 状态，可改用 PageStorage 包裹。
-          child: _currentTab == 0
-              ? _buildHome()
-              : _currentTab == 1
-                  ? const DiscoverScreen()
-                  : const ProfileScreen(),
-        ),
+        child: isTablet ? _buildTabletBody() : _buildMobileBody(),
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: isTablet ? null : _buildMobileNavBar(),
+    );
+  }
+
+  /// 平板端布局：左侧 NavigationRail + 中央内容区（限宽 900dp 居中）
+  Widget _buildTabletBody() {
+    return Row(
+      children: [
+        NavigationRail(
+          selectedIndex: _currentTab,
+          onDestinationSelected: (i) {
+            setState(() => _currentTab = i);
+            if (i == 2) _refreshProfile();
+          },
+          labelType: NavigationRailLabelType.all,
+          leading: const SizedBox(height: 8),
+          destinations: const [
+            NavigationRailDestination(
+              icon: AppIcon(AppIcons.home, weight: 500),
+              selectedIcon: AppIcon(AppIcons.home, weight: 700, fill: 1),
+              label: Text('首页'),
+            ),
+            NavigationRailDestination(
+              icon: AppIcon(AppIcons.explore, weight: 500),
+              selectedIcon: AppIcon(AppIcons.explore, weight: 700, fill: 1),
+              label: Text('发现'),
+            ),
+            NavigationRailDestination(
+              icon: AppIcon(AppIcons.person, weight: 500),
+              selectedIcon: AppIcon(AppIcons.person, weight: 700, fill: 1),
+              label: Text('我的'),
+            ),
+          ],
+        ),
+        const VerticalDivider(width: 1, thickness: 1),
+        Expanded(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: _buildTabContent(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 手机端布局：原底部导航 + 按需构建当前 tab
+  Widget _buildMobileBody() {
+    return AnimatedSwitcher(
+      duration: AppMotion.dMedium2,
+      switchInCurve: AppMotion.emphasizedDecelerate,
+      switchOutCurve: AppMotion.emphasizedAccelerate,
+      transitionBuilder: (child, animation) {
+        return M3FadeThroughTransition(
+            animation: animation, child: child);
+      },
+      // 按需构建当前 tab，避免 DiscoverScreen / ProfileScreen 在后台同时构建/重建。
+      // 如需保留 tab 状态，可改用 PageStorage 包裹。
+      child: _buildTabContent(),
+    );
+  }
+
+  /// 当前 tab 内容（手机/平板共用）
+  Widget _buildTabContent() {
+    return _currentTab == 0
+        ? _buildHome()
+        : _currentTab == 1
+            ? const DiscoverScreen()
+            : const ProfileScreen();
+  }
+
+  Widget _buildMobileNavBar() {
+    return NavigationBar(
         selectedIndex: _currentTab,
         onDestinationSelected: (i) {
           setState(() => _currentTab = i);
@@ -448,7 +509,6 @@ class _HomeScreenState extends State<HomeScreen> {
               selectedIcon: AppIcon(AppIcons.person, weight: 700, fill: 1),
               label: '我的'),
         ],
-      ),
     );
   }
 
@@ -461,8 +521,11 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (_, provider, __) {
         return LayoutBuilder(
           builder: (_, constraints) {
-            final contentWidth =
-                constraints.maxWidth > 600 ? 600.0 : constraints.maxWidth;
+            // 平板内容限宽 900dp（外层已居中），手机保持 600dp 原逻辑
+            final maxContentWidth = context.isTablet ? 900.0 : 600.0;
+            final contentWidth = constraints.maxWidth > maxContentWidth
+                ? maxContentWidth
+                : constraints.maxWidth;
             return RefreshIndicator(
               onRefresh: () async {
                 await provider.fetchTopPlaylists();

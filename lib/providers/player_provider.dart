@@ -1442,6 +1442,9 @@ class PlayerProvider extends ChangeNotifier
     _engine.setVolume(volume);
   }
 
+  // ✅ 新增适配代码：当前音量（平板手势调音量基准）
+  double get volume => _engine.volume;
+
   void setSpeed(double speed) {
     _engine.setSpeed(speed);
   }

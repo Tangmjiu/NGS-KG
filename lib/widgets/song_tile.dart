@@ -45,7 +45,7 @@ class SongTile extends StatelessWidget {
           child: InkWell(
             borderRadius: AppShape.md,
             onTap: () => onTap?.call(song),
-            onLongPress: () => _showContextMenu(context),
+            onLongPress: () => showSongContextMenu(context, song),
             child: Padding(
               padding: const EdgeInsets.all(8.0),
               child: Row(
@@ -160,148 +160,155 @@ class SongTile extends StatelessWidget {
     );
   }
 
-  void _showContextMenu(BuildContext context) {
-    showM3ModalBottomSheet(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _menuItem(
-              context,
-              icon: Icons.skip_next,
-              label: '下一首播放',
-              onTap: () {
-                Navigator.pop(context);
-                context.read<PlayerProvider>().playNextSong(song);
-              },
-            ),
-            _menuItem(
-              context,
-              icon: Icons.playlist_add,
-              label: '添加到歌单',
-              onTap: () {
-                Navigator.pop(context);
-                _addToPlaylist(context);
-              },
-            ),
-            _menuItem(
-              context,
-              icon: Icons.queue_music,
-              label: '加入队列',
-              onTap: () {
-                Navigator.pop(context);
-                context.read<PlayerProvider>().addToQueue(song);
-              },
-            ),
-            if (song.albumId > 0)
-              _menuItem(
-                context,
-                icon: Icons.album,
-                label: '查看专辑',
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/album/detail', arguments: {
-                    'id': song.albumId,
-                    'name': song.albumName,
-                  });
-                },
-              ),
-            if (song.artistId != null && song.artistId! > 0)
-              _menuItem(
-                context,
-                icon: Icons.person,
-                label: '查看歌手',
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/artist/detail', arguments: {
-                    'id': song.artistId,
-                    'name': song.artists.isNotEmpty ? song.artists.first : '',
-                  });
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
+}
 
-  Widget _menuItem(BuildContext context,
-      {required IconData icon,
-      required String label,
-      required VoidCallback onTap}) {
-    return M3PressScale(
-      child: ListTile(
-        leading: Icon(icon),
-        title: Text(label),
-        onTap: onTap,
-      ),
-    );
-  }
 
-  void _addToPlaylist(BuildContext context) {
-    final playlists = context.read<PlaylistProvider>().userPlaylists;
-    if (playlists.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('暂无歌单，请先创建')),
-      );
-      return;
-    }
-    showM3ModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child:
-                  Text('添加到歌单', style: Theme.of(context).textTheme.titleSmall),
+/// ✅ 新增适配代码：歌曲上下文菜单（SongTile 长按 / SongGridTile 更多按钮共用）
+Future<void> showSongContextMenu(
+  BuildContext context,
+  Song song, {
+  List<Widget>? extraItems,
+}) {
+  return showM3ModalBottomSheet(
+    context: context,
+    builder: (_) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _menuItem(
+            context,
+            icon: Icons.skip_next,
+            label: '下一首播放',
+            onTap: () {
+              Navigator.pop(context);
+              context.read<PlayerProvider>().playNextSong(song);
+            },
+          ),
+          _menuItem(
+            context,
+            icon: Icons.playlist_add,
+            label: '添加到歌单',
+            onTap: () {
+              Navigator.pop(context);
+              _addToPlaylist(context, song);
+            },
+          ),
+          _menuItem(
+            context,
+            icon: Icons.queue_music,
+            label: '加入队列',
+            onTap: () {
+              Navigator.pop(context);
+              context.read<PlayerProvider>().addToQueue(song);
+            },
+          ),
+          if (song.albumId > 0)
+            _menuItem(
+              context,
+              icon: Icons.album,
+              label: '查看专辑',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/album/detail', arguments: {
+                  'id': song.albumId,
+                  'name': song.albumName,
+                });
+              },
             ),
-            Divider(
-                height: 1, color: Theme.of(context).colorScheme.outlineVariant),
-            SizedBox(
-              height: (playlists.length * 56.0).clamp(80.0, 320.0),
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: playlists.length,
-                itemBuilder: (_, i) {
-                  final pl = playlists[i];
-                  return M3StaggeredFadeIn(
-                    index: i,
-                    child: M3PressScale(
-                      child: ListTile(
-                        leading: const Icon(Icons.playlist_play),
-                        title: Text(pl.name),
-                        onTap: () async {
-                          Navigator.pop(ctx);
-                          final data = (song.hash?.isNotEmpty ?? false)
-                              ? '${song.name}|${song.hash}|${song.albumId}|${song.id}'
-                              : song.name;
-                          try {
-                            await MusicService().addTracksToPlaylist(pl.id, data);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('已添加到歌单')),
-                              );
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('添加失败: $e')),
-                              );
-                            }
+          if (song.artistId != null && song.artistId! > 0)
+            _menuItem(
+              context,
+              icon: Icons.person,
+              label: '查看歌手',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/artist/detail', arguments: {
+                  'id': song.artistId,
+                  'name': song.artists.isNotEmpty ? song.artists.first : '',
+                });
+              },
+            ),
+          // ✅ 新增适配代码：调用方自定义菜单项（如"从歌单移除"）
+          if (extraItems != null) ...extraItems,
+        ],
+      ),
+    ),
+  );
+}
+
+Widget _menuItem(BuildContext context,
+    {required IconData icon, required String label, required VoidCallback onTap}) {
+  return M3PressScale(
+    child: ListTile(
+      leading: Icon(icon),
+      title: Text(label),
+      onTap: onTap,
+    ),
+  );
+}
+
+void _addToPlaylist(BuildContext context, Song song) {
+  final playlists = context.read<PlaylistProvider>().userPlaylists;
+  if (playlists.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('暂无歌单，请先创建')),
+    );
+    return;
+  }
+  showM3ModalBottomSheet(
+    context: context,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child:
+                Text('添加到歌单', style: Theme.of(context).textTheme.titleSmall),
+          ),
+          Divider(
+              height: 1, color: Theme.of(context).colorScheme.outlineVariant),
+          SizedBox(
+            height: (playlists.length * 56.0).clamp(80.0, 320.0),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: playlists.length,
+              itemBuilder: (_, i) {
+                final pl = playlists[i];
+                return M3StaggeredFadeIn(
+                  index: i,
+                  child: M3PressScale(
+                    child: ListTile(
+                      leading: const Icon(Icons.playlist_play),
+                      title: Text(pl.name),
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        final data = (song.hash?.isNotEmpty ?? false)
+                            ? '${song.name}|${song.hash}|${song.albumId}|${song.id}'
+                            : song.name;
+                        try {
+                          await MusicService().addTracksToPlaylist(pl.id, data);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('已添加到歌单')),
+                            );
                           }
-                        },
-                      ),
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('添加失败: $e')),
+                            );
+                          }
+                        }
+                      },
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }

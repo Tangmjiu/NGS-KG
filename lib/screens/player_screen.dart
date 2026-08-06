@@ -24,6 +24,7 @@ import '../widgets/login_required_dialog.dart';
 import '../widgets/lyric_settings_panel.dart';
 import '../utils/app_icons.dart';
 import '../utils/haptics.dart';
+import '../utils/responsive.dart';
 
 /// Apple Music-style full player screen with dynamic background,
 /// cover-art / lyrics PageView, and smooth transitions.
@@ -37,21 +38,28 @@ class PlayerScreen extends StatefulWidget {
 class _PlayerScreenState extends State<PlayerScreen>
     with SingleTickerProviderStateMixin {
   // ─── 构建 LyricView 样式（从设置动态读取） ───
-  LyricStyle _buildLyricStyle() {
+  // ✅ 新增适配代码：compact=true 时用于双栏/沉浸布局（缩小字号、行距与左右留白）
+  LyricStyle _buildLyricStyle({bool compact = false}) {
     final ls = context.read<ThemeProvider>().lyricSettings;
     // 焦点行字重 = 用户设置 + 200（确保比普通行重）
     final int activeWeightIdx = ((ls.fontWeight / 100).round() + 2).clamp(3, 8);
     final activeWeight = FontWeight.values[activeWeightIdx];
+    final double fontSize = compact
+        ? (ls.fontSize - 4).clamp(12.0, 30.0)
+        : ls.fontSize;
+    final double translationFontSize = compact
+        ? (ls.translationFontSize - 2).clamp(10.0, 26.0)
+        : ls.translationFontSize;
     return LyricStyle(
       textStyle: TextStyle(
-        fontSize: ls.fontSize,
+        fontSize: fontSize,
         fontWeight: ls.resolvedWeight,
         height: 1.6,
         color: const Color(0xFFB0A8C0), // 灰紫
       ),
       // 焦点行同字号杜绝折行，但加粗 + 白色 + 字间距确保视觉突出
       activeStyle: TextStyle(
-        fontSize: ls.fontSize,
+        fontSize: fontSize,
         fontWeight: activeWeight,
         height: 1.4,
         color: Colors.white,
@@ -73,17 +81,17 @@ class _PlayerScreenState extends State<PlayerScreen>
       activeHighlightExtraFadeWidth: 24,
       // 翻译/罗马音用字号区分，不用粗细
       translationStyle: TextStyle(
-        fontSize: ls.translationFontSize,
+        fontSize: translationFontSize,
         fontWeight: ls.resolvedWeight,
         height: 1.3,
         color: const Color(0xFF8A7FA0), // 淡紫
       ),
       translationActiveColor: Colors.white70,
-      lineGap: 24,
+      lineGap: compact ? 18 : 24,
       translationLineGap: 4,
       lineTextAlign: ls.centerAlign ? TextAlign.center : TextAlign.left,
       contentAlignment: ls.centerAlign ? CrossAxisAlignment.center : CrossAxisAlignment.start,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 28),
+      contentPadding: EdgeInsets.symmetric(horizontal: compact ? 16 : 28),
       selectionAnchorPosition: 0.5,
       selectionAlignment: MainAxisAlignment.center,
       // 焦点行锚点稍偏上(0.4)，补偿标题栏上移后视觉中心偏移
@@ -113,6 +121,92 @@ class _PlayerScreenState extends State<PlayerScreen>
   // ─── PageView ───
   final PageController _pageController = PageController();
   double _pageOffset = 0.0; // 0 = cover, 1 = lyrics
+
+  // ✅ 新增适配代码：沉浸模式状态（Salt Player 风格，仅平板，长按播放/暂停键切换）
+  bool _immersive = false;
+
+  void _toggleImmersive() {
+    if (!mounted) return;
+    setState(() => _immersive = !_immersive);
+    unawaited(haptic(HapticKind.medium));
+  }
+
+  // ✅ 新增适配代码：平板双指手势状态（Listener 原始指针跟踪，绕过手势竞技场）
+  // 双指水平滑=切歌（左滑下一首/右滑上一首），双指垂直滑=音量（上滑增大/下滑减小）。
+  final Map<int, Offset> _pointerPos = {};
+  final List<int> _pointerOrder = [];
+  Offset _lastTwoFingerCenter = Offset.zero;
+  double _twoFingerAccDx = 0;
+  double _twoFingerAccDy = 0;
+  bool _twoFingerConsumed = false;
+
+  int get _activePointers => _pointerOrder.length;
+
+  void _onPointerDown(PointerDownEvent e) {
+    _pointerPos[e.pointer] = e.position;
+    _pointerOrder.add(e.pointer);
+    if (_activePointers == 2) {
+      // 第二根手指落下：重置累积并记录双指中心
+      _lastTwoFingerCenter = (_pointerPos[_pointerOrder[0]]! +
+          _pointerPos[_pointerOrder[1]]!) /
+          2;
+      _twoFingerAccDx = 0;
+      _twoFingerAccDy = 0;
+      _twoFingerConsumed = false;
+      // 双指激活：吸收 PageView（AbsorbPointer 依赖此重建）
+      setState(() {});
+    }
+  }
+
+  void _onPointerMove(PointerMoveEvent e) {
+    if (_activePointers < 2) return;
+    _pointerPos[e.pointer] = e.position;
+    if (_pointerOrder.length < 2) return;
+    final p0 = _pointerPos[_pointerOrder[0]];
+    final p1 = _pointerPos[_pointerOrder[1]];
+    if (p0 == null || p1 == null) return;
+    final center = (p0 + p1) / 2;
+    final delta = center - _lastTwoFingerCenter;
+    _lastTwoFingerCenter = center;
+    if (_twoFingerConsumed) return;
+    // 方向判定：水平占优 → 切歌；垂直占优 → 音量
+    if (delta.dx.abs() > delta.dy.abs()) {
+      _twoFingerAccDx += delta.dx;
+      if (_twoFingerAccDx.abs() > 60) {
+        final player = context.read<PlayerProvider>();
+        unawaited(haptic(HapticKind.light));
+        if (_twoFingerAccDx > 0) {
+          player.playPrevious();
+        } else {
+          player.playNext();
+        }
+        _twoFingerConsumed = true;
+      }
+    } else {
+      _twoFingerAccDy += delta.dy;
+      if (_twoFingerAccDy.abs() > 20) {
+        final player = context.read<PlayerProvider>();
+        // 上滑 dy<0 → 音量增大；连续调节（每次移动都生效）
+        player.setVolume((player.volume - _twoFingerAccDy / 800).clamp(0.0, 1.0));
+        _twoFingerAccDy = 0;
+      }
+    }
+  }
+
+  void _onPointerUp(PointerEvent e) {
+    if (!_pointerOrder.remove(e.pointer) &&
+        !_pointerPos.containsKey(e.pointer)) {
+      return;
+    }
+    _pointerPos.remove(e.pointer);
+    _twoFingerAccDx = 0;
+    _twoFingerAccDy = 0;
+    _twoFingerConsumed = false;
+    // ✅ 仅指针数 2→1 边界重建（AbsorbPointer 状态翻转）；单指抬起无需重建
+    if (_activePointers == 1) {
+      setState(() {});
+    }
+  }
 
   // ─── Slide-down dismiss gesture ───
   double _dragOffset = 0.0;
@@ -754,7 +848,8 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
   }
 
-  Widget _buildLyricsPage(PlayerProvider player, Song song) {
+  Widget _buildLyricsPage(PlayerProvider player, Song song,
+      {bool compact = false}) {
     final model = player.lyricController.lyricNotifier.value;
     final hasLyrics = model != null && model.lines.isNotEmpty;
     final ls = context.read<ThemeProvider>().lyricSettings;
@@ -780,7 +875,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       lyricsContent = LyricView(
         key: ValueKey('lyrics_${player.selectedLyricLang}_${song.hash ?? song.id}'),
         controller: player.lyricController,
-        style: _buildLyricStyle(),
+        style: _buildLyricStyle(compact: compact),
       );
     }
 
@@ -927,11 +1022,19 @@ class _PlayerScreenState extends State<PlayerScreen>
           );
         }
 
+        // ✅ 新增适配代码：横屏平板 → 双栏布局（左封面+控制 | 右歌词）
+        final isTablet = context.isTablet;
+        final isLandscapeTablet = context.isLandscapeTablet;
+        // 双指手势激活时吸收 PageView 事件（避免双指横滑触发翻页）
+        final twoFingerActive = _activePointers >= 2;
+
         return Scaffold(
           backgroundColor: Colors.black,
           body: GestureDetector(
             onVerticalDragUpdate: (details) {
               if (_isDismissing) return;
+              // ✅ 双指手势激活时不响应下滑退出（双指竖滑 = 音量调节）
+              if (_activePointers >= 2) return;
               // 只允许下滑
               if (details.delta.dy < 0 && _dragOffset <= 0) return;
               setState(() {
@@ -940,6 +1043,8 @@ class _PlayerScreenState extends State<PlayerScreen>
             },
             onVerticalDragEnd: (details) {
               if (_isDismissing) return;
+              // ✅ 双指手势激活时不响应下滑退出
+              if (_activePointers >= 2) return;
               final velocity = details.primaryVelocity ?? 0;
               if (velocity > 800 || _dragOffset > _dismissThreshold) {
                 _animateDismiss();
@@ -951,44 +1056,122 @@ class _PlayerScreenState extends State<PlayerScreen>
               offset: Offset(0, _dragOffset),
               child: Opacity(
                 opacity: (1.0 - (_dragOffset / _dismissThreshold).clamp(0.0, 0.5)).toDouble(),
-                child: Stack(
-                  children: [
-                // ── Dynamic background ──
-                PlayerBackground(
-                  albumCoverUrl: song.albumCoverUrl,
-                  paletteColor: player.backgroundColor,
-                  paletteColors: player.paletteColors,
-                  scrollOffset: _pageOffset,
-                ),
-
-                // ── Content ──
-                SafeArea(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                child: RepaintBoundary(
+                  // ✅ 新增适配代码：RepaintBoundary 隔离流光背景重绘，避免整页随动画重建
+                  child: Stack(
                     children: [
-                      // ── Page header (shared, pinned at top) ──
-                      _buildPageHeader(player, song),
-                      Expanded(
-                        child: PageView(
-                          controller: _pageController,
+                      // ── Dynamic background ──
+                      PlayerBackground(
+                        albumCoverUrl: song.albumCoverUrl,
+                        paletteColor: player.backgroundColor,
+                        paletteColors: player.paletteColors,
+                        // 双栏/沉浸布局无 PageView 滚动，背景保持初始状态
+                        scrollOffset: isLandscapeTablet || _immersive ? 0.0 : _pageOffset,
+                      ),
+
+                      // ── Content ──
+                      SafeArea(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // Page 0: Cover + controls
-                            _buildCoverPage(player, song),
-                            // Page 1: Immersive lyrics
-                            _buildLyricsPage(player, song),
+                            // ── Page header（沉浸模式隐藏，其余场景固定顶部）──
+                            if (!_immersive) _buildPageHeader(player, song),
+                            Expanded(
+                              child: _immersive
+                                  ? _buildImmersiveBody(player, song)
+                                  : isLandscapeTablet
+                                      ? _buildLandscapeBody(player, song)
+                                      : AbsorbPointer(
+                                          // ✅ 双指手势激活时吸收 PageView 事件（避免双指横滑翻页）
+                                          absorbing: twoFingerActive,
+                                          child: PageView(
+                                            controller: _pageController,
+                                            children: [
+                                              // Page 0: Cover + controls
+                                              _buildCoverPage(player, song),
+                                              // Page 1: Immersive lyrics
+                                              _buildLyricsPage(player, song),
+                                            ],
+                                          ),
+                                        ),
+                            ),
                           ],
                         ),
                       ),
+
+                      // ✅ 新增适配代码：平板双指手势层（Listener 原始指针跟踪，绕过手势竞技场）
+                      // 双指水平滑=切歌、双指垂直滑=音量；单指手势（PageView 翻页 / 下滑退出）不受影响。
+                      if (isTablet && !_immersive)
+                        Listener(
+                          behavior: HitTestBehavior.translucent,
+                          onPointerDown: _onPointerDown,
+                          onPointerMove: _onPointerMove,
+                          onPointerUp: _onPointerUp,
+                          onPointerCancel: _onPointerUp,
+                        ),
                     ],
                   ),
-                ),
-                  ],
                 ),
               ),
             ),
           ),
         );
       },
+    );
+  }
+
+  // ✅ 新增适配代码：横屏平板双栏布局（Salt Player / Apple Music 平板风格）
+  Widget _buildLandscapeBody(PlayerProvider player, Song song) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 左栏：封面 + 进度 + 控制（复用现有 _buildCoverPage，控件布局不变）
+        Expanded(
+          flex: 5,
+          child: RepaintBoundary(child: _buildCoverPage(player, song)),
+        ),
+        const VerticalDivider(width: 1, thickness: 1, color: Colors.white24),
+        // 右栏：歌词（复用现有 _buildLyricsPage，同步滚动/高亮机制不变，仅样式紧凑化）
+        Expanded(
+          flex: 6,
+          child: RepaintBoundary(
+            child: _buildLyricsPage(player, song, compact: true),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ✅ 新增适配代码：沉浸模式布局（Salt Player 风格）
+  // 仅保留歌词 + 进度条 + 退出提示；点击空白处或提示文字退出。
+  Widget _buildImmersiveBody(PlayerProvider player, Song song) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: _toggleImmersive,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: _buildLyricsPage(player, song, compact: true),
+          ),
+          // 底部进度条（独立订阅，不随歌词重建）
+          _PlayerProgressBar(pageOffset: _pageOffset),
+          const SizedBox(height: 6),
+          // 退出提示
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text(
+                '点击任意处退出沉浸模式',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.35),
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1096,8 +1279,11 @@ class _PlayerScreenState extends State<PlayerScreen>
 
         const SizedBox(height: 12),
 
-        // Three controls: �?�?�?（独立订阅 isPlaying/isLoading）
-        const _PlayerControls(),
+        // Three controls: 播放/暂停/切歌（独立订阅 isPlaying/isLoading）
+        // ✅ 新增适配代码：仅平板启用长按播放键沉浸模式
+        _PlayerControls(
+          onLongPressPlayPause: context.isTablet ? _toggleImmersive : null,
+        ),
 
         const SizedBox(height: 8),
 
@@ -1316,7 +1502,10 @@ class _PlayerProgressBarState extends State<_PlayerProgressBar> {
 
 /// 独立订阅播放/加载状态，避免进度变化时重建整个 PlayerScreen。
 class _PlayerControls extends StatelessWidget {
-  const _PlayerControls();
+  // ✅ 新增适配代码：长按播放/暂停键回调（平板沉浸模式）
+  final VoidCallback? onLongPressPlayPause;
+
+  const _PlayerControls({this.onLongPressPlayPause});
 
   @override
   Widget build(BuildContext context) {
@@ -1330,6 +1519,7 @@ class _PlayerControls extends StatelessWidget {
           onPlayPause: player.togglePlayPause,
           onPrevious: player.playPrevious,
           onNext: player.playNext,
+          onLongPressPlayPause: onLongPressPlayPause,
         );
       },
     );

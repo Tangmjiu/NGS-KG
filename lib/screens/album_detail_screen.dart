@@ -11,6 +11,8 @@ import '../providers/playlist_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
+import '../utils/responsive.dart';
+import '../widgets/song_grid_tile.dart';
 import '../widgets/list_bottom_spacer.dart';
 
 class AlbumDetailScreen extends StatefulWidget {
@@ -62,6 +64,44 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
         _selectedIndices.addAll(List.generate(total, (i) => i));
       }
     });
+  }
+
+  /// ✅ 新增适配代码：平板专辑歌曲网格（多选角标）
+  Widget _buildSongsGrid() {
+    return SliverGrid(
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 180,
+        childAspectRatio: 0.75,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+      ),
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final song = _songs[index];
+          if (_isSelecting) {
+            return M3StaggeredFadeIn(
+              index: index,
+              child: SongGridTile(
+                song: song,
+                selectionMode: true,
+                selected: _selectedIndices.contains(index),
+                onSelectionToggle: () => _toggleSelection(index),
+              ),
+            );
+          }
+          return M3StaggeredFadeIn(
+            index: index,
+            child: SongGridTile(
+              song: song,
+              onTap: (s) => context
+                  .read<PlayerProvider>()
+                  .playSong(s, playlist: _songs),
+            ),
+          );
+        },
+        childCount: _songs.length,
+      ),
+    );
   }
 
   @override
@@ -280,6 +320,9 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
             const SliverFillRemaining(
               child: Center(child: Text('暂无歌曲')),
             )
+          else if (context.isTablet)
+            // ✅ 新增适配代码：平板网格封面墙（多选角标）
+            _buildSongsGrid()
           else
             SliverList(
               delegate: SliverChildBuilderDelegate(

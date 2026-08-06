@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/theme_pack.dart';
+import 'responsive.dart';
 
 /// MD3 形状 token — 统一 BorderRadius，禁止 magic number
 abstract final class AppShape {
@@ -786,6 +787,9 @@ Future<T?> showM3Dialog<T>({
 ///
 /// Duration: 300ms (Medium2)
 /// 替代 showModalBottomSheet，自动应用 M3 动画
+///
+/// ✅ 新增适配代码：平板端（≥600dp）自动切换为居中卡片弹窗（宽 400-560dp、
+/// 高度上限 80%），充分利用大屏；手机端保持底部弹出样式不变。
 Future<T?> showM3ModalBottomSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -805,6 +809,40 @@ Future<T?> showM3ModalBottomSheet<T>({
   Offset? anchorPoint,
   BoxConstraints? constraints,
 }) {
+  // ✅ 新增适配代码：平板 → 居中卡片弹窗
+  if (Responsive.isTablet(context)) {
+    final cs = Theme.of(context).colorScheme;
+    final screenSize = MediaQuery.of(context).size;
+    final dialogWidth = (screenSize.width * 0.9).clamp(400.0, 560.0);
+    return showDialog<T>(
+      context: context,
+      barrierDismissible: isDismissible,
+      useRootNavigator: useRootNavigator,
+      barrierColor: barrierColor,
+      builder: (ctx) {
+        return Dialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+          backgroundColor: Colors.transparent,
+          elevation: elevation ?? 24,
+          clipBehavior: clipBehavior ?? Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: dialogWidth,
+              maxHeight: screenSize.height * 0.8,
+            ),
+            child: Material(
+              color: backgroundColor ?? cs.surface,
+              borderRadius: BorderRadius.circular(28),
+              clipBehavior: Clip.antiAlias,
+              child: Builder(builder: builder),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   return showModalBottomSheet<T>(
     context: context,
     builder: builder,
