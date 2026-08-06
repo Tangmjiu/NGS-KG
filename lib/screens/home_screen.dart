@@ -10,6 +10,7 @@ import '../models/latest_listen_info.dart';
 import '../services/music_service.dart';
 import '../models/song_mapper.dart';
 import '../utils/logger.dart';
+import '../utils/app_icons.dart';
 import '../utils/theme.dart';
 import 'discover_screen.dart';
 import 'profile_screen.dart';
@@ -435,16 +436,16 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         destinations: const [
           NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
+              icon: AppIcon(AppIcons.home, weight: 500),
+              selectedIcon: AppIcon(AppIcons.home, weight: 700, fill: 1),
               label: '首页'),
           NavigationDestination(
-              icon: Icon(Icons.explore_outlined),
-              selectedIcon: Icon(Icons.explore),
+              icon: AppIcon(AppIcons.explore, weight: 500),
+              selectedIcon: AppIcon(AppIcons.explore, weight: 700, fill: 1),
               label: '发现'),
           NavigationDestination(
-              icon: Icon(Icons.person_outlined),
-              selectedIcon: Icon(Icons.person),
+              icon: AppIcon(AppIcons.person, weight: 500),
+              selectedIcon: AppIcon(AppIcons.person, weight: 700, fill: 1),
               label: '我的'),
         ],
       ),

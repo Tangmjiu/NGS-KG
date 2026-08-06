@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/player_provider.dart';
 import '../models/song.dart';
+import '../utils/app_icons.dart';
 import '../utils/navigation.dart' as app;
 import '../utils/theme.dart';
 import '../screens/player_screen.dart';
@@ -59,9 +60,9 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
                 return false;
               },
               background: _buildSwipeIndicator(
-                  cs, Icons.skip_previous_rounded, '上一首', Alignment.centerLeft),
+                  cs, AppIcons.skipPrevious, '上一首', Alignment.centerLeft),
               secondaryBackground: _buildSwipeIndicator(
-                  cs, Icons.skip_next_rounded, '下一首', Alignment.centerRight),
+                  cs, AppIcons.skipNext, '下一首', Alignment.centerRight),
               child: M3PressScale(
                 child: GestureDetector(
                   onTap: () => _openPlayerScreen(context),
@@ -138,7 +139,7 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
 
                                 // 媒体控制按钮组
                                 _buildControlButton(
-                                  icon: Icons.skip_previous_rounded,
+                                  icon: AppIcons.skipPrevious,
                                   tooltip: '上一首',
                                   cs: cs,
                                   onTap: () => context.read<PlayerProvider>().playPrevious(),
@@ -150,7 +151,7 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
                                 const SizedBox(width: 2),
 
                                 _buildControlButton(
-                                  icon: Icons.skip_next_rounded,
+                                  icon: AppIcons.skipNext,
                                   tooltip: '下一首',
                                   cs: cs,
                                   onTap: () => context.read<PlayerProvider>().playNext(),
@@ -373,20 +374,24 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
             height: 42,
             child: Center(
               child: AnimatedSwitcher(
-                duration: AppMotion.dMedium1,
+                duration: const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOutBack,
+                switchOutCurve: AppMotion.emphasizedAccelerate,
                 transitionBuilder: (child, animation) {
                   return ScaleTransition(
-                    scale: animation,
-                    child: FadeTransition(opacity: animation, child: child),
+                    scale: Tween<double>(begin: 0.5, end: 1.0).animate(animation),
+                    child: RotationTransition(
+                      turns: Tween<double>(begin: -0.125, end: 0.0).animate(animation),
+                      child: FadeTransition(opacity: animation, child: child),
+                    ),
                   );
                 },
-                child: Icon(
-                  state.isPlaying
-                      ? Icons.pause_rounded
-                      : Icons.play_arrow_rounded,
+                child: AppIcon(
+                  state.isPlaying ? AppIcons.pause : AppIcons.play,
                   key: ValueKey<bool>(state.isPlaying),
                   color: cs.onPrimary,
                   size: 24,
+                  weight: 700,
                 ),
               ),
             ),
