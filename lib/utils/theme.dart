@@ -368,6 +368,77 @@ ThemeData buildThemeData(
       textStyle: TextStyle(color: colorScheme.onInverseSurface),
       waitDuration: const Duration(milliseconds: 500),
     ),
+
+    // ── PopupMenu (M3 4dp 圆角 + 柔和阴影) ──
+    popupMenuTheme: PopupMenuThemeData(
+      color: surface,
+      surfaceTintColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(borderRadius: AppShape.xs),
+      elevation: 2,
+      shadowColor: Colors.black.withValues(alpha: 0.2),
+    ),
+
+    // ── Menu (MenuAnchor 系列，与 PopupMenu 视觉统一) ──
+    menuTheme: MenuThemeData(
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(surface),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: AppShape.xs),
+        ),
+        elevation: const WidgetStatePropertyAll(2),
+      ),
+    ),
+
+    // ── Radio (M3 圆点) ──
+    radioTheme: RadioThemeData(
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return colorScheme.primary;
+        return colorScheme.onSurfaceVariant;
+      }),
+    ),
+
+    // ── Checkbox (M3 2dp 圆角) ──
+    checkboxTheme: CheckboxThemeData(
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(2))),
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return colorScheme.primary;
+        return null;
+      }),
+    ),
+
+    // ── ExpansionTile (M3 圆角容器) ──
+    expansionTileTheme: ExpansionTileThemeData(
+      shape: const RoundedRectangleBorder(borderRadius: AppShape.md),
+      collapsedShape: const RoundedRectangleBorder(borderRadius: AppShape.md),
+      backgroundColor:
+          colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      collapsedBackgroundColor:
+          colorScheme.surfaceContainerHighest.withValues(alpha: 0.15),
+      iconColor: colorScheme.onSurfaceVariant,
+      collapsedIconColor: colorScheme.onSurfaceVariant,
+    ),
+
+    // ── SearchBar (M3 56dp 胶囊) ──
+    searchBarTheme: SearchBarThemeData(
+      elevation: const WidgetStatePropertyAll(0),
+      backgroundColor: WidgetStatePropertyAll(
+        colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
+      ),
+      shape: const WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: AppShape.full),
+      ),
+    ),
+
+    // ── Drawer (M3 右侧 16dp 圆角) ──
+    drawerTheme: DrawerThemeData(
+      backgroundColor: surface,
+      surfaceTintColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.horizontal(right: Radius.circular(16)),
+      ),
+    ),
   );
 }
 
