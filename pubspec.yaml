@@ -1,7 +1,7 @@
 name: ngskg_plus
 description: NGS-KG+ - Cross-platform music player based on KuGouMusic API
 publish_to: 'none'
-version: 1.5.2-preview
+version: 1.5.3-preview
 
 environment:
   sdk: ^3.0.0

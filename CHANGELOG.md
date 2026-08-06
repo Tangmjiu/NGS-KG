@@ -1,5 +1,21 @@
 # NGS-KG+ 更新日志
 
+## v1.5.3-preview（2026-08-06）
+
+### 新增（Material 3 Expressive 重构 · 对标 Rhythm）
+
+- **Material Symbols 可变权重图标系统**：引入 `material_symbols_icons`（wght/FILL/GRAD/opsz 四轴可变字体），新增 `AppIcon` 封装（常规/选中/轻盈三档预设）与语义化图标常量
+- **Rhythm 式播放控制动效**：播放/暂停图标弹性切换（easeOutBack overshoot + 回旋 + 淡入）、按钮按压缩放反馈、切换/切歌触感反馈（haptic）
+- **进度条增强拖拽**：拖动时滑块放大、目标时间气泡跟随拇指位置弹性弹出
+- **歌词渐变扫光高亮**：播放行从纯白渐变至透明尾迹（`activeHighlightGradient`），同步滚动/锚点机制不变
+- **封面双击喜欢**：双击专辑封面快速喜欢/取消（未登录引导登录），带触感反馈
+- **全局图标升级**：播放页底栏、MiniPlayer、首页 NavigationBar、播放队列改用 Material Symbols；NavigationBar 选中态用 weight 700 + fill 1 表达
+- **播放队列交错入场动画**：队列行 30ms 间隔交错滑入
+
+### 保留（硬约束）
+
+- 播放界面布局、歌词展示方式（同步高亮机制）、动态流光背景均未改动
+
 ## v1.5.0-preview（2026-07-xx）
 
 ### 新增
