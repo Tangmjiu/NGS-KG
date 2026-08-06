@@ -52,6 +52,7 @@ dependencies:
   flutter_lyric: ^3.0.6
   on_audio_query: ^2.9.0
   flutter_markdown: ^0.7.3
+  material_symbols_icons: ^4.2960.0
 
 dev_dependencies:
   flutter_test:
