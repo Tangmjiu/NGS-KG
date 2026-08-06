@@ -12,10 +12,11 @@ import '../utils/theme.dart';
 /// Mode toggle and playlist button have been moved to the bottom icon bar.
 ///
 /// Rhythm 风格动效（对标 AnimatedPlaybackControls）：
+///   - 权重弹跳：点击的按钮膨胀至 1.1，其余两个压缩至 0.65，220ms 后弹回
 ///   - 播放/暂停图标切换：弹性缩放（easeOutBack overshoot）+ 轻微旋转 + 淡入
-///   - 按下时按钮整体微缩（按压反馈），松手弹回
+///   - 按下时主按钮整体微缩（按压反馈）
 ///   - 切换/切歌附带触感反馈
-class PlayerControlsBar extends StatelessWidget {
+class PlayerControlsBar extends StatefulWidget {
   final bool isPlaying;
   final bool isLoading;
   final VoidCallback onPlayPause;
@@ -32,44 +33,103 @@ class PlayerControlsBar extends StatelessWidget {
   });
 
   @override
+  State<PlayerControlsBar> createState() => _PlayerControlsBarState();
+}
+
+class _PlayerControlsBarState extends State<PlayerControlsBar> {
+  /// 当前被"权重弹跳"选中的按钮索引（-1 = 无）
+  int _weightIndex = -1;
+  Timer? _weightTimer;
+
+  @override
+  void dispose() {
+    _weightTimer?.cancel();
+    super.dispose();
+  }
+
+  void _press(int index) {
+    setState(() => _weightIndex = index);
+    _weightTimer?.cancel();
+    _weightTimer = Timer(const Duration(milliseconds: 220), () {
+      if (mounted) setState(() => _weightIndex = -1);
+    });
+  }
+
+  /// Rhythm 权重映射：自身 1.1 / 其余 0.65 / 无选中 1.0
+  double _weightFor(int index) {
+    if (_weightIndex == -1) return 1.0;
+    return _weightIndex == index ? 1.1 : 0.65;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         // -- Previous --
-        _SkipButton(
-          icon: AppIcons.skipPrevious,
-          tooltip: '上一首',
-          onTap: () {
-            unawaited(haptic(HapticKind.light));
-            onPrevious();
-          },
+        _WeightedButton(
+          scale: _weightFor(0),
+          child: _SkipButton(
+            icon: AppIcons.skipPrevious,
+            tooltip: '上一首',
+            onTap: () {
+              _press(0);
+              unawaited(haptic(HapticKind.light));
+              widget.onPrevious();
+            },
+          ),
         ),
 
         const SizedBox(width: 8),
 
         // -- Play / Pause --
-        _PlayPauseButton(
-          isPlaying: isPlaying,
-          isLoading: isLoading,
-          onTap: () {
-            unawaited(haptic(HapticKind.medium));
-            onPlayPause();
-          },
+        _WeightedButton(
+          scale: _weightFor(1),
+          child: _PlayPauseButton(
+            isPlaying: widget.isPlaying,
+            isLoading: widget.isLoading,
+            onTap: () {
+              _press(1);
+              unawaited(haptic(HapticKind.medium));
+              widget.onPlayPause();
+            },
+          ),
         ),
 
         const SizedBox(width: 8),
 
         // -- Next --
-        _SkipButton(
-          icon: AppIcons.skipNext,
-          tooltip: '下一首',
-          onTap: () {
-            unawaited(haptic(HapticKind.light));
-            onNext();
-          },
+        _WeightedButton(
+          scale: _weightFor(2),
+          child: _SkipButton(
+            icon: AppIcons.skipNext,
+            tooltip: '下一首',
+            onTap: () {
+              _press(2);
+              unawaited(haptic(HapticKind.light));
+              widget.onNext();
+            },
+          ),
         ),
       ],
+    );
+  }
+}
+
+/// 权重弹跳动画层：AnimatedScale + easeOutBack 轻微 overshoot
+class _WeightedButton extends StatelessWidget {
+  final double scale;
+  final Widget child;
+
+  const _WeightedButton({required this.scale, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedScale(
+      scale: scale,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutBack,
+      child: child,
     );
   }
 }
