@@ -1,6 +1,8 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 import 'package:flutter_lyric/flutter_lyric.dart';
@@ -19,6 +21,8 @@ import '../widgets/player_progress_bar.dart';
 import '../widgets/playback_controls.dart' as legacy;
 import '../widgets/login_required_dialog.dart';
 import '../widgets/lyric_settings_panel.dart';
+import '../utils/app_icons.dart';
+import '../utils/haptics.dart';
 
 /// Apple Music-style full player screen with dynamic background,
 /// cover-art / lyrics PageView, and smooth transitions.
@@ -51,6 +55,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
         color: Colors.white,
         letterSpacing: 0.5,
       ),
+      // ── 渐变扫光高亮（对标 Rhythm WordByWordLyricsView 的 Brush 扫光）──
+      // 高亮行从左到右：纯白 → 半透明白 → 透明尾迹，
+      // 配合 extraFadeWidth 形成"被点亮"的扫光质感；同步高亮机制不变。
+      activeHighlightGradient: LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [
+          Colors.white,
+          Colors.white.withValues(alpha: 0.85),
+          Colors.white.withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.72, 1.0],
+      ),
+      activeHighlightExtraFadeWidth: 24,
       // 翻译/罗马音用字号区分，不用粗细
       translationStyle: TextStyle(
         fontSize: ls.translationFontSize,
@@ -69,8 +87,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
       // 焦点行锚点稍偏上(0.4)，补偿标题栏上移后视觉中心偏移
       activeAnchorPosition: 0.4,
       activeAlignment: MainAxisAlignment.center,
-      activeHighlightColor: Colors.white,
-      activeHighlightExtraFadeWidth: 14,
       selectedColor: const Color(0xFF8A7FA0),
       selectedTranslationColor: const Color(0xFF8A7FA0),
       scrollDuration: const Duration(milliseconds: 400),
@@ -1049,6 +1065,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         // ↺ Play mode
         _IconBarItem(
           icon: _modeIcon(player.playMode),
+          weight: 500,
           onTap: () {
             const modes = [
               PlayMode.sequential,
@@ -1057,6 +1074,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             ];
             final next =
                 modes[(modes.indexOf(player.playMode) + 1) % modes.length];
+            unawaited(haptic(HapticKind.selection));
             player.setPlayMode(next);
           },
         ),
@@ -1066,7 +1084,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
           builder: (_, lp, __) {
             final liked = lp.likedIds.contains(song.id);
             return _IconBarItem(
-              icon: liked ? Icons.favorite : Icons.favorite_border,
+              icon: liked ? AppIcons.favorite : AppIcons.favoriteBorder,
+              weight: liked ? 700 : 400,
+              fill: liked ? 1 : 0,
               iconColor: liked ? Colors.redAccent : null,
               onTap: () async {
                 final auth = context.read<AuthProvider>();
@@ -1077,6 +1097,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   }
                   return;
                 }
+                unawaited(haptic(HapticKind.medium));
                 lp.toggle(SongInfo(
                   id: song.id,
                   name: song.name,
@@ -1091,22 +1112,32 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
         // ⎔ Audio effects
         _IconBarItem(
-          icon: Icons.tune_rounded,
-          onTap: () =>
-              Navigator.pushNamed(context, '/settings/audio/effects'),
+          icon: AppIcons.tune,
+          weight: 500,
+          onTap: () {
+            unawaited(haptic(HapticKind.light));
+            Navigator.pushNamed(context, '/settings/audio/effects');
+          },
         ),
 
         // ☰ Playlist queue
         _IconBarItem(
-          icon: Icons.playlist_play,
-          onTap: () =>
-              legacy.PlaybackControls.showPlaylistStatic(context, player),
+          icon: AppIcons.playlistPlay,
+          weight: 500,
+          onTap: () {
+            unawaited(haptic(HapticKind.light));
+            legacy.PlaybackControls.showPlaylistStatic(context, player);
+          },
         ),
 
         // ⋮ More — opens bottom sheet
         _IconBarItem(
-          icon: Icons.more_horiz,
-          onTap: _showMoreSheet,
+          icon: AppIcons.moreHoriz,
+          weight: 500,
+          onTap: () {
+            unawaited(haptic(HapticKind.light));
+            _showMoreSheet();
+          },
         ),
       ],
     );
@@ -1115,13 +1146,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
   IconData _modeIcon(PlayMode mode) {
     switch (mode) {
       case PlayMode.sequential:
-        return Icons.repeat;
+        return AppIcons.repeat;
       case PlayMode.shuffle:
-        return Icons.shuffle;
+        return AppIcons.shuffle;
       case PlayMode.repeatOne:
-        return Icons.repeat_one;
+        return AppIcons.repeatOne;
       case PlayMode.radio:
-        return Icons.radio;
+        return AppIcons.radio;
     }
   }
 
@@ -1132,21 +1163,35 @@ class _IconBarItem extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;
   final Color? iconColor;
+  final double weight;
+  final double fill;
 
   const _IconBarItem({
     required this.icon,
     this.onTap,
     this.iconColor,
+    this.weight = 400,
+    this.fill = 0,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: AppShape.sm,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Icon(icon, size: 22, color: iconColor ?? Colors.white60),
+    return M3PressScale(
+      scaleDown: 0.85,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppShape.sm,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: AppIcon(
+            icon,
+            size: 22,
+            color: iconColor ?? Colors.white60,
+            weight: weight,
+            fill: fill,
+            opticalSize: 24,
+          ),
+        ),
       ),
     );
   }

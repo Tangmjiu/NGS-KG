@@ -1,11 +1,16 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/liked_songs_provider.dart';
 import '../models/song.dart';
 import '../theme/theme_assets.dart';
+import '../utils/haptics.dart';
 import '../utils/theme.dart';
+import '../widgets/login_required_dialog.dart';
 import 'hi_res_badge.dart';
 
 /// Enhanced album cover art widget with glassmorphism shadow,
@@ -41,70 +46,78 @@ class PlayerCoverArt extends StatelessWidget {
               scale: 1.0 - scrollOffset * 0.2, // 歌词滚动时的额外缩小
               child: M3PressScale(
                 scaleDown: 0.95, // 用户手动按压封面的阻尼
-                child: Hero(
-                  tag: 'album_art_${song.hash ?? song.id}',
-                  // ── 用 AnimatedScale 做变换层缩放，不触发布局重排 ──
-                  child: AnimatedScale(
-                    scale: playScale,
-                    duration: AppMotion.dMedium4, // 400ms 让缩放更有物理感
-                    curve: AppMotion.emphasizedDecelerate,
-                    child: _ShadowWrapper(
-                      isPlaying: isPlaying,
-                      child: SizedBox(
-                        width: baseSize,
-                        height: baseSize,
-                        child: Stack(
-                          clipBehavior: Clip.hardEdge,
-                          fit: StackFit.expand,
-                          children: [
-                            ClipRRect(
-                              borderRadius: AppShape.md,
-                              child: Semantics(
-                                image: true,
-                                label: '${song.name} 专辑封面',
-                                child: Builder(
-                                        builder: (_) {
-                                          final url = song.albumCoverUrl;
-                                          if (url == null || url.isEmpty) {
-                                            return _fallback(baseSize);
-                                          }
-                                          // 本地文件：file:// URI 或裸路径
-                                          if (url.startsWith('file:') || url.startsWith('/')) {
-                                            final path = url.startsWith('file:')
-                                                ? Uri.parse(url).toFilePath()
-                                                : url;
-                                            final file = File(path);
-                                            if (file.existsSync()) {
-                                              return Image.file(
-                                                file,
-                                                width: baseSize,
-                                                height: baseSize,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (_, __, ___) => _fallback(baseSize),
-                                              );
-                                            }
-                                            return _fallback(baseSize);
-                                          }
-                                          // 网络 URL → 使用缓存加载
-                                          return CachedNetworkImage(
-                                            imageUrl: url,
+                child: GestureDetector(
+                  // ── 双击封面：喜欢/取消喜欢（Rhythm 式快捷手势）──
+                  onDoubleTap: () => _onDoubleTapLike(context),
+                  child: Hero(
+                    tag: 'album_art_${song.hash ?? song.id}',
+                    // ── 用 AnimatedScale 做变换层缩放，不触发布局重排 ──
+                    child: AnimatedScale(
+                      scale: playScale,
+                      duration: AppMotion.dMedium4, // 400ms 让缩放更有物理感
+                      curve: AppMotion.emphasizedDecelerate,
+                      child: _ShadowWrapper(
+                        isPlaying: isPlaying,
+                        child: SizedBox(
+                          width: baseSize,
+                          height: baseSize,
+                          child: Stack(
+                            clipBehavior: Clip.hardEdge,
+                            fit: StackFit.expand,
+                            children: [
+                              ClipRRect(
+                                borderRadius: AppShape.md,
+                                child: Semantics(
+                                  image: true,
+                                  label: '${song.name} 专辑封面',
+                                  child: Builder(
+                                    builder: (_) {
+                                      final url = song.albumCoverUrl;
+                                      if (url == null || url.isEmpty) {
+                                        return _fallback(baseSize);
+                                      }
+                                      // 本地文件：file:// URI 或裸路径
+                                      if (url.startsWith('file:') ||
+                                          url.startsWith('/')) {
+                                        final path = url.startsWith('file:')
+                                            ? Uri.parse(url).toFilePath()
+                                            : url;
+                                        final file = File(path);
+                                        if (file.existsSync()) {
+                                          return Image.file(
+                                            file,
                                             width: baseSize,
                                             height: baseSize,
                                             fit: BoxFit.cover,
-                                            placeholder: (_, __) => _fallback(baseSize),
-                                            errorWidget: (_, __, ___) => _fallback(baseSize),
+                                            errorBuilder: (_, __, ___) =>
+                                                _fallback(baseSize),
                                           );
-                                        },
-                                      ),
+                                        }
+                                        return _fallback(baseSize);
+                                      }
+                                      // 网络 URL → 使用缓存加载
+                                      return CachedNetworkImage(
+                                        imageUrl: url,
+                                        width: baseSize,
+                                        height: baseSize,
+                                        fit: BoxFit.cover,
+                                        placeholder: (_, __) =>
+                                            _fallback(baseSize),
+                                        errorWidget: (_, __, ___) =>
+                                            _fallback(baseSize),
+                                      );
+                                    },
+                                  ),
+                                ),
                               ),
-                            ),
-                            if (showHiRes)
-                              const Positioned(
-                                left: 4,
-                                bottom: 8,
-                                child: HiResBadge(height: 28),
-                              ),
-                          ],
+                              if (showHiRes)
+                                const Positioned(
+                                  left: 4,
+                                  bottom: 8,
+                                  child: HiResBadge(height: 28),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -116,6 +129,28 @@ class PlayerCoverArt extends StatelessWidget {
         );
       },
     );
+  }
+
+  /// 双击封面：喜欢/取消喜欢（未登录时引导登录）
+  void _onDoubleTapLike(BuildContext context) {
+    unawaited(haptic(HapticKind.medium));
+    final auth = context.read<AuthProvider>();
+    if (!auth.isLoggedIn) {
+      showLoginRequiredDialog(context).then((goLogin) {
+        if (goLogin && context.mounted) {
+          Navigator.pushNamed(context, '/login');
+        }
+      });
+      return;
+    }
+    final lp = context.read<LikedSongsProvider>();
+    lp.toggle(SongInfo(
+      id: song.id,
+      name: song.name,
+      hash: song.hash ?? '',
+      albumId: song.albumId,
+      audioId: song.id,
+    ));
   }
 
   Widget _fallback(double size) {
