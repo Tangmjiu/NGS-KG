@@ -7,6 +7,7 @@ import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
+import '../utils/app_icons.dart';
 import '../widgets/list_bottom_spacer.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -98,7 +99,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.history, size: 80, color: cs.onSurfaceVariant),
+            AppIcon(AppIcons.history, size: 80, color: cs.onSurfaceVariant),
             const SizedBox(height: 16),
             Text('暂无听歌历史',
                 style: TextStyle(color: cs.onSurfaceVariant)),

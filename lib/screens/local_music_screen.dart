@@ -1,7 +1,9 @@
 import 'dart:io' show File, Platform;
 import 'package:flutter/material.dart';
+import '../utils/app_icons.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';
+import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../providers/local_music_provider.dart';
@@ -10,7 +12,6 @@ import '../providers/player_provider.dart';
 import '../navidrome/navidrome_provider.dart';
 import '../navidrome/navidrome_login_screen.dart';
 import '../navidrome/navidrome_screen.dart';
-import '../utils/logger.dart';
 import '../widgets/list_bottom_spacer.dart';
 
 class LocalMusicScreen extends StatefulWidget {
@@ -97,7 +98,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.lock, size: 80, color: Theme.of(context).colorScheme.outline),
+            AppIcon(Symbols.lock_rounded, size: 80, color: Theme.of(context).colorScheme.outline),
             const SizedBox(height: 16),
             const Text('需要存储权限才能扫描本地音乐'),
             const SizedBox(height: 24),
@@ -129,7 +130,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.music_note, size: 64,
+                AppIcon(AppIcons.musicNote, size: 64,
                     color: Theme.of(context).colorScheme.onSurfaceVariant),
                 const SizedBox(height: 12),
                 Text(prov.status,
@@ -145,7 +146,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.create_new_folder_outlined, size: 18),
+                      AppIcon(Symbols.create_new_folder_rounded, size: 18),
                       SizedBox(width: 8),
                       Text('选择音乐文件夹'),
                     ],
@@ -153,7 +154,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                 ),
                 const SizedBox(height: 8),
                 TextButton.icon(
-                  icon: const Icon(Icons.refresh, size: 16),
+                  icon: const AppIcon(Symbols.refresh_rounded, size: 16),
                   onPressed: () => prov.refreshLibrary(),
                   label: const Text('重新扫描默认位置'),
                 ),
@@ -174,19 +175,19 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                   _buildGroupedTab(
                     prov: prov,
                     grouper: () => prov.groupedByAlbum(),
-                    emptyIcon: Icons.album,
+                    emptyIcon: AppIcons.album,
                     emptyLabel: '专辑',
                   ),
                   _buildGroupedTab(
                     prov: prov,
                     grouper: () => prov.groupedByArtist(),
-                    emptyIcon: Icons.person,
+                    emptyIcon: AppIcons.person,
                     emptyLabel: '歌手',
                   ),
                   _buildGroupedTab(
                     prov: prov,
                     grouper: () => prov.groupedByFolder(),
-                    emptyIcon: Icons.folder_outlined,
+                    emptyIcon: Symbols.folder_open_rounded,
                     emptyLabel: '文件夹',
                   ),
                 ],
@@ -215,19 +216,19 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
         tabs: const [
           Tab(
             text: '全部歌曲',
-            icon: Icon(Icons.music_note, size: 18),
+            icon: AppIcon(AppIcons.musicNote, size: 18),
           ),
           Tab(
             text: '专辑',
-            icon: Icon(Icons.album, size: 18),
+            icon: AppIcon(AppIcons.album, size: 18),
           ),
           Tab(
             text: '歌手',
-            icon: Icon(Icons.person, size: 18),
+            icon: AppIcon(AppIcons.person, size: 18),
           ),
           Tab(
             text: '文件夹',
-            icon: Icon(Icons.folder, size: 18),
+            icon: AppIcon(Symbols.folder_rounded, size: 18),
           ),
         ],
       ),
@@ -246,7 +247,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
       if (idx >= 0) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!_allSongsScrollCtrl.hasClients) return;
-          final itemHeight = 72.0;
+          const itemHeight = 72.0;
           final offset = (idx * itemHeight)
               .clamp(0.0, _allSongsScrollCtrl.position.maxScrollExtent);
           _allSongsScrollCtrl.animateTo(
@@ -291,7 +292,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(emptyIcon, size: 64, color: cs.onSurfaceVariant),
+            AppIcon(emptyIcon, size: 64, color: cs.onSurfaceVariant),
             const SizedBox(height: 12),
             Text('暂无$emptyLabel',
                 style: TextStyle(color: cs.onSurfaceVariant)),
@@ -321,11 +322,11 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: ExpansionTile(
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
           borderRadius: AppShape.md,
           side: BorderSide.none,
         ),
-        collapsedShape: RoundedRectangleBorder(
+        collapsedShape: const RoundedRectangleBorder(
           borderRadius: AppShape.md,
           side: BorderSide.none,
         ),
@@ -378,7 +379,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
       backgroundImage: image,
       child: hasCover
           ? null
-          : Icon(Icons.music_note_outlined, size: 22, color: cs.primary),
+          : AppIcon(Symbols.music_note, size: 22, color: cs.primary),
     );
   }
 
@@ -408,9 +409,9 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
           style: TextStyle(color: cs.onSurfaceVariant),
         ),
         trailing: isPlaying
-            ? Icon(Icons.equalizer, color: cs.primary)
+            ? AppIcon(Symbols.equalizer_rounded, color: cs.primary)
             : IconButton(
-                icon: Icon(Icons.more_vert, color: cs.onSurfaceVariant, size: 20),
+                icon: AppIcon(Symbols.more_vert_rounded, color: cs.onSurfaceVariant, size: 20),
                 onPressed: () => _showSongMenu(song, prov),
               ),
         onTap: () async {
@@ -487,7 +488,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
               const Divider(),
               // 从列表移除
               ListTile(
-                leading: Icon(Icons.playlist_remove, color: cs.onSurfaceVariant),
+                leading: AppIcon(Symbols.playlist_remove_rounded, color: cs.onSurfaceVariant),
                 title: const Text('从列表中移除'),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 onTap: () {
@@ -529,7 +530,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                           color: cs.errorContainer,
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Icon(Icons.delete_outline,
+                        child: AppIcon(Symbols.delete_rounded,
                             color: cs.onErrorContainer, size: 22),
                       ),
                       const SizedBox(width: 14),
@@ -649,10 +650,10 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
               decoration: InputDecoration(
                 hintText: '搜索歌曲、歌手、专辑...',
                 isDense: true,
-                prefixIcon: Icon(Icons.search, size: 18, color: cs.onSurfaceVariant),
+                prefixIcon: AppIcon(AppIcons.search, size: 18, color: cs.onSurfaceVariant),
                 suffixIcon: _searchCtrl.text.isNotEmpty
                     ? IconButton(
-                        icon: Icon(Icons.close, size: 18, color: cs.onSurfaceVariant),
+                        icon: AppIcon(AppIcons.close, size: 18, color: cs.onSurfaceVariant),
                         onPressed: () {
                           _searchCtrl.clear();
                           prov.search('');
@@ -660,7 +661,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                         },
                       )
                     : null,
-                border: OutlineInputBorder(
+                border: const OutlineInputBorder(
                   borderRadius: AppShape.sm,
                   borderSide: BorderSide.none,
                 ),
@@ -678,7 +679,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
           const SizedBox(width: 8),
           // Sort dropdown
           PopupMenuButton<String>(
-            icon: Icon(Icons.sort, size: 20, color: cs.onSurfaceVariant),
+            icon: AppIcon(Symbols.sort_rounded, size: 20, color: cs.onSurfaceVariant),
             tooltip: '排序',
             onSelected: prov.sortBy,
             itemBuilder: (_) => [
@@ -690,14 +691,14 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
           ),
           // Add folder
           IconButton(
-            icon: Icon(Icons.create_new_folder_outlined, size: 20,
+            icon: AppIcon(Symbols.create_new_folder_rounded, size: 20,
                 color: cs.onSurfaceVariant),
             tooltip: '添加音乐文件夹',
             onPressed: prov.isScanning ? null : () => _pickDirectory(prov),
           ),
           // Manage folders
           IconButton(
-            icon: Icon(Icons.folder_outlined, size: 20,
+            icon: AppIcon(Symbols.folder_open_rounded, size: 20,
                 color: cs.onSurfaceVariant),
             tooltip: '管理扫描文件夹',
             onPressed: prov.isScanning ? null : () => _showDirManager(prov),
@@ -710,7 +711,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                     height: 16,
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: cs.onSurfaceVariant))
-                : Icon(Icons.refresh, size: 20, color: cs.onSurfaceVariant),
+                : AppIcon(Symbols.refresh_rounded, size: 20, color: cs.onSurfaceVariant),
             tooltip: '重新扫描',
             onPressed: prov.isScanning ? null : () => prov.refreshLibrary(),
           ),
@@ -768,12 +769,12 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                   itemCount: dirs.length,
                   itemBuilder: (_, i) => ListTile(
                     dense: true,
-                    leading: Icon(Icons.folder, size: 20,
+                    leading: AppIcon(Symbols.folder_rounded, size: 20,
                         color: cs.onSurfaceVariant),
                     title: Text(dirs[i],
                         style: Theme.of(context).textTheme.bodyMedium),
                     trailing: IconButton(
-                      icon: Icon(Icons.remove_circle_outline, size: 18,
+                      icon: AppIcon(Symbols.remove_circle_outline_rounded, size: 18,
                           color: cs.error),
                       tooltip: '移除',
                       onPressed: () {
@@ -797,7 +798,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
             child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.add, size: 18),
+                AppIcon(AppIcons.add, size: 18),
                 SizedBox(width: 8),
                 Text('添加文件夹'),
               ],
@@ -821,7 +822,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.wifi_find,
+              AppIcon(Symbols.wifi_find_rounded,
                   size: 64,
                   color: Theme.of(context).colorScheme.onSurfaceVariant),
               const SizedBox(height: 12),
@@ -844,7 +845,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.link),
+                    AppIcon(Symbols.link_rounded),
                     SizedBox(width: 8),
                     Text('连接服务器'),
                   ],

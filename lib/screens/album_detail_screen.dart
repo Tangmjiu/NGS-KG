@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../utils/app_icons.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';
+import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/album.dart';
 import '../models/song.dart';
@@ -109,7 +111,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                 : null,
             actions: [
               IconButton(
-                icon: Icon(_isSelecting ? Icons.close : Icons.checklist),
+                icon: AppIcon(_isSelecting ? AppIcons.close : Symbols.checklist_rounded),
                 tooltip: _isSelecting ? '取消选择' : '多选',
                 onPressed: _toggleSelectMode,
               ),
@@ -190,7 +192,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Row(
                 children: [
-                  Icon(Icons.album, size: 16, color: cs.onSurfaceVariant),
+                  AppIcon(AppIcons.album, size: 16, color: cs.onSurfaceVariant),
                   const SizedBox(width: 6),
                   Text('$songCount 首',
                       style: tt.bodySmall
@@ -207,7 +209,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                                     .read<PlayerProvider>()
                                     .playSong(_songs.first, playlist: _songs);
                               },
-                        icon: const Icon(Icons.play_arrow, size: 18),
+                        icon: const AppIcon(AppIcons.play, size: 18),
                         label: const Text('播放全部'),
                       ),
                     ),
@@ -345,10 +347,10 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
       child: Row(
         children: [
           TextButton.icon(
-            icon: Icon(
+            icon: AppIcon(
               _selectedIndices.length == total
-                  ? Icons.deselect
-                  : Icons.select_all,
+                  ? Symbols.deselect_rounded
+                  : Symbols.select_all_rounded,
               size: 18,
             ),
             label: Text(
@@ -357,7 +359,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.playlist_add),
+            icon: const AppIcon(Symbols.playlist_add_rounded),
             tooltip: '添加到歌单',
             onPressed: count == 0
                 ? null
@@ -404,7 +406,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                 itemBuilder: (_, i) {
                   final pl = playlists[i];
                   return ListTile(
-                    leading: const Icon(Icons.playlist_play),
+                    leading: const AppIcon(AppIcons.playlistPlay),
                     title: Text(pl.name),
                     onTap: () async {
                       Navigator.pop(ctx);

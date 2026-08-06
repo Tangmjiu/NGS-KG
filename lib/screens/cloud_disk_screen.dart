@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../utils/app_icons.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';
+import 'package:material_symbols_icons/material_symbols_icons.dart';
 import '../models/song.dart';
 import '../providers/auth_provider.dart';
 import '../providers/player_provider.dart';
@@ -89,7 +91,7 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.error_outline, size: 80, color: Theme.of(context).colorScheme.error),
+                    AppIcon(Symbols.error_outline_rounded, size: 80, color: Theme.of(context).colorScheme.error),
                     const SizedBox(height: 16),
                     Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
                   ],
@@ -100,7 +102,7 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.cloud_off, size: 80, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        AppIcon(Symbols.cloud_off_rounded, size: 80, color: Theme.of(context).colorScheme.onSurfaceVariant),
                         const SizedBox(height: 16),
                         Text('云盘暂无歌曲', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                       ],
@@ -129,7 +131,7 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                                 padding: EdgeInsets.all(12),
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : Icon(Icons.cloud_done, color: Theme.of(context).colorScheme.primary),
+                            : AppIcon(Symbols.cloud_done_rounded, color: Theme.of(context).colorScheme.primary),
                       ),
                       title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
                       subtitle: Text(author, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),

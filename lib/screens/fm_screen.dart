@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../utils/app_icons.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';
+import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/song.dart';
 import '../models/radio.dart';
@@ -92,7 +94,7 @@ class _FmScreenState extends State<FmScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.radio, size: 80, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+                      AppIcon(AppIcons.radio, size: 80, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
                       const SizedBox(height: 16),
                       Text('暂无电台', style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant)),
                     ],
@@ -151,9 +153,9 @@ class _FmScreenState extends State<FmScreen> {
                           imageUrl: img,
                           fit: BoxFit.cover,
                           errorWidget: (_, __, ___) =>
-                              Icon(Icons.radio, color: cs.onSurfaceVariant, size: 24),
+                              AppIcon(AppIcons.radio, color: cs.onSurfaceVariant, size: 24),
                         )
-                      : Icon(Icons.radio, color: cs.onSurfaceVariant, size: 24),
+                      : AppIcon(AppIcons.radio, color: cs.onSurfaceVariant, size: 24),
                 ),
               ),
               title: Text(name, maxLines: 1, style: Theme.of(context).textTheme.bodyMedium),
@@ -164,7 +166,7 @@ class _FmScreenState extends State<FmScreen> {
               trailing: AnimatedRotation(
                 turns: isExpanded ? 0.5 : 0,
                 duration: AppMotion.dShort4,
-                child: const Icon(Icons.expand_more, size: 20),
+                child: const AppIcon(Symbols.expand_more_rounded, size: 20),
               ),
               onTap: () => _onRadioTap(radio),
             ),
@@ -189,7 +191,7 @@ class _FmScreenState extends State<FmScreen> {
                           itemBuilder: (_, j) {
                             final song = _fmSongs[j];
                             return ListTile(
-                              leading: const Icon(Icons.music_note),
+                              leading: const AppIcon(AppIcons.musicNote),
                               title: Text(song.name,
                                   maxLines: 1, overflow: TextOverflow.ellipsis),
                               subtitle: Text(song.artistDisplay,
