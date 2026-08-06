@@ -111,7 +111,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   void _onPageScroll() {
-    if (!_pageController.hasClients) return;
+    if (!_pageController.hasClients || !mounted) return;
     final newOffset = _pageController.page?.clamp(0.0, 1.0) ?? 0.0;
     final wasBelowHalf = _pageOffset < 0.5;
     setState(() {
