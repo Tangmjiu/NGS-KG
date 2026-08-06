@@ -14,7 +14,7 @@ import '../services/api_client.dart';
 import '../services/api_config.dart';
 import '../services/cache_service.dart';
 import '../services/device_service.dart';
-import 'audio_quality_screen.dart';
+import '../routes/app_routes.dart';
 import '../widgets/support_me_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -132,10 +132,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('音质设置'),
             subtitle: const Text('WiFi/蜂窝/下载音质、智能模式'),
             trailing: const Icon(AppIcons.chevronRight),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AudioQualityScreen()),
-            ),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.audioQuality),
           ),
           ListTile(
             leading: const Icon(AppIcons.cleaningServices),

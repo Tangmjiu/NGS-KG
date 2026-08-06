@@ -10,8 +10,8 @@ import '../providers/local_music_provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../navidrome/navidrome_provider.dart';
-import '../navidrome/navidrome_login_screen.dart';
 import '../navidrome/navidrome_screen.dart';
+import '../routes/app_routes.dart';
 import '../widgets/list_bottom_spacer.dart';
 
 class LocalMusicScreen extends StatefulWidget {
@@ -54,12 +54,14 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
       final status = await Permission.audio.status;
       if (!status.isGranted) {
         final result = await Permission.audio.request();
-        if (!result.isGranted && mounted) {
+        if (!mounted) return;
+        if (!result.isGranted) {
           setState(() => _permissionDenied = true);
           return;
         }
       }
     }
+    if (!mounted) return;
     _permissionDenied = false;
     final localProv = context.read<LocalMusicProvider>();
     if (!localProv.scanned && !localProv.isScanning) {
@@ -836,11 +838,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
               const SizedBox(height: 20),
               FilledButton.tonal(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const NavidromeLoginScreen()),
-                  );
+                Navigator.pushNamed(context, AppRoutes.navidromeLogin);
                 },
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,

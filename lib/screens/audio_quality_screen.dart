@@ -1,6 +1,9 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
 
+// ignore_for_file: deprecated_member_use
+// TODO: 升级到 Flutter 稳定版提供 RadioGroup 后移除 RadioListTile 的 deprecated 忽略
+
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';

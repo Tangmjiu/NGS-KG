@@ -32,9 +32,9 @@ class _AppShellState extends State<AppShell> {
     return _mobileShell();
   }
 
-  // ══════════════════════════════════════════════�?
-  //  移动�?
-  // ══════════════════════════════════════════════�?
+  // ═══════════════════════════════════════════════
+  //  移动端
+  // ═══════════════════════════════════════════════
 
   Widget _mobileShell() {
     return ValueListenableBuilder<String?>(
@@ -126,9 +126,9 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-// ══════════════════════════════════════════════�?
-//  跨设备继续播放检�?
-// ══════════════════════════════════════════════�?
+// ══════════════════════════════════════════════
+//  跨设备继续播放检测
+// ══════════════════════════════════════════════
 
 class _ContinuePlayOverlay extends StatefulWidget {
   const _ContinuePlayOverlay();
@@ -178,11 +178,11 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
             (info['name'] as String? ?? info['songname'] as String? ?? '未知歌曲')
                 .replaceAll(RegExp(r'\.mp3$', caseSensitive: false), '');
         final singer = info['singername'] as String?;
-        if (!context.mounted) return;
+        if (!mounted) return;
         // 用 Navigator 的 overlay context 保证 Dialog 能正常路由
         final navCtx = Navigator.of(context).context;
         if (!mounted) return;
-        showDialog(
+        if (navCtx.mounted) showDialog(
             context: navCtx,
             builder: (_) => AlertDialog(
                   title: const Text('继续播放'),
@@ -234,9 +234,9 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
-// ══════════════════════════════════════════════�?
-//  支持作者弹�?
-// ══════════════════════════════════════════════�?
+// ══════════════════════════════════════════════
+//  支持作者弹窗
+// ══════════════════════════════════════════════
 
 class _SupportPopupHandler extends StatefulWidget {
   const _SupportPopupHandler();
@@ -272,9 +272,9 @@ class _SupportPopupHandlerState extends State<_SupportPopupHandler> {
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
-// ══════════════════════════════════════════════�?
-//  启动时检�?GitHub Release 更新
-// ══════════════════════════════════════════════�?
+// ══════════════════════════════════════════════
+//  启动时检测 GitHub Release 更新
+// ══════════════════════════════════════════════
 
 class _UpdateCheckHandler extends StatefulWidget {
   const _UpdateCheckHandler();
@@ -297,19 +297,19 @@ class _UpdateCheckHandlerState extends State<_UpdateCheckHandler> {
   Future<void> _check() async {
     if (!mounted) return;
 
-    final navContext = app.navKey.currentContext ?? context;
-
     // 1. 检查更新
     final release = await UpdateChecker.check();
     if (release != null && mounted) {
-      await showUpdateDialog(navContext, release);
+      final navContext = app.navKey.currentContext ?? context;
+      if (navContext.mounted) await showUpdateDialog(navContext, release);
     }
 
     // 2. 检查公告
     if (!mounted) return;
     final announcement = await AnnouncementService.fetchLatest();
     if (announcement != null && mounted) {
-      await showAnnouncementDialog(navContext, announcement);
+      final navContext = app.navKey.currentContext ?? context;
+      if (navContext.mounted) await showAnnouncementDialog(navContext, announcement);
     }
   }
 
@@ -317,7 +317,7 @@ class _UpdateCheckHandlerState extends State<_UpdateCheckHandler> {
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
-/// 启动时未登录 �?风控提示弹窗（延迟显示，等其他弹窗先弹出�?
+/// 启动时未登录 / 风控提示弹窗（延迟显示，等其他弹窗先弹出）
 class _LoginPromptOverlay extends StatefulWidget {
   const _LoginPromptOverlay();
   @override

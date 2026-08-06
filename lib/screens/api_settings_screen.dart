@@ -1,3 +1,6 @@
+// ignore_for_file: deprecated_member_use
+// TODO: 升级到 Flutter 稳定版提供 RadioGroup 后移除 RadioListTile 的 deprecated 忽略
+
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 import '../services/api_config.dart';
@@ -247,11 +250,12 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                     icon: const Icon(Icons.restore, size: 18),
                     label: const Text('恢复默认'),
                     onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
                       await ApiConfig.instance.resetToDefault();
                       ApiClient.instance.reinitialize();
-                      _load();
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        _load();
+                        messenger.showSnackBar(
                           const SnackBar(content: Text('已恢复默认设置')),
                         );
                       }

@@ -13,7 +13,6 @@ import 'providers/playlist_provider.dart';
 import 'providers/liked_songs_provider.dart';
 import 'providers/discover_provider.dart';
 import 'routes/app_routes.dart';
-import 'screens/settings_screen.dart';
 import 'utils/logger.dart';
 import 'services/api_client.dart';
 import 'providers/theme_provider.dart';
@@ -22,7 +21,6 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'services/device_service.dart';
 import 'services/music_service.dart';
 import 'services/auth_service.dart';
-import 'services/notification_service.dart';
 import 'services/api_config.dart';
 import 'services/audio_handler.dart';
 import 'services/cache_service.dart';
@@ -309,7 +307,7 @@ class NGSKGApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // DynamicColorBuilder �?Android 12+ 可用，其他平台传 null
+    // DynamicColorBuilder：Android 12+ 可用，其他平台传 null
     if (Platform.isAndroid) {
       return DynamicColorBuilder(
         builder: (lightDynamic, darkDynamic) {
@@ -332,19 +330,13 @@ class NGSKGApp extends StatelessWidget {
           themeMode: themeProvider.themeMode,
           initialRoute: AppRoutes.home,
           navigatorObservers: [AppRouteObserver.instance],
-          onGenerateRoute: (settings) {
-            if (settings.name == AppRoutes.settings) {
-              return MaterialPageRoute(
-                builder: (_) => const SettingsScreen(),
-              );
-            }
-            return AppRoutes.generateRoute(settings);
-          },
+          onGenerateRoute: AppRoutes.generateRoute,
           builder: (context, child) {
             return Stack(
               children: [
-                // ── 全局主题背景（首�?发现/搜索等页面共用） ──
-                if (ThemeAssets.playerBg.isNotEmpty)
+                // ── 全局主题背景（首页/发现/搜索等页面共用） ──
+                if (ThemeAssets.playerBg.isNotEmpty &&
+                    File(ThemeAssets.playerBg).existsSync())
                   Positioned.fill(
                     child: ImageFiltered(
                       // 降低 sigma 以减少低端机 GPU 负载（视觉差异小）

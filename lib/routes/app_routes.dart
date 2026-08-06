@@ -28,6 +28,9 @@ import '../screens/audio_effects_screen.dart';
 import '../screens/about_screen.dart';
 import '../screens/log_viewer_screen.dart';
 import '../screens/lyric_settings_screen.dart';
+import '../screens/audio_quality_screen.dart';
+import '../screens/profile_screen.dart';
+import '../navidrome/navidrome_login_screen.dart';
 
 class AppRoutes {
   static const String home = '/';
@@ -60,6 +63,9 @@ class AppRoutes {
   static const String about = '/about';
   static const String logViewer = '/settings/developer/log';
   static const String lyricSettings = '/settings/lyric';
+  static const String audioQuality = '/settings/audio/quality';
+  static const String likedSongs = '/user/liked';
+  static const String navidromeLogin = '/navidrome/login';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -187,6 +193,15 @@ class AppRoutes {
       case AppRoutes.lyricSettings:
         return MaterialPageRoute(
             builder: (_) => const LyricSettingsScreen());
+      case AppRoutes.audioQuality:
+        return MaterialPageRoute(
+            builder: (_) => const AudioQualityScreen());
+      case AppRoutes.likedSongs:
+        return MaterialPageRoute(
+            builder: (_) => const LikedSongsScreen());
+      case AppRoutes.navidromeLogin:
+        return MaterialPageRoute(
+            builder: (_) => const NavidromeLoginScreen());
       default:
         return _fallback();
     }

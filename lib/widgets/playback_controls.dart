@@ -239,11 +239,11 @@ class PlaybackControls extends StatelessWidget {
                               AppIcons.queueMusic, '列表为空')))
                 else
                   Expanded(
-                    child: ReorderableListView.builder(
+                    child:                     ReorderableListView.builder(
                       buildDefaultDragHandles: false,
                       scrollController: scrollCtrl,
                       itemCount: player.playlist.length,
-                      onReorder: (from, to) {
+                      onReorderItem: (from, to) {
                         player.moveInQueue(from, to);
                       },
                       itemBuilder: (_, i) {

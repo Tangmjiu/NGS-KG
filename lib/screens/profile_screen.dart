@@ -18,6 +18,7 @@ import '../widgets/list_bottom_spacer.dart';
 import '../theme/theme_assets.dart';
 import '../widgets/song_tile.dart';
 import '../providers/local_music_provider.dart';
+import '../routes/app_routes.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -269,10 +270,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           value: auth.isLoggedIn && likedCount > 0 ? '$likedCount' : '',
           onTap: () {
             if (auth.isLoggedIn) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const LikedSongsScreen()),
-              );
+                Navigator.pushNamed(context, AppRoutes.likedSongs);
             } else {
               Navigator.pushNamed(context, '/login');
             }

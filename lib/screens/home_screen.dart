@@ -489,14 +489,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             switchInCurve: AppMotion.emphasizedDecelerate,
                             switchOutCurve: AppMotion.emphasizedAccelerate,
                             transitionBuilder: (Widget child, Animation<double> animation) {
-                              return FadeTransition(
-                                opacity: animation,
-                                child: SizeTransition(
-                                  sizeFactor: animation,
-                                  axisAlignment: -1.0,
-                                  child: child,
-                                ),
-                              );
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SizeTransition(
+                                sizeFactor: animation,
+                                alignment: Alignment.topLeft,
+                                child: child,
+                              ),
+                            );
                             },
                             child: (_showContinueBanner && _latestListen != null)
                                 ? (() {
@@ -850,7 +850,7 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     children: [
-                      Icon(Icons.search, size: 20, color: cs.onSurfaceVariant),
+                      AppIcon(AppIcons.search, size: 20, color: cs.onSurfaceVariant),
                       const SizedBox(width: 8),
                       Text('搜索歌曲、歌手、歌单',
                           style: TextStyle(

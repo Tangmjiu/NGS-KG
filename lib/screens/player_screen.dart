@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import 'dart:async';
+import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
@@ -33,7 +34,8 @@ class PlayerScreen extends StatefulWidget {
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends State<PlayerScreen> {
+class _PlayerScreenState extends State<PlayerScreen>
+    with SingleTickerProviderStateMixin {
   // ─── 构建 LyricView 样式（从设置动态读取） ───
   LyricStyle _buildLyricStyle() {
     final ls = context.read<ThemeProvider>().lyricSettings;
@@ -112,6 +114,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
   final PageController _pageController = PageController();
   double _pageOffset = 0.0; // 0 = cover, 1 = lyrics
 
+  // ─── Slide-down dismiss gesture ───
+  double _dragOffset = 0.0;
+  bool _isDismissing = false;
+  static const double _dismissThreshold = 150.0;
+
   @override
   void initState() {
     super.initState();
@@ -145,6 +152,45 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _pageController.removeListener(_onPageScroll);
     _pageController.dispose();
     super.dispose();
+  }
+
+  /// 恢复下滑位移到 0 的动画
+  void _animateDragReset() {
+    if (!mounted) return;
+    final was = _dragOffset;
+    final controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    controller.addListener(() {
+      setState(() {
+        _dragOffset = lerpDouble(0, was, 1 - controller.value)!;
+      });
+    });
+    controller.forward().whenComplete(() {
+      controller.dispose();
+      if (mounted) setState(() => _dragOffset = 0.0);
+    });
+  }
+
+  /// 执行下滑退出动画
+  void _animateDismiss() {
+    if (!mounted || _isDismissing) return;
+    setState(() => _isDismissing = true);
+    final controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    controller.addListener(() {
+      if (!mounted) return;
+      setState(() {
+        _dragOffset = lerpDouble(_dragOffset, MediaQuery.of(context).size.height, controller.value)!;
+      });
+    });
+    controller.forward().whenComplete(() {
+      controller.dispose();
+      if (mounted) Navigator.pop(context);
+    });
   }
 
   // ─── Speech bubble helper for menu items shows a bottom sheet ──
@@ -881,27 +927,32 @@ class _PlayerScreenState extends State<PlayerScreen> {
           );
         }
 
-        // ── Slide-down gesture state ──
-        double dragOffset = 0;
-        const double dismissThreshold = 150;
-
         return Scaffold(
           backgroundColor: Colors.black,
           body: GestureDetector(
             onVerticalDragUpdate: (details) {
-              dragOffset += details.delta.dy;
-              if (dragOffset > dismissThreshold && mounted) {
-                Navigator.pop(context);
-              }
+              if (_isDismissing) return;
+              // 只允许下滑
+              if (details.delta.dy < 0 && _dragOffset <= 0) return;
+              setState(() {
+                _dragOffset = (_dragOffset + details.delta.dy).clamp(0.0, double.infinity);
+              });
             },
             onVerticalDragEnd: (details) {
-              dragOffset = 0;
-              if ((details.primaryVelocity ?? 0) > 800 && mounted) {
-                Navigator.pop(context);
+              if (_isDismissing) return;
+              final velocity = details.primaryVelocity ?? 0;
+              if (velocity > 800 || _dragOffset > _dismissThreshold) {
+                _animateDismiss();
+              } else {
+                _animateDragReset();
               }
             },
-            child: Stack(
-              children: [
+            child: Transform.translate(
+              offset: Offset(0, _dragOffset),
+              child: Opacity(
+                opacity: (1.0 - (_dragOffset / _dismissThreshold).clamp(0.0, 0.5)).toDouble(),
+                child: Stack(
+                  children: [
                 // ── Dynamic background ──
                 PlayerBackground(
                   albumCoverUrl: song.albumCoverUrl,
@@ -931,7 +982,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     ],
                   ),
                 ),
-              ],
+                  ],
+                ),
+              ),
             ),
           ),
         );

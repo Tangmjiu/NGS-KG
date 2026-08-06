@@ -553,6 +553,10 @@ class M3StaggeredFadeIn extends StatefulWidget {
   final Duration itemDelay;
   final Duration duration;
 
+  /// 最多为前 [maxAnimatedItems] 个列表项创建动画控制器，
+  /// 超出项直接渲染，避免超长列表产生大量 Ticker 导致掉帧/内存抖动。
+  static const int maxAnimatedItems = 20;
+
   const M3StaggeredFadeIn({
     super.key,
     required this.index,
@@ -567,44 +571,52 @@ class M3StaggeredFadeIn extends StatefulWidget {
 
 class _M3StaggeredFadeInState extends State<M3StaggeredFadeIn>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _opacity;
-  late final Animation<Offset> _offset;
+  AnimationController? _controller;
+  Animation<double>? _opacity;
+  Animation<Offset>? _offset;
 
   @override
   void initState() {
     super.initState();
+
+    if (widget.index >= M3StaggeredFadeIn.maxAnimatedItems) {
+      return;
+    }
+
     _controller = AnimationController(
       vsync: this,
       duration: widget.duration,
     );
-    _opacity = CurvedAnimation(parent: _controller, curve: AppMotion.emphasizedDecelerate);
+    _opacity = CurvedAnimation(parent: _controller!, curve: AppMotion.emphasizedDecelerate);
     _offset = Tween<Offset>(
       begin: const Offset(0, 0.1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: AppMotion.emphasizedDecelerate));
+    ).animate(CurvedAnimation(parent: _controller!, curve: AppMotion.emphasizedDecelerate));
 
     // 交错延迟：每项最多 8 项延迟后不再增加
     final delay = Duration(
       milliseconds: (widget.index.clamp(0, 8)) * widget.itemDelay.inMilliseconds,
     );
     Future.delayed(delay, () {
-      if (mounted) _controller.forward();
+      if (mounted) _controller?.forward();
     });
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_opacity == null || _offset == null) {
+      return widget.child;
+    }
     return FadeTransition(
-      opacity: _opacity,
+      opacity: _opacity!,
       child: SlideTransition(
-        position: _offset,
+        position: _offset!,
         child: widget.child,
       ),
     );
