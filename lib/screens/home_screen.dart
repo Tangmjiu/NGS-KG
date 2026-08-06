@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:provider/provider.dart';
@@ -6,6 +7,7 @@ import '../providers/auth_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../providers/player_provider.dart';
 import '../models/song.dart';
+import '../models/playlist.dart';
 import '../models/latest_listen_info.dart';
 import '../services/music_service.dart';
 import '../models/song_mapper.dart';
@@ -15,6 +17,7 @@ import 'discover_screen.dart';
 import 'profile_screen.dart';
 import 'search_screen.dart';
 import '../widgets/list_bottom_spacer.dart';
+import '../widgets/shimmer_box.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -33,6 +36,12 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showContinueBanner = false;
   final Map<int, List<Song>> _cardSongs = {};
   final Map<int, String> _cardNames = {};
+
+  // ─── 推荐歌单轮播状态 ───
+  final PageController _playlistPageController = PageController();
+  Timer? _playlistTimer;
+  int _playlistPage = 0;
+  int _carouselTotal = 0;
 
   /// 3行/列 缩略图列表，水平滑动
   Widget _buildSongList(List<Song> songs, String title,
@@ -84,16 +93,20 @@ class _HomeScreenState extends State<HomeScreen> {
                           scaleDown: 0.95,
                           child: InkWell(
                             borderRadius: (j == 0)
-                                ? const BorderRadius.vertical(top: Radius.circular(24))
+                                ? const BorderRadius.vertical(
+                                    top: Radius.circular(24))
                                 : (j == chunk.length - 1)
-                                    ? const BorderRadius.vertical(bottom: Radius.circular(24))
+                                    ? const BorderRadius.vertical(
+                                        bottom: Radius.circular(24))
                                     : null,
                             onTap: () {
                               player.playlistEndProvider = onEnd;
-                              player.playSong(song, playlist: songs.sublist(flatIdx));
+                              player.playSong(song,
+                                  playlist: songs.sublist(flatIdx));
                             },
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 4),
                               child: Row(
                                 children: [
                                   ClipRRect(
@@ -110,36 +123,51 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 width: 44,
                                                 height: 44,
                                                 color: cs.surface),
-                                            errorWidget: (_, __, ___) => Container(
-                                                width: 44,
-                                                height: 44,
-                                                color: cs.surface,
-                                                child: const Icon(Icons.music_note_rounded,
-                                                    size: 20)),
+                                            errorWidget: (_, __, ___) =>
+                                                Container(
+                                                    width: 44,
+                                                    height: 44,
+                                                    color: cs.surface,
+                                                    child: const Icon(
+                                                        Icons
+                                                            .music_note_rounded,
+                                                        size: 20)),
                                           )
                                         : Container(
                                             width: 44,
                                             height: 44,
                                             color: cs.surface,
-                                            child: const Icon(Icons.music_note_rounded,
+                                            child: const Icon(
+                                                Icons.music_note_rounded,
                                                 size: 20)),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Text(song.name,
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
-                                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500)),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyLarge
+                                                ?.copyWith(
+                                                    fontWeight:
+                                                        FontWeight.w500)),
                                         const SizedBox(height: 2),
                                         Text(song.artistDisplay,
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
-                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                color: cs.onSurfaceVariant)),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                    color:
+                                                        cs.onSurfaceVariant)),
                                       ],
                                     ),
                                   ),
@@ -160,29 +188,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildDailyRecommend(ColorScheme cs, TextTheme tt) {
+  Widget _buildDailyRecommend() {
     if (_dailyLoading) {
-      return _buildDailyShimmer(cs);
+      return _buildDailyShimmer();
     }
     if (_dailySongs.isEmpty) return const SizedBox.shrink();
     return _buildSongList(_dailySongs, '每日推荐',
         onEnd: () => _musicService.getDailyRecommend());
   }
 
-  Widget _buildDailyShimmer(ColorScheme cs) {
+  Widget _buildDailyShimmer() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Container(
-            width: 100,
-            height: 24,
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest,
-              borderRadius: AppShape.xs,
-            ),
-          ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: ShimmerBar(width: 100, height: 24, borderRadius: AppShape.xs),
         ),
         SizedBox(
           height: 156,
@@ -191,63 +212,183 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: 4,
             itemBuilder: (_, i) {
-              return Container(
-                width: 190,
-                margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest,
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ClipRRect(
                   borderRadius: AppShape.md,
-                ),
-                child: Column(
-                  children: List.generate(3, (j) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: cs.surface,
-                              borderRadius: AppShape.xs,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 100,
-                                  height: 12,
-                                  decoration: BoxDecoration(
-                                    color: cs.onSurfaceVariant
-                                        .withValues(alpha: 0.15),
-                                    borderRadius: AppShape.xs,
-                                  ),
+                  child: SizedBox(
+                    width: 190,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        const ShimmerBox(borderRadius: BorderRadius.zero),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Column(
+                            children: List.generate(3, (j) {
+                              return const Expanded(
+                                child: Row(
+                                  children: [
+                                    ShimmerBox(
+                                        width: 36,
+                                        height: 36,
+                                        borderRadius: AppShape.xs),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          ShimmerBar(width: 100, height: 12),
+                                          SizedBox(height: 4),
+                                          ShimmerBar(width: 60, height: 10),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 4),
-                                Container(
-                                  width: 60,
-                                  height: 10,
-                                  decoration: BoxDecoration(
-                                    color: cs.onSurfaceVariant
-                                        .withValues(alpha: 0.10),
-                                    borderRadius: AppShape.xs,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              );
+                            }),
                           ),
-                        ],
-                      ),
-                    );
-                  }),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               );
             },
           ),
         ),
+      ],
+    );
+  }
+
+  /// 推荐歌单 M3 轮播（对标 Rhythm HomeScreen Carousel）
+  ///
+  /// 横版 Hero 大卡 + 4s 自动轮播 + 指示点 + 渐变遮罩；点击进入歌单详情。
+  Widget _buildPlaylistCarousel(List<Playlist> playlists) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    _ensureCarouselTimer(playlists.length);
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 150,
+          child: PageView.builder(
+            controller: _playlistPageController,
+            itemCount: playlists.length,
+            onPageChanged: (i) => setState(() => _playlistPage = i),
+            itemBuilder: (_, i) {
+              final pl = playlists[i];
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: M3PressScale(
+                  scaleDown: 0.97,
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.pushNamed(context, '/playlist/detail',
+                          arguments: {
+                            'gcId': pl.globalCollectionId ??
+                                'collection_3_${pl.createUserId}_${pl.id}_0',
+                            'name': pl.name,
+                          });
+                    },
+                    child: ClipRRect(
+                      borderRadius: AppShape.lg,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // 封面
+                          if (pl.coverUrl != null && pl.coverUrl!.isNotEmpty)
+                            CachedNetworkImage(
+                              imageUrl: pl.coverUrl!,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) =>
+                                  Container(color: cs.surfaceContainerHighest),
+                              errorWidget: (_, __, ___) => Container(
+                                  color: cs.surfaceContainerHighest,
+                                  child: Icon(Icons.playlist_play,
+                                      size: 40, color: cs.primary)),
+                            )
+                          else
+                            Container(
+                              color: cs.primaryContainer,
+                              child: Icon(Icons.playlist_play,
+                                  size: 40, color: cs.onPrimaryContainer),
+                            ),
+                          // 底部渐变遮罩，保证文字可读性
+                          const DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Colors.transparent, Colors.black54],
+                                stops: [0.45, 1.0],
+                              ),
+                            ),
+                          ),
+                          // 歌单信息
+                          Positioned(
+                            left: 14,
+                            right: 14,
+                            bottom: 12,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  pl.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: tt.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                if (pl.trackCount > 0) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${pl.trackCount} 首',
+                                    style: tt.bodySmall?.copyWith(
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 10),
+        // 指示点：当前页拉长为胶囊并高亮
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(playlists.length, (i) {
+            final active = i == _playlistPage % playlists.length;
+            return AnimatedContainer(
+              duration: AppMotion.dShort4,
+              curve: AppMotion.emphasizedDecelerate,
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: active ? 18 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: active ? cs.primary : cs.outlineVariant,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 4),
       ],
     );
   }
@@ -280,10 +421,39 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _playlistTimer?.cancel();
+    _playlistPageController.dispose();
     try {
       context.read<AuthProvider>().removeListener(_onAuthChanged);
     } catch (_) {}
     super.dispose();
+  }
+
+  /// 启动/维护推荐歌单轮播自动播放（4s 循环）
+  ///
+  /// 幂等：Timer 已存在时不重复创建；列表刷新后通过 [_carouselTotal]
+  /// 感知最新数量，避免闭包捕获过期长度。
+  void _ensureCarouselTimer(int count) {
+    _carouselTotal = count;
+    if (count <= 1) {
+      _playlistTimer?.cancel();
+      _playlistTimer = null;
+      return;
+    }
+    // 列表刷新后当前页可能越界，回跳第 0 页
+    if (_playlistPage >= count && _playlistPageController.hasClients) {
+      _playlistPageController.jumpToPage(0);
+    }
+    if (_playlistTimer != null) return;
+    _playlistTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted || !_playlistPageController.hasClients) return;
+      final next = (_playlistPage + 1) % _carouselTotal;
+      _playlistPageController.animateToPage(
+        next,
+        duration: AppMotion.dMedium2,
+        curve: AppMotion.emphasizedDecelerate,
+      );
+    });
   }
 
   bool _wasLoggedIn = false;
@@ -337,8 +507,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final title = isYouth
               ? (_cardTitlesYouth[id] ?? '推荐')
               : (_cardTitles[id] ?? '');
-          _cardNames[id] =
-              data.recDesc.isNotEmpty ? data.recDesc : title;
+          _cardNames[id] = data.recDesc.isNotEmpty ? data.recDesc : title;
           _cardSongs[id] = data.songs;
         } catch (e, s) {
           Log.e('home_screen', 'error', e, s);
@@ -387,12 +556,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-
     // 局部注入对 MiniBar 出现时的 MediaQuery padding.bottom 避让。
     // 在这里仅包裹 body 而不包裹整个 Scaffold，防止 Scaffold 将 bottomNavigationBar 抬高导致与 MiniBar 重叠。
     // 精确选择：只订阅 MiniPlayer 显隐条件，避免播放进度导致整个首页重建
     final showMini = context.select<PlayerProvider, bool>(
-      (p) => p.currentSong != null && !p.isPlayerScreenVisible && !p.isMiniPlayerDismissed,
+      (p) =>
+          p.currentSong != null &&
+          !p.isPlayerScreenVisible &&
+          !p.isMiniPlayerDismissed,
     );
 
     final mq = MediaQuery.of(context);
@@ -415,8 +586,7 @@ class _HomeScreenState extends State<HomeScreen> {
           switchInCurve: AppMotion.emphasizedDecelerate,
           switchOutCurve: AppMotion.emphasizedAccelerate,
           transitionBuilder: (child, animation) {
-            return M3FadeThroughTransition(
-                animation: animation, child: child);
+            return M3FadeThroughTransition(animation: animation, child: child);
           },
           // 按需构建当前 tab，避免 DiscoverScreen / ProfileScreen 在后台同时构建/重建。
           // 如需保留 tab 状态，可改用 PageStorage 包裹。
@@ -487,7 +657,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             duration: AppMotion.dMedium2,
                             switchInCurve: AppMotion.emphasizedDecelerate,
                             switchOutCurve: AppMotion.emphasizedAccelerate,
-                            transitionBuilder: (Widget child, Animation<double> animation) {
+                            transitionBuilder:
+                                (Widget child, Animation<double> animation) {
                               return FadeTransition(
                                 opacity: animation,
                                 child: SizeTransition(
@@ -497,22 +668,35 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               );
                             },
-                            child: (_showContinueBanner && _latestListen != null)
+                            child: (_showContinueBanner &&
+                                    _latestListen != null)
                                 ? (() {
                                     final info = _latestListen?.info;
-                                    final coverUrl = info?['cover'] as String? ??
-                                        info?['album_cover'] as String? ??
-                                        info?['imgUrl'] as String? ??
-                                        info?['album_logo'] as String?;
-                                    final rawName = info?['name'] as String? ?? info?['songname'] as String? ?? '继续播放';
-                                    final songName = rawName.replaceAll(RegExp(r'\.(mp3|flac|wav|m4a)$', caseSensitive: false), '');
-                                    final artist = info?['singername'] as String? ?? '';
-                                    final device = _latestListen?.deviceLabel ?? '';
-                                    final deviceText = artist.isNotEmpty ? '$artist · $device' : device;
+                                    final coverUrl =
+                                        info?['cover'] as String? ??
+                                            info?['album_cover'] as String? ??
+                                            info?['imgUrl'] as String? ??
+                                            info?['album_logo'] as String?;
+                                    final rawName = info?['name'] as String? ??
+                                        info?['songname'] as String? ??
+                                        '继续播放';
+                                    final songName = rawName.replaceAll(
+                                        RegExp(r'\.(mp3|flac|wav|m4a)$',
+                                            caseSensitive: false),
+                                        '');
+                                    final artist =
+                                        info?['singername'] as String? ?? '';
+                                    final device =
+                                        _latestListen?.deviceLabel ?? '';
+                                    final deviceText = artist.isNotEmpty
+                                        ? '$artist · $device'
+                                        : device;
 
                                     return Padding(
-                                      key: const ValueKey('continue_play_banner'),
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      key: const ValueKey(
+                                          'continue_play_banner'),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 8),
                                       child: M3PressScale(
                                         scaleDown: 0.98,
                                         child: Card(
@@ -522,7 +706,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                           shape: RoundedRectangleBorder(
                                             borderRadius: AppShape.lg,
                                             side: BorderSide(
-                                              color: cs.outlineVariant.withValues(alpha: 0.3),
+                                              color: cs.outlineVariant
+                                                  .withValues(alpha: 0.3),
                                               width: 1,
                                             ),
                                           ),
@@ -535,54 +720,90 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 children: [
                                                   ClipRRect(
                                                     borderRadius: AppShape.sm,
-                                                    child: coverUrl != null && coverUrl.isNotEmpty
+                                                    child: coverUrl != null &&
+                                                            coverUrl.isNotEmpty
                                                         ? CachedNetworkImage(
-                                                            imageUrl: coverUrl.replaceAll('{size}', '240'),
+                                                            imageUrl: coverUrl
+                                                                .replaceAll(
+                                                                    '{size}',
+                                                                    '240'),
                                                             width: 48,
                                                             height: 48,
                                                             fit: BoxFit.cover,
-                                                            placeholder: (_, __) => Container(
+                                                            placeholder:
+                                                                (_, __) =>
+                                                                    Container(
                                                               width: 48,
                                                               height: 48,
-                                                              color: cs.surfaceContainerHighest,
-                                                              child: Icon(Icons.music_note_rounded, color: cs.primary, size: 24),
+                                                              color: cs
+                                                                  .surfaceContainerHighest,
+                                                              child: Icon(
+                                                                  Icons
+                                                                      .music_note_rounded,
+                                                                  color: cs
+                                                                      .primary,
+                                                                  size: 24),
                                                             ),
-                                                            errorWidget: (_, __, ___) => Container(
+                                                            errorWidget:
+                                                                (_, __, ___) =>
+                                                                    Container(
                                                               width: 48,
                                                               height: 48,
-                                                              color: cs.surfaceContainerHighest,
-                                                              child: Icon(Icons.music_note_rounded, color: cs.primary, size: 24),
+                                                              color: cs
+                                                                  .surfaceContainerHighest,
+                                                              child: Icon(
+                                                                  Icons
+                                                                      .music_note_rounded,
+                                                                  color: cs
+                                                                      .primary,
+                                                                  size: 24),
                                                             ),
                                                           )
                                                         : Container(
                                                             width: 48,
                                                             height: 48,
-                                                            color: cs.surfaceContainerHighest,
-                                                            child: Icon(Icons.music_note_rounded, color: cs.primary, size: 24),
+                                                            color: cs
+                                                                .surfaceContainerHighest,
+                                                            child: Icon(
+                                                                Icons
+                                                                    .music_note_rounded,
+                                                                color:
+                                                                    cs.primary,
+                                                                size: 24),
                                                           ),
                                                   ),
                                                   const SizedBox(width: 12),
                                                   Expanded(
                                                     child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                                      mainAxisSize: MainAxisSize.min,
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
                                                       children: [
                                                         Text(
                                                           songName,
                                                           maxLines: 1,
-                                                          overflow: TextOverflow.ellipsis,
-                                                          style: tt.titleMedium?.copyWith(
-                                                            fontWeight: FontWeight.bold,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style: tt.titleMedium
+                                                              ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight.bold,
                                                             color: cs.onSurface,
                                                           ),
                                                         ),
-                                                        const SizedBox(height: 4),
+                                                        const SizedBox(
+                                                            height: 4),
                                                         Text(
                                                           deviceText,
                                                           maxLines: 1,
-                                                          overflow: TextOverflow.ellipsis,
-                                                          style: tt.bodySmall?.copyWith(
-                                                            color: cs.onSurfaceVariant,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style: tt.bodySmall
+                                                              ?.copyWith(
+                                                            color: cs
+                                                                .onSurfaceVariant,
                                                           ),
                                                         ),
                                                       ],
@@ -590,25 +811,45 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   ),
                                                   const SizedBox(width: 8),
                                                   Row(
-                                                    mainAxisSize: MainAxisSize.min,
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
                                                     children: [
                                                       Material(
                                                         color: cs.primary,
-                                                        shape: const CircleBorder(),
+                                                        shape:
+                                                            const CircleBorder(),
                                                         child: InkWell(
-                                                          customBorder: const CircleBorder(),
-                                                          onTap: _continueListen,
+                                                          customBorder:
+                                                              const CircleBorder(),
+                                                          onTap:
+                                                              _continueListen,
                                                           child: Padding(
-                                                            padding: const EdgeInsets.all(8),
-                                                            child: Icon(Icons.play_arrow_rounded, color: cs.onPrimary, size: 20),
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .all(8),
+                                                            child: Icon(
+                                                                Icons
+                                                                    .play_arrow_rounded,
+                                                                color: cs
+                                                                    .onPrimary,
+                                                                size: 20),
                                                           ),
                                                         ),
                                                       ),
                                                       const SizedBox(width: 8),
                                                       IconButton(
-                                                        icon: Icon(Icons.close_rounded, color: cs.onSurfaceVariant, size: 20),
-                                                        onPressed: () => setState(() => _showContinueBanner = false),
-                                                        visualDensity: VisualDensity.compact,
+                                                        icon: Icon(
+                                                            Icons.close_rounded,
+                                                            color: cs
+                                                                .onSurfaceVariant,
+                                                            size: 20),
+                                                        onPressed: () =>
+                                                            setState(() =>
+                                                                _showContinueBanner =
+                                                                    false),
+                                                        visualDensity:
+                                                            VisualDensity
+                                                                .compact,
                                                       ),
                                                     ],
                                                   ),
@@ -620,7 +861,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     );
                                   })()
-                                : const SizedBox.shrink(key: ValueKey('continue_play_empty')),
+                                : const SizedBox.shrink(
+                                    key: ValueKey('continue_play_empty')),
                           ),
                           if (provider.topPlaylists.isNotEmpty) ...[
                             Padding(
@@ -638,87 +880,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ],
                               ),
                             ),
-                            SizedBox(
-                              height: 180,
-                              child: ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 8),
-                                scrollCacheExtent: const ScrollCacheExtent.pixels(300),
-                                itemCount: provider.topPlaylists.length,
-                                itemBuilder: (_, i) {
-                                  final pl = provider.topPlaylists[i];
-                                  return M3StaggeredFadeIn(
-                                    index: i,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(right: 8),
-                                      child: M3PressScale(
-                                        child: GestureDetector(
-                                          onTap: () {
-                                            Navigator.pushNamed(
-                                              context, '/playlist/detail',
-                                              arguments: {
-                                                'gcId': pl.globalCollectionId ??
-                                                  'collection_3_${pl.createUserId}_${pl.id}_0',
-                                              'name': pl.name,
-                                            });
-                                      },
-                                      child: SizedBox(
-                                        width: 130,
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            ClipRRect(
-                                              borderRadius: AppShape.sm,
-                                              child: pl.coverUrl != null
-                                                  ? CachedNetworkImage(
-                                                      imageUrl: pl.coverUrl!,
-                                                      width: 130,
-                                                      height: 130,
-                                                      fit: BoxFit.cover,
-                                                      placeholder: (_, __) =>
-                                                          Container(
-                                                              color: cs
-                                                                  .surfaceContainerHighest,
-                                                              width: 130,
-                                                              height: 130),
-                                                      errorWidget: (_, __, ___) =>
-                                                          Container(
-                                                              color: cs
-                                                                  .surfaceContainerHighest,
-                                                              width: 130,
-                                                              height: 130,
-                                                              child: const Icon(
-                                                                  Icons
-                                                                      .playlist_play)),
-                                                    )
-                                                  : Container(
-                                                      color: cs
-                                                          .surfaceContainerHighest,
-                                                      width: 130,
-                                                      height: 130,
-                                                      child: const Icon(
-                                                          Icons.playlist_play)),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(pl.name,
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: tt.bodySmall),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  ),
-                                  );
-                                },
-                              ),
-                            ),
+                            _buildPlaylistCarousel(provider.topPlaylists),
                           ],
                           if (_dailyLoading || _dailySongs.isNotEmpty)
-                            _buildDailyRecommend(cs, tt),
+                            _buildDailyRecommend(),
                           if (_recommended.isNotEmpty)
                             _buildSongList(_recommended, '新歌推荐',
                                 onEnd: () => _musicService.getTopSongs()),
@@ -759,8 +924,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                     .getCardSongs(6)
                                     .then((cs) => cs.songs)),
                           if (_cardSongs[3014]?.isNotEmpty ?? false)
-                            _buildSongList(
-                                _cardSongs[3014]!, _cardNames[3014] ?? '喜欢这首歌的 TA 也喜欢',
+                            _buildSongList(_cardSongs[3014]!,
+                                _cardNames[3014] ?? '喜欢这首歌的 TA 也喜欢',
                                 onEnd: () => _musicService
                                     .getCardSongsYouth(3014)
                                     .then((cs) => cs.songs)),
@@ -815,53 +980,54 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
                 color: searchBg,
                 borderRadius: AppShape.full,
                 clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                borderRadius: AppShape.full,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder: (_, __, ___) => const SearchScreen(),
-                      transitionsBuilder: (_, animation, __, child) {
-                        return SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(0, -0.3),
-                            end: Offset.zero,
-                          ).animate(CurvedAnimation(
-                            parent: animation,
-                            curve: AppMotion.emphasizedDecelerate,
-                          )),
-                          child: FadeTransition(
-                            opacity: CurvedAnimation(
+                child: InkWell(
+                  borderRadius: AppShape.full,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (_, __, ___) => const SearchScreen(),
+                        transitionsBuilder: (_, animation, __, child) {
+                          return SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, -0.3),
+                              end: Offset.zero,
+                            ).animate(CurvedAnimation(
                               parent: animation,
                               curve: AppMotion.emphasizedDecelerate,
+                            )),
+                            child: FadeTransition(
+                              opacity: CurvedAnimation(
+                                parent: animation,
+                                curve: AppMotion.emphasizedDecelerate,
+                              ),
+                              child: child,
                             ),
-                            child: child,
-                          ),
-                        );
-                      },
-                      transitionDuration: AppMotion.dMedium2,
+                          );
+                        },
+                        transitionDuration: AppMotion.dMedium2,
+                      ),
+                    );
+                  },
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.search,
+                            size: 20, color: cs.onSurfaceVariant),
+                        const SizedBox(width: 8),
+                        Text('搜索歌曲、歌手、歌单',
+                            style: TextStyle(
+                                color: cs.onSurfaceVariant, fontSize: 14)),
+                      ],
                     ),
-                  );
-                },
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    children: [
-                      Icon(Icons.search, size: 20, color: cs.onSurfaceVariant),
-                      const SizedBox(width: 8),
-                      Text('搜索歌曲、歌手、歌单',
-                          style: TextStyle(
-                              color: cs.onSurfaceVariant, fontSize: 14)),
-                    ],
                   ),
                 ),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
+          const SizedBox(width: 8),
           if (isLoggedIn && avatarUrl != null && avatarUrl!.isNotEmpty)
             M3PressScale(
               child: GestureDetector(

@@ -34,6 +34,7 @@ import 'utils/preview_config.dart';
 import 'theme/theme_assets.dart';
 import 'utils/navigation.dart';
 import 'services/intent_handler_service.dart';
+import 'widgets/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -81,14 +82,12 @@ Future<void> main() async {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.error_outline,
-                        size: 18, color: Colors.white38),
+                    Icon(Icons.error_outline, size: 18, color: Colors.white38),
                     SizedBox(width: 6),
                     Flexible(
                       child: Text(
                         '轻微渲染闪过',
-                        style: TextStyle(
-                            color: Colors.white38, fontSize: 11),
+                        style: TextStyle(color: Colors.white38, fontSize: 11),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -110,10 +109,8 @@ Future<void> main() async {
                   ThemeAssets.codecrash,
                   width: 80,
                   height: 80,
-                  errorBuilder: (_, __, ___) => const Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: Colors.white38),
+                  errorBuilder: (_, __, ___) => const Icon(Icons.error_outline,
+                      size: 64, color: Colors.white38),
                 ),
                 const SizedBox(height: 16),
                 const Text(
@@ -126,8 +123,7 @@ Future<void> main() async {
                   child: Text(
                     details.exceptionAsString(),
                     textAlign: TextAlign.center,
-                    style:
-                        const TextStyle(color: Colors.white38, fontSize: 12),
+                    style: const TextStyle(color: Colors.white38, fontSize: 12),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -207,11 +203,13 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: audioSettings),
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider.value(value: authProvider),
-        ChangeNotifierProvider(create: (_) => PlayerProvider(musicService,
-            audioHandler: audioHandler,
-            audioSettings: audioSettings,
-            likedSongs: likedSongs,
-        )),
+        ChangeNotifierProvider(
+            create: (_) => PlayerProvider(
+                  musicService,
+                  audioHandler: audioHandler,
+                  audioSettings: audioSettings,
+                  likedSongs: likedSongs,
+                )),
         ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
         ChangeNotifierProvider.value(value: likedSongs),
         ChangeNotifierProvider(create: (_) => DiscoverProvider(musicService)),
@@ -248,9 +246,6 @@ Future<void> main() async {
       (route) => route.settings.name == AppRoutes.home,
     );
   });
-
-
-
 }
 
 Future<void> _initRemoteConfigAndDevice() async {
@@ -291,11 +286,11 @@ void _notifAction(String action) {
       final song = player.currentSong;
       if (song != null) {
         ctx.read<LikedSongsProvider>().toggle(SongInfo(
-          id: song.id,
-          name: song.name,
-          hash: song.hash ?? '',
-          albumId: song.albumId,
-        ));
+              id: song.id,
+              name: song.name,
+              hash: song.hash ?? '',
+              albumId: song.albumId,
+            ));
       }
     case 'switch_mode':
       final modes = [PlayMode.sequential, PlayMode.shuffle, PlayMode.repeatOne];
@@ -327,8 +322,10 @@ class NGSKGApp extends StatelessWidget {
           navigatorKey: navKey,
           title: 'NGS-KG+',
           debugShowCheckedModeBanner: false,
-          theme: themeProvider.buildLightTheme(context, dynamicScheme: lightDynamic),
-          darkTheme: themeProvider.buildDarkTheme(context, dynamicScheme: darkDynamic),
+          theme: themeProvider.buildLightTheme(context,
+              dynamicScheme: lightDynamic),
+          darkTheme:
+              themeProvider.buildDarkTheme(context, dynamicScheme: darkDynamic),
           themeMode: themeProvider.themeMode,
           initialRoute: AppRoutes.home,
           navigatorObservers: [AppRouteObserver.instance],
@@ -358,6 +355,10 @@ class NGSKGApp extends StatelessWidget {
                   ),
                 // AppShell 自适应外壳：桌面全宽壳 / 移动 MiniPlayer + overlays
                 AppShell(child: child),
+                // 启动页浮层：初始化完成后自动缩放淡出（不阻塞底层路由）
+                const Positioned.fill(
+                  child: SplashGate(),
+                ),
               ],
             );
           },
@@ -366,4 +367,3 @@ class NGSKGApp extends StatelessWidget {
     );
   }
 }
-

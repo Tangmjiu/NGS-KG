@@ -30,14 +30,46 @@ class ThemePreset {
 
 /// 预设色列表（8 种）
 const List<ThemePreset> kThemePresets = [
-  ThemePreset(key: 'kugou', label: '酷狗蓝', lightPrimary: Color(0xFF2CA1F4), darkPrimary: Color(0xFF5BB8F8)),
-  ThemePreset(key: 'nagisa', label: '凪砂红', lightPrimary: Color(0xFFFF6633), darkPrimary: Color(0xFFFF8866)),
-  ThemePreset(key: 'spotify', label: 'Spotify绿', lightPrimary: Color(0xFF1DB954), darkPrimary: Color(0xFF4CD47A)),
-  ThemePreset(key: 'purple', label: '优雅紫', lightPrimary: Color(0xFF9C27B0), darkPrimary: Color(0xFFCE93D8)),
-  ThemePreset(key: 'orange', label: '暖阳橙', lightPrimary: Color(0xFFFF9800), darkPrimary: Color(0xFFFFB74D)),
-  ThemePreset(key: 'pink', label: '樱花粉', lightPrimary: Color(0xFFE91E63), darkPrimary: Color(0xFFF06292)),
-  ThemePreset(key: 'cyan', label: '薄荷青', lightPrimary: Color(0xFF00BCD4), darkPrimary: Color(0xFF4DD0E1)),
-  ThemePreset(key: 'amber', label: '琥珀金', lightPrimary: Color(0xFFFFC107), darkPrimary: Color(0xFFFFD54F)),
+  ThemePreset(
+      key: 'kugou',
+      label: '酷狗蓝',
+      lightPrimary: Color(0xFF2CA1F4),
+      darkPrimary: Color(0xFF5BB8F8)),
+  ThemePreset(
+      key: 'nagisa',
+      label: '凪砂红',
+      lightPrimary: Color(0xFFFF6633),
+      darkPrimary: Color(0xFFFF8866)),
+  ThemePreset(
+      key: 'spotify',
+      label: 'Spotify绿',
+      lightPrimary: Color(0xFF1DB954),
+      darkPrimary: Color(0xFF4CD47A)),
+  ThemePreset(
+      key: 'purple',
+      label: '优雅紫',
+      lightPrimary: Color(0xFF9C27B0),
+      darkPrimary: Color(0xFFCE93D8)),
+  ThemePreset(
+      key: 'orange',
+      label: '暖阳橙',
+      lightPrimary: Color(0xFFFF9800),
+      darkPrimary: Color(0xFFFFB74D)),
+  ThemePreset(
+      key: 'pink',
+      label: '樱花粉',
+      lightPrimary: Color(0xFFE91E63),
+      darkPrimary: Color(0xFFF06292)),
+  ThemePreset(
+      key: 'cyan',
+      label: '薄荷青',
+      lightPrimary: Color(0xFF00BCD4),
+      darkPrimary: Color(0xFF4DD0E1)),
+  ThemePreset(
+      key: 'amber',
+      label: '琥珀金',
+      lightPrimary: Color(0xFFFFC107),
+      darkPrimary: Color(0xFFFFD54F)),
 ];
 
 /// 主题状态管理
@@ -56,6 +88,8 @@ class ThemeProvider extends ChangeNotifier {
   static const _keyFlowLight = 'theme_flow_light';
   static const _keyShowHiResBadge = 'theme_show_hi_res';
   static const _keyLyricSettings = 'theme_lyric_settings';
+  static const _keyExpressiveShapes = 'theme_expressive_shapes';
+  static const _keyShapePreset = 'theme_shape_preset';
 
   static const int supportPopupDays = 14;
   static const int supportPopupMaxLaunches = 10;
@@ -67,6 +101,8 @@ class ThemeProvider extends ChangeNotifier {
   bool _useMonet = false;
   bool _flowLightEnabled = false;
   bool _showHiResBadge = true;
+  bool _expressiveShapesEnabled = false;
+  String _shapePresetId = 'default';
   LyricSettings _lyricSettings = LyricSettings.defaults;
 
   final List<ThemePack> _packs = [ngsNagisa, md3Default];
@@ -94,6 +130,8 @@ class ThemeProvider extends ChangeNotifier {
   bool get useMonet => _useMonet;
   bool get flowLightEnabled => _flowLightEnabled;
   bool get showHiResBadge => _showHiResBadge;
+  bool get expressiveShapesEnabled => _expressiveShapesEnabled;
+  String get shapePresetId => _shapePresetId;
   LyricSettings get lyricSettings => _lyricSettings;
 
   /// 应用主题包的歌词设置默认值（用户未手动修改时）
@@ -152,7 +190,8 @@ class ThemeProvider extends ChangeNotifier {
 
       final modeIdx = prefs.getInt(_keyThemeMode);
       if (modeIdx != null) {
-        _themeMode = ThemeMode.values[modeIdx.clamp(0, ThemeMode.values.length - 1)];
+        _themeMode =
+            ThemeMode.values[modeIdx.clamp(0, ThemeMode.values.length - 1)];
       }
 
       _accentKey = prefs.getString(_keyAccent) ?? '';
@@ -165,11 +204,15 @@ class ThemeProvider extends ChangeNotifier {
       _useMonet = prefs.getBool(_keyUseMonet) ?? false;
       _selectedPackId = prefs.getString(_keySelectedPack) ?? 'ngs_nagisa';
       _flowLightEnabled = prefs.getBool(_keyFlowLight) ?? false;
+      _expressiveShapesEnabled = prefs.getBool(_keyExpressiveShapes) ?? false;
+      _shapePresetId = prefs.getString(_keyShapePreset) ?? 'default';
       if (prefs.containsKey(_keyShowHiResBadge)) {
         _showHiResBadge = prefs.getBool(_keyShowHiResBadge) ?? false;
       } else {
         // 判断是否为升级用户：在没有 _keyShowHiResBadge 的情况下，如果存在其他 theme 相关的配置，说明是升级用户
-        final hasThemeKeys = prefs.getKeys().any((k) => k.startsWith('theme_') && k != _keyShowHiResBadge);
+        final hasThemeKeys = prefs
+            .getKeys()
+            .any((k) => k.startsWith('theme_') && k != _keyShowHiResBadge);
         if (hasThemeKeys) {
           _showHiResBadge = true; // 升级过来的，保留开启设置
         } else {
@@ -198,12 +241,16 @@ class ThemeProvider extends ChangeNotifier {
             _packs.add(pack);
           } else {
             await ThemeLoader.deleteTheme(id);
-            try { await MarketService.uninstallTheme(id); } catch (_) {}
+            try {
+              await MarketService.uninstallTheme(id);
+            } catch (_) {}
           }
         } catch (e, s) {
           Log.e('ThemeProvider', 'Failed to load theme $id from disk', e, s);
           await ThemeLoader.deleteTheme(id);
-          try { await MarketService.uninstallTheme(id); } catch (_) {}
+          try {
+            await MarketService.uninstallTheme(id);
+          } catch (_) {}
         }
       }
 
@@ -447,10 +494,36 @@ class ThemeProvider extends ChangeNotifier {
     }
   }
 
+  /// 设置是否启用 Expressive 形状预设（卡片/FAB/Chip 形状替换）
+  Future<void> setExpressiveShapesEnabled(bool v) async {
+    _expressiveShapesEnabled = v;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyExpressiveShapes, v);
+    } catch (e, s) {
+      Log.e('ThemeProvider', 'persist expressiveShapes error', e, s);
+    }
+  }
+
+  /// 设置形状预设（default/modern/playful/organic/geometric/retro）
+  Future<void> setShapePreset(String id) async {
+    if (_shapePresetId == id) return;
+    _shapePresetId = id;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyShapePreset, id);
+    } catch (e, s) {
+      Log.e('ThemeProvider', 'persist shapePreset error', e, s);
+    }
+  }
+
   // ─── 构建 ThemeData ───
 
   /// 解析当前有效 ColorScheme
-  ColorScheme _resolveScheme(Brightness brightness, {ColorScheme? dynamicScheme}) {
+  ColorScheme _resolveScheme(Brightness brightness,
+      {ColorScheme? dynamicScheme}) {
     // 1. Monet 优先
     if (_useMonet) {
       if (dynamicScheme != null) return dynamicScheme;
@@ -483,14 +556,23 @@ class ThemeProvider extends ChangeNotifier {
     );
   }
 
-  ThemeData buildLightTheme(BuildContext context, {ColorScheme? dynamicScheme}) {
-    final scheme = _resolveScheme(Brightness.light, dynamicScheme: dynamicScheme);
-    return buildThemeData(scheme, currentPack, hasGlobalBg: _hasValidBg);
+  ThemeData buildLightTheme(BuildContext context,
+      {ColorScheme? dynamicScheme}) {
+    final scheme =
+        _resolveScheme(Brightness.light, dynamicScheme: dynamicScheme);
+    return buildThemeData(scheme, currentPack,
+        hasGlobalBg: _hasValidBg,
+        expressiveShapesEnabled: _expressiveShapesEnabled,
+        shapePresetId: _shapePresetId);
   }
 
   ThemeData buildDarkTheme(BuildContext context, {ColorScheme? dynamicScheme}) {
-    final scheme = _resolveScheme(Brightness.dark, dynamicScheme: dynamicScheme);
-    return buildThemeData(scheme, currentPack, hasGlobalBg: _hasValidBg);
+    final scheme =
+        _resolveScheme(Brightness.dark, dynamicScheme: dynamicScheme);
+    return buildThemeData(scheme, currentPack,
+        hasGlobalBg: _hasValidBg,
+        expressiveShapesEnabled: _expressiveShapesEnabled,
+        shapePresetId: _shapePresetId);
   }
 
   /// 是否有有效的背景图文件（路径不为空且文件存在）
