@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/theme_pack.dart';
-import '../theme/expressive_shape_config.dart';
 
 /// MD3 形状 token — 统一 BorderRadius，禁止 magic number
 abstract final class AppShape {
@@ -136,13 +135,6 @@ ThemeData buildThemeData(
   final double radiusLg = s?['lg'] ?? 16;
   final double radiusXl = s?['xl'] ?? 28;
 
-  // ── Expressive 形状预设（启用时替换卡片/对话框/FAB/Chip 形状） ──
-  final expShapes =
-      resolveExpressiveShapes(expressiveShapesEnabled, shapePresetId);
-  final OutlinedBorder? expCardShape = expShapes[ShapeTarget.cards];
-  final OutlinedBorder? expFabShape = expShapes[ShapeTarget.fab];
-  final OutlinedBorder? expChipShape = expShapes[ShapeTarget.chips];
-
   // ── 组件覆盖 ──
   final comp = pack.components;
 
@@ -165,9 +157,8 @@ ThemeData buildThemeData(
     cardTheme: CardThemeData(
       elevation: 0, // MD3E 强调色彩区分层级，而非传统的厚重阴影
       color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-      shape: expCardShape ??
-          RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(radiusLg))),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(radiusLg))),
       margin:
           const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // 更宽广的呼吸间距
     ),
@@ -184,9 +175,8 @@ ThemeData buildThemeData(
     dialogTheme: DialogThemeData(
       backgroundColor: surface,
       elevation: comp.dialogElevation,
-      shape: expCardShape ??
-          RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(radiusXl))),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(radiusXl))),
     ),
 
     // ── Divider ──
@@ -328,9 +318,8 @@ ThemeData buildThemeData(
 
     // ── FAB (M3 标准 56x56, 16dp 圆角) ──
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      shape: expFabShape ??
-          RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(radiusLg))),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(radiusLg))),
       elevation: 3,
       foregroundColor: colorScheme.onPrimaryContainer,
       backgroundColor: colorScheme.primaryContainer,
@@ -338,8 +327,7 @@ ThemeData buildThemeData(
 
     // ── Chip (M3 8dp 圆角) ──
     chipTheme: ChipThemeData(
-      shape: expChipShape ??
-          const RoundedRectangleBorder(borderRadius: AppShape.sm),
+      shape: const RoundedRectangleBorder(borderRadius: AppShape.sm),
       backgroundColor: colorScheme.surfaceContainerHighest,
       labelStyle: TextStyle(color: colorScheme.onSurface),
       side: BorderSide(color: colorScheme.outlineVariant),

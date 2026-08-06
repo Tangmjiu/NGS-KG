@@ -18,6 +18,7 @@ import 'profile_screen.dart';
 import 'search_screen.dart';
 import '../widgets/list_bottom_spacer.dart';
 import '../widgets/shimmer_box.dart';
+import '../widgets/expressive_cover.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -296,8 +297,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             'name': pl.name,
                           });
                     },
-                    child: ClipRRect(
-                      borderRadius: AppShape.lg,
+                    child: ExpressiveCover(
+                      animate: true,
                       child: Stack(
                         fit: StackFit.expand,
                         children: [

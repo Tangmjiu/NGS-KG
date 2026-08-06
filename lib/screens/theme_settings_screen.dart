@@ -636,7 +636,7 @@ class _ShapePresetSection extends StatelessWidget {
           contentPadding: const EdgeInsets.symmetric(horizontal: 16),
           secondary: const Icon(Icons.auto_awesome_outlined),
           title: const Text('Expressive 形状'),
-          subtitle: const Text('卡片 / 对话框 / FAB / Chip 使用有机形状'),
+          subtitle: const Text('歌单 / 专辑封面使用有机形状（Squircle/Cookie/花瓣）'),
           value: tp.expressiveShapesEnabled,
           onChanged: (v) => tp.setExpressiveShapesEnabled(v),
         ),
@@ -683,8 +683,8 @@ class _PresetCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final cardKind =
-        preset.mapping[ShapeTarget.cards] ?? ExpressiveShapeKind.squircle;
+    final coverKind =
+        preset.mapping[ShapeTarget.cover] ?? ExpressiveShapeKind.squircle;
 
     return M3PressScale(
       scaleDown: 0.95,
@@ -709,10 +709,10 @@ class _PresetCard extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // 卡片形状的真实预览
+              // 封面形状的真实预览
               Material(
                 color: cs.primary,
-                shape: ExpressiveShapeBorder(cardKind),
+                shape: ExpressiveShapeBorder(coverKind),
                 clipBehavior: Clip.antiAlias,
                 child: SizedBox(
                   width: 40,

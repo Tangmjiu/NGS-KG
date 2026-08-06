@@ -4,24 +4,19 @@
 import 'package:flutter/material.dart';
 import '../widgets/expressive_shapes.dart';
 
-/// 形状应用目标（保守子集，**排除播放器相关目标**：
-/// 播放控件 / 迷你播放器 / 专辑封面不在预设体系内，避免影响播放 UI）
+/// 形状应用目标
+///
+/// 形状只用于**封面等固定比例元素**（歌单卡封面、轮播大卡等），
+/// 避免全局替换卡片/按钮造成界面生硬杂乱。
+/// （播放器相关目标同样刻意排除。）
 enum ShapeTarget {
-  /// 卡片（Card / Dialog）
-  cards,
-
-  /// 浮动操作按钮 FAB
-  fab,
-
-  /// Chip
-  chips,
+  /// 歌单/专辑等封面（正方形或横版大卡，固定比例）
+  cover,
 }
 
 extension ShapeTargetLabel on ShapeTarget {
   String get label => switch (this) {
-        ShapeTarget.cards => '卡片',
-        ShapeTarget.fab => 'FAB',
-        ShapeTarget.chips => 'Chip',
+        ShapeTarget.cover => '封面',
       };
 }
 
@@ -43,65 +38,56 @@ class ExpressiveShapePreset {
 }
 
 /// 内置形状预设列表（与设置页横向 chips 对应）
+///
+/// 形状主要影响封面观感：Squircle 温和接近圆角方形、
+/// Cookie 微凹有节奏、Flower 有机灵动。菱形（gem）不适合封面，不采用。
 const List<ExpressiveShapePreset> kShapePresets = [
   ExpressiveShapePreset(
     id: 'default',
     label: '默认',
     description: '柔和 Squircle，贴近 Material 3 标准',
     mapping: {
-      ShapeTarget.cards: ExpressiveShapeKind.squircle,
-      ShapeTarget.fab: ExpressiveShapeKind.circle,
-      ShapeTarget.chips: ExpressiveShapeKind.circle,
+      ShapeTarget.cover: ExpressiveShapeKind.squircle,
     },
   ),
   ExpressiveShapePreset(
     id: 'modern',
     label: '现代',
-    description: '八瓣 Cookie + 圆角菱形，利落有节奏',
+    description: 'Squircle + 圆角菱形点缀，利落有节奏',
     mapping: {
-      ShapeTarget.cards: ExpressiveShapeKind.cookie8,
-      ShapeTarget.fab: ExpressiveShapeKind.gem,
-      ShapeTarget.chips: ExpressiveShapeKind.gem,
+      ShapeTarget.cover: ExpressiveShapeKind.squircle,
     },
   ),
   ExpressiveShapePreset(
     id: 'playful',
     label: '活泼',
-    description: '六瓣花朵 + Cookie，俏皮灵动',
+    description: '八瓣 Cookie 封面，俏皮灵动',
     mapping: {
-      ShapeTarget.cards: ExpressiveShapeKind.flower6,
-      ShapeTarget.fab: ExpressiveShapeKind.cookie6,
-      ShapeTarget.chips: ExpressiveShapeKind.flower8,
+      ShapeTarget.cover: ExpressiveShapeKind.cookie8,
     },
   ),
   ExpressiveShapePreset(
     id: 'organic',
     label: '有机',
-    description: '花瓣与圆润曲线，自然柔和',
+    description: '八瓣花朵封面，自然柔和',
     mapping: {
-      ShapeTarget.cards: ExpressiveShapeKind.flower8,
-      ShapeTarget.fab: ExpressiveShapeKind.flower6,
-      ShapeTarget.chips: ExpressiveShapeKind.circle,
+      ShapeTarget.cover: ExpressiveShapeKind.flower8,
     },
   ),
   ExpressiveShapePreset(
     id: 'geometric',
     label: '几何',
-    description: 'Squircle + 菱形，克制而现代',
+    description: 'Squircle 封面，克制而现代',
     mapping: {
-      ShapeTarget.cards: ExpressiveShapeKind.squircle,
-      ShapeTarget.fab: ExpressiveShapeKind.gem,
-      ShapeTarget.chips: ExpressiveShapeKind.gem,
+      ShapeTarget.cover: ExpressiveShapeKind.squircle,
     },
   ),
   ExpressiveShapePreset(
     id: 'retro',
     label: '复古',
-    description: 'Cookie 系列，怀旧播放器质感',
+    description: '六瓣 Cookie 封面，怀旧播放器质感',
     mapping: {
-      ShapeTarget.cards: ExpressiveShapeKind.cookie6,
-      ShapeTarget.fab: ExpressiveShapeKind.cookie8,
-      ShapeTarget.chips: ExpressiveShapeKind.cookie6,
+      ShapeTarget.cover: ExpressiveShapeKind.cookie6,
     },
   ),
 ];
