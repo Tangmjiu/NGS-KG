@@ -38,7 +38,8 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
           _isLoading = false;
         });
       }
-    } catch (e, s) { Log.e('rank_detail_screen', 'error', e, s);
+    } catch (e, s) {
+      Log.e('rank_detail_screen', 'error', e, s);
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -46,56 +47,8 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width >= 880;
-    final bodyContent = _isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : _songs == null || _songs!.isEmpty
-            ? const Center(child: Text('暂无歌曲'))
-            : ListView.builder(
-                padding: const EdgeInsets.only(top: 8),
-                itemCount: _songs!.length,
-                itemBuilder: (_, i) {
-                  final song = _songs![i];
-                  return Row(
-                    children: [
-                      SizedBox(
-                        width: 40,
-                        child: Center(
-                          child: Text('${i + 1}',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: i < 3
-                                    ? Theme.of(context).colorScheme.primary
-                                    : Theme.of(context).colorScheme.outline,
-                              )),
-                        ),
-                      ),
-                      Expanded(
-                        child: SongTile(
-                          song: song,
-                          onTap: (s) => context
-                              .read<PlayerProvider>()
-                              .playSong(s, playlist: _songs),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              );
+    final bodyContent = _buildBody();
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.rankName ?? '排行榜'),
-        bottom: _songs != null
-            ? PreferredSize(
-                preferredSize: const Size.fromHeight(24),
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text('共 $_total 首',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                ),
-              )
-            : null,
-      ),
       body: isWide
           ? Center(
               child: ConstrainedBox(
@@ -104,6 +57,63 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
               ),
             )
           : bodyContent,
+    );
+  }
+
+  /// M3 LargeTopAppBar 列表：大标题随滚动收缩（rankName + 曲目数）
+  Widget _buildBody() {
+    final context = this.context;
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_songs == null || _songs!.isEmpty) {
+      return const Center(child: Text('暂无歌曲'));
+    }
+
+    return CustomScrollView(
+      slivers: [
+        SliverAppBar.large(
+          title: Text(widget.rankName ?? '排行榜'),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+            child: Text('共 $_total 首',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          ),
+        ),
+        SliverList(
+          delegate: SliverChildBuilderDelegate((_, i) {
+            final song = _songs![i];
+            return Row(
+              children: [
+                SizedBox(
+                  width: 40,
+                  child: Center(
+                    child: Text('${i + 1}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: i < 3
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.outline,
+                        )),
+                  ),
+                ),
+                Expanded(
+                  child: SongTile(
+                    song: song,
+                    onTap: (s) => context
+                        .read<PlayerProvider>()
+                        .playSong(s, playlist: _songs),
+                  ),
+                ),
+              ],
+            );
+          }, childCount: _songs!.length),
+        ),
+      ],
     );
   }
 }

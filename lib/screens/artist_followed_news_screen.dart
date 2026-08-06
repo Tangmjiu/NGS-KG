@@ -36,9 +36,11 @@ class _ArtistFollowedNewsScreenState extends State<ArtistFollowedNewsScreen> {
     final isWide = MediaQuery.of(context).size.width >= 880;
     final body = _buildBody();
     return Scaffold(
-      appBar: AppBar(title: const Text('关注动态')),
       body: isWide
-          ? Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: body))
+          ? Center(
+              child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: body))
           : body,
     );
   }
@@ -49,20 +51,27 @@ class _ArtistFollowedNewsScreenState extends State<ArtistFollowedNewsScreen> {
     } else if (_news.isEmpty) {
       return const Center(child: Text('暂无动态'));
     }
-    return ListView.builder(
-      padding: const EdgeInsets.all(8),
-      itemCount: _news.length,
-      itemBuilder: (_, i) {
-        final item = _news[i];
-        return Card(
-          child: ListTile(
-            leading: const Icon(Icons.person),
-            title: Text(item['artist'] as String? ?? ''),
-            subtitle: Text(
-                item['content'] as String? ?? item['title'] as String? ?? ''),
+    return CustomScrollView(
+      slivers: [
+        const SliverAppBar.large(title: Text('关注动态')),
+        SliverPadding(
+          padding: const EdgeInsets.all(8),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate((_, i) {
+              final item = _news[i];
+              return Card(
+                child: ListTile(
+                  leading: const Icon(Icons.person),
+                  title: Text(item['artist'] as String? ?? ''),
+                  subtitle: Text(item['content'] as String? ??
+                      item['title'] as String? ??
+                      ''),
+                ),
+              );
+            }, childCount: _news.length),
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }

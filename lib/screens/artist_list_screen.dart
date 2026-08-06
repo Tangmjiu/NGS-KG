@@ -30,33 +30,42 @@ class _ArtistListScreenState extends State<ArtistListScreen> {
           _isLoading = false;
         });
       }
-    } catch (e, s) { Log.e('artist_list_screen', 'error', e, s);
+    } catch (e, s) {
+      Log.e('artist_list_screen', 'error', e, s);
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_artists.isEmpty) {
+      return const Scaffold(body: Center(child: Text('暂无数据')));
+    }
     return Scaffold(
-      appBar: AppBar(title: const Text('歌手')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _artists.isEmpty
-              ? const Center(child: Text('暂无数据'))
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final crossAxisCount = (constraints.maxWidth / 160).floor().clamp(2, 6);
-                    return GridView.builder(
-                  padding: const EdgeInsets.all(8),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final crossAxisCount =
+              (constraints.maxWidth / 160).floor().clamp(2, 6);
+          return CustomScrollView(
+            slivers: [
+              const SliverAppBar.large(title: Text('歌手')),
+              SliverPadding(
+                padding: const EdgeInsets.all(8),
+                sliver: SliverGrid(
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: crossAxisCount,
                     childAspectRatio: 0.8,
                   ),
-                  itemCount: _artists.length,
-                  itemBuilder: (_, i) {
+                  delegate: SliverChildBuilderDelegate((_, i) {
                     final artist = _artists[i];
                     return GestureDetector(
-                      onTap: () => Navigator.pushNamed(context, '/artist/detail',
+                      onTap: () => Navigator.pushNamed(
+                          context, '/artist/detail',
                           arguments: {'id': artist.id, 'name': artist.name}),
                       child: Column(
                         children: [
@@ -77,10 +86,13 @@ class _ArtistListScreenState extends State<ArtistListScreen> {
                         ],
                       ),
                     );
-                  },
-                );
-              },
-            ),
+                  }, childCount: _artists.length),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
