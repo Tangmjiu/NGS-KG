@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/liked_songs_provider.dart';
+import '../providers/theme_provider.dart';
 import '../models/song.dart';
 import '../theme/theme_assets.dart';
 import '../utils/haptics.dart';
@@ -18,7 +19,7 @@ import 'hi_res_badge.dart';
 class PlayerCoverArt extends StatelessWidget {
   final Song song;
   final double scrollOffset; // 0.0 = fully visible, 1.0 = lyrics page
-  final bool showHiRes; // 是否显示 Hi-Res 金标
+  final bool showHiRes; // 音质层面是否达到 Hi-Res（resolvedQuality == 'high'）
 
   const PlayerCoverArt({
     super.key,
@@ -110,7 +111,12 @@ class PlayerCoverArt extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              if (showHiRes)
+                              // ✅ context.select 在 build 方法内调用（合法位置）：
+                              // 仅订阅 showHiResBadge 开关，避免在辅助方法中调用导致 Provider 断言崩溃；
+                              // song/scrollOffset 等变化随父级重建正常更新，不受 Selector 缓存冻结
+                              if (showHiRes &&
+                                  context.select<ThemeProvider, bool>(
+                                      (tp) => tp.showHiResBadge))
                                 const Positioned(
                                   left: 4,
                                   bottom: 8,

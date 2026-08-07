@@ -30,10 +30,21 @@ class _DeviceInfoSectionState extends State<DeviceInfoSection> {
   String _guid = '—';
   String _serverDev = '—';
   bool _loading = false;
+  // 防止 didChangeDependencies 多次触发时重复加载
+  bool _depsLoaded = false;
 
   @override
   void initState() {
     super.initState();
+    // 注意：不在 initState 中读取 MediaQuery —— dependOnInheritedWidgetOfExactType
+    // 在 initState 完成前调用会抛异常，初始化统一迁移到 didChangeDependencies。
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_depsLoaded) return;
+    _depsLoaded = true;
     _load();
   }
 

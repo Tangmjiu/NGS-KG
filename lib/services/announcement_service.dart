@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,18 +27,39 @@ class AnnouncementService {
         headers: {'User-Agent': 'NGS-KG+'},
       ));
 
-      final res = await dio.get<dynamic>(_apiUrl);
+      // 手动按纯文本接收，自行解析 JSON：
+      // 避免 Dio 默认 json responseType 在内容非法（BOM/HTML/截断）时于请求内部抛
+      // FormatException，改为在此处显式捕获并降级为"无公告"。
+      final res = await dio.get<String>(
+        _apiUrl,
+        options: Options(responseType: ResponseType.plain),
+      );
       if (res.data == null) {
         Log.w('AnnouncementService', 'Response data is null');
         return null;
       }
 
-      List<dynamic> list;
-      if (res.data is List) {
-        list = res.data as List;
-      } else {
+      // 容忍 BOM 头与前后空白；若内容非 JSON（如 CDN 404 页），解析失败则静默返回
+      final raw = res.data.toString().trim();
+      final cleaned =
+          raw.startsWith('\uFEFF') ? raw.substring(1) : raw;
+      Object? decoded;
+      try {
+        decoded = jsonDecode(cleaned);
+      } catch (e) {
+        Log.w('AnnouncementService', '公告 JSON 解析失败: $e');
         Log.w(
-            'AnnouncementService', 'Response data is not a List: ${res.data}');
+            'AnnouncementService',
+            '响应 runtimeType=${res.data.runtimeType}，'
+            '前 500 字符: ${cleaned.length > 500 ? cleaned.substring(0, 500) : cleaned}');
+        return null;
+      }
+
+      List<dynamic> list;
+      if (decoded is List) {
+        list = decoded;
+      } else {
+        Log.w('AnnouncementService', 'Response data is not a List: $decoded');
         return null;
       }
 

@@ -429,9 +429,10 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Column(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // 拖拽指示条
@@ -483,6 +484,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
               ),
             ],
           ),
+        ),
         ),
       ),
     );

@@ -10,6 +10,7 @@ import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:provider/provider.dart';
 
 import '../models/song.dart';
+import '../models/lyric_settings.dart';
 import '../providers/player_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/liked_songs_provider.dart';
@@ -36,11 +37,25 @@ class PlayerScreen extends StatefulWidget {
 }
 
 class _PlayerScreenState extends State<PlayerScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
+  // ─── 下滑拖拽动画控制器（字段持有，避免回调中反复 new 触发 Ticker 冲突） ───
+  AnimationController? _dragResetController;
+  AnimationController? _dismissController;
+
   // ─── 构建 LyricView 样式（从设置动态读取） ───
   // ✅ 新增适配代码：compact=true 时用于双栏/沉浸布局（缩小字号、行距与左右留白）
+  // 缓存最近一次构建结果，避免每次 build 都创建新 LyricStyle 实例导致 LyricView 重建
+  LyricStyle? _cachedLyricStyle;
+  LyricSettings? _cachedLyricSettings;
+  bool _cachedLyricCompact = false;
+
   LyricStyle _buildLyricStyle({bool compact = false}) {
     final ls = context.read<ThemeProvider>().lyricSettings;
+    if (_cachedLyricStyle != null &&
+        identical(_cachedLyricSettings, ls) &&
+        _cachedLyricCompact == compact) {
+      return _cachedLyricStyle!;
+    }
     // 焦点行字重 = 用户设置 + 200（确保比普通行重）
     final int activeWeightIdx = ((ls.fontWeight / 100).round() + 2).clamp(3, 8);
     final activeWeight = FontWeight.values[activeWeightIdx];
@@ -50,7 +65,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     final double translationFontSize = compact
         ? (ls.translationFontSize - 2).clamp(10.0, 26.0)
         : ls.translationFontSize;
-    return LyricStyle(
+    final style = LyricStyle(
       textStyle: TextStyle(
         fontSize: fontSize,
         fontWeight: ls.resolvedWeight,
@@ -116,6 +131,10 @@ class _PlayerScreenState extends State<PlayerScreen>
           ? FadeRange(top: 0.15, bottom: 0.15)
           : null,
     );
+    _cachedLyricSettings = ls;
+    _cachedLyricCompact = compact;
+    _cachedLyricStyle = style;
+    return style;
   }
 
   // ─── PageView ───
@@ -243,6 +262,8 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   @override
   void dispose() {
+    _dragResetController?.dispose();
+    _dismissController?.dispose();
     _pageController.removeListener(_onPageScroll);
     _pageController.dispose();
     super.dispose();
@@ -252,16 +273,23 @@ class _PlayerScreenState extends State<PlayerScreen>
   void _animateDragReset() {
     if (!mounted) return;
     final was = _dragOffset;
-    final controller = AnimationController(
+    // 复用/替换字段持有的控制器，避免手势快速连续触发时产生多个并发 Ticker
+    _dragResetController?.dispose();
+    final controller =
+        _dragResetController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
     controller.addListener(() {
+      if (!mounted) return;
       setState(() {
         _dragOffset = lerpDouble(0, was, 1 - controller.value)!;
       });
     });
     controller.forward().whenComplete(() {
+      if (identical(_dragResetController, controller)) {
+        _dragResetController = null;
+      }
       controller.dispose();
       if (mounted) setState(() => _dragOffset = 0.0);
     });
@@ -271,7 +299,9 @@ class _PlayerScreenState extends State<PlayerScreen>
   void _animateDismiss() {
     if (!mounted || _isDismissing) return;
     setState(() => _isDismissing = true);
-    final controller = AnimationController(
+    _dismissController?.dispose();
+    final controller =
+        _dismissController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 250),
     );
@@ -282,6 +312,9 @@ class _PlayerScreenState extends State<PlayerScreen>
       });
     });
     controller.forward().whenComplete(() {
+      if (identical(_dismissController, controller)) {
+        _dismissController = null;
+      }
       controller.dispose();
       if (mounted) Navigator.pop(context);
     });
@@ -1088,9 +1121,10 @@ class _PlayerScreenState extends State<PlayerScreen>
                                             controller: _pageController,
                                             children: [
                                               // Page 0: Cover + controls
-                                              _buildCoverPage(player, song),
+                                              // ✅ RepaintBoundary 隔离封面页重绘区域，避免与歌词页互相拖累
+                                              RepaintBoundary(child: _buildCoverPage(player, song)),
                                               // Page 1: Immersive lyrics
-                                              _buildLyricsPage(player, song),
+                                              RepaintBoundary(child: _buildLyricsPage(player, song)),
                                             ],
                                           ),
                                         ),
@@ -1244,9 +1278,6 @@ class _PlayerScreenState extends State<PlayerScreen>
     final showKey = player.resolvedQuality ?? highestAvailable ??
         Quality.levels[player.qualityLevel % Quality.levels.length];
     final qualityLabel = Quality.label(showKey);
-    // 仅在真实源解析完成（resolvedQuality != null）且为 FLAC、且设置开启了 HiRes 金标时才显示
-    final showHiRes = player.resolvedQuality == 'high' &&
-        context.select<ThemeProvider, bool>((tp) => tp.showHiResBadge);
     const speeds = [1.0, 0.5, 0.75, 1.25, 1.5, 2.0];
 
     return Column(
@@ -1254,10 +1285,13 @@ class _PlayerScreenState extends State<PlayerScreen>
         // Album cover — flex takes remaining space above bottom controls
         Expanded(
           child: Center(
+            // ✅ context.select 移入 PlayerCoverArt.build 内部（合法位置），
+            // 这里只传音质是否达到 Hi-Res（resolvedQuality == 'high'），
+            // 徽标开关（showHiResBadge）由 PlayerCoverArt 内部订阅
             child: PlayerCoverArt(
               song: song,
               scrollOffset: _pageOffset,
-              showHiRes: showHiRes,
+              showHiRes: player.resolvedQuality == 'high',
             ),
           ),
         ),

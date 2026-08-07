@@ -171,10 +171,12 @@ Future<void> showSongContextMenu(
 }) {
   return showM3ModalBottomSheet(
     context: context,
+    // ✅ 滚动保护：菜单项数量可变（含调用方 extraItems），矮屏/大字体下防溢出
     builder: (_) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
           _menuItem(
             context,
             icon: Icons.skip_next,
@@ -231,6 +233,7 @@ Future<void> showSongContextMenu(
           // ✅ 新增适配代码：调用方自定义菜单项（如"从歌单移除"）
           if (extraItems != null) ...extraItems,
         ],
+        ),
       ),
     ),
   );
