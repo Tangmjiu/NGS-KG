@@ -34,9 +34,10 @@ class ExportService {
     caseSensitive: false,
   );
 
-  /// 错误响应体（raw: {...} 段）中的敏感键值（JSON 键值对形式）
+  /// 错误响应体（raw: {...} 段）中的敏感键值（JSON 键值对形式，
+  /// 键集与 sensitiveQueryKeys 共享防漂移）
   static final Pattern _sensitiveJsonValue = RegExp(
-    '("(?:cookie|token|userid|dfid|guid|mid|password|secret|sign|sig|api_key|auth|session)":\\s*")[^"]*(")',
+    '("(?:${DevNetworkMonitor.sensitiveQueryKeys.join('|')})":\\s*")[^"]*(")',
     caseSensitive: false,
   );
 
