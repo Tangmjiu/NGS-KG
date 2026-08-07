@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:flutter/foundation.dart';
+import '../features/developer/network/dev_network_interceptor.dart';
 import '../utils/constants.dart';
 import '../utils/error_dialog.dart';
 import '../utils/logger.dart';
@@ -316,6 +317,10 @@ class ApiClient {
     ));
 
     // 拦截器链（顺序很重要）
+    // 0. 开发者网络监控（debug/profile 专用：离线模拟最先生效，请求记录最全）
+    if (!kReleaseMode) {
+      _dio.interceptors.add(DevNetworkInterceptor());
+    }
     // 1. 动态 BaseUrl（最先执行，确保 baseUrl 正确）
     _dio.interceptors.add(_DynamicBaseUrlInterceptor());
     // 2. 认证头注入

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import '../utils/app_icons.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';
@@ -11,9 +12,7 @@ import '../providers/auth_provider.dart';
 import '../providers/audio_settings_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_client.dart';
-import '../services/api_config.dart';
 import '../services/cache_service.dart';
-import '../services/device_service.dart';
 import '../routes/app_routes.dart';
 import '../widgets/support_me_dialog.dart';
 
@@ -56,7 +55,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: Text(auth.isLoggedIn
                   ? '当前: ${auth.user?.nickname ?? "未知"}'
                   : '未登录'),
-              trailing: Icon(auth.isLoggedIn ? AppIcons.logout : AppIcons.login),
+              trailing:
+                  Icon(auth.isLoggedIn ? AppIcons.logout : AppIcons.login),
               onTap: () {
                 if (auth.isLoggedIn) {
                   auth.logout();
@@ -125,7 +125,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('音效'),
             subtitle: const Text('音量、播放速度、均衡器'),
             trailing: const Icon(AppIcons.chevronRight),
-            onTap: () => Navigator.pushNamed(context, '/settings/audio/effects'),
+            onTap: () =>
+                Navigator.pushNamed(context, '/settings/audio/effects'),
           ),
           ListTile(
             leading: const Icon(AppIcons.speed),
@@ -156,7 +157,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(AppIcons.info),
             title: const Text('关于 NGS-KG+'),
-            subtitle: Text('版本 $_appVersion${PreviewConfig.enabled ? ' · preview' : ''} · 开源声明'),
+            subtitle: Text(
+                '版本 $_appVersion${PreviewConfig.enabled ? ' · preview' : ''} · 开源声明'),
             trailing: const Icon(AppIcons.chevronRight),
             onTap: () => Navigator.pushNamed(context, '/about'),
           ),
@@ -167,38 +169,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(AppIcons.chevronRight),
             onTap: () => showSupportMeDialog(context),
           ),
-          ListTile(
-            leading: const Icon(AppIcons.terminal),
-            title: const Text('开发者'),
-            subtitle: const Text('调试功能'),
-            trailing: const Icon(AppIcons.chevronRight),
-            onTap: () {
-              showM3Dialog(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('警告'),
-                  content: const Text('此界面仅供调试使用'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('取消'),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const DeveloperScreen()),
-                        );
-                      },
-                      child: const Text('继续'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
+          // 开发者工具（仅 Debug/Profile 构建可见，Release 自动隐藏）
+          // 新增功能：开发者工具入口
+          if (!kReleaseMode)
+            ListTile(
+              leading: const Icon(AppIcons.terminal),
+              title: const Text('开发者'),
+              subtitle: const Text('调试功能'),
+              trailing: const Icon(AppIcons.chevronRight),
+              onTap: () {
+                showM3Dialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('警告'),
+                    content: const Text('此界面仅供调试使用'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('取消'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          Navigator.pushNamed(context, AppRoutes.developer);
+                        },
+                        child: const Text('继续'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -225,123 +226,3 @@ class _SectionHeader extends StatelessWidget {
 }
 
 // ─── 音质子页面（独立为 audio_quality_screen.dart）
-
-// ─── 开发者调试 ───
-
-class DeveloperScreen extends StatefulWidget {
-  const DeveloperScreen({super.key});
-
-  @override
-  State<DeveloperScreen> createState() => _DeveloperScreenState();
-}
-
-class _DeveloperScreenState extends State<DeveloperScreen> {
-  String? _dfid;
-  String? _token;
-  String? _userId;
-  String? _mid;
-  String? _guid;
-  String? _serverDev;
-  String? _apiUrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadInfo();
-  }
-
-  Future<void> _loadInfo() async {
-    final cookie = await ApiClient.instance.getCookieString();
-    final device = await DeviceService.instance.getDeviceInfo();
-    final baseUrl = await ApiConfig.instance.getBaseUrl();
-    setState(() {
-      _dfid = ApiClient.dfid ?? device?.dfid;
-      _mid = device?.mid;
-      _guid = device?.guid;
-      _serverDev = device?.serverDev;
-      _apiUrl = baseUrl;
-      final tokenMatch = RegExp(r'token=([^;]+)').firstMatch(cookie);
-      final userMatch = RegExp(r'userid=([^;]+)').firstMatch(cookie);
-      _token = tokenMatch?.group(1);
-      _userId = userMatch?.group(1);
-    });
-  }
-
-  Future<void> _resetDfid() async {
-    final device = await DeviceService.instance.registerDevice();
-    if (device.isValid) {
-      ApiClient.instance.reinitialize();
-      _loadInfo();
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('设备已重新注册')));
-      }
-    }
-  }
-
-  Future<void> _clearCookie() async {
-    ApiClient.clearAuth();
-    _loadInfo();
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Cookie 已清除')));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('开发者')),
-      body: ListView(
-        children: [
-          ListTile(
-            title: const Text('API 地址'),
-            subtitle: Text(_apiUrl ?? '未知'),
-          ),
-          ListTile(
-            title: const Text('dfid'),
-            subtitle: Text(_dfid ?? '未知'),
-          ),
-          ListTile(
-            title: const Text('mid'),
-            subtitle: Text(_mid ?? '未知'),
-          ),
-          ListTile(
-            title: const Text('guid'),
-            subtitle: Text(_guid ?? '未知'),
-          ),
-          ListTile(
-            title: const Text('serverDev'),
-            subtitle: Text(_serverDev ?? '未知'),
-          ),
-          ListTile(
-            title: const Text('token'),
-            subtitle: Text(_token ?? '未登录'),
-          ),
-          ListTile(
-            title: const Text('userid'),
-            subtitle: Text(_userId ?? '未登录'),
-          ),
-          const Divider(),
-          ListTile(
-            title: const Text('重新注册设备'),
-            subtitle: const Text('重置 dfid 及完整设备指纹'),
-            onTap: _resetDfid,
-          ),
-          ListTile(
-            title: const Text('清除 Cookie'),
-            subtitle: const Text('退出登录并清除认证信息'),
-            onTap: _clearCookie,
-          ),
-          ListTile(
-            leading: const Icon(AppIcons.terminal),
-            title: const Text('输出日志'),
-            subtitle: const Text('实时查看完整日志'),
-            trailing: const Icon(AppIcons.chevronRight),
-            onTap: () => Navigator.pushNamed(context, '/settings/developer/log'),
-          ),
-        ],
-      ),
-    );
-  }
-}

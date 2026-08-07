@@ -15,6 +15,10 @@ class Responsive {
   static const double tabletBreakpoint = 600;
   static const double desktopBreakpoint = 1024;
 
+  /// 强制布局类型覆盖（仅 Debug/Profile 构建由开发者工具设置，Release 恒为 null）
+  // 新增功能：手机/平板模式切换
+  static ScreenType? forcedType;
+
   static double width(BuildContext context) =>
       MediaQuery.of(context).size.width;
 
@@ -22,6 +26,8 @@ class Responsive {
       MediaQuery.of(context).size.height;
 
   static ScreenType getScreenType(BuildContext context) {
+    final forced = forcedType;
+    if (forced != null) return forced;
     final width = MediaQuery.of(context).size.width;
     if (width >= desktopBreakpoint) return ScreenType.desktop;
     if (width >= tabletBreakpoint) return ScreenType.tablet;

@@ -31,6 +31,8 @@ import '../screens/lyric_settings_screen.dart';
 import '../screens/audio_quality_screen.dart';
 import '../screens/profile_screen.dart';
 import '../navidrome/navidrome_login_screen.dart';
+import '../features/developer/developer_screen.dart';
+import '../features/developer/network/network_log_screen.dart';
 
 class AppRoutes {
   static const String home = '/';
@@ -62,6 +64,8 @@ class AppRoutes {
   static const String audioEffects = '/settings/audio/effects';
   static const String about = '/about';
   static const String logViewer = '/settings/developer/log';
+  static const String developer = '/settings/developer';
+  static const String networkMonitor = '/settings/developer/network';
   static const String lyricSettings = '/settings/lyric';
   static const String audioQuality = '/settings/audio/quality';
   static const String likedSongs = '/user/liked';
@@ -174,34 +178,29 @@ class AppRoutes {
           ),
         );
       case AppRoutes.apiSettings:
-        return MaterialPageRoute(
-            builder: (_) => const ApiSettingsScreen());
+        return MaterialPageRoute(builder: (_) => const ApiSettingsScreen());
       case AppRoutes.themeSettings:
-        return MaterialPageRoute(
-            builder: (_) => const ThemeSettingsScreen());
+        return MaterialPageRoute(builder: (_) => const ThemeSettingsScreen());
       case AppRoutes.themeMarket:
-        return MaterialPageRoute(
-            builder: (_) => const ThemeMarketScreen());
+        return MaterialPageRoute(builder: (_) => const ThemeMarketScreen());
       case AppRoutes.audioEffects:
-        return MaterialPageRoute(
-            builder: (_) => const AudioEffectsScreen());
+        return MaterialPageRoute(builder: (_) => const AudioEffectsScreen());
       case AppRoutes.about:
         return MaterialPageRoute(builder: (_) => const AboutScreen());
       case AppRoutes.logViewer:
-        return MaterialPageRoute(
-            builder: (_) => const LogViewerScreen());
+        return MaterialPageRoute(builder: (_) => const LogViewerScreen());
+      case AppRoutes.developer:
+        return MaterialPageRoute(builder: (_) => const DeveloperScreen());
+      case AppRoutes.networkMonitor:
+        return MaterialPageRoute(builder: (_) => const NetworkLogScreen());
       case AppRoutes.lyricSettings:
-        return MaterialPageRoute(
-            builder: (_) => const LyricSettingsScreen());
+        return MaterialPageRoute(builder: (_) => const LyricSettingsScreen());
       case AppRoutes.audioQuality:
-        return MaterialPageRoute(
-            builder: (_) => const AudioQualityScreen());
+        return MaterialPageRoute(builder: (_) => const AudioQualityScreen());
       case AppRoutes.likedSongs:
-        return MaterialPageRoute(
-            builder: (_) => const LikedSongsScreen());
+        return MaterialPageRoute(builder: (_) => const LikedSongsScreen());
       case AppRoutes.navidromeLogin:
-        return MaterialPageRoute(
-            builder: (_) => const NavidromeLoginScreen());
+        return MaterialPageRoute(builder: (_) => const NavidromeLoginScreen());
       default:
         return _fallback();
     }
