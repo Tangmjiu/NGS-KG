@@ -77,17 +77,17 @@ jobs:
           sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
           sed -i '/maven.*aliyun/d' android/settings.gradle android/build.gradle
 
-      - name: Build debug APK
-        run: flutter build apk --debug --target-platform android-arm64 --android-skip-build-dependency-validation
+      - name: Build debug APKs
+        run: flutter build apk --debug --split-per-abi --android-skip-build-dependency-validation
+
+      - name: Upload debug APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: NGS-KG-debug-apks
+          path: build/app/outputs/flutter-apk/*-debug.apk
 
       - name: Build release APK
         run: flutter build apk --release --split-per-abi
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: NGS-KG-debug-arm64-v8a
-          path: build/app/outputs/flutter-apk/app-debug.apk
 
       - name: Upload release APKs
         uses: actions/upload-artifact@v4
@@ -575,7 +575,7 @@ jobs:
             所有构建产物可在本页底部 **Assets** 面板下载。每个平台按分支独立构建，选择对应文件即可。
           files: |
             artifacts/NGS-KG-release-apks/*
-            artifacts/NGS-KG-debug-arm64-v8a/*
+            artifacts/NGS-KG-debug-apks/*
             artifacts/ngskg-windows-release/**
             artifacts/ngskg-linux-deb/*
             artifacts/ngskg-linux-flatpak/*
