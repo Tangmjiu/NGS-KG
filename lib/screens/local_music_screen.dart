@@ -279,8 +279,12 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
               final isHighlighted = song.filePath == highlightPath;
               return M3StaggeredFadeIn(
                 index: i,
-                child: _buildSongGridCard(song, prov,
-                    isHighlighted: isHighlighted),
+                child: _LocalSongGridCard(
+                  song: song,
+                  isHighlighted: isHighlighted,
+                  onTap: () => _playLocalSong(song, prov),
+                  onLongPress: () => _showSongMenu(song, prov),
+                ),
               );
             },
           )
@@ -295,7 +299,12 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
         final isHighlighted = song.filePath == highlightPath;
         return M3StaggeredFadeIn(
           index: i,
-          child: _buildSongTile(song, prov, isHighlighted: isHighlighted),
+          child: _LocalSongTile(
+            song: song,
+            isHighlighted: isHighlighted,
+            onTap: () => _playLocalSong(song, prov),
+            onMenu: () => _showSongMenu(song, prov),
+          ),
         );
       },
     );
@@ -378,68 +387,14 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
         children: [
           const Divider(height: 1),
           const SizedBox(height: 4),
-          ...entry.songs.map((song) => _buildSongTile(song, prov)),
+          ...entry.songs.map(
+            (song) => _LocalSongTile(
+              song: song,
+              onTap: () => _playLocalSong(song, prov),
+              onMenu: () => _showSongMenu(song, prov),
+            ),
+          ),
         ],
-      ),
-    );
-  }
-
-  // ── Cover avatar: local files use MD3E music note fallback ──
-
-  Widget _buildCoverAvatar(String? coverUrl, ColorScheme cs) {
-    final hasCover = coverUrl != null && coverUrl.isNotEmpty;
-    ImageProvider? image;
-    if (hasCover) {
-      if (coverUrl.startsWith('file:') || coverUrl.startsWith('/')) {
-        final path = coverUrl.startsWith('file:')
-            ? Uri.parse(coverUrl).toFilePath()
-            : coverUrl;
-        image = FileImage(File(path));
-      } else {
-        image = NetworkImage(coverUrl);
-      }
-    }
-    return CircleAvatar(
-      backgroundColor: cs.surfaceContainerHighest,
-      backgroundImage: image,
-      child: hasCover
-          ? null
-          : AppIcon(Symbols.music_note, size: 22, color: cs.primary),
-    );
-  }
-
-  // ── Shared song list tile (used in both flat and grouped views) ──
-
-  Widget _buildSongTile(Song song, LocalMusicProvider prov, {bool isHighlighted = false}) {
-    final currentSongId = context.watch<PlayerProvider>().currentSong?.id;
-    final isPlaying = song.id == currentSongId;
-    final cs = Theme.of(context).colorScheme;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-      decoration: isHighlighted
-          ? BoxDecoration(
-              color: cs.primaryContainer.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(12),
-            )
-          : null,
-      child: ListTile(
-        leading: _buildCoverAvatar(song.albumCoverUrl, cs),
-        title: Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text(
-          '${song.artists.join(", ")}${song.albumName != null ? " · ${song.albumName}" : ""}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: cs.onSurfaceVariant),
-        ),
-        trailing: isPlaying
-            ? AppIcon(Symbols.equalizer_rounded, color: cs.primary)
-            : IconButton(
-                icon: AppIcon(Symbols.more_vert_rounded, color: cs.onSurfaceVariant, size: 20),
-                onPressed: () => _showSongMenu(song, prov),
-              ),
-        onTap: () => _playLocalSong(song, prov),
       ),
     );
   }
@@ -462,106 +417,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
     context.read<PlayerProvider>().playSong(updatedSong, playlist: playlist);
   }
 
-  /// ✅ 新增适配代码：平板本地歌曲网格卡片（封面 + 歌名 + 歌手，长按更多菜单）
-  Widget _buildSongGridCard(Song song, LocalMusicProvider prov,
-      {bool isHighlighted = false}) {
-    // 精确选择：只订阅当前歌曲 ID，避免进度变化重建所有网格卡片
-    final currentSongId =
-        context.select<PlayerProvider, int?>((p) => p.currentSong?.id);
-    final isPlaying = song.id == currentSongId;
-    final cs = Theme.of(context).colorScheme;
 
-    // 封面（本地文件 / 网络 / 占位图标）
-    Widget cover;
-    final coverUrl = song.albumCoverUrl;
-    final hasCover = coverUrl != null && coverUrl.isNotEmpty;
-    ImageProvider? image;
-    if (hasCover) {
-      if (coverUrl.startsWith('file:') || coverUrl.startsWith('/')) {
-        final path = coverUrl.startsWith('file:')
-            ? Uri.parse(coverUrl).toFilePath()
-            : coverUrl;
-        image = FileImage(File(path));
-      } else {
-        image = NetworkImage(coverUrl);
-      }
-    }
-    cover = Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: AppShape.md,
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: image != null
-          ? Image(
-              image: image,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Center(
-                child: AppIcon(Symbols.music_note, size: 48, color: cs.primary),
-              ),
-            )
-          : Center(
-              child: AppIcon(Symbols.music_note, size: 48, color: cs.primary),
-            ),
-    );
-    if (isPlaying) {
-      cover = Stack(
-        fit: StackFit.expand,
-        children: [
-          cover,
-          Container(
-            color: Colors.black.withValues(alpha: 0.4),
-            child: Center(
-              child: AppIcon(Symbols.equalizer_rounded,
-                  size: 36, color: cs.primary),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-      decoration: isHighlighted
-          ? BoxDecoration(
-              color: cs.primaryContainer.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(12),
-            )
-          : null,
-      child: InkWell(
-        borderRadius: AppShape.md,
-        onTap: () => _playLocalSong(song, prov),
-        onLongPress: () => _showSongMenu(song, prov),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AspectRatio(aspectRatio: 1, child: cover),
-            const SizedBox(height: 8),
-            Text(
-              song.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              song.artistDisplay,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: cs.onSurfaceVariant),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   /// 长按或点击更多时弹出操作菜单
   void _showSongMenu(Song song, LocalMusicProvider prov) {
@@ -980,6 +836,203 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
           ),
         );
       },
+    );
+  }
+}
+
+// ── Cover avatar: local files use MD3E music note fallback ──
+
+Widget _buildCoverAvatar(String? coverUrl, ColorScheme cs) {
+  final hasCover = coverUrl != null && coverUrl.isNotEmpty;
+  ImageProvider? image;
+  if (hasCover) {
+    if (coverUrl.startsWith('file:') || coverUrl.startsWith('/')) {
+      final path = coverUrl.startsWith('file:')
+          ? Uri.parse(coverUrl).toFilePath()
+          : coverUrl;
+      image = FileImage(File(path));
+    } else {
+      image = NetworkImage(coverUrl);
+    }
+  }
+  return CircleAvatar(
+    backgroundColor: cs.surfaceContainerHighest,
+    backgroundImage: image,
+    child: hasCover
+        ? null
+        : AppIcon(Symbols.music_note, size: 22, color: cs.primary),
+  );
+}
+
+// ── Shared song list tile (used in both flat and grouped views) ──
+// ✅ 修复：独立 StatelessWidget，provider 订阅（select/watch）在自身 build 方法内执行。
+// 此前在 ListView/GridView 的 itemBuilder（layout 阶段，debugDoingBuild == false）
+// 中通过 State 的 context 调用 context.select，会触发 provider 断言
+// "Tried to use context.select outside of the build method of a widget"。
+
+class _LocalSongTile extends StatelessWidget {
+  final Song song;
+  final bool isHighlighted;
+  final VoidCallback? onTap;
+  final VoidCallback? onMenu;
+
+  const _LocalSongTile({
+    required this.song,
+    this.isHighlighted = false,
+    this.onTap,
+    this.onMenu,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 精确选择：只订阅当前歌曲 ID，避免播放进度变化重建所有列表项
+    final currentSongId =
+        context.select<PlayerProvider, int?>((p) => p.currentSong?.id);
+    final isPlaying = song.id == currentSongId;
+    final cs = Theme.of(context).colorScheme;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      decoration: isHighlighted
+          ? BoxDecoration(
+              color: cs.primaryContainer.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(12),
+            )
+          : null,
+      child: ListTile(
+        leading: _buildCoverAvatar(song.albumCoverUrl, cs),
+        title: Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text(
+          '${song.artists.join(", ")}${song.albumName != null ? " · ${song.albumName}" : ""}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: cs.onSurfaceVariant),
+        ),
+        trailing: isPlaying
+            ? AppIcon(Symbols.equalizer_rounded, color: cs.primary)
+            : IconButton(
+                icon: AppIcon(Symbols.more_vert_rounded,
+                    color: cs.onSurfaceVariant, size: 20),
+                onPressed: onMenu,
+              ),
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+/// 平板本地歌曲网格卡片（封面 + 歌名 + 歌手，长按更多菜单）
+class _LocalSongGridCard extends StatelessWidget {
+  final Song song;
+  final bool isHighlighted;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+
+  const _LocalSongGridCard({
+    required this.song,
+    this.isHighlighted = false,
+    this.onTap,
+    this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 精确选择：只订阅当前歌曲 ID，避免进度变化重建所有网格卡片
+    final currentSongId =
+        context.select<PlayerProvider, int?>((p) => p.currentSong?.id);
+    final isPlaying = song.id == currentSongId;
+    final cs = Theme.of(context).colorScheme;
+
+    // 封面（本地文件 / 网络 / 占位图标）
+    Widget cover;
+    final coverUrl = song.albumCoverUrl;
+    final hasCover = coverUrl != null && coverUrl.isNotEmpty;
+    ImageProvider? image;
+    if (hasCover) {
+      if (coverUrl.startsWith('file:') || coverUrl.startsWith('/')) {
+        final path = coverUrl.startsWith('file:')
+            ? Uri.parse(coverUrl).toFilePath()
+            : coverUrl;
+        image = FileImage(File(path));
+      } else {
+        image = NetworkImage(coverUrl);
+      }
+    }
+    cover = Container(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: AppShape.md,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: image != null
+          ? Image(
+              image: image,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Center(
+                child: AppIcon(Symbols.music_note, size: 48, color: cs.primary),
+              ),
+            )
+          : Center(
+              child: AppIcon(Symbols.music_note, size: 48, color: cs.primary),
+            ),
+    );
+    if (isPlaying) {
+      cover = Stack(
+        fit: StackFit.expand,
+        children: [
+          cover,
+          Container(
+            color: Colors.black.withValues(alpha: 0.4),
+            child: Center(
+              child: AppIcon(Symbols.equalizer_rounded,
+                  size: 36, color: cs.primary),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      decoration: isHighlighted
+          ? BoxDecoration(
+              color: cs.primaryContainer.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(12),
+            )
+          : null,
+      child: InkWell(
+        borderRadius: AppShape.md,
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(aspectRatio: 1, child: cover),
+            const SizedBox(height: 8),
+            Text(
+              song.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              song.artistDisplay,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
