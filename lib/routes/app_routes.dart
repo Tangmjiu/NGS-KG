@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/playlist_detail_screen.dart';
@@ -190,8 +191,11 @@ class AppRoutes {
       case AppRoutes.logViewer:
         return MaterialPageRoute(builder: (_) => const LogViewerScreen());
       case AppRoutes.developer:
+        // 开发者工具页仅 Debug/Profile 构建可达（release 纵深防御）
+        if (kReleaseMode) return _fallback();
         return MaterialPageRoute(builder: (_) => const DeveloperScreen());
       case AppRoutes.networkMonitor:
+        if (kReleaseMode) return _fallback();
         return MaterialPageRoute(builder: (_) => const NetworkLogScreen());
       case AppRoutes.lyricSettings:
         return MaterialPageRoute(builder: (_) => const LyricSettingsScreen());

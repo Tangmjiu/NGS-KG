@@ -29,12 +29,18 @@ class ExportService {
 
   /// URL query 中的敏感参数名（与 DevNetworkMonitor.sensitiveQueryKeys 共享，
   /// 值与 host/path 保留以便排查）
-  static final RegExp _sensitiveQueryParam = RegExp(
+  static final Pattern _sensitiveQueryParam = RegExp(
     '([?&](?:${DevNetworkMonitor.sensitiveQueryKeys.join('|')})=)[^&"\\s]+',
     caseSensitive: false,
   );
 
-  /// 导出日志文件（规范格式：时间戳 级别 [标签] 消息；URL 敏感参数已打码）
+  /// 错误响应体（raw: {...} 段）中的敏感键值（JSON 键值对形式）
+  static final Pattern _sensitiveJsonValue = RegExp(
+    '("(?:cookie|token|userid|dfid|guid|mid|password|secret|sign|sig|api_key|auth|session)":\\s*")[^"]*(")',
+    caseSensitive: false,
+  );
+
+  /// 导出日志文件（规范格式：时间戳 级别 [标签] 消息；URL 与响应体敏感参数已打码）
   static Future<File> exportLogs() async {
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/ngs_kg_log_${_timestamp()}.txt');
@@ -42,7 +48,7 @@ class ExportService {
     final sb = StringBuffer()
       ..writeln('NGS-KG+ 日志导出')
       ..writeln('导出时间: ${DateTime.now().toIso8601String()}')
-      ..writeln('共 ${entries.length} 条（URL 中的敏感参数已脱敏）')
+      ..writeln('共 ${entries.length} 条（URL 与响应体中的敏感参数已脱敏）')
       ..writeln('────────────────────────────');
     for (final e in entries) {
       sb.writeln(_sanitizeLogLine(e.formatted));
@@ -51,11 +57,14 @@ class ExportService {
     return file;
   }
 
-  /// 单行日志脱敏：URL query 敏感参数值 → ***
-  static String _sanitizeLogLine(String line) => line.replaceAllMapped(
-        _sensitiveQueryParam,
-        (m) => '${m.group(1)}***',
-      );
+  /// 单行日志脱敏：URL query 与 raw 响应体中的敏感参数值 → ***
+  static String _sanitizeLogLine(String line) {
+    var result =
+        line.replaceAllMapped(_sensitiveQueryParam, (m) => '${m.group(1)}***');
+    result = result.replaceAllMapped(
+        _sensitiveJsonValue, (m) => '${m.group(1)}***${m.group(2)}');
+    return result;
+  }
 
   /// 导出应用数据 JSON（敏感字段脱敏）
   static Future<File> exportAppData() async {
