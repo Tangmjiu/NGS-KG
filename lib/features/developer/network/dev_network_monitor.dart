@@ -138,6 +138,7 @@ class DevNetworkMonitor {
     'access_token',
     'refresh_token',
     'x-api-key',
+    'uuid',
     'u',
     't',
     's',

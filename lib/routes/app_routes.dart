@@ -189,6 +189,8 @@ class AppRoutes {
       case AppRoutes.about:
         return MaterialPageRoute(builder: (_) => const AboutScreen());
       case AppRoutes.logViewer:
+        // 日志查看器仅 Debug/Profile 构建可达（release 纵深防御）
+        if (kReleaseMode) return _fallback();
         return MaterialPageRoute(builder: (_) => const LogViewerScreen());
       case AppRoutes.developer:
         // 开发者工具页仅 Debug/Profile 构建可达（release 纵深防御）

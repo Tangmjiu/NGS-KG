@@ -5,6 +5,7 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:flutter/foundation.dart';
 import '../features/developer/network/dev_network_interceptor.dart';
+import '../features/developer/network/dev_network_monitor.dart';
 import '../utils/constants.dart';
 import '../utils/error_dialog.dart';
 import '../utils/logger.dart';
@@ -124,7 +125,7 @@ const Map<Object, String> _kugouErrorLabels = {
 /// 如果请求的 extra 中标记了 `silent: true`，则跳过弹窗（仅日志），
 /// 用于已知会失败但无需打扰用户的请求（如已失效的 banner 接口）。
 class _ErrorDialogInterceptor extends Interceptor {
-  /// 构造不带 host 的请求 URL（/path?key=val），隐藏 IP
+  /// 构造不带 host 的请求 URL（/path?key=val），隐藏 IP；query 敏感参数已脱敏
   static String _requestUrl(RequestOptions opts) {
     final buf = StringBuffer(opts.path);
     final params = opts.queryParameters;
@@ -137,7 +138,7 @@ class _ErrorDialogInterceptor extends Interceptor {
         buf.write('$k=$v');
       });
     }
-    return buf.toString();
+    return DevNetworkMonitor.sanitizeUrl(buf.toString());
   }
 
   @override
@@ -480,7 +481,7 @@ class ApiClient {
 
   // ─── 私有 ───
 
-  /// 构造不含 host 的请求 URL（/path?key=val），隐藏 IP
+  /// 构造不含 host 的请求 URL（/path?key=val），隐藏 IP；query 敏感参数已脱敏
   static String _buildRequestUrl(String path, Map<String, dynamic>? params) {
     if (params == null || params.isEmpty) return path;
     final buf = StringBuffer('$path?');
@@ -490,7 +491,7 @@ class ApiClient {
       first = false;
       buf.write('$k=$v');
     });
-    return buf.toString();
+    return DevNetworkMonitor.sanitizeUrl(buf.toString());
   }
 
   void _checkNeedLogin(dynamic data, {String? requestPath}) {
