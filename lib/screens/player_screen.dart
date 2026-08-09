@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 import 'package:flutter_lyric/flutter_lyric.dart';
-import '../widgets/apple_music_lyrics_view.dart';
+import 'package:flutter_lyric/core/lyric_model.dart';
 import 'package:provider/provider.dart';
 
 import '../models/song.dart';
@@ -886,7 +888,6 @@ class _PlayerScreenState extends State<PlayerScreen>
       {bool compact = false}) {
     final model = player.lyricController.lyricNotifier.value;
     final hasLyrics = model != null && model.lines.isNotEmpty;
-    final ls = context.read<ThemeProvider>().lyricSettings;
 
     Widget lyricsContent;
     if (player.lyricLoading) {
@@ -906,39 +907,18 @@ class _PlayerScreenState extends State<PlayerScreen>
         ),
       );
     } else {
-      lyricsContent = AppleMusicLyricsView(
+      lyricsContent = LyricView(
         key: ValueKey('lyrics_${player.selectedLyricLang}_${song.hash ?? song.id}'),
         controller: player.lyricController,
         style: _buildLyricStyle(compact: compact),
       );
     }
 
-    // 歌词内容（无黑色背景遮罩）
+    // 歌词内容（模糊效果由 LyricStyle.fadeRange 处理，与桌面端一致）
     Widget lyricsWidget = Padding(
       padding: const EdgeInsets.symmetric(vertical: 24),
       child: lyricsContent,
     );
-
-    // blurEffect 开启时：用 ShaderMask 给文字做上下边缘渐隐
-    if (ls.blurEffect) {
-      lyricsWidget = ShaderMask(
-        shaderCallback: (bounds) {
-          return const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.transparent,
-              Colors.black,
-              Colors.black,
-              Colors.transparent,
-            ],
-            stops: [0.0, 0.12, 0.88, 1.0],
-          ).createShader(bounds);
-        },
-        blendMode: BlendMode.dstIn,
-        child: lyricsWidget,
-      );
-    }
 
     return Column(
       children: [
@@ -950,7 +930,18 @@ class _PlayerScreenState extends State<PlayerScreen>
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: ClipRRect(
               borderRadius: AppShape.md,
-              child: lyricsWidget,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  lyricsWidget,
+                  // AMLL 风格间奏动画（相邻歌词行间隔 ≥ 4s 时三圆点呼吸）
+                  if (hasLyrics)
+                    _InterludeOverlay(
+                      controller: player.lyricController,
+                      anchor: 0.4,
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1594,5 +1585,147 @@ class _PlayerControls extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+//  AMLL 风格间奏动画
+// ────────────────────────────────────────────────────────────
+
+class _InterludeOverlay extends StatefulWidget {
+  final LyricController controller;
+  final double anchor;
+  const _InterludeOverlay({required this.controller, required this.anchor});
+  @override
+  State<_InterludeOverlay> createState() => _InterludeOverlayState();
+}
+
+class _InterludeOverlayState extends State<_InterludeOverlay> {
+  List<_Interlude> _interludes = const [];
+  @override
+  void initState() {
+    super.initState();
+    _rebuildInterludes();
+    widget.controller.lyricNotifier.addListener(_rebuildInterludes);
+  }
+  @override
+  void didUpdateWidget(covariant _InterludeOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.lyricNotifier.removeListener(_rebuildInterludes);
+      _rebuildInterludes();
+      widget.controller.lyricNotifier.addListener(_rebuildInterludes);
+    }
+  }
+  @override
+  void dispose() {
+    widget.controller.lyricNotifier.removeListener(_rebuildInterludes);
+    super.dispose();
+  }
+  void _rebuildInterludes() {
+    final lines = widget.controller.lyricNotifier.value?.lines ?? const <LyricLine>[];
+    final next = _computeInterludes(lines);
+    if (listEquals(next, _interludes)) return;
+    _interludes = next;
+    if (mounted) setState(() {});
+  }
+  static List<_Interlude> _computeInterludes(List<LyricLine> lines) {
+    final result = <_Interlude>[];
+    for (var i = 0; i + 1 < lines.length; i++) {
+      final gapStart = lines[i].end ?? lines[i].start;
+      final gapEnd = lines[i + 1].start - const Duration(milliseconds: 250);
+      if (gapEnd - gapStart >= const Duration(milliseconds: 4000)) {
+        result.add(_Interlude(startMs: gapStart.inMilliseconds, endMs: gapEnd.inMilliseconds));
+      }
+    }
+    return result;
+  }
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<PlayerProvider>(
+      builder: (context, player, _) {
+        final posMs = player.position.inMilliseconds;
+        _Interlude? active;
+        for (final il in _interludes) {
+          if (posMs >= il.startMs && posMs < il.endMs) { active = il; break; }
+        }
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            return Stack(children: [
+              if (active != null)
+                Positioned(
+                  top: constraints.maxHeight * widget.anchor + 28,
+                  left: 0, right: 0,
+                  child: _InterludeDots(active: true, isPlaying: player.isPlaying),
+                ),
+            ]);
+          },
+        );
+      },
+    );
+  }
+}
+
+class _Interlude {
+  final int startMs, endMs;
+  const _Interlude({required this.startMs, required this.endMs});
+  @override
+  bool operator ==(Object other) => other is _Interlude && other.startMs == startMs && other.endMs == endMs;
+  @override
+  int get hashCode => Object.hash(startMs, endMs);
+}
+
+class _InterludeDots extends StatefulWidget {
+  final bool active, isPlaying;
+  const _InterludeDots({required this.active, required this.isPlaying});
+  @override
+  State<_InterludeDots> createState() => _InterludeDotsState();
+}
+
+class _InterludeDotsState extends State<_InterludeDots> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600));
+  @override
+  void initState() {
+    super.initState();
+    if (widget.active && widget.isPlaying) _controller.repeat();
+  }
+  @override
+  void didUpdateWidget(covariant _InterludeDots oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && widget.isPlaying) {
+      if (!_controller.isAnimating) _controller.repeat();
+    } else { _controller.stop(); _controller.value = 0; }
+  }
+  @override
+  void dispose() { _controller.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.active) return const SizedBox.shrink();
+    const dotSize = 6.0;
+    return Center(child: AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = _controller.value;
+        final breath = 1 + 0.05 * math.sin(2 * math.pi * t);
+        double dotOpacity(int i) {
+          final v = (t * 3 - i).clamp(0.0, 1.0);
+          return 0.25 + v * 0.75;
+        }
+        return Transform.scale(scale: 0.7 * breath, child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < 3; i++)
+              Container(
+                width: dotSize, height: dotSize,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: dotOpacity(i).clamp(0.0, 1.0)),
+                  shape: BoxShape.circle,
+                ),
+              ),
+          ],
+        ));
+      },
+    ));
   }
 }
