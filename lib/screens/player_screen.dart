@@ -1634,7 +1634,7 @@ class _InterludeOverlayState extends State<_InterludeOverlay> {
     for (var i = 0; i + 1 < lines.length; i++) {
       final gapStart = lines[i].end ?? lines[i].start;
       final gapEnd = lines[i + 1].start - const Duration(milliseconds: 250);
-      if (gapEnd - gapStart >= const Duration(milliseconds: 4000)) {
+      if (gapEnd > gapStart && gapEnd - gapStart >= const Duration(milliseconds: 4000)) {
         result.add(_Interlude(startMs: gapStart.inMilliseconds, endMs: gapEnd.inMilliseconds));
       }
     }
@@ -1654,6 +1654,7 @@ class _InterludeOverlayState extends State<_InterludeOverlay> {
             return Stack(children: [
               if (active != null)
                 Positioned(
+                  // 锚点下方约一个行高处（AMLL 间奏行紧跟焦点行的位置）
                   top: constraints.maxHeight * widget.anchor + 28,
                   left: 0, right: 0,
                   child: _InterludeDots(active: true, isPlaying: player.isPlaying),
