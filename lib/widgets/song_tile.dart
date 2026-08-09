@@ -5,6 +5,7 @@ import '../models/song.dart';
 import '../providers/liked_songs_provider.dart';
 import '../providers/player_provider.dart';
 import '../providers/playlist_provider.dart';
+import '../providers/download_provider.dart';
 import '../services/music_service.dart';
 import '../theme/theme_assets.dart';
 import '../utils/theme.dart';
@@ -202,6 +203,26 @@ Future<void> showSongContextMenu(
             onTap: () {
               Navigator.pop(context);
               context.read<PlayerProvider>().addToQueue(song);
+            },
+          ),
+          _menuItem(
+            context,
+            icon: Icons.download_rounded,
+            label: '下载',
+            onTap: () {
+              Navigator.pop(context);
+              final dl = context.read<DownloadProvider>();
+              if (dl.isDownloaded(song)) {
+                dl.removeDownload(song);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('已删除下载')),
+                );
+              } else {
+                dl.download(song);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('已加入下载队列')),
+                );
+              }
             },
           ),
           if (song.albumId > 0)

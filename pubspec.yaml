@@ -27,6 +27,9 @@ dependencies:
   # UI
   cached_network_image: ^3.3.1
   palette_generator: ^0.3.3
+  # Fluid background
+  adaptive_palette:
+    path: third_party/adaptive_palette
   # Theme
   flex_color_scheme: ^8.0.2
   flutter_colorpicker: ^1.1.0

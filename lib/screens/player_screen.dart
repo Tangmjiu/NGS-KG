@@ -7,6 +7,7 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 import 'package:flutter_lyric/flutter_lyric.dart';
+import '../widgets/apple_music_lyrics_view.dart';
 import 'package:provider/provider.dart';
 
 import '../models/song.dart';
@@ -44,7 +45,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   // ─── 构建 LyricView 样式（从设置动态读取） ───
   // ✅ 新增适配代码：compact=true 时用于双栏/沉浸布局（缩小字号、行距与左右留白）
-  // 缓存最近一次构建结果，避免每次 build 都创建新 LyricStyle 实例导致 LyricView 重建
+  // 缓存最近一次构建结果，避免每次 build 都重建 LyricStyle 导致歌词视图重建
   LyricStyle? _cachedLyricStyle;
   LyricSettings? _cachedLyricSettings;
   bool _cachedLyricCompact = false;
@@ -905,7 +906,7 @@ class _PlayerScreenState extends State<PlayerScreen>
         ),
       );
     } else {
-      lyricsContent = LyricView(
+      lyricsContent = AppleMusicLyricsView(
         key: ValueKey('lyrics_${player.selectedLyricLang}_${song.hash ?? song.id}'),
         controller: player.lyricController,
         style: _buildLyricStyle(compact: compact),
@@ -1032,6 +1033,42 @@ class _PlayerScreenState extends State<PlayerScreen>
                 ),
               ),
             ),
+          // Romaji toggle (when KRC has romaji data)
+          if (player.hasRomajiData) ...[
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () {
+                player.toggleRomaji();
+              },
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.10),
+                  borderRadius: AppShape.xs,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      player.showRomaji ? '罗马音' : 'ローマ字',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Colors.white54,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    Icon(
+                      player.showRomaji
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                      size: 10,
+                      color: Colors.white38,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

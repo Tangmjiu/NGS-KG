@@ -29,6 +29,7 @@ import 'services/remote_config_service.dart';
 import 'providers/audio_settings_provider.dart';
 import 'navidrome/navidrome_provider.dart';
 import 'providers/local_music_provider.dart';
+import 'providers/download_provider.dart';
 import 'features/developer/debug_prefs_provider.dart';
 import 'features/developer/monitors/fps_monitor.dart';
 import 'utils/preview_config.dart';
@@ -223,6 +224,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => DiscoverProvider(musicService)),
         ChangeNotifierProvider(create: (_) => NavidromeProvider()),
         ChangeNotifierProvider(create: (_) => LocalMusicProvider()),
+        ChangeNotifierProvider(create: (_) => DownloadProvider()),
       ],
       child: const NGSKGApp(),
     ),

@@ -72,6 +72,7 @@ class PlayerProvider extends ChangeNotifier
   List<KrcLyricLineModel>? _krcLines;
   int _selectedLyricLang = 0;
   bool _showTranslation = true;
+  bool _showRomaji = true;
   String? _lastLoadedHash;
   int? _lastLoadedSongId;
 
@@ -219,7 +220,9 @@ class PlayerProvider extends ChangeNotifier
   List<KrcLyricLineModel>? get krcLines => _krcLines;
   int get selectedLyricLang => _selectedLyricLang;
   bool get showTranslation => _showTranslation;
+  bool get showRomaji => _showRomaji;
   bool get hasLangData => _lyricLangMap.isNotEmpty;
+  bool get hasRomajiData => _lyricLangMap.containsKey(1);
 
   /// Returns all available palette colours for the flowing light effect.
   /// Prefers the quantized [topColors] for richer variety, falls back to
@@ -1245,6 +1248,7 @@ class PlayerProvider extends ChangeNotifier
     _lyricLangMap = {};
     _krcLines = null;
     _selectedLyricLang = 0;
+    _showRomaji = true;
     _lyricController.loadLyricModel(LyricModel(lines: []));
     notifyListeners();
     _updateNotification();
@@ -1256,6 +1260,7 @@ class PlayerProvider extends ChangeNotifier
     _lyricLangMap = {};
     _krcLines = null;
     _selectedLyricLang = 0;
+    _showRomaji = true;
 
     // 1. 本地/已嵌入歌词直接加载
     if (song.lyrics != null && song.lyrics!.isNotEmpty) {
@@ -1430,6 +1435,11 @@ class PlayerProvider extends ChangeNotifier
       _lyricController.loadLyricModel(LyricModel(lines: lines));
       notifyListeners();
     }
+  }
+
+  void toggleRomaji() {
+    _showRomaji = !_showRomaji;
+    notifyListeners();
   }
 
   @override

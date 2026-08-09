@@ -45,13 +45,28 @@ class _PlayerBackgroundState extends State<PlayerBackground>
 
   double _accumulatedTime = 0.0;
   Duration _lastElapsed = Duration.zero;
-  double _currentSpeed = 1.0; // 平滑插值速度
+  Duration _lastTickElapsed = Duration.zero; // 帧节流用
+  double _currentSpeed = 1.0;
 
   @override
   void initState() {
     super.initState();
     _ticker = createTicker((elapsed) {
       if (!mounted) return;
+
+      // Ticker stop 后重新 start 会从 0 重新累计 elapsed；
+      // 检测到回退时重置基准，避免暂停恢复后流光冻结/回跳
+      if (elapsed < _lastElapsed) {
+        _lastElapsed = elapsed;
+        _lastTickElapsed = elapsed;
+        return;
+      }
+
+      // 帧节流：vsync 原生 ~60fps，16ms 节流几乎不丢帧（流畅优先）
+      if (elapsed - _lastTickElapsed < const Duration(milliseconds: 16)) {
+        return;
+      }
+      _lastTickElapsed = elapsed;
 
       final delta = (elapsed - _lastElapsed).inMicroseconds / 1000000.0;
       _lastElapsed = elapsed;
@@ -62,27 +77,46 @@ class _PlayerBackgroundState extends State<PlayerBackground>
         isPlaying = context.read<PlayerProvider>().isPlaying;
       } catch (_) {}
 
-      // 平滑插值计算当前速度（实现 Apple Music 播放时加速、暂停时缓停的效果）
-      final targetSpeed = isPlaying ? 1.0 : 0.0;
-      _currentSpeed += (targetSpeed - _currentSpeed) * (delta * 3.0);
-
-      // 当速度极小且目标为0时，直接清零以省计算
-      if (!isPlaying && _currentSpeed < 0.001) {
+      if (!isPlaying) {
+        // 暂停：流光立即静止，不产生任何残余运动，
+        // 避免暂停后点按/调音量时"动一下又停回去"
         _currentSpeed = 0.0;
+        return;
       }
+
+      // 播放：向 1.0 平滑加速（快速启动、平稳收敛）
+      _currentSpeed += (1.0 - _currentSpeed) * (delta * 3.0);
 
       _accumulatedTime += delta * _currentSpeed;
       _elapsed.value = _accumulatedTime;
     });
   }
 
-  void _updateTickerState(bool isPlaying) {
-    // 播放时启动 ticker；暂停时让速度缓降到 0 后再停止，避免动画突兀中断。
+  void _updateTickerState(bool isPlaying, bool flowEnabled) {
+    // 流光关闭时无需驱动 ticker（无监听者，避免空转）
+    if (!flowEnabled) {
+      if (_ticker.isActive) _ticker.stop();
+      return;
+    }
     if (isPlaying && !_ticker.isActive) {
       _ticker.start();
-    } else if (!isPlaying && _ticker.isActive && _currentSpeed < 0.001) {
+    } else if (!isPlaying && _ticker.isActive) {
+      // 暂停立即停止，杜绝空转与残余运动
+      _currentSpeed = 0.0;
       _ticker.stop();
     }
+  }
+
+  /// Layer 3b 的主题包背景图实例缓存（避免 AnimatedBuilder 每帧新建 FileImage）
+  String? _themeBgPath;
+  FileImage? _themeBgImage;
+
+  FileImage _getThemeBgImage() {
+    if (_themeBgPath != ThemeAssets.playerBg) {
+      _themeBgPath = ThemeAssets.playerBg;
+      _themeBgImage = FileImage(File(ThemeAssets.playerBg));
+    }
+    return _themeBgImage!;
   }
 
   @override
@@ -97,7 +131,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
   Widget build(BuildContext context) {
     final flowEnabled = context.watch<ThemeProvider>().flowLightEnabled;
     final isPlaying = context.select<PlayerProvider, bool>((p) => p.isPlaying);
-    _updateTickerState(isPlaying);
+    _updateTickerState(isPlaying, flowEnabled);
     final hasColors = widget.paletteColors.length >= 3;
 
     return Stack(
@@ -122,7 +156,9 @@ class _PlayerBackgroundState extends State<PlayerBackground>
               width: double.infinity,
               height: double.infinity,
               imageBuilder: (context, imageProvider) {
-                return ImageFiltered(
+                // RepaintBoundary 缓存模糊结果
+                return RepaintBoundary(
+                  child: ImageFiltered(
                   imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
                   child: Image(
                     image: imageProvider,
@@ -130,6 +166,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
                     width: double.infinity,
                     height: double.infinity,
                   ),
+                ),
                 );
               },
               placeholder: (_, __) => const SizedBox.shrink(),
@@ -140,7 +177,8 @@ class _PlayerBackgroundState extends State<PlayerBackground>
         // Layer 2b: Fallback to theme pack player background when no album art
         if ((!flowEnabled || !hasColors) && widget.albumCoverUrl == null && ThemeAssets.playerBg.isNotEmpty)
           Positioned.fill(
-            child: ImageFiltered(
+            child: RepaintBoundary(
+              child: ImageFiltered(
               imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
               child: Image.file(
                 File(ThemeAssets.playerBg),
@@ -149,6 +187,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
                 height: double.infinity,
                 errorBuilder: (_, __, ___) => const SizedBox.shrink(),
               ),
+            ),
             ),
           ),
 
@@ -232,7 +271,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
                   builder: (context, _) {
                     final elapsedVal = _elapsed.value;
                     final opacity = 1.0 - widget.scrollOffset * 0.5;
-                    final imageProvider = FileImage(File(ThemeAssets.playerBg));
+                    final imageProvider = _getThemeBgImage();
 
                     return Opacity(
                       opacity: opacity,
@@ -360,7 +399,9 @@ class FlowingImageLayer extends StatelessWidget {
       child: Transform(
         alignment: Alignment.center,
         transform: transform,
-        child: ImageFiltered(
+        // RepaintBoundary 缓存高斯模糊结果：Ticker 每帧只做 GPU 合成变换
+        child: RepaintBoundary(
+          child: ImageFiltered(
           imageFilter: ImageFilter.blur(
             sigmaX: blurSigma,
             sigmaY: blurSigma,
@@ -372,6 +413,7 @@ class FlowingImageLayer extends StatelessWidget {
             width: double.infinity,
             height: double.infinity,
           ),
+        ),
         ),
       ),
     );
