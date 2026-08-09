@@ -33,13 +33,10 @@ class _ArtistFollowedNewsScreenState extends State<ArtistFollowedNewsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final body = _buildBody();
     return Scaffold(
       appBar: AppBar(title: const Text('关注动态')),
-      body: isWide
-          ? Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: body))
-          : body,
+      body: body,
     );
   }
 

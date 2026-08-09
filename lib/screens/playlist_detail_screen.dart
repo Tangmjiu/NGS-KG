@@ -190,8 +190,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           final hasDesc = desc != null && desc.isNotEmpty;
           final songCount = detail.songs.length;
 
-          final isWide = MediaQuery.of(context).size.width >= 880;
-
           Widget mainContent = CustomScrollView(
             slivers: [
               SliverAppBar(
@@ -433,14 +431,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             ],
           );
 
-          if (isWide) {
-            mainContent = Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: mainContent,
-              ),
-            );
-          }
           return mainContent;
         },
       ),

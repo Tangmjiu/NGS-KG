@@ -420,7 +420,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// 平板端布局：左侧 NavigationRail + 中央内容区（限宽 900dp 居中）
+  /// 平板端布局：左侧 NavigationRail + 中央内容区（填充全宽）
   Widget _buildTabletBody() {
     return Row(
       children: [
@@ -452,12 +452,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const VerticalDivider(width: 1, thickness: 1),
         Expanded(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: _buildTabContent(),
-            ),
-          ),
+          child: _buildTabContent(),
         ),
       ],
     );
@@ -521,8 +516,8 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (_, provider, __) {
         return LayoutBuilder(
           builder: (_, constraints) {
-            // 平板内容限宽 900dp（外层已居中），手机保持 600dp 原逻辑
-            final maxContentWidth = context.isTablet ? 900.0 : 600.0;
+            // 平板内容不限宽（充分利用屏幕面积），手机保持 600dp 原逻辑
+            final maxContentWidth = context.isTablet ? double.infinity : 600.0;
             final contentWidth = constraints.maxWidth > maxContentWidth
                 ? maxContentWidth
                 : constraints.maxWidth;

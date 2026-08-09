@@ -1164,7 +1164,7 @@ class _PlayerScreenState extends State<PlayerScreen>
           flex: 5,
           child: RepaintBoundary(child: _buildCoverPage(player, song)),
         ),
-        const VerticalDivider(width: 1, thickness: 1, color: Colors.white24),
+        const SizedBox(width: 1),
         // 右栏：歌词（复用现有 _buildLyricsPage，同步滚动/高亮机制不变，仅样式紧凑化）
         Expanded(
           flex: 6,

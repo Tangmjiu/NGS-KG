@@ -266,14 +266,7 @@ class _SearchScreenState extends State<SearchScreen>
               )
             : null,
       ),
-      body: MediaQuery.of(context).size.width >= 880
-          ? Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: _buildBody(),
-              ),
-            )
-          : _buildBody(),
+      body: _buildBody(),
     );
   }
 

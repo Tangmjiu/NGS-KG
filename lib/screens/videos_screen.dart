@@ -52,7 +52,6 @@ class _VideosScreenState extends State<VideosScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final body = _isLoading
         ? const Center(child: CircularProgressIndicator())
         : _videos.isEmpty
@@ -96,12 +95,7 @@ class _VideosScreenState extends State<VideosScreen> {
               );
     return Scaffold(
       appBar: AppBar(title: Text(widget.showLiked ? '喜欢的视频' : '收藏的视频')),
-      body: isWide
-          ? Center(child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: body,
-            ))
-          : body,
+      body: body,
     );
   }
 
