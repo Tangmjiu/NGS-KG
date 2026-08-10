@@ -20,6 +20,7 @@ import '../widgets/song_tile.dart';
 import '../utils/responsive.dart';
 import '../widgets/song_grid_tile.dart';
 import '../providers/local_music_provider.dart';
+import '../providers/download_provider.dart';
 import '../routes/app_routes.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -99,6 +100,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     final playlistProv = context.watch<PlaylistProvider>();
     final localMusic = context.watch<LocalMusicProvider>();
     final likedSongs = context.watch<LikedSongsProvider>();
+    final download = context.watch<DownloadProvider>();
 
     return RefreshIndicator(
       onRefresh: _refresh,
@@ -113,7 +115,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           else
             _buildLoggedOutHeader(),
           const SizedBox(height: 12),
-          _buildMenu(auth, playlistProv, localMusic, likedSongs),
+          _buildMenu(auth, playlistProv, localMusic, likedSongs, download),
           const SizedBox(height: 12),
           if (auth.isLoggedIn) _buildPlaylists(playlistProv, auth),
           const ListBottomSpacer(isHome: true),
@@ -237,7 +239,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildMenu(AuthProvider auth, PlaylistProvider playlistProv, LocalMusicProvider localMusic, LikedSongsProvider likedSongs) {
+  Widget _buildMenu(AuthProvider auth, PlaylistProvider playlistProv, LocalMusicProvider localMusic, LikedSongsProvider likedSongs, DownloadProvider download) {
     final localCount = localMusic.songs.length;
     
     // 遍历用户歌单列表，查找真实的 ID 等于 2 (我喜欢) 的歌单歌曲数以确保 100% 真实同步
@@ -265,6 +267,14 @@ class _ProfileScreenState extends State<ProfileScreen>
           title: '本地音乐',
           value: localCount > 0 ? '$localCount' : '',
           onTap: () => Navigator.pushNamed(context, '/local/music'),
+        ),
+        _buildGridItem(
+          icon: Symbols.download_rounded,
+          title: '下载管理',
+          value: download.downloads.isNotEmpty
+              ? '${download.downloads.length}'
+              : '',
+          onTap: () => Navigator.pushNamed(context, AppRoutes.downloads),
         ),
         _buildGridItem(
           icon: AppIcons.favorite,
