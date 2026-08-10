@@ -496,7 +496,10 @@ class DownloadService extends ChangeNotifier {
         await tempFile.rename(finalFile.path);
         task.filePath = finalFile.path;
       } else {
-        // 正式下载：保存到公共 Download/{publicSubDir}（MediaStore）
+        // 正式下载：先清理同名旧条目（重下/外部删除后残留），避免 MediaStore 重复
+        final songBase = _safeBaseName(task);
+        await _deletePublicFilesByPrefix(songBase);
+        // 保存到公共 Download/{publicSubDir}（MediaStore）
         final savedUri = await _saveToPublicDownload(
           tempFile.path,
           finalName,
@@ -818,35 +821,53 @@ class DownloadService extends ChangeNotifier {
   }
 
   Future<void> removeDownload(Song song) async {
+    // 优先按 hash 匹配；本地歌曲（Song.fromLocal）无 hash 时按 filePath 匹配
     final hash = song.hash;
-    if (hash == null || hash.isEmpty) return;
-    final path = _doneDownloads.remove(hash);
-    if (path != null) {
-      try {
-        if (_isContentUri(path)) {
-          // content URI：原生删除本体 + 按真实文件名前缀清理 sidecar
-          await _deletePublicFile(path);
-          // baseName 与 _safeBaseName(task) 一致：{艺术家} - {歌名}
-          final artist = song.artists.isNotEmpty ? song.artists.first : '未知歌手';
-          final baseName = _sanitize(artist) + ' - ' + _sanitize(song.name);
-          if (baseName.isNotEmpty) await _deletePublicFilesByPrefix(baseName);
-        } else {
-          final f = File(path);
-          if (await f.exists()) {
-            // 同时删除同目录下的 sidecar 文件（封面、歌词）
-            final dir = p.dirname(f.path);
-            final baseName = p.basenameWithoutExtension(f.path);
-            for (final ext in ['jpg', 'png', 'lrc', 'krc']) {
-              final sidecar = File(p.join(dir, '$baseName.$ext'));
-              if (await sidecar.exists()) await sidecar.delete();
-            }
-            await f.delete();
-          }
+    String? path;
+    String? matchedHash;
+    if (hash != null && hash.isNotEmpty && _doneDownloads.containsKey(hash)) {
+      matchedHash = hash;
+      path = _doneDownloads[hash];
+    } else if (song.filePath != null && song.filePath!.isNotEmpty) {
+      for (final entry in _doneDownloads.entries) {
+        if (entry.value == song.filePath) {
+          matchedHash = entry.key;
+          path = entry.value;
+          break;
         }
-      } catch (_) {}
-      if (_db != null) {
+      }
+    }
+    if (path == null) return;
+    if (matchedHash != null) _doneDownloads.remove(matchedHash);
+    try {
+      if (_isContentUri(path)) {
+        // content URI：原生删除本体 + 按真实文件名前缀清理 sidecar
+        await _deletePublicFile(path);
+        // baseName 与 _safeBaseName(task) 一致：{艺术家} - {歌名}
+        final artist = song.artists.isNotEmpty ? song.artists.first : '未知歌手';
+        final baseName = _sanitize(artist) + ' - ' + _sanitize(song.name);
+        if (baseName.isNotEmpty) await _deletePublicFilesByPrefix(baseName);
+      } else {
+        final f = File(path);
+        if (await f.exists()) {
+          // 同时删除同目录下的 sidecar 文件（封面、歌词）
+          final dir = p.dirname(f.path);
+          final baseName = p.basenameWithoutExtension(f.path);
+          for (final ext in ['jpg', 'png', 'lrc', 'krc']) {
+            final sidecar = File(p.join(dir, '$baseName.$ext'));
+            if (await sidecar.exists()) await sidecar.delete();
+          }
+          await f.delete();
+        }
+      }
+    } catch (_) {}
+    if (_db != null) {
+      if (matchedHash != null) {
         await _db!.delete('downloads',
-            where: 'hash = ? AND kind = ?', whereArgs: [hash, 'download']);
+            where: 'hash = ? AND kind = ?', whereArgs: [matchedHash, 'download']);
+      } else {
+        await _db!.delete('downloads',
+            where: 'file_path = ?', whereArgs: [path]);
       }
     }
     notifyListeners();
