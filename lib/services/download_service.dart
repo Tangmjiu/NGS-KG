@@ -480,6 +480,13 @@ class DownloadService extends ChangeNotifier {
         throw Exception('下载文件不完整');
       }
 
+      // 正式下载：先清理同名旧条目（重下/外部删除后残留），避免 MediaStore 重复。
+      // 必须在 sidecar 上传之前执行，否则会误删刚上传的封面/歌词
+      if (!task.isCache) {
+        final songBase = _safeBaseName(task);
+        await _deletePublicFilesByPrefix(songBase);
+      }
+
       // 正式下载：保存封面 + 歌词 sidecar
       if (!task.isCache) {
         await _saveSidecarFiles(tempFile, task);
@@ -496,9 +503,6 @@ class DownloadService extends ChangeNotifier {
         await tempFile.rename(finalFile.path);
         task.filePath = finalFile.path;
       } else {
-        // 正式下载：先清理同名旧条目（重下/外部删除后残留），避免 MediaStore 重复
-        final songBase = _safeBaseName(task);
-        await _deletePublicFilesByPrefix(songBase);
         // 保存到公共 Download/{publicSubDir}（MediaStore）
         final savedUri = await _saveToPublicDownload(
           tempFile.path,
