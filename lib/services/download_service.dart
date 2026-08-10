@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -161,10 +162,14 @@ class DownloadService extends ChangeNotifier {
     final rows = await _db!.query('downloads', orderBy: 'created_at DESC');
     for (final row in rows) {
       final path = row['file_path'] as String;
-      if (!await File(path).exists()) {
-        await _db!
-            .delete('downloads', where: 'key = ?', whereArgs: [row['key']]);
-        continue;
+      // content:// URI 无法用 File 检查存在性，且 MediaStore 条目持久有效，
+      // 直接恢复记录（下载页删除时通过原生层清理）
+      if (!_isContentUri(path)) {
+        if (!await File(path).exists()) {
+          await _db!
+              .delete('downloads', where: 'key = ?', whereArgs: [row['key']]);
+          continue;
+        }
       }
       final kind = row['kind'] as String;
       final hash = row['hash'] as String;
@@ -177,6 +182,80 @@ class DownloadService extends ChangeNotifier {
   }
 
   MusicService _music() => _musicInstance ??= MusicService();
+
+  // ─── 公共 Download 目录（MediaStore，Android 10+） ───
+
+  static const _mediastoreChannel =
+      MethodChannel('com.mjiutang.ngskg/mediastore');
+
+  /// 公共下载子目录名（与原生 MediaStoreHelper.SUB_DIR 一致）
+  static const publicSubDir = 'NGS-KG+MusicDownload';
+
+  /// 将文件保存到公共 Download/{publicSubDir}，返回 content:// URI（API 29+）
+  /// 或文件路径（API < 29）
+  Future<String> _saveToPublicDownload(
+      String srcPath, String fileName, String? mimeType) async {
+    try {
+      final uri = await _mediastoreChannel.invokeMethod<String>(
+        'saveToPublicDownload',
+        {'srcPath': srcPath, 'fileName': fileName, 'mimeType': mimeType},
+      );
+      if (uri == null || uri.isEmpty) {
+        throw Exception('MediaStore 保存失败（返回空 URI）');
+      }
+      return uri;
+    } on PlatformException catch (e) {
+      throw Exception('MediaStore 保存失败: ${e.message}');
+    }
+  }
+
+  /// 删除公共目录文件（content URI 或文件路径）
+  Future<void> _deletePublicFile(String uriStr) async {
+    try {
+      await _mediastoreChannel.invokeMethod<bool>(
+        'deletePublicFile',
+        {'uri': uriStr},
+      );
+    } catch (e) {
+      Log.w('download_service', 'delete public file failed: $uriStr', e);
+    }
+  }
+
+  /// 按文件名前缀删除公共目录文件（用于清理 sidecar 文件）
+  Future<void> _deletePublicFilesByPrefix(String prefix) async {
+    // 原生层按 DISPLAY_NAME LIKE 'prefix%' 删除
+    try {
+      await _mediastoreChannel.invokeMethod<void>(
+        'deletePublicFilesByPrefix',
+        {'prefix': prefix},
+      );
+    } catch (e) {
+      Log.w('download_service', 'delete by prefix failed: $prefix', e);
+    }
+  }
+
+  /// 判断字符串是否为 content:// URI
+  static bool _isContentUri(String s) => s.startsWith('content://');
+
+  /// 音频扩展名 → MIME
+  static String? _audioMimeFor(String ext) {
+    switch (ext.toLowerCase()) {
+      case 'mp3':
+        return 'audio/mpeg';
+      case 'flac':
+        return 'audio/flac';
+      case 'm4a':
+        return 'audio/mp4';
+      case 'aac':
+        return 'audio/aac';
+      case 'wav':
+        return 'audio/wav';
+      case 'ogg':
+        return 'audio/ogg';
+      default:
+        return 'audio/mpeg';
+    }
+  }
 
   // ─── 设置 ───
 
@@ -217,7 +296,8 @@ class DownloadService extends ChangeNotifier {
     final hash = song.hash;
     if (hash == null || hash.isEmpty) return null;
     final downloaded = _doneDownloads[hash];
-    if (downloaded != null && await File(downloaded).exists()) {
+    if (downloaded != null &&
+        (_isContentUri(downloaded) || await File(downloaded).exists())) {
       return downloaded;
     }
     final cached = _cachedFiles['${hash}_$quality'];
@@ -370,7 +450,6 @@ class DownloadService extends ChangeNotifier {
       final finalName =
           task.isCache ? '${task.key}$ext' : '${_safeBaseName(task)}.$ext';
       final finalFile = File(p.join(dir.path, finalName));
-
       final resp = await _dio.download(
         songUrl.url,
         tempFile.path,
@@ -401,22 +480,36 @@ class DownloadService extends ChangeNotifier {
         throw Exception('下载文件不完整');
       }
 
-      // 正式下载：保存封面 + 歌词到同目录
+      // 正式下载：保存封面 + 歌词 sidecar
       if (!task.isCache) {
         await _saveSidecarFiles(tempFile, task);
       }
 
-      if (await finalFile.exists()) {
-        await finalFile.delete();
-      }
-      await tempFile.rename(finalFile.path);
+      task.totalBytes = await tempFile.length();
       task.progress = 1.0;
-      task.filePath = finalFile.path;
+
+      if (task.isCache) {
+        // 播放缓存：留在私有缓存目录
+        if (await finalFile.exists()) {
+          await finalFile.delete();
+        }
+        await tempFile.rename(finalFile.path);
+        task.filePath = finalFile.path;
+      } else {
+        // 正式下载：保存到公共 Download/{publicSubDir}（MediaStore）
+        final savedUri = await _saveToPublicDownload(
+          tempFile.path,
+          finalName,
+          _audioMimeFor(ext),
+        );
+        if (await tempFile.exists()) await tempFile.delete();
+        task.filePath = savedUri;
+      }
       task.status = DownloadStatus.done;
 
       await _recordDone(task);
       Log.i('download_service',
-          '${task.isCache ? 'cache' : 'download'} done: ${finalFile.path}');
+          '${task.isCache ? 'cache' : 'download'} done: ${task.filePath}');
     } catch (e, s) {
       Log.w('download_service', 'task ${task.key} failed', e, s);
       if (task.status != DownloadStatus.cancelled) {
@@ -442,12 +535,15 @@ class DownloadService extends ChangeNotifier {
     }
   }
 
-  // ─── 移动端：保存封面图和歌词为独立文件 ───
+  // ─── 移动端：保存封面图和歌词为独立文件（sidecar，与歌曲同名前缀） ───
 
   Future<void> _saveSidecarFiles(File tempFile, DownloadTask task) async {
     final song = task.song;
     final dir = p.dirname(tempFile.path);
-    final baseName = p.basenameWithoutExtension(tempFile.path);
+    // 与最终歌曲文件名保持一致（{艺术家 - 歌名}），公共目录中配套可见
+    final baseName = _safeBaseName(task);
+    // 收集私有临时 sidecar，最后统一上传公共目录
+    final sidecars = <File>[];
 
     // 1. 下载封面图
     try {
@@ -470,6 +566,7 @@ class DownloadService extends ChangeNotifier {
               : 'jpg';
           final coverFile = File(p.join(dir, '$baseName.$coverExt'));
           await coverFile.writeAsBytes(data, flush: true);
+          sidecars.add(coverFile);
         }
       }
     } catch (e) {
@@ -491,11 +588,13 @@ class DownloadService extends ChangeNotifier {
           // 保存原始 KRC
           final krcFile = File(p.join(dir, '$baseName.krc'));
           await krcFile.writeAsBytes(rawKrc, flush: true);
+          sidecars.add(krcFile);
           // 转换并保存 LRC
           final lrcText = _krcToLrc(rawKrc);
           if (lrcText != null && lrcText.isNotEmpty) {
             final lrcFile = File(p.join(dir, '$baseName.lrc'));
             await lrcFile.writeAsString(lrcText, flush: true);
+            sidecars.add(lrcFile);
           }
         } else {
           final rawLrc = await _music().fetchLyricContent(id, accessKey);
@@ -508,11 +607,30 @@ class DownloadService extends ChangeNotifier {
             }
             final lrcFile = File(p.join(dir, '$baseName.lrc'));
             await lrcFile.writeAsString(lrc, flush: true);
+            sidecars.add(lrcFile);
           }
         }
       }
     } catch (e, s) {
       Log.w('download_service', 'lyric fetch failed', e, s);
+    }
+
+    // 3. 上传公共 Download 目录，并清理私有副本（失败不阻塞主下载）
+    for (final f in sidecars) {
+      final name = p.basename(f.path);
+      final ext = p.extension(name).replaceFirst('.', '').toLowerCase();
+      final mime = switch (ext) {
+        'png' => 'image/png',
+        'jpg' || 'jpeg' => 'image/jpeg',
+        'krc' => 'application/octet-stream',
+        _ => 'audio/x-lrc',
+      };
+      try {
+        await _saveToPublicDownload(f.path, name, mime);
+      } catch (e) {
+        Log.w('download_service', 'sidecar save failed: $name', e);
+      }
+      if (await f.exists()) await f.delete();
     }
   }
 
@@ -636,7 +754,8 @@ class DownloadService extends ChangeNotifier {
         'artist': task.song.artists.join(' / '),
         'album': task.song.albumName,
         'file_path': task.filePath!,
-        'size': await File(task.filePath!).length(),
+        // content URI 无法用 File 取长度，用下载时记录的大小
+        'size': task.totalBytes ?? await File(task.filePath!).length(),
         'kind': task.isCache ? 'cache' : 'download',
         'created_at': DateTime.now().millisecondsSinceEpoch,
       },
@@ -704,16 +823,25 @@ class DownloadService extends ChangeNotifier {
     final path = _doneDownloads.remove(hash);
     if (path != null) {
       try {
-        final f = File(path);
-        if (await f.exists()) {
-          // 同时删除同目录下的 sidecar 文件（封面、歌词）
-          final dir = p.dirname(f.path);
-          final baseName = p.basenameWithoutExtension(f.path);
-          for (final ext in ['jpg', 'png', 'lrc', 'krc']) {
-            final sidecar = File(p.join(dir, '$baseName.$ext'));
-            if (await sidecar.exists()) await sidecar.delete();
+        if (_isContentUri(path)) {
+          // content URI：原生删除本体 + 按真实文件名前缀清理 sidecar
+          await _deletePublicFile(path);
+          // baseName 与 _safeBaseName(task) 一致：{艺术家} - {歌名}
+          final artist = song.artists.isNotEmpty ? song.artists.first : '未知歌手';
+          final baseName = _sanitize(artist) + ' - ' + _sanitize(song.name);
+          if (baseName.isNotEmpty) await _deletePublicFilesByPrefix(baseName);
+        } else {
+          final f = File(path);
+          if (await f.exists()) {
+            // 同时删除同目录下的 sidecar 文件（封面、歌词）
+            final dir = p.dirname(f.path);
+            final baseName = p.basenameWithoutExtension(f.path);
+            for (final ext in ['jpg', 'png', 'lrc', 'krc']) {
+              final sidecar = File(p.join(dir, '$baseName.$ext'));
+              if (await sidecar.exists()) await sidecar.delete();
+            }
+            await f.delete();
           }
-          await f.delete();
         }
       } catch (_) {}
       if (_db != null) {

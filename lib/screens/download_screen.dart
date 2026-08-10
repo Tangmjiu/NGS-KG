@@ -17,13 +17,14 @@ import '../utils/theme.dart';
 class DownloadScreen extends StatelessWidget {
   const DownloadScreen({super.key});
 
-  /// Android：应用私有目录不可达，提示路径；桌面端：在文件管理器中打开
+  /// Android：文件在公共 Download 目录，提示用户到文件管理器查看；桌面端：打开
   static Future<void> openInFileManager(
       BuildContext context, String dirPath) async {
     if (Platform.isAndroid) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Android 为应用私有目录，仅可在 App 内访问：\n$dirPath')),
+        const SnackBar(
+            content: Text('文件已保存到公共目录 Download/NGS-KG+MusicDownload，'
+                '可在文件管理器或 USB 传输中查看')),
       );
       return;
     }
@@ -69,6 +70,24 @@ class DownloadScreen extends StatelessWidget {
   }
 
   Widget _buildDirectorySection(BuildContext context) {
+    if (Platform.isAndroid) {
+      // Android：下载到公共 Download/{publicSubDir}（MediaStore）
+      return ListTile(
+        leading: const Icon(Icons.folder_open_outlined),
+        title: const Text('下载目录'),
+        subtitle: Text(
+          'Download/${DownloadService.publicSubDir}',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: IconButton(
+          icon: const Icon(Icons.open_in_new, size: 18),
+          tooltip: '打开文件夹',
+          onPressed: () => openInFileManager(context, ''),
+        ),
+      );
+    }
+    // 桌面端：显示应用文档目录下的 music/ 实际路径
     final service = DownloadService.instance;
     return FutureBuilder<Directory>(
       future: service.getMusicDir(),

@@ -18,6 +18,8 @@ import '../utils/logger.dart';
 /// hybrid scan, for full cover art + embedded lyrics).
 class MetadataReader {
   static const _channel = MethodChannel('com.mjiutang.ngskg/metadata');
+  // MediaStore 通道：content:// URI 元数据读取注册在此通道
+  static const _mediastoreChannel = MethodChannel('com.mjiutang.ngskg/mediastore');
 
   // In-memory cache: filePath → AudioMetadata (survives single session)
   static final _cache = <String, AudioMetadata>{};
@@ -28,6 +30,20 @@ class MetadataReader {
       final result = await _channel.invokeMethod<Map>('readMetadata', {
         'path': file.path,
       });
+      if (result == null) return null;
+      return AudioMetadata.fromMap(result);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Reads metadata from a MediaStore content:// URI（公共下载目录文件）。
+  static Future<AudioMetadata?> readFromUri(String uri) async {
+    try {
+      final result = await _mediastoreChannel.invokeMethod<Map>(
+        'readMetadataFromUri',
+        {'uri': uri},
+      );
       if (result == null) return null;
       return AudioMetadata.fromMap(result);
     } catch (_) {
@@ -332,6 +348,8 @@ class AudioMetadata {
   final Uint8List? albumArt;
   final String? lyrics; // embedded lyrics (USLT text or FLAC LYRICS tag)
   final String? albumCoverCachePath; // path to cached cover on disk
+  final int? size; // file size in bytes（MediaStore 查询）
+  final String? displayName; // MediaStore DISPLAY_NAME（文件名回退用）
 
   const AudioMetadata({
     this.title,
@@ -342,6 +360,8 @@ class AudioMetadata {
     this.albumArt,
     this.lyrics,
     this.albumCoverCachePath,
+    this.size,
+    this.displayName,
   });
 
   factory AudioMetadata.fromMap(Map map) {
@@ -358,6 +378,8 @@ class AudioMetadata {
       bitrate: (map['bitrate'] as num?)?.toInt(),
       albumArt: art,
       lyrics: map['lyrics'] as String?,
+      size: (map['size'] as num?)?.toInt(),
+      displayName: map['displayName'] as String?,
     );
   }
 }

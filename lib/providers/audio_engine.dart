@@ -241,7 +241,10 @@ class AudioEngine {
       // Direct filePath URL (cloud disk, local, etc.)
       if (song.filePath != null && song.filePath!.isNotEmpty) {
         final fp = song.filePath!;
-        if (fp.startsWith('http') || fp.startsWith('https')) {
+        if (fp.startsWith('http') ||
+            fp.startsWith('https') ||
+            fp.startsWith('content://')) {
+          // 网络 URL 或 MediaStore content:// URI（公共下载目录）
           await _player.setUrl(fp);
           if (version != _playRequestVersion) { isLoading.value = false; return; }
           _lastUrlFetchTime = DateTime.now();

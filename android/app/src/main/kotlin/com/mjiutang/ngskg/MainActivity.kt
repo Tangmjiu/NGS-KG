@@ -30,6 +30,7 @@ class MainActivity : AudioServiceActivity() {
     private val CHANNEL_EQUALIZER = "com.mjiutang.ngskg/equalizer"
     private val CHANNEL_INTENT = "com.mjiutang.ngskg/intent"
     private val CHANNEL_DEVTOOLS = "com.mjiutang.ngskg/devtools"
+    private val CHANNEL_MEDIASTORE = "com.mjiutang.ngskg/mediastore"
 
     // EventChannel 用于推送 Intent 文件 URI 到 Flutter
     private var intentEventSink: EventChannel.EventSink? = null
@@ -102,6 +103,15 @@ class MainActivity : AudioServiceActivity() {
                 intentEventSink = null
             }
         })
+
+        // 公共 Download 目录存取（MediaStore）
+        MediaStoreHelper.registerWith(
+            MethodChannel(
+                flutterEngine.dartExecutor.binaryMessenger,
+                CHANNEL_MEDIASTORE
+            ),
+            this
+        )
 
         // 开发者工具通道（仅 Debug 构建注册，与 Flutter 侧入口隐藏保持一致；
         // 用 FLAG_DEBUGGABLE 判定，避免依赖 BuildConfig 开关）
