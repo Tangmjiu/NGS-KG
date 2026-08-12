@@ -2,14 +2,11 @@
 // SPDX-License-Identifier: MIT
 
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 import 'package:flutter_lyric/flutter_lyric.dart';
-import 'package:flutter_lyric/core/lyric_model.dart';
 import 'package:provider/provider.dart';
 
 import '../models/song.dart';
@@ -26,6 +23,7 @@ import '../widgets/player_progress_bar.dart';
 import '../widgets/playback_controls.dart' as legacy;
 import '../widgets/login_required_dialog.dart';
 import '../widgets/lyric_settings_panel.dart';
+import '../widgets/amll_lyrics_view.dart';
 import '../utils/app_icons.dart';
 import '../utils/haptics.dart';
 import '../utils/responsive.dart';
@@ -62,9 +60,8 @@ class _PlayerScreenState extends State<PlayerScreen>
     // 焦点行字重 = 用户设置 + 200（确保比普通行重）
     final int activeWeightIdx = ((ls.fontWeight / 100).round() + 2).clamp(3, 8);
     final activeWeight = FontWeight.values[activeWeightIdx];
-    final double fontSize = compact
-        ? (ls.fontSize - 4).clamp(12.0, 30.0)
-        : ls.fontSize;
+    final double fontSize =
+        compact ? (ls.fontSize - 4).clamp(12.0, 30.0) : ls.fontSize;
     final double translationFontSize = compact
         ? (ls.translationFontSize - 2).clamp(10.0, 26.0)
         : ls.translationFontSize;
@@ -108,7 +105,8 @@ class _PlayerScreenState extends State<PlayerScreen>
       lineGap: compact ? 18 : 24,
       translationLineGap: 4,
       lineTextAlign: ls.centerAlign ? TextAlign.center : TextAlign.left,
-      contentAlignment: ls.centerAlign ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      contentAlignment:
+          ls.centerAlign ? CrossAxisAlignment.center : CrossAxisAlignment.start,
       contentPadding: EdgeInsets.symmetric(horizontal: compact ? 16 : 28),
       selectionAnchorPosition: 0.5,
       selectionAlignment: MainAxisAlignment.center,
@@ -130,9 +128,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       activeAutoResumeDuration: const Duration(milliseconds: 3000),
 
       // 上下渐隐范围：仅 blurEffect 开启时生效
-      fadeRange: ls.blurEffect
-          ? FadeRange(top: 0.15, bottom: 0.15)
-          : null,
+      fadeRange: ls.blurEffect ? FadeRange(top: 0.15, bottom: 0.15) : null,
     );
     _cachedLyricSettings = ls;
     _cachedLyricCompact = compact;
@@ -169,9 +165,8 @@ class _PlayerScreenState extends State<PlayerScreen>
     _pointerOrder.add(e.pointer);
     if (_activePointers == 2) {
       // 第二根手指落下：重置累积并记录双指中心
-      _lastTwoFingerCenter = (_pointerPos[_pointerOrder[0]]! +
-          _pointerPos[_pointerOrder[1]]!) /
-          2;
+      _lastTwoFingerCenter =
+          (_pointerPos[_pointerOrder[0]]! + _pointerPos[_pointerOrder[1]]!) / 2;
       _twoFingerAccDx = 0;
       _twoFingerAccDy = 0;
       _twoFingerConsumed = false;
@@ -209,7 +204,8 @@ class _PlayerScreenState extends State<PlayerScreen>
       if (_twoFingerAccDy.abs() > 20) {
         final player = context.read<PlayerProvider>();
         // 上滑 dy<0 → 音量增大；连续调节（每次移动都生效）
-        player.setVolume((player.volume - _twoFingerAccDy / 800).clamp(0.0, 1.0));
+        player
+            .setVolume((player.volume - _twoFingerAccDy / 800).clamp(0.0, 1.0));
         _twoFingerAccDy = 0;
       }
     }
@@ -278,8 +274,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     final was = _dragOffset;
     // 复用/替换字段持有的控制器，避免手势快速连续触发时产生多个并发 Ticker
     _dragResetController?.dispose();
-    final controller =
-        _dragResetController = AnimationController(
+    final controller = _dragResetController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
@@ -303,15 +298,15 @@ class _PlayerScreenState extends State<PlayerScreen>
     if (!mounted || _isDismissing) return;
     setState(() => _isDismissing = true);
     _dismissController?.dispose();
-    final controller =
-        _dismissController = AnimationController(
+    final controller = _dismissController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 250),
     );
     controller.addListener(() {
       if (!mounted) return;
       setState(() {
-        _dragOffset = lerpDouble(_dragOffset, MediaQuery.of(context).size.height, controller.value)!;
+        _dragOffset = lerpDouble(
+            _dragOffset, MediaQuery.of(context).size.height, controller.value)!;
       });
     });
     controller.forward().whenComplete(() {
@@ -334,13 +329,13 @@ class _PlayerScreenState extends State<PlayerScreen>
     final isSelected = duration == Duration.zero
         ? false
         : (player.sleepTimerRemaining != null &&
-            (player.sleepTimerRemaining!.inMinutes - duration.inMinutes).abs() < 2);
+            (player.sleepTimerRemaining!.inMinutes - duration.inMinutes).abs() <
+                2);
 
     return ListTile(
       title: Text(label, style: const TextStyle(color: Colors.white)),
-      trailing: isSelected
-          ? const Icon(Icons.check, color: Colors.blueAccent)
-          : null,
+      trailing:
+          isSelected ? const Icon(Icons.check, color: Colors.blueAccent) : null,
       onTap: () {
         Navigator.pop(ctx);
         if (duration == Duration.zero) {
@@ -369,12 +364,19 @@ class _PlayerScreenState extends State<PlayerScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text('定时关闭',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600)),
                   const SizedBox(height: 16),
-                  _sleepTimerOption(ctx, player, '15 分钟', const Duration(minutes: 15)),
-                  _sleepTimerOption(ctx, player, '30 分钟', const Duration(minutes: 30)),
-                  _sleepTimerOption(ctx, player, '45 分钟', const Duration(minutes: 45)),
-                  _sleepTimerOption(ctx, player, '60 分钟', const Duration(minutes: 60)),
+                  _sleepTimerOption(
+                      ctx, player, '15 分钟', const Duration(minutes: 15)),
+                  _sleepTimerOption(
+                      ctx, player, '30 分钟', const Duration(minutes: 30)),
+                  _sleepTimerOption(
+                      ctx, player, '45 分钟', const Duration(minutes: 45)),
+                  _sleepTimerOption(
+                      ctx, player, '60 分钟', const Duration(minutes: 60)),
                   if (player.sleepTimerRemaining != null)
                     _sleepTimerOption(ctx, player, '关闭定时', Duration.zero),
                 ],
@@ -399,8 +401,6 @@ class _PlayerScreenState extends State<PlayerScreen>
     );
   }
 
-
-
   void _showArtistSelectionSheet(PlayerProvider player, Song song) {
     // KRM 数据已在 Provider 层通过 hash 校验，可直接信任
     final krmAuthors = player.currentSongAuthors;
@@ -409,10 +409,12 @@ class _PlayerScreenState extends State<PlayerScreen>
     // 兜底方案：使用分割出来的歌名歌手列表
     final List<Map<String, dynamic>> displayAuthors = hasKrm
         ? krmAuthors
-        : song.artists.map((name) => {
-              'name': name,
-              'id': song.artists.indexOf(name) == 0 ? song.artistId : null,
-            }).toList();
+        : song.artists
+            .map((name) => {
+                  'name': name,
+                  'id': song.artists.indexOf(name) == 0 ? song.artistId : null,
+                })
+            .toList();
 
     showM3ModalBottomSheet(
       context: context,
@@ -439,19 +441,24 @@ class _PlayerScreenState extends State<PlayerScreen>
                     final artistId = author['id'] as int?;
                     final hasDetailId = artistId != null && artistId > 0;
                     return ListTile(
-                      leading: const Icon(Icons.person, color: Colors.white70, size: 20),
-                      title: Text(artistName, style: const TextStyle(color: Colors.white)),
-                      trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                      leading: const Icon(Icons.person,
+                          color: Colors.white70, size: 20),
+                      title: Text(artistName,
+                          style: const TextStyle(color: Colors.white)),
+                      trailing: const Icon(Icons.chevron_right,
+                          color: Colors.white38, size: 20),
                       onTap: () {
                         Navigator.pop(ctx);
                         if (hasDetailId) {
-                          Navigator.pushNamed(context, '/artist/detail', arguments: {
-                            'id': artistId,
-                            'name': artistName,
-                          });
+                          Navigator.pushNamed(context, '/artist/detail',
+                              arguments: {
+                                'id': artistId,
+                                'name': artistName,
+                              });
                         } else {
                           // 搜索降级
-                          Navigator.pushNamed(context, '/search', arguments: artistName);
+                          Navigator.pushNamed(context, '/search',
+                              arguments: artistName);
                         }
                       },
                     );
@@ -485,21 +492,31 @@ class _PlayerScreenState extends State<PlayerScreen>
                   final albumId = p.currentSongAlbumId;
                   final albumName = song?.albumName ?? '';
                   // 查看专辑显示条件：有 albumId，或者有 albumName 且不等于 'Unknown' / '无'
-                  final hasAlbum = song != null && (albumId > 0 || (albumName.isNotEmpty && albumName != 'Unknown' && albumName != '无'));
-                  
+                  final hasAlbum = song != null &&
+                      (albumId > 0 ||
+                          (albumName.isNotEmpty &&
+                              albumName != 'Unknown' &&
+                              albumName != '无'));
+
                   // 歌手呈现：KRM 数据已在 Provider 层通过 hash 校验，可直接信任
                   final krmAuthors = p.currentSongAuthors;
                   final hasKrm = krmAuthors.isNotEmpty;
-                  final displayArtistsList = hasKrm ? krmAuthors.map((e) => e['name'] as String).toList() : (song?.artists ?? []);
-                  final hasArtists = song != null && displayArtistsList.isNotEmpty;
-                  final artistsDisplayString = hasKrm ? displayArtistsList.join(' / ') : (song?.artistDisplay ?? '');
+                  final displayArtistsList = hasKrm
+                      ? krmAuthors.map((e) => e['name'] as String).toList()
+                      : (song?.artists ?? []);
+                  final hasArtists =
+                      song != null && displayArtistsList.isNotEmpty;
+                  final artistsDisplayString = hasKrm
+                      ? displayArtistsList.join(' / ')
+                      : (song?.artistDisplay ?? '');
 
                   return Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // 倍速控制（改为独立上下两行排版，防文本被压缩）
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -508,26 +525,35 @@ class _PlayerScreenState extends State<PlayerScreen>
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(Icons.fast_forward, color: Colors.white70, size: 20),
+                                    const Icon(Icons.fast_forward,
+                                        color: Colors.white70, size: 20),
                                     const SizedBox(width: 12),
                                     Text('播放倍速',
-                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w500,
-                                        )),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w500,
+                                            )),
                                   ],
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withValues(alpha: 0.1),
                                     borderRadius: AppShape.xs,
                                   ),
-                                  child: Text('${p.currentSpeed.toStringAsFixed(2)}x',
-                                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                        color: Colors.white70,
-                                        fontWeight: FontWeight.bold,
-                                      )),
+                                  child: Text(
+                                      '${p.currentSpeed.toStringAsFixed(2)}x',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelSmall
+                                          ?.copyWith(
+                                            color: Colors.white70,
+                                            fontWeight: FontWeight.bold,
+                                          )),
                                 ),
                               ],
                             ),
@@ -543,22 +569,34 @@ class _PlayerScreenState extends State<PlayerScreen>
                                       borderRadius: AppShape.sm,
                                       onTap: () => p.setSpeed(s),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 14, vertical: 8),
                                         decoration: BoxDecoration(
                                           color: isSelected
-                                              ? Colors.white.withValues(alpha: 0.15)
-                                              : Colors.white.withValues(alpha: 0.03),
+                                              ? Colors.white
+                                                  .withValues(alpha: 0.15)
+                                              : Colors.white
+                                                  .withValues(alpha: 0.03),
                                           border: Border.all(
-                                            color: isSelected ? Colors.white30 : Colors.white10,
+                                            color: isSelected
+                                                ? Colors.white30
+                                                : Colors.white10,
                                             width: 1,
                                           ),
                                           borderRadius: AppShape.sm,
                                         ),
                                         child: Text('${s}x',
-                                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                              color: isSelected ? Colors.white : Colors.white38,
-                                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                                            )),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.copyWith(
+                                                  color: isSelected
+                                                      ? Colors.white
+                                                      : Colors.white38,
+                                                  fontWeight: isSelected
+                                                      ? FontWeight.w600
+                                                      : FontWeight.normal,
+                                                )),
                                       ),
                                     ),
                                   );
@@ -572,35 +610,44 @@ class _PlayerScreenState extends State<PlayerScreen>
                       // 查看专辑
                       if (hasAlbum)
                         ListTile(
-                          leading: const Icon(Icons.album, color: Colors.white70, size: 20),
+                          leading: const Icon(Icons.album,
+                              color: Colors.white70, size: 20),
                           title: const Text('查看专辑',
                               style: TextStyle(color: Colors.white)),
-                          trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                          trailing: const Icon(Icons.chevron_right,
+                              color: Colors.white38, size: 20),
                           onTap: () {
                             Navigator.pop(ctx);
                             if (albumId > 0) {
-                              Navigator.pushNamed(context, '/album/detail', arguments: {
-                                'id': albumId,
-                                'name': albumName,
-                              });
+                              Navigator.pushNamed(context, '/album/detail',
+                                  arguments: {
+                                    'id': albumId,
+                                    'name': albumName,
+                                  });
                             } else {
                               // 搜索降级
-                              Navigator.pushNamed(context, '/search', arguments: albumName);
+                              Navigator.pushNamed(context, '/search',
+                                  arguments: albumName);
                             }
                           },
                         ),
                       // 查看歌手
                       if (hasArtists)
                         ListTile(
-                          leading: const Icon(Icons.person, color: Colors.white70, size: 20),
+                          leading: const Icon(Icons.person,
+                              color: Colors.white70, size: 20),
                           title: Text(displayArtistsList.length > 1
                               ? '查看歌手 (共 ${displayArtistsList.length} 位)'
                               : '查看歌手'),
                           subtitle: Text(artistsDisplayString,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white30)),
-                          trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: Colors.white30)),
+                          trailing: const Icon(Icons.chevron_right,
+                              color: Colors.white38, size: 20),
                           onTap: () {
                             Navigator.pop(ctx);
                             if (displayArtistsList.length > 1) {
@@ -609,15 +656,19 @@ class _PlayerScreenState extends State<PlayerScreen>
                             } else {
                               // 单歌手逻辑
                               final artistName = displayArtistsList.first;
-                              final artistId = hasKrm ? krmAuthors.first['id'] as int? : song.artistId;
+                              final artistId = hasKrm
+                                  ? krmAuthors.first['id'] as int?
+                                  : song.artistId;
                               if (artistId != null && artistId > 0) {
-                                Navigator.pushNamed(context, '/artist/detail', arguments: {
-                                  'id': artistId,
-                                  'name': artistName,
-                                });
+                                Navigator.pushNamed(context, '/artist/detail',
+                                    arguments: {
+                                      'id': artistId,
+                                      'name': artistName,
+                                    });
                               } else {
                                 // 搜索降级
-                                Navigator.pushNamed(context, '/search', arguments: artistName);
+                                Navigator.pushNamed(context, '/search',
+                                    arguments: artistName);
                               }
                             }
                           },
@@ -626,10 +677,12 @@ class _PlayerScreenState extends State<PlayerScreen>
                         const Divider(color: Colors.white12, height: 1),
                       // 定时关闭
                       ListTile(
-                        leading: const Icon(Icons.timer_outlined, color: Colors.white70, size: 20),
+                        leading: const Icon(Icons.timer_outlined,
+                            color: Colors.white70, size: 20),
                         title: const Text('定时关闭',
                             style: TextStyle(color: Colors.white)),
-                        trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                        trailing: const Icon(Icons.chevron_right,
+                            color: Colors.white38, size: 20),
                         onTap: () {
                           Navigator.pop(ctx);
                           _showSleepTimerSheet();
@@ -638,16 +691,21 @@ class _PlayerScreenState extends State<PlayerScreen>
                       const Divider(color: Colors.white12, height: 1),
                       // 编码音质
                       ListTile(
-                        leading: const Icon(Icons.speed, color: Colors.white70, size: 20),
+                        leading: const Icon(Icons.speed,
+                            color: Colors.white70, size: 20),
                         title: const Text('编码音质',
                             style: TextStyle(color: Colors.white)),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(p.currentQualityLabel,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white38)),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: Colors.white38)),
                             const SizedBox(width: 4),
-                            const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                            const Icon(Icons.chevron_right,
+                                color: Colors.white38, size: 20),
                           ],
                         ),
                         onTap: () {
@@ -658,17 +716,23 @@ class _PlayerScreenState extends State<PlayerScreen>
                       const Divider(color: Colors.white12, height: 1),
                       // 音效
                       ListTile(
-                        leading: const Icon(Icons.spatial_audio, color: Colors.white70, size: 20),
+                        leading: const Icon(Icons.spatial_audio,
+                            color: Colors.white70, size: 20),
                         title: const Text('音效',
                             style: TextStyle(color: Colors.white)),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(p.effectLabel,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white38)),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: Colors.white38)),
                             const SizedBox(width: 4),
-                            const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
-                        ],),
+                            const Icon(Icons.chevron_right,
+                                color: Colors.white38, size: 20),
+                          ],
+                        ),
                         onTap: () {
                           Navigator.pop(ctx);
                           _showEffectSheet();
@@ -714,13 +778,18 @@ class _PlayerScreenState extends State<PlayerScreen>
                       currentEffect == 'none'
                           ? Icons.radio_button_checked
                           : Icons.radio_button_unchecked,
-                      color: currentEffect == 'none' ? Colors.white : Colors.white38,
+                      color: currentEffect == 'none'
+                          ? Colors.white
+                          : Colors.white38,
                       size: 20,
                     ),
-                    title: const Text('关闭',
-                        style: TextStyle(color: Colors.white)),
+                    title:
+                        const Text('关闭', style: TextStyle(color: Colors.white)),
                     subtitle: Text('不使用音效',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white38)),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Colors.white38)),
                     onTap: () {
                       p.setEffect('none');
                       Navigator.pop(ctx);
@@ -744,12 +813,19 @@ class _PlayerScreenState extends State<PlayerScreen>
                           style: TextStyle(
                             color: isSelected
                                 ? Colors.white
-                                : (isAvailable ? Colors.white60 : Colors.white24),
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                : (isAvailable
+                                    ? Colors.white60
+                                    : Colors.white24),
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
                           )),
                       subtitle: !isAvailable
                           ? Text('当前歌曲不支持',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white24))
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: Colors.white24))
                           : null,
                       enabled: isAvailable,
                       onTap: isAvailable
@@ -796,74 +872,94 @@ class _PlayerScreenState extends State<PlayerScreen>
                           fontWeight: FontWeight.w600)),
                   const SizedBox(height: 12),
                   ...Quality.levels.map((key) {
-                  final label = Quality.label(key);
-                  final isSelected = key == selectedKey;
-                  final isAvailable = p.isQualityAvailable(key);
-                  return ListTile(
-                    leading: Icon(
-                      isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                      color: isSelected
-                          ? Colors.white
-                          : (isAvailable ? Colors.white38 : Colors.white10),
-                      size: 20,
-                    ),
-                    title: Text(label,
-                        style: TextStyle(
-                          color: isSelected
-                              ? Colors.white
-                              : (isAvailable ? Colors.white60 : Colors.white24),
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                        )),
-                    subtitle: Row(
-                      children: [
-                        Text(
-                          _qualitySubtitle(key),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: isAvailable ? Colors.white38 : Colors.white10),
-                        ),
-                        if (!isAvailable) ...[
-                          const SizedBox(width: 8),
-                          Text('当前歌曲不支持',
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  color: Colors.white24)),
-                        ],
-                        if (isAvailable && !availableQualities.contains(key)) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.1),
-                              borderRadius: AppShape.xs,
-                            ),
-                            child: Text('降级可用',
-                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: Colors.white24)),
+                    final label = Quality.label(key);
+                    final isSelected = key == selectedKey;
+                    final isAvailable = p.isQualityAvailable(key);
+                    return ListTile(
+                      leading: Icon(
+                        isSelected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        color: isSelected
+                            ? Colors.white
+                            : (isAvailable ? Colors.white38 : Colors.white10),
+                        size: 20,
+                      ),
+                      title: Text(label,
+                          style: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : (isAvailable
+                                    ? Colors.white60
+                                    : Colors.white24),
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          )),
+                      subtitle: Row(
+                        children: [
+                          Text(
+                            _qualitySubtitle(key),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                    color: isAvailable
+                                        ? Colors.white38
+                                        : Colors.white10),
                           ),
+                          if (!isAvailable) ...[
+                            const SizedBox(width: 8),
+                            Text('当前歌曲不支持',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(color: Colors.white24)),
+                          ],
+                          if (isAvailable &&
+                              !availableQualities.contains(key)) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.1),
+                                borderRadius: AppShape.xs,
+                              ),
+                              child: Text('降级可用',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(color: Colors.white24)),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
+                      enabled: isAvailable,
+                      onTap: isAvailable
+                          ? () {
+                              p.setQuality(key);
+                              Navigator.pop(ctx);
+                            }
+                          : null,
+                    );
+                  }),
+                  if (availableQualities.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        '当前歌曲最高支持: ${Quality.label(availableQualities.last)}',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Colors.white24),
+                      ),
                     ),
-                    enabled: isAvailable,
-                    onTap: isAvailable
-                        ? () {
-                            p.setQuality(key);
-                            Navigator.pop(ctx);
-                          }
-                        : null,
-                  );
-                }),
-                if (availableQualities.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      '当前歌曲最高支持: ${Quality.label(availableQualities.last)}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white24),
-                    ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
           ),
         );
       },
@@ -901,16 +997,17 @@ class _PlayerScreenState extends State<PlayerScreen>
           children: [
             Icon(Icons.lyrics_outlined, size: 48, color: Colors.white54),
             SizedBox(height: 16),
-            Text('暂无歌词',
-                style: TextStyle(color: Colors.white54, fontSize: 16)),
+            Text('暂无歌词', style: TextStyle(color: Colors.white54, fontSize: 16)),
           ],
         ),
       );
     } else {
-      lyricsContent = LyricView(
-        key: ValueKey('lyrics_${player.selectedLyricLang}_${song.hash ?? song.id}'),
+      lyricsContent = AmllLyricsView(
+        key: ValueKey(
+            'lyrics_${player.selectedLyricLang}_${song.hash ?? song.id}'),
         controller: player.lyricController,
         style: _buildLyricStyle(compact: compact),
+        isPlaying: player.isPlaying,
       );
     }
 
@@ -930,18 +1027,8 @@ class _PlayerScreenState extends State<PlayerScreen>
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: ClipRRect(
               borderRadius: AppShape.md,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  lyricsWidget,
-                  // AMLL 风格间奏动画（相邻歌词行间隔 ≥ 4s 时三圆点呼吸）
-                  if (hasLyrics)
-                    _InterludeOverlay(
-                      controller: player.lyricController,
-                      anchor: 0.4,
-                    ),
-                ],
-              ),
+              // AMLL 风格歌词视图：渐进模糊 + 间奏圆点动画内置
+              child: lyricsWidget,
             ),
           ),
         ),
@@ -980,9 +1067,10 @@ class _PlayerScreenState extends State<PlayerScreen>
                           height: 1.2)),
                   const SizedBox(width: 4),
                   Text(source,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Colors.white38,
-                          height: 1.2)),
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(color: Colors.white38, height: 1.2)),
                 ],
               ),
             ),
@@ -1009,8 +1097,8 @@ class _PlayerScreenState extends State<PlayerScreen>
                     Text(
                       player.showTranslation ? '翻译' : '歌词',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Colors.white54,
-                      ),
+                            color: Colors.white54,
+                          ),
                     ),
                     const SizedBox(width: 2),
                     Icon(
@@ -1044,8 +1132,8 @@ class _PlayerScreenState extends State<PlayerScreen>
                     Text(
                       player.showRomaji ? '罗马音' : 'ローマ字',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Colors.white54,
-                      ),
+                            color: Colors.white54,
+                          ),
                     ),
                     const SizedBox(width: 2),
                     Icon(
@@ -1099,7 +1187,8 @@ class _PlayerScreenState extends State<PlayerScreen>
               // 只允许下滑
               if (details.delta.dy < 0 && _dragOffset <= 0) return;
               setState(() {
-                _dragOffset = (_dragOffset + details.delta.dy).clamp(0.0, double.infinity);
+                _dragOffset = (_dragOffset + details.delta.dy)
+                    .clamp(0.0, double.infinity);
               });
             },
             onVerticalDragEnd: (details) {
@@ -1116,7 +1205,9 @@ class _PlayerScreenState extends State<PlayerScreen>
             child: Transform.translate(
               offset: Offset(0, _dragOffset),
               child: Opacity(
-                opacity: (1.0 - (_dragOffset / _dismissThreshold).clamp(0.0, 0.5)).toDouble(),
+                opacity:
+                    (1.0 - (_dragOffset / _dismissThreshold).clamp(0.0, 0.5))
+                        .toDouble(),
                 child: RepaintBoundary(
                   // ✅ 新增适配代码：RepaintBoundary 隔离流光背景重绘，避免整页随动画重建
                   child: Stack(
@@ -1127,7 +1218,8 @@ class _PlayerScreenState extends State<PlayerScreen>
                         paletteColor: player.backgroundColor,
                         paletteColors: player.paletteColors,
                         // 双栏/沉浸布局无 PageView 滚动，背景保持初始状态
-                        scrollOffset: isLandscapeTablet || _immersive ? 0.0 : _pageOffset,
+                        scrollOffset:
+                            isLandscapeTablet || _immersive ? 0.0 : _pageOffset,
                       ),
 
                       // ── Content ──
@@ -1150,9 +1242,13 @@ class _PlayerScreenState extends State<PlayerScreen>
                                             children: [
                                               // Page 0: Cover + controls
                                               // ✅ RepaintBoundary 隔离封面页重绘区域，避免与歌词页互相拖累
-                                              RepaintBoundary(child: _buildCoverPage(player, song)),
+                                              RepaintBoundary(
+                                                  child: _buildCoverPage(
+                                                      player, song)),
                                               // Page 1: Immersive lyrics
-                                              RepaintBoundary(child: _buildLyricsPage(player, song)),
+                                              RepaintBoundary(
+                                                  child: _buildLyricsPage(
+                                                      player, song)),
                                             ],
                                           ),
                                         ),
@@ -1244,8 +1340,11 @@ class _PlayerScreenState extends State<PlayerScreen>
   Widget _buildPageHeader(PlayerProvider player, Song song) {
     final krmAuthors = player.currentSongAuthors;
     final hasKrm = krmAuthors.isNotEmpty;
-    final displayArtistsList = hasKrm ? krmAuthors.map((e) => e['name'] as String).toList() : song.artists;
-    final artistsDisplayString = hasKrm ? displayArtistsList.join(' / ') : song.artistDisplay;
+    final displayArtistsList = hasKrm
+        ? krmAuthors.map((e) => e['name'] as String).toList()
+        : song.artists;
+    final artistsDisplayString =
+        hasKrm ? displayArtistsList.join(' / ') : song.artistDisplay;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
@@ -1269,14 +1368,16 @@ class _PlayerScreenState extends State<PlayerScreen>
                 _showArtistSelectionSheet(player, song);
               } else if (displayArtistsList.isNotEmpty) {
                 final artistName = displayArtistsList.first;
-                final artistId = hasKrm ? krmAuthors.first['id'] as int? : song.artistId;
+                final artistId =
+                    hasKrm ? krmAuthors.first['id'] as int? : song.artistId;
                 if (artistId != null && artistId > 0) {
                   Navigator.pushNamed(context, '/artist/detail', arguments: {
                     'id': artistId,
                     'name': artistName,
                   });
                 } else {
-                  Navigator.pushNamed(context, '/search', arguments: artistName);
+                  Navigator.pushNamed(context, '/search',
+                      arguments: artistName);
                 }
               }
             },
@@ -1300,10 +1401,10 @@ class _PlayerScreenState extends State<PlayerScreen>
   Widget _buildCoverPage(PlayerProvider player, Song song) {
     // 从 privilege 取最高可用音质，无数据时 fallback 到当前选中
     final qualityOptions = player.qualityOptions;
-    final highestAvailable = qualityOptions.isNotEmpty
-        ? qualityOptions.last.value
-        : null;
-    final showKey = player.resolvedQuality ?? highestAvailable ??
+    final highestAvailable =
+        qualityOptions.isNotEmpty ? qualityOptions.last.value : null;
+    final showKey = player.resolvedQuality ??
+        highestAvailable ??
         Quality.levels[player.qualityLevel % Quality.levels.length];
     final qualityLabel = Quality.label(showKey);
     const speeds = [1.0, 0.5, 0.75, 1.25, 1.5, 2.0];
@@ -1328,10 +1429,10 @@ class _PlayerScreenState extends State<PlayerScreen>
         Text(
           qualityLabel,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-            color: Colors.white60,
-            letterSpacing: 1.2,
-          ),
+                fontWeight: FontWeight.w500,
+                color: Colors.white60,
+                letterSpacing: 1.2,
+              ),
         ),
 
         const SizedBox(height: 12),
@@ -1456,7 +1557,6 @@ class _PlayerScreenState extends State<PlayerScreen>
         return AppIcons.radio;
     }
   }
-
 }
 
 /// Icon + label item used in the bottom icon bar.
@@ -1514,7 +1614,8 @@ class _PlayerProgressBarState extends State<_PlayerProgressBar> {
 
   @override
   Widget build(BuildContext context) {
-    return Selector<PlayerProvider, ({Duration position, Duration duration, double progress})>(
+    return Selector<PlayerProvider,
+        ({Duration position, Duration duration, double progress})>(
       selector: (_, p) {
         final durationMs = p.duration.inMilliseconds;
         return (
@@ -1530,8 +1631,8 @@ class _PlayerProgressBarState extends State<_PlayerProgressBar> {
         return PlayerProgressBar(
           position: _isDragging
               ? Duration(
-                  milliseconds: (_dragValue * state.duration.inMilliseconds)
-                      .round(),
+                  milliseconds:
+                      (_dragValue * state.duration.inMilliseconds).round(),
                 )
               : state.position,
           duration: state.duration,
@@ -1541,8 +1642,8 @@ class _PlayerProgressBarState extends State<_PlayerProgressBar> {
           },
           onDragEnd: () async {
             await player.seek(Duration(
-              milliseconds: (_dragValue * state.duration.inMilliseconds)
-                  .round(),
+              milliseconds:
+                  (_dragValue * state.duration.inMilliseconds).round(),
             ));
             if (mounted) {
               setState(() => _isDragging = false);
@@ -1585,148 +1686,5 @@ class _PlayerControls extends StatelessWidget {
         );
       },
     );
-  }
-}
-
-// ────────────────────────────────────────────────────────────
-//  AMLL 风格间奏动画
-// ────────────────────────────────────────────────────────────
-
-class _InterludeOverlay extends StatefulWidget {
-  final LyricController controller;
-  final double anchor;
-  const _InterludeOverlay({required this.controller, required this.anchor});
-  @override
-  State<_InterludeOverlay> createState() => _InterludeOverlayState();
-}
-
-class _InterludeOverlayState extends State<_InterludeOverlay> {
-  List<_Interlude> _interludes = const [];
-  @override
-  void initState() {
-    super.initState();
-    _rebuildInterludes();
-    widget.controller.lyricNotifier.addListener(_rebuildInterludes);
-  }
-  @override
-  void didUpdateWidget(covariant _InterludeOverlay oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.lyricNotifier.removeListener(_rebuildInterludes);
-      _rebuildInterludes();
-      widget.controller.lyricNotifier.addListener(_rebuildInterludes);
-    }
-  }
-  @override
-  void dispose() {
-    widget.controller.lyricNotifier.removeListener(_rebuildInterludes);
-    super.dispose();
-  }
-  void _rebuildInterludes() {
-    final lines = widget.controller.lyricNotifier.value?.lines ?? const <LyricLine>[];
-    final next = _computeInterludes(lines);
-    if (listEquals(next, _interludes)) return;
-    _interludes = next;
-    if (mounted) setState(() {});
-  }
-  static List<_Interlude> _computeInterludes(List<LyricLine> lines) {
-    final result = <_Interlude>[];
-    for (var i = 0; i + 1 < lines.length; i++) {
-      final gapStart = lines[i].end ?? lines[i].start;
-      final gapEnd = lines[i + 1].start - const Duration(milliseconds: 250);
-      if (gapEnd > gapStart && gapEnd - gapStart >= const Duration(milliseconds: 4000)) {
-        result.add(_Interlude(startMs: gapStart.inMilliseconds, endMs: gapEnd.inMilliseconds));
-      }
-    }
-    return result;
-  }
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<PlayerProvider>(
-      builder: (context, player, _) {
-        final posMs = player.position.inMilliseconds;
-        _Interlude? active;
-        for (final il in _interludes) {
-          if (posMs >= il.startMs && posMs < il.endMs) { active = il; break; }
-        }
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            return Stack(children: [
-              if (active != null)
-                Positioned(
-                  // 锚点下方约一个行高处（AMLL 间奏行紧跟焦点行的位置）
-                  top: constraints.maxHeight * widget.anchor + 28,
-                  left: 0, right: 0,
-                  child: _InterludeDots(active: true, isPlaying: player.isPlaying),
-                ),
-            ]);
-          },
-        );
-      },
-    );
-  }
-}
-
-class _Interlude {
-  final int startMs, endMs;
-  const _Interlude({required this.startMs, required this.endMs});
-  @override
-  bool operator ==(Object other) => other is _Interlude && other.startMs == startMs && other.endMs == endMs;
-  @override
-  int get hashCode => Object.hash(startMs, endMs);
-}
-
-class _InterludeDots extends StatefulWidget {
-  final bool active, isPlaying;
-  const _InterludeDots({required this.active, required this.isPlaying});
-  @override
-  State<_InterludeDots> createState() => _InterludeDotsState();
-}
-
-class _InterludeDotsState extends State<_InterludeDots> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600));
-  @override
-  void initState() {
-    super.initState();
-    if (widget.active && widget.isPlaying) _controller.repeat();
-  }
-  @override
-  void didUpdateWidget(covariant _InterludeDots oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.active && widget.isPlaying) {
-      if (!_controller.isAnimating) _controller.repeat();
-    } else { _controller.stop(); _controller.value = 0; }
-  }
-  @override
-  void dispose() { _controller.dispose(); super.dispose(); }
-  @override
-  Widget build(BuildContext context) {
-    if (!widget.active) return const SizedBox.shrink();
-    const dotSize = 6.0;
-    return Center(child: AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final t = _controller.value;
-        final breath = 1 + 0.05 * math.sin(2 * math.pi * t);
-        double dotOpacity(int i) {
-          final v = (t * 3 - i).clamp(0.0, 1.0);
-          return 0.25 + v * 0.75;
-        }
-        return Transform.scale(scale: 0.7 * breath, child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var i = 0; i < 3; i++)
-              Container(
-                width: dotSize, height: dotSize,
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: dotOpacity(i).clamp(0.0, 1.0)),
-                  shape: BoxShape.circle,
-                ),
-              ),
-          ],
-        ));
-      },
-    ));
   }
 }
