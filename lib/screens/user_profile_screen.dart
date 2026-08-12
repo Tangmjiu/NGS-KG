@@ -51,7 +51,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final body = _isLoading
         ? const Center(child: CircularProgressIndicator())
         : ListView(
@@ -133,12 +132,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           );
     return Scaffold(
       appBar: AppBar(title: Text(user?.nickname ?? '个人主页')),
-      body: isWide
-          ? Center(child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: body,
-            ))
-          : body,
+      body: body,
     );
   }
 

@@ -31,7 +31,6 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final tabBody = TabBarView(
       controller: _tabCtrl,
       children: const [
@@ -50,14 +49,7 @@ class _LoginScreenState extends State<LoginScreen>
           ],
         ),
       ),
-      body: isWide
-          ? Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
-                child: tabBody,
-              ),
-            )
-          : tabBody,
+      body: tabBody,
     );
   }
 }
@@ -299,79 +291,92 @@ class _PhoneLoginState extends State<_PhoneLogin> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          TextField(
-            controller: _phoneCtrl,
-            keyboardType: TextInputType.phone,
-            autofillHints: const [AutofillHints.telephoneNumber],
-            textInputAction: TextInputAction.next,
-            maxLength: 11,
-            decoration: InputDecoration(
-              labelText: '手机号',
-              prefixIcon: const Icon(Icons.phone_android),
-              errorText: _phoneError,
-              border: OutlineInputBorder(
-                borderRadius: AppShape.sm,
-              ),
+    // ✅ 滚动保护：键盘弹出时可用高度骤减，固定 Column 会 RenderFlex 溢出
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            // 内容不足一屏时仍占满视口，保持居中效果；超出时可滚动
+            constraints: BoxConstraints(
+              minHeight: (constraints.maxHeight - 48).clamp(0.0, double.infinity),
             ),
-            onChanged: (_) {
-              if (_phoneError != null) setState(() => _phoneError = null);
-            },
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _codeCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: '验证码',
-                    prefixIcon: const Icon(Icons.message),
-                    border: OutlineInputBorder(
-                      borderRadius: AppShape.sm,
+            child: IntrinsicHeight(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextField(
+                    controller: _phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    autofillHints: const [AutofillHints.telephoneNumber],
+                    textInputAction: TextInputAction.next,
+                    maxLength: 11,
+                    decoration: InputDecoration(
+                      labelText: '手机号',
+                      prefixIcon: const Icon(Icons.phone_android),
+                      errorText: _phoneError,
+                      border: OutlineInputBorder(
+                        borderRadius: AppShape.sm,
+                      ),
+                    ),
+                    onChanged: (_) {
+                      if (_phoneError != null) setState(() => _phoneError = null);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _codeCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: '验证码',
+                            prefixIcon: const Icon(Icons.message),
+                            border: OutlineInputBorder(
+                              borderRadius: AppShape.sm,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        height: 48,
+                        child: FilledButton.tonal(
+                          onPressed:
+                              _sendingCode || _countdown > 0 ? null : _sendCode,
+                          child: _sendingCode
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2))
+                              : Text(_countdown > 0 ? '${_countdown}s' : '获取验证码'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Consumer<AuthProvider>(
+                    builder: (_, auth, __) => SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: FilledButton(
+                        onPressed: auth.isLoading ? null : _login,
+                        child: auth.isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Text('登录'),
+                      ),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                height: 48,
-                child: FilledButton.tonal(
-                  onPressed:
-                      _sendingCode || _countdown > 0 ? null : _sendCode,
-                  child: _sendingCode
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : Text(_countdown > 0 ? '${_countdown}s' : '获取验证码'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Consumer<AuthProvider>(
-            builder: (_, auth, __) => SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: FilledButton(
-                onPressed: auth.isLoading ? null : _login,
-                child: auth.isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('登录'),
+                ],
               ),
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -501,38 +506,48 @@ class _QrLoginState extends State<_QrLogin> {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (_isLoading)
-              const CircularProgressIndicator()
-            else ...[
-              Container(
-                width: 200, height: 200,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: AppShape.md,
-                ),
-                padding: const EdgeInsets.all(12),
-                child: _base64Img != null ? _buildQrImage()
-                    : Icon(Icons.qr_code, size: 100,
-                        color: Theme.of(context).colorScheme.onSurface),
+    // ✅ 滚动保护：与小屏/横屏下溢出风险相同处理
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: (constraints.maxHeight - 48).clamp(0.0, double.infinity),
+            ),
+            child: IntrinsicHeight(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (_isLoading)
+                    const CircularProgressIndicator()
+                  else ...[
+                    Container(
+                      width: 200, height: 200,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: AppShape.md,
+                      ),
+                      padding: const EdgeInsets.all(12),
+                      child: _base64Img != null ? _buildQrImage()
+                          : Icon(Icons.qr_code, size: 100,
+                              color: Theme.of(context).colorScheme.onSurface),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(_statusText, textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    TextButton.icon(
+                      onPressed: _refresh,
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('刷新二维码'),
+                    ),
+                  ],
+                ],
               ),
-              const SizedBox(height: 20),
-              Text(_statusText, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              TextButton.icon(
-                onPressed: _refresh,
-                icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('刷新二维码'),
-              ),
-            ],
-          ],
-        ),
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

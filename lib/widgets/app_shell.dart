@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../utils/navigation.dart' as app;
 import '../providers/player_provider.dart';
@@ -13,6 +14,7 @@ import '../widgets/update_dialog.dart';
 import '../services/announcement_service.dart';
 import '../widgets/announcement_dialog.dart';
 import '../utils/theme.dart';
+import '../utils/responsive.dart';
 import 'm3_expressive_mini_player.dart';
 
 /// 移动端外壳，嵌套在 MaterialApp.builder 中
@@ -27,14 +29,63 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
+  // ✅ 新增适配代码：全局键盘快捷键（仅平板启用）
+  // 空格=播放/暂停、←/→=切歌。用 HardwareKeyboard 全局监听，不依赖焦点。
+  // 按下集合用于去重长按连发（KeyEvent 无 repeat 标记）。
+  final Set<LogicalKeyboardKey> _pressedKeys = {};
+
+  bool _handleKeyEvent(KeyEvent event) {
+    final key = event.logicalKey;
+    if (event is KeyDownEvent) {
+      // 长按连发去重
+      if (!_pressedKeys.add(key)) return false;
+    } else if (event is KeyUpEvent) {
+      _pressedKeys.remove(key);
+      return false;
+    } else {
+      return false;
+    }
+    if (!mounted) return false;
+    // 仅平板启用；输入框聚焦时不拦截（避免搜索框输入空格误触发）
+    if (!context.isTablet) return false;
+    final focused = FocusManager.instance.primaryFocus?.context?.widget;
+    if (focused is EditableText) return false;
+    final player = context.read<PlayerProvider>();
+    if (key == LogicalKeyboardKey.space) {
+      player.togglePlayPause();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.arrowRight) {
+      player.playNext();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.arrowLeft) {
+      player.playPrevious();
+      return true;
+    }
+    return false;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_handleKeyEvent);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return _mobileShell();
   }
 
-  // ══════════════════════════════════════════════�?
-  //  移动�?
-  // ══════════════════════════════════════════════�?
+  // ═══════════════════════════════════════════════
+  //  移动端
+  // ═══════════════════════════════════════════════
 
   Widget _mobileShell() {
     return ValueListenableBuilder<String?>(
@@ -58,9 +109,11 @@ class _AppShellState extends State<AppShell> {
         final mq = MediaQuery.of(context);
         final isHome =
             currentRoute == null || currentRoute == '/' || currentRoute == '';
+        // ✅ 新增适配代码：平板无底部 NavigationBar，MiniPlayer 直接悬浮于底部
+        final isTablet = context.isTablet;
 
         final double miniPlayerBottom;
-        if (isHome) {
+        if (isHome && !isTablet) {
           // Material Design 3 NavigationBar 标准高度为 80.0dp。
           // 定位在 80.0 + mq.padding.bottom 处，正好悬浮于 NavigationBar 正上方，零重叠且不会顶高底栏！
           miniPlayerBottom = 80.0 + mq.padding.bottom;
@@ -71,9 +124,11 @@ class _AppShellState extends State<AppShell> {
         }
 
         // 注入包含 MiniBar 高度的自适应 MediaQuery 避让区域：
-        // 仅在非首页（二级子页面，即无底部 NavigationBar）且 MiniBar 显示时，使主界面的 padding.bottom 追加 MiniBar 物理高（76.0dp）。
+        // 仅在非首页（二级子页面，即无底部 NavigationBar）且 MiniBar 显示时，使主界面的 padding.bottom 追加 MiniBar 物理高。
+        // 平板 MiniPlayer 含歌词行（80dp 条 + 12dp 边距），避让高度相应增大。
         // 首页 Tab 页面内的避让将在 HomeScreen 级别的 body 内部局部注入，以防止全局污染导致 Scaffold 将底部 NavigationBar 错误抬高并与 MiniBar 重叠。
-        final double extraPadding = (showMini && !isHome) ? 76.0 : 0.0;
+        final double extraPadding =
+            (showMini && !isHome) ? (isTablet ? 92.0 : 76.0) : 0.0;
         final childMediaQuery = mq.copyWith(
           padding: mq.padding.copyWith(
             bottom: mq.padding.bottom + extraPadding,
@@ -126,9 +181,9 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-// ══════════════════════════════════════════════�?
-//  跨设备继续播放检�?
-// ══════════════════════════════════════════════�?
+// ══════════════════════════════════════════════
+//  跨设备继续播放检测
+// ══════════════════════════════════════════════
 
 class _ContinuePlayOverlay extends StatefulWidget {
   const _ContinuePlayOverlay();
@@ -178,11 +233,11 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
             (info['name'] as String? ?? info['songname'] as String? ?? '未知歌曲')
                 .replaceAll(RegExp(r'\.mp3$', caseSensitive: false), '');
         final singer = info['singername'] as String?;
-        if (!context.mounted) return;
+        if (!mounted) return;
         // 用 Navigator 的 overlay context 保证 Dialog 能正常路由
         final navCtx = Navigator.of(context).context;
         if (!mounted) return;
-        showDialog(
+        if (navCtx.mounted) showDialog(
             context: navCtx,
             builder: (_) => AlertDialog(
                   title: const Text('继续播放'),
@@ -234,9 +289,9 @@ class _ContinuePlayOverlayState extends State<_ContinuePlayOverlay> {
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
-// ══════════════════════════════════════════════�?
-//  支持作者弹�?
-// ══════════════════════════════════════════════�?
+// ══════════════════════════════════════════════
+//  支持作者弹窗
+// ══════════════════════════════════════════════
 
 class _SupportPopupHandler extends StatefulWidget {
   const _SupportPopupHandler();
@@ -272,9 +327,9 @@ class _SupportPopupHandlerState extends State<_SupportPopupHandler> {
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
-// ══════════════════════════════════════════════�?
-//  启动时检�?GitHub Release 更新
-// ══════════════════════════════════════════════�?
+// ══════════════════════════════════════════════
+//  启动时检测 GitHub Release 更新
+// ══════════════════════════════════════════════
 
 class _UpdateCheckHandler extends StatefulWidget {
   const _UpdateCheckHandler();
@@ -297,19 +352,19 @@ class _UpdateCheckHandlerState extends State<_UpdateCheckHandler> {
   Future<void> _check() async {
     if (!mounted) return;
 
-    final navContext = app.navKey.currentContext ?? context;
-
     // 1. 检查更新
     final release = await UpdateChecker.check();
     if (release != null && mounted) {
-      await showUpdateDialog(navContext, release);
+      final navContext = app.navKey.currentContext ?? context;
+      if (navContext.mounted) await showUpdateDialog(navContext, release);
     }
 
     // 2. 检查公告
     if (!mounted) return;
     final announcement = await AnnouncementService.fetchLatest();
     if (announcement != null && mounted) {
-      await showAnnouncementDialog(navContext, announcement);
+      final navContext = app.navKey.currentContext ?? context;
+      if (navContext.mounted) await showAnnouncementDialog(navContext, announcement);
     }
   }
 
@@ -317,7 +372,7 @@ class _UpdateCheckHandlerState extends State<_UpdateCheckHandler> {
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
-/// 启动时未登录 �?风控提示弹窗（延迟显示，等其他弹窗先弹出�?
+/// 启动时未登录 / 风控提示弹窗（延迟显示，等其他弹窗先弹出）
 class _LoginPromptOverlay extends StatefulWidget {
   const _LoginPromptOverlay();
   @override

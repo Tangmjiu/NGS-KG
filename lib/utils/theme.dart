@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/theme_pack.dart';
+import 'responsive.dart';
 
 /// MD3 形状 token — 统一 BorderRadius，禁止 magic number
 abstract final class AppShape {
@@ -553,6 +554,10 @@ class M3StaggeredFadeIn extends StatefulWidget {
   final Duration itemDelay;
   final Duration duration;
 
+  /// 最多为前 [maxAnimatedItems] 个列表项创建动画控制器，
+  /// 超出项直接渲染，避免超长列表产生大量 Ticker 导致掉帧/内存抖动。
+  static const int maxAnimatedItems = 20;
+
   const M3StaggeredFadeIn({
     super.key,
     required this.index,
@@ -567,44 +572,52 @@ class M3StaggeredFadeIn extends StatefulWidget {
 
 class _M3StaggeredFadeInState extends State<M3StaggeredFadeIn>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _opacity;
-  late final Animation<Offset> _offset;
+  AnimationController? _controller;
+  Animation<double>? _opacity;
+  Animation<Offset>? _offset;
 
   @override
   void initState() {
     super.initState();
+
+    if (widget.index >= M3StaggeredFadeIn.maxAnimatedItems) {
+      return;
+    }
+
     _controller = AnimationController(
       vsync: this,
       duration: widget.duration,
     );
-    _opacity = CurvedAnimation(parent: _controller, curve: AppMotion.emphasizedDecelerate);
+    _opacity = CurvedAnimation(parent: _controller!, curve: AppMotion.emphasizedDecelerate);
     _offset = Tween<Offset>(
       begin: const Offset(0, 0.1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: AppMotion.emphasizedDecelerate));
+    ).animate(CurvedAnimation(parent: _controller!, curve: AppMotion.emphasizedDecelerate));
 
     // 交错延迟：每项最多 8 项延迟后不再增加
     final delay = Duration(
       milliseconds: (widget.index.clamp(0, 8)) * widget.itemDelay.inMilliseconds,
     );
     Future.delayed(delay, () {
-      if (mounted) _controller.forward();
+      if (mounted) _controller?.forward();
     });
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_opacity == null || _offset == null) {
+      return widget.child;
+    }
     return FadeTransition(
-      opacity: _opacity,
+      opacity: _opacity!,
       child: SlideTransition(
-        position: _offset,
+        position: _offset!,
         child: widget.child,
       ),
     );
@@ -774,6 +787,9 @@ Future<T?> showM3Dialog<T>({
 ///
 /// Duration: 300ms (Medium2)
 /// 替代 showModalBottomSheet，自动应用 M3 动画
+///
+/// ✅ 新增适配代码：平板端（≥600dp）自动切换为居中卡片弹窗（宽 400-560dp、
+/// 高度上限 80%），充分利用大屏；手机端保持底部弹出样式不变。
 Future<T?> showM3ModalBottomSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -793,6 +809,40 @@ Future<T?> showM3ModalBottomSheet<T>({
   Offset? anchorPoint,
   BoxConstraints? constraints,
 }) {
+  // ✅ 新增适配代码：平板 → 居中卡片弹窗
+  if (Responsive.isTablet(context)) {
+    final cs = Theme.of(context).colorScheme;
+    final screenSize = MediaQuery.of(context).size;
+    final dialogWidth = (screenSize.width * 0.9).clamp(400.0, 560.0);
+    return showDialog<T>(
+      context: context,
+      barrierDismissible: isDismissible,
+      useRootNavigator: useRootNavigator,
+      barrierColor: barrierColor,
+      builder: (ctx) {
+        return Dialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+          backgroundColor: Colors.transparent,
+          elevation: elevation ?? 24,
+          clipBehavior: clipBehavior ?? Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: dialogWidth,
+              maxHeight: screenSize.height * 0.8,
+            ),
+            child: Material(
+              color: backgroundColor ?? cs.surface,
+              borderRadius: BorderRadius.circular(28),
+              clipBehavior: Clip.antiAlias,
+              child: Builder(builder: builder),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   return showModalBottomSheet<T>(
     context: context,
     builder: builder,

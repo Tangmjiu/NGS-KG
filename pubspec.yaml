@@ -1,7 +1,7 @@
 name: ngskg_plus
 description: NGS-KG+ - Cross-platform music player based on KuGouMusic API
 publish_to: 'none'
-version: 1.5.2-preview
+version: 1.5.3-preview
 
 environment:
   sdk: ^3.0.0
@@ -27,6 +27,9 @@ dependencies:
   # UI
   cached_network_image: ^3.3.1
   palette_generator: ^0.3.3
+  # Fluid background
+  adaptive_palette:
+    path: third_party/adaptive_palette
   # Theme
   flex_color_scheme: ^8.0.2
   flutter_colorpicker: ^1.1.0
@@ -46,12 +49,15 @@ dependencies:
   flutter_svg: ^2.0.10+1
   permission_handler: ^11.3.1
   connectivity_plus: ^6.1.4
+  share_plus: ^10.0.0
+  device_info_plus: ^10.0.0
   flutter_local_notifications: ^18.0.1
   # Lyrics
   ym_lyric: ^0.0.4
   flutter_lyric: ^3.0.6
   on_audio_query: ^2.9.0
   flutter_markdown: ^0.7.3
+  material_symbols_icons: ^4.2960.0
 
 dev_dependencies:
   flutter_test:

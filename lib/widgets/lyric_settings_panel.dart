@@ -49,10 +49,12 @@ class _LyricSettingsFormState extends State<_LyricSettingsForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+    // ✅ 滚动保护：面板内容较多（约 450px），矮屏/横屏下 bottom sheet 或独立页均可能溢出
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         // ── 歌词视图字体大小 ──
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -188,6 +190,7 @@ class _LyricSettingsFormState extends State<_LyricSettingsForm> {
         ),
         const SizedBox(height: 8),
       ],
+      ),
     );
   }
 

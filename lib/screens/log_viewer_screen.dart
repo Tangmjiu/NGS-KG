@@ -1,8 +1,7 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
-import 'package:path_provider/path_provider.dart';
 import '../utils/logger.dart';
+import '../features/developer/export_service.dart';
 
 class LogViewerScreen extends StatefulWidget {
   const LogViewerScreen({super.key});
@@ -72,28 +71,14 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   Future<void> _export() async {
+    // 统一走 ExportService：规范格式 + 敏感参数脱敏 + 系统分享面板
     try {
-      Directory? dir;
-      if (Platform.isAndroid) {
-        dir = Directory('/storage/emulated/0/Download/NGS-KG+_Logs');
-      } else {
-        dir = await getApplicationDocumentsDirectory();
-      }
-      if (!await dir.exists()) {
-        await dir.create(recursive: true);
-      }
-      final ts = DateTime.now()
-          .toString()
-          .replaceAll(':', '-')
-          .split('.')
-          .first;
-      final file = File('${dir.path}/ngskg_log_$ts.txt');
-      final content = Log.entries.map((e) => e.formatted).join('\n');
-      await file.writeAsString(content);
+      final file = await ExportService.exportLogs();
+      await ExportService.shareFile(file, title: 'NGS-KG+ 日志导出');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('已导出: ${file.path}'),
-          duration: const Duration(seconds: 3),
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('日志已导出（敏感参数已脱敏）'),
+          duration: Duration(seconds: 2),
         ));
       }
     } catch (e) {

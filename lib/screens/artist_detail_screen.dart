@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/app_icons.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -122,8 +123,8 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                     M3BounceFeedback(
                       trigger: _isFollowing,
                       child: IconButton(
-                        icon: Icon(
-                          _isFollowing ? Icons.favorite : Icons.favorite_border,
+                        icon: AppIcon(
+                          _isFollowing ? AppIcons.favorite : AppIcons.favoriteBorder,
                           color: _isFollowing ? cs.error : null,
                         ),
                         tooltip: _isFollowing ? '取消关注' : '关注',
@@ -198,14 +199,14 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                           width: 72,
                           height: 72,
                           color: cs.surfaceContainerHighest,
-                          child: const Icon(Icons.person, size: 36),
+                          child: const AppIcon(AppIcons.person, size: 36),
                         ),
                       )
                     : Container(
                         width: 72,
                         height: 72,
                         color: cs.surfaceContainerHighest,
-                        child: const Icon(Icons.person, size: 36),
+                        child: const AppIcon(AppIcons.person, size: 36),
                       ),
               ),
               const SizedBox(width: 12),
@@ -250,7 +251,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                   onPressed: () => context
                       .read<PlayerProvider>()
                       .playSong(_songs.first, playlist: _songs),
-                  icon: const Icon(Icons.play_arrow, size: 18),
+                  icon: const AppIcon(AppIcons.play, size: 18),
                   label: const Text('播放全部'),
                 ),
               ),
@@ -320,12 +321,12 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
                           fit: BoxFit.cover,
                           errorWidget: (_, __, ___) => Container(
                             color: cs.surfaceContainerHighest,
-                            child: const Icon(Icons.album),
+                            child: const AppIcon(AppIcons.album),
                           ),
                         )
                       : Container(
                           color: cs.surfaceContainerHighest,
-                          child: const Icon(Icons.album)),
+                          child: const AppIcon(AppIcons.album)),
                 ),
               ),
               const SizedBox(height: 6),
@@ -392,16 +393,16 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
   // MV:                         fit: BoxFit.cover,
   // MV:                         errorWidget: (_, __, ___) => Container(
   // MV:                           color: cs.surfaceContainerHighest,
-  // MV:                           child: const Icon(Icons.video_library),
+  // MV:                           child: const AppIcon(Symbols.video_library_rounded),
   // MV:                         ),
   // MV:                       )
   // MV:                     else
   // MV:                       Container(
   // MV:                         color: cs.surfaceContainerHighest,
-  // MV:                         child: const Icon(Icons.video_library),
+  // MV:                         child: const AppIcon(Symbols.video_library_rounded),
   // MV:                       ),
   // MV:                     const Center(
-  // MV:                       child: Icon(Icons.play_circle_fill,
+  // MV:                       child: AppIcon(Symbols.play_circle_rounded,
   // MV:                           color: Colors.white70, size: 40),
   // MV:                     ),
   // MV:                   ],

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/song.dart';
 import '../services/local_music_service.dart';
 import '../services/metadata_reader.dart';
+import '../services/download_service.dart';
 import '../utils/logger.dart';
 
 class LocalMusicProvider extends ChangeNotifier {
@@ -281,15 +282,31 @@ class LocalMusicProvider extends ChangeNotifier {
 
     // 不在列表，读取元数据并构建 Song
     try {
-      final file = File(filePath);
-      if (!await file.exists()) {
-        Log.w('LocalMusicProvider', '导入文件不存在: $filePath');
-        return null;
+      final isContentUri = filePath.startsWith('content://');
+      AudioMetadata? meta;
+      int size = 0;
+      String baseName;
+      if (isContentUri) {
+        // MediaStore content:// URI（公共下载目录）
+        meta = await MetadataReader.readFromUri(filePath);
+        // 优先用 MediaStore DISPLAY_NAME（无标签时的文件名回退）
+        baseName = (meta?.displayName ?? '').isNotEmpty
+            ? (meta!.displayName!.replaceAll(RegExp(r'\.[^.]+$'), ''))
+            : Uri.decodeComponent(Uri.parse(filePath).pathSegments.last)
+                .replaceAll(RegExp(r'\.[^.]+$'), '');
+        size = meta?.size ?? 0;
+      } else {
+        final file = File(filePath);
+        if (!await file.exists()) {
+          Log.w('LocalMusicProvider', '导入文件不存在: $filePath');
+          return null;
+        }
+        meta = await MetadataReader.read(file);
+        final stat = await file.stat();
+        size = stat.size;
+        baseName =
+            filePath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), '');
       }
-
-      final meta = await MetadataReader.read(file);
-      final stat = await file.stat();
-      final baseName = filePath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), '');
 
       final song = Song.fromLocal(
         title: (meta?.title != null && meta!.title!.isNotEmpty) ? meta.title! : baseName,
@@ -297,8 +314,11 @@ class LocalMusicProvider extends ChangeNotifier {
         album: meta?.album,
         filePath: filePath,
         duration: meta != null && meta.durationMs > 0 ? (meta.durationMs / 1000).round() : 0,
-        size: stat.size,
-        codec: _detectCodecFromPath(filePath),
+        size: size,
+        // content URI 以数字 ID 结尾，用 DISPLAY_NAME 派生 codec
+        codec: isContentUri
+            ? _detectCodecFromPath(meta?.displayName ?? '')
+            : _detectCodecFromPath(filePath),
         bitrate: meta?.bitrate,
         lyrics: meta?.lyrics,
       );
@@ -341,9 +361,26 @@ class LocalMusicProvider extends ChangeNotifier {
   Future<bool> deleteLocalFile(Song song) async {
     if (song.filePath == null) return false;
     try {
-      final file = File(song.filePath!);
-      if (await file.exists()) {
-        await file.delete();
+      final fp = song.filePath!;
+      if (fp.startsWith('content://')) {
+        // MediaStore content:// URI：通过 DownloadService 原生删除
+        // （本体 + 同名前缀 sidecar），避免 File API 无法访问公共目录
+        final songForDelete = Song(
+          id: song.id,
+          name: song.name,
+          artists: song.artists,
+          albumName: song.albumName,
+          albumCoverUrl: song.albumCoverUrl,
+          hash: song.hash,
+          filePath: fp,
+          duration: song.duration,
+        );
+        await DownloadService.instance.removeDownload(songForDelete);
+      } else {
+        final file = File(fp);
+        if (await file.exists()) {
+          await file.delete();
+        }
       }
       await removeSong(song);
       return true;

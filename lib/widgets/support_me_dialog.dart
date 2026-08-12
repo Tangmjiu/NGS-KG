@@ -29,6 +29,8 @@ class _SupportMeDialogState extends State<_SupportMeDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      // ✅ 内容可滚动：小屏 + 大字体下防止 content 溢出
+      scrollable: true,
       contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
       content: Column(
         mainAxisSize: MainAxisSize.min,

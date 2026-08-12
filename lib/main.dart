@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:provider/provider.dart';
 import 'package:audio_service/audio_service.dart';
 import 'providers/auth_provider.dart';
@@ -13,7 +14,6 @@ import 'providers/playlist_provider.dart';
 import 'providers/liked_songs_provider.dart';
 import 'providers/discover_provider.dart';
 import 'routes/app_routes.dart';
-import 'screens/settings_screen.dart';
 import 'utils/logger.dart';
 import 'services/api_client.dart';
 import 'providers/theme_provider.dart';
@@ -22,7 +22,6 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'services/device_service.dart';
 import 'services/music_service.dart';
 import 'services/auth_service.dart';
-import 'services/notification_service.dart';
 import 'services/api_config.dart';
 import 'services/audio_handler.dart';
 import 'services/cache_service.dart';
@@ -30,6 +29,9 @@ import 'services/remote_config_service.dart';
 import 'providers/audio_settings_provider.dart';
 import 'navidrome/navidrome_provider.dart';
 import 'providers/local_music_provider.dart';
+import 'providers/download_provider.dart';
+import 'features/developer/debug_prefs_provider.dart';
+import 'features/developer/monitors/fps_monitor.dart';
 import 'utils/preview_config.dart';
 import 'theme/theme_assets.dart';
 import 'utils/navigation.dart';
@@ -81,14 +83,12 @@ Future<void> main() async {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.error_outline,
-                        size: 18, color: Colors.white38),
+                    Icon(Icons.error_outline, size: 18, color: Colors.white38),
                     SizedBox(width: 6),
                     Flexible(
                       child: Text(
                         '轻微渲染闪过',
-                        style: TextStyle(
-                            color: Colors.white38, fontSize: 11),
+                        style: TextStyle(color: Colors.white38, fontSize: 11),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -110,10 +110,8 @@ Future<void> main() async {
                   ThemeAssets.codecrash,
                   width: 80,
                   height: 80,
-                  errorBuilder: (_, __, ___) => const Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: Colors.white38),
+                  errorBuilder: (_, __, ___) => const Icon(Icons.error_outline,
+                      size: 64, color: Colors.white38),
                 ),
                 const SizedBox(height: 16),
                 const Text(
@@ -126,8 +124,7 @@ Future<void> main() async {
                   child: Text(
                     details.exceptionAsString(),
                     textAlign: TextAlign.center,
-                    style:
-                        const TextStyle(color: Colors.white38, fontSize: 12),
+                    style: const TextStyle(color: Colors.white38, fontSize: 12),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -199,6 +196,11 @@ Future<void> main() async {
   // 注意：此处不能阻塞 runApp — authProvider 在构造时已启动 _loadSavedUser()
   // apiClient.setAuth 在 _loadSavedUser 内调用，PlayerProvider 的 restorePlaybackState
   // 通过 addPostFrameCallback 调度，通常在 auth 就绪之后才执行。
+  // 开发者工具：debug/profile 构建全局启动 FPS 与卡顿检测（release 下被 tree-shake）
+  // 新增功能：帧率显示 + 卡顿检测
+  if (!kReleaseMode) {
+    FpsMonitor.instance.start();
+  }
   runApp(
     MultiProvider(
       providers: [
@@ -207,16 +209,22 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: audioSettings),
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider.value(value: authProvider),
-        ChangeNotifierProvider(create: (_) => PlayerProvider(musicService,
-            audioHandler: audioHandler,
-            audioSettings: audioSettings,
-            likedSongs: likedSongs,
-        )),
+        // 新增功能：开发者工具全局调试状态（仅 Debug/Profile 构建注册）
+        if (!kReleaseMode)
+          ChangeNotifierProvider(create: (_) => DebugPrefsProvider()),
+        ChangeNotifierProvider(
+            create: (_) => PlayerProvider(
+                  musicService,
+                  audioHandler: audioHandler,
+                  audioSettings: audioSettings,
+                  likedSongs: likedSongs,
+                )),
         ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
         ChangeNotifierProvider.value(value: likedSongs),
         ChangeNotifierProvider(create: (_) => DiscoverProvider(musicService)),
         ChangeNotifierProvider(create: (_) => NavidromeProvider()),
         ChangeNotifierProvider(create: (_) => LocalMusicProvider()),
+        ChangeNotifierProvider(create: (_) => DownloadProvider()),
       ],
       child: const NGSKGApp(),
     ),
@@ -248,9 +256,6 @@ Future<void> main() async {
       (route) => route.settings.name == AppRoutes.home,
     );
   });
-
-
-
 }
 
 Future<void> _initRemoteConfigAndDevice() async {
@@ -291,11 +296,11 @@ void _notifAction(String action) {
       final song = player.currentSong;
       if (song != null) {
         ctx.read<LikedSongsProvider>().toggle(SongInfo(
-          id: song.id,
-          name: song.name,
-          hash: song.hash ?? '',
-          albumId: song.albumId,
-        ));
+              id: song.id,
+              name: song.name,
+              hash: song.hash ?? '',
+              albumId: song.albumId,
+            ));
       }
     case 'switch_mode':
       final modes = [PlayMode.sequential, PlayMode.shuffle, PlayMode.repeatOne];
@@ -309,7 +314,7 @@ class NGSKGApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // DynamicColorBuilder �?Android 12+ 可用，其他平台传 null
+    // DynamicColorBuilder：Android 12+ 可用，其他平台传 null
     if (Platform.isAndroid) {
       return DynamicColorBuilder(
         builder: (lightDynamic, darkDynamic) {
@@ -327,24 +332,24 @@ class NGSKGApp extends StatelessWidget {
           navigatorKey: navKey,
           title: 'NGS-KG+',
           debugShowCheckedModeBanner: false,
-          theme: themeProvider.buildLightTheme(context, dynamicScheme: lightDynamic),
-          darkTheme: themeProvider.buildDarkTheme(context, dynamicScheme: darkDynamic),
+          theme: themeProvider.buildLightTheme(context,
+              dynamicScheme: lightDynamic),
+          darkTheme:
+              themeProvider.buildDarkTheme(context, dynamicScheme: darkDynamic),
           themeMode: themeProvider.themeMode,
           initialRoute: AppRoutes.home,
           navigatorObservers: [AppRouteObserver.instance],
-          onGenerateRoute: (settings) {
-            if (settings.name == AppRoutes.settings) {
-              return MaterialPageRoute(
-                builder: (_) => const SettingsScreen(),
-              );
-            }
-            return AppRoutes.generateRoute(settings);
-          },
+          onGenerateRoute: AppRoutes.generateRoute,
           builder: (context, child) {
+            // 开发者工具：性能叠加层开关（debug/profile 专用；release 下短路不读取）
+            // 新增功能：性能叠加层
+            final showPerfOverlay = !kReleaseMode &&
+                context.watch<DebugPrefsProvider>().showPerformanceOverlay;
             return Stack(
               children: [
-                // ── 全局主题背景（首�?发现/搜索等页面共用） ──
-                if (ThemeAssets.playerBg.isNotEmpty)
+                // ── 全局主题背景（首页/发现/搜索等页面共用） ──
+                if (ThemeAssets.playerBg.isNotEmpty &&
+                    File(ThemeAssets.playerBg).existsSync())
                   Positioned.fill(
                     child: ImageFiltered(
                       // 降低 sigma 以减少低端机 GPU 负载（视觉差异小）
@@ -358,6 +363,12 @@ class NGSKGApp extends StatelessWidget {
                   ),
                 // AppShell 自适应外壳：桌面全宽壳 / 移动 MiniPlayer + overlays
                 AppShell(child: child),
+                if (showPerfOverlay)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: PerformanceOverlay.allEnabled(),
+                    ),
+                  ),
               ],
             );
           },
@@ -366,4 +377,3 @@ class NGSKGApp extends StatelessWidget {
     );
   }
 }
-

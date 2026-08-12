@@ -7,7 +7,10 @@ import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
+import '../utils/app_icons.dart';
 import '../widgets/list_bottom_spacer.dart';
+import '../utils/responsive.dart';
+import '../widgets/song_grid_tile.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -20,6 +23,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
   final MusicService _musicService = MusicService();
   List<Song> _songs = [];
   bool _isLoading = true;
+
+  /// ✅ 新增适配代码：平板网格布局参数（卡片最大宽 180dp，自适应列数）
+  static const SliverGridDelegateWithMaxCrossAxisExtent _gridDelegate =
+      SliverGridDelegateWithMaxCrossAxisExtent(
+    maxCrossAxisExtent: 180,
+    childAspectRatio: 0.75,
+    mainAxisSpacing: 16,
+    crossAxisSpacing: 16,
+  );
 
   @override
   void initState() {
@@ -98,7 +110,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.history, size: 80, color: cs.onSurfaceVariant),
+            AppIcon(AppIcons.history, size: 80, color: cs.onSurfaceVariant),
             const SizedBox(height: 16),
             Text('暂无听歌历史',
                 style: TextStyle(color: cs.onSurfaceVariant)),
@@ -111,21 +123,34 @@ class _HistoryScreenState extends State<HistoryScreen> {
       return RefreshIndicator(
         onRefresh: _load,
         color: cs.onSurface,
-        child: ListView.builder(
-          padding: const EdgeInsets.only(top: 16, bottom: 24),
-          itemCount: _songs.length + 1,
-          itemBuilder: (_, i) {
-            if (i == _songs.length) {
-              return const ListBottomSpacer(isHome: false, showText: false);
-            }
-            return SongTile(
-              song: _songs[i],
-              onTap: (s) => context
-                  .read<PlayerProvider>()
-                  .playSong(s, playlist: _songs),
-            );
-          },
-        ),
+        child: context.isTablet
+            ? GridView.builder(
+                padding: const EdgeInsets.only(top: 16, bottom: 24),
+                gridDelegate: _gridDelegate,
+                itemCount: _songs.length,
+                itemBuilder: (_, i) => SongGridTile(
+                  song: _songs[i],
+                  onTap: (s) => context
+                      .read<PlayerProvider>()
+                      .playSong(s, playlist: _songs),
+                ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.only(top: 16, bottom: 24),
+                itemCount: _songs.length + 1,
+                itemBuilder: (_, i) {
+                  if (i == _songs.length) {
+                    return const ListBottomSpacer(
+                        isHome: false, showText: false);
+                  }
+                  return SongTile(
+                    song: _songs[i],
+                    onTap: (s) => context
+                        .read<PlayerProvider>()
+                        .playSong(s, playlist: _songs),
+                  );
+                },
+              ),
       );
     }
 
@@ -137,24 +162,40 @@ class _HistoryScreenState extends State<HistoryScreen> {
         RefreshIndicator(
           onRefresh: _load,
           color: cs.onSurface,
-          child: ListView.builder(
-            padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top + 80,
-              bottom: 24,
-            ),
-            itemCount: _songs.length + 1,
-            itemBuilder: (_, i) {
-              if (i == _songs.length) {
-                return const ListBottomSpacer(isHome: false, showText: false);
-              }
-              return SongTile(
-                song: _songs[i],
-                onTap: (s) => context
-                    .read<PlayerProvider>()
-                    .playSong(s, playlist: _songs),
-              );
-            },
-          ),
+          child: context.isTablet
+              ? GridView.builder(
+                  padding: EdgeInsets.only(
+                    top: MediaQuery.of(context).padding.top + 80,
+                    bottom: 24,
+                  ),
+                  gridDelegate: _gridDelegate,
+                  itemCount: _songs.length,
+                  itemBuilder: (_, i) => SongGridTile(
+                    song: _songs[i],
+                    onTap: (s) => context
+                        .read<PlayerProvider>()
+                        .playSong(s, playlist: _songs),
+                  ),
+                )
+              : ListView.builder(
+                  padding: EdgeInsets.only(
+                    top: MediaQuery.of(context).padding.top + 80,
+                    bottom: 24,
+                  ),
+                  itemCount: _songs.length + 1,
+                  itemBuilder: (_, i) {
+                    if (i == _songs.length) {
+                      return const ListBottomSpacer(
+                          isHome: false, showText: false);
+                    }
+                    return SongTile(
+                      song: _songs[i],
+                      onTap: (s) => context
+                          .read<PlayerProvider>()
+                          .playSong(s, playlist: _songs),
+                    );
+                  },
+                ),
         ),
       ],
     );

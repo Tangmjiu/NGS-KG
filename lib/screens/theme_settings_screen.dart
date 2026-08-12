@@ -1,4 +1,8 @@
 import 'dart:io';
+
+// ignore_for_file: deprecated_member_use
+// TODO: 升级到 Flutter 稳定版提供 RadioGroup 后移除 RadioListTile 的 deprecated 忽略
+
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
@@ -13,7 +17,6 @@ class ThemeSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('主题')),

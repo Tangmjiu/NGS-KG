@@ -7,6 +7,8 @@ import '../../../services/music_service.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/theme.dart';
 import '../../../widgets/song_tile.dart';
+import '../../../utils/responsive.dart';
+import '../../../widgets/song_grid_tile.dart';
 
 /// Material Design 3 Expressive 快捷操作四宫格组件
 ///
@@ -179,26 +181,58 @@ void _showSongListSheet(
                 )
               else
                 // 使用 Flexible 代替原来的硬编高计算，结合 ListView 内部 bottom padding，完美实现滑到底部且永不溢出
+                // ✅ 新增适配代码：平板弹窗内切换为网格封面墙（弹窗宽度 560dp 内自适应列数）
                 Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.only(
-                      bottom: bottomPadding > 0 ? bottomPadding + 20 : 32,
-                    ),
-                    itemCount: songs.length,
-                    itemBuilder: (_, i) {
-                      final song = songs[i];
-                      return SongTile(
-                        song: song,
-                        onTap: (s) {
-                          Navigator.pop(sheetContext);
-                          context
-                              .read<PlayerProvider>()
-                              .playSong(s, playlist: songs);
-                        },
-                      );
-                    },
-                  ),
+                  child: context.isTablet
+                      ? GridView.builder(
+                          shrinkWrap: true,
+                          padding: EdgeInsets.only(
+                            bottom: bottomPadding > 0
+                                ? bottomPadding + 20
+                                : 32,
+                          ),
+                          gridDelegate:
+                              const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 160,
+                            childAspectRatio: 0.75,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 12,
+                          ),
+                          itemCount: songs.length,
+                          itemBuilder: (_, i) {
+                            final song = songs[i];
+                            return SongGridTile(
+                              song: song,
+                              onTap: (s) {
+                                Navigator.pop(sheetContext);
+                                context
+                                    .read<PlayerProvider>()
+                                    .playSong(s, playlist: songs);
+                              },
+                            );
+                          },
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          padding: EdgeInsets.only(
+                            bottom: bottomPadding > 0
+                                ? bottomPadding + 20
+                                : 32,
+                          ),
+                          itemCount: songs.length,
+                          itemBuilder: (_, i) {
+                            final song = songs[i];
+                            return SongTile(
+                              song: song,
+                              onTap: (s) {
+                                Navigator.pop(sheetContext);
+                                context
+                                    .read<PlayerProvider>()
+                                    .playSong(s, playlist: songs);
+                              },
+                            );
+                          },
+                        ),
                 ),
             ],
           ),

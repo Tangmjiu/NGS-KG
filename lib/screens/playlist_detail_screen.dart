@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';
+import 'package:material_symbols_icons/material_symbols_icons.dart';
+import '../utils/app_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/playlist_provider.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../theme/theme_assets.dart';
 import '../widgets/song_tile.dart';
+import '../models/song.dart';
+import '../utils/responsive.dart';
+import '../widgets/song_grid_tile.dart';
 import '../widgets/list_bottom_spacer.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
@@ -54,6 +59,100 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     });
   }
 
+  /// ✅ 新增适配代码：从歌单移除（平板网格长按菜单 / 手机滑动删除共用）
+  Future<void> _removeFromPlaylist(Song song) async {
+    if (!mounted) return;
+    final confirmed = await showM3Dialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('移除'),
+        content: Text('从歌单移除「${song.name}」？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('移除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final fileid = song.fileId;
+    final playlistDetail = context.read<PlaylistProvider>().currentPlaylist;
+    if (fileid != null && playlistDetail != null) {
+      try {
+        await MusicService().removeTracksFromPlaylist(
+            playlistDetail.playlist.id, fileid.toString());
+        if (mounted) {
+          context
+              .read<PlaylistProvider>()
+              .fetchPlaylistDetail(widget.gcId ?? '');
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('移除失败: $e')));
+        }
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('无法移除：缺少歌曲标识')));
+      }
+    }
+  }
+
+  /// ✅ 新增适配代码：平板歌单网格（多选角标 + 长按移除菜单）
+  Widget _buildSongsGrid(List<Song> songs) {
+    return SliverGrid(
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 180,
+        childAspectRatio: 0.75,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+      ),
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final song = songs[index];
+          if (_isSelecting) {
+            return M3StaggeredFadeIn(
+              index: index,
+              child: SongGridTile(
+                song: song,
+                selectionMode: true,
+                selected: _selectedIndices.contains(index),
+                onSelectionToggle: () => _toggleSelection(index),
+              ),
+            );
+          }
+          return M3StaggeredFadeIn(
+            index: index,
+            child: SongGridTile(
+              song: song,
+              onTap: (s) => context
+                  .read<PlayerProvider>()
+                  .playSong(s, playlist: songs),
+              contextMenuExtras: [
+                ListTile(
+                  leading: const Icon(Icons.delete_outline),
+                  title: const Text('从歌单移除'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _removeFromPlaylist(song);
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+        childCount: songs.length,
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -78,10 +177,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           }
           final detail = provider.currentPlaylist;
           if (detail == null) {
-            return emptyStateWidget(ThemeAssets.loadFailed, Icons.error_outline, '加载失败');
+            return emptyStateWidget(ThemeAssets.loadFailed, Symbols.error_outline_rounded, '加载失败');
           }
           if (detail.songs.isEmpty) {
-            return emptyStateWidget(ThemeAssets.emptyContent, Icons.music_note, '暂无歌曲');
+            return emptyStateWidget(ThemeAssets.emptyContent, AppIcons.musicNote, '暂无歌曲');
           }
 
           final pl = detail.playlist;
@@ -90,8 +189,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           final desc = pl.description;
           final hasDesc = desc != null && desc.isNotEmpty;
           final songCount = detail.songs.length;
-
-          final isWide = MediaQuery.of(context).size.width >= 880;
 
           Widget mainContent = CustomScrollView(
             slivers: [
@@ -104,16 +201,16 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     : null,
                 actions: [
                   IconButton(
-                    icon: Icon(_isSelecting
-                        ? Icons.close
-                        : Icons.checklist),
+                    icon: AppIcon(_isSelecting
+                        ? AppIcons.close
+                        : Symbols.checklist_rounded),
                     tooltip:
                         _isSelecting ? '取消选择' : '多选',
                     onPressed: _toggleSelectMode,
                   ),
                   if (!_isSelecting)
                     IconButton(
-                      icon: const Icon(Icons.comment_outlined),
+                      icon: const AppIcon(Symbols.comment_rounded),
                       tooltip: '评论',
                       onPressed: () =>
                           Navigator.pushNamed(context, '/comments',
@@ -183,7 +280,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.queue_music,
+                          AppIcon(AppIcons.queueMusic,
                               size: 16, color: cs.onSurfaceVariant),
                           const SizedBox(width: 6),
                           Text('$songCount 首',
@@ -199,8 +296,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                       .playSong(detail.songs.first,
                                           playlist: detail.songs);
                                 },
-                                icon: const Icon(
-                                    Icons.play_arrow, size: 18),
+                                icon: const AppIcon(
+                                    AppIcons.play, size: 18),
                                 label: const Text('播放全部'),
                               ),
                             ),
@@ -216,8 +313,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   ),
                 ),
               ),
-              // 歌曲列表
-              SliverList(
+              // 歌曲列表（✅ 平板网格 / 手机线性列表）
+              context.isTablet
+                  ? _buildSongsGrid(detail.songs)
+                  : SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final song = detail.songs[index];
@@ -317,7 +416,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         alignment: Alignment.centerRight,
                         padding: const EdgeInsets.only(right: 20),
                         color: cs.error,
-                        child: Icon(Icons.delete, color: cs.onError),
+                        child: AppIcon(AppIcons.delete, color: cs.onError),
                       ),
                       child: tile,
                     );
@@ -332,14 +431,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             ],
           );
 
-          if (isWide) {
-            mainContent = Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: mainContent,
-              ),
-            );
-          }
           return mainContent;
         },
       ),
@@ -371,10 +462,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       child: Row(
         children: [
           TextButton.icon(
-            icon: Icon(
+            icon: AppIcon(
               _selectedIndices.length == total
-                  ? Icons.deselect
-                  : Icons.select_all,
+                  ? Symbols.deselect_rounded
+                  : Symbols.select_all_rounded,
               size: 18,
             ),
             label: Text(
@@ -383,7 +474,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.playlist_add),
+            icon: const AppIcon(Symbols.playlist_add_rounded),
             tooltip: '添加到歌单',
             onPressed: count == 0
                 ? null
@@ -391,7 +482,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           ),
           const SizedBox(width: 4),
           IconButton(
-            icon: Icon(Icons.delete_sweep, color: cs.error),
+            icon: AppIcon(Symbols.delete_sweep_rounded, color: cs.error),
             tooltip: '删除选中',
             onPressed: count == 0
                 ? null
@@ -441,7 +532,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 itemBuilder: (_, i) {
                   final pl = playlists[i];
                   return ListTile(
-                    leading: const Icon(Icons.playlist_play),
+                    leading: const AppIcon(AppIcons.playlistPlay),
                     title: Text(pl.name),
                     onTap: () async {
                       Navigator.pop(ctx);

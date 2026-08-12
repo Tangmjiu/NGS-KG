@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../utils/app_icons.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -12,6 +13,8 @@ import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
 import '../widgets/list_bottom_spacer.dart';
+import '../utils/responsive.dart';
+import '../widgets/song_grid_tile.dart';
 import '../theme/theme_assets.dart';
 import '../constants/banned_words.dart';
 
@@ -199,8 +202,8 @@ class _SearchScreenState extends State<SearchScreen>
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              Icon(
-                Icons.search,
+              AppIcon(
+                AppIcons.search,
                 size: 20,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -243,8 +246,8 @@ class _SearchScreenState extends State<SearchScreen>
                     },
                     child: Padding(
                       padding: const EdgeInsets.all(6),
-                      child: Icon(
-                        Icons.clear,
+                      child: AppIcon(
+                        AppIcons.close,
                         size: 18,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -263,14 +266,7 @@ class _SearchScreenState extends State<SearchScreen>
               )
             : null,
       ),
-      body: MediaQuery.of(context).size.width >= 880
-          ? Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: _buildBody(),
-              ),
-            )
-          : _buildBody(),
+      body: _buildBody(),
     );
   }
 
@@ -324,7 +320,7 @@ class _SearchScreenState extends State<SearchScreen>
           index: i,
           child: M3PressScale(
             child: ListTile(
-              leading: const Icon(Icons.search, size: 20),
+              leading: const AppIcon(AppIcons.search, size: 20),
               title: Text(_suggestions[i]),
               onTap: () {
                 _searchCtrl.text = _suggestions[i];
@@ -383,13 +379,13 @@ class _SearchScreenState extends State<SearchScreen>
                                     errorWidget: (_, __, ___) => Container(
                                       width: 72, height: 72,
                                       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                      child: const Icon(Icons.music_note),
+                                      child: const AppIcon(AppIcons.musicNote),
                                     ),
                                   )
                                 : Container(
                                     width: 72, height: 72,
                                     color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                    child: const Icon(Icons.music_note),
+                                    child: const AppIcon(AppIcons.musicNote),
                                   ),
                           ),
                           const SizedBox(height: 4),
@@ -472,6 +468,28 @@ class _SearchScreenState extends State<SearchScreen>
     if (_songs.isEmpty) {
       return _emptyResult('未找到歌曲');
     }
+    // ✅ 新增适配代码：平板网格封面墙 / 手机线性列表
+    if (context.isTablet) {
+      return GridView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 180,
+          childAspectRatio: 0.75,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
+        ),
+        itemCount: _songs.length,
+        itemBuilder: (_, i) => M3StaggeredFadeIn(
+          index: i,
+          child: SongGridTile(
+            song: _songs[i],
+            onTap: (s) => context
+                .read<PlayerProvider>()
+                .playSong(s, playlist: _songs),
+          ),
+        ),
+      );
+    }
     return ListView.builder(
       itemCount: _songs.length + 1,
       itemBuilder: (_, i) {
@@ -518,7 +536,7 @@ class _SearchScreenState extends State<SearchScreen>
                   : Container(
                       width: 48, height: 48,
                       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: const Icon(Icons.queue_music),
+                      child: const AppIcon(AppIcons.queueMusic),
                     ),
               title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text('$count首歌'),
@@ -575,7 +593,7 @@ class _SearchScreenState extends State<SearchScreen>
                   : Container(
                       width: 48, height: 48,
                       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: const Icon(Icons.album),
+                      child: const AppIcon(AppIcons.album),
                     ),
               title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -622,7 +640,7 @@ class _SearchScreenState extends State<SearchScreen>
                         color: Theme.of(context).colorScheme.surfaceContainerHighest,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.person),
+                      child: const AppIcon(AppIcons.person),
                     ),
               title: Text(name),
               onTap: () {
@@ -659,7 +677,7 @@ class _SearchScreenState extends State<SearchScreen>
   // MV:             : Container(
   // MV:                 width: 48, height: 48,
   // MV:                 color: Theme.of(context).colorScheme.surfaceContainerHighest,
-  // MV:                 child: const Icon(Icons.video_library),
+  // MV:                 child: const AppIcon(Icons.video_library),
   // MV:               ),
   // MV:         title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
   // MV:         subtitle: Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),

@@ -9,6 +9,7 @@ import '../models/song.dart';
 import '../constants/quality.dart';
 import '../services/music_service.dart';
 import '../services/api_exception.dart';
+import '../services/download_service.dart';
 import '../utils/navigation.dart' as app;
 import '../providers/auth_provider.dart';
 import '../widgets/login_required_dialog.dart';
@@ -240,7 +241,10 @@ class AudioEngine {
       // Direct filePath URL (cloud disk, local, etc.)
       if (song.filePath != null && song.filePath!.isNotEmpty) {
         final fp = song.filePath!;
-        if (fp.startsWith('http') || fp.startsWith('https')) {
+        if (fp.startsWith('http') ||
+            fp.startsWith('https') ||
+            fp.startsWith('content://')) {
+          // 网络 URL 或 MediaStore content:// URI（公共下载目录）
           await _player.setUrl(fp);
           if (version != _playRequestVersion) { isLoading.value = false; return; }
           _lastUrlFetchTime = DateTime.now();
@@ -301,6 +305,7 @@ class AudioEngine {
                 played = true;
                 resolvedQualityNotifier.value = opt.value;
                 Log.i('audio_engine', 'effect resolved: ${opt.value} (${opt.label})');
+                _triggerCache(song, opt.value, variantHash: opt.hash);
               }
             } catch (_) {
               // 效果失败，降级到编码音质
@@ -345,6 +350,7 @@ class AudioEngine {
             // ✅ 记录最终解析到的音质
             resolvedQualityNotifier.value = c.quality;
             Log.i('audio_engine', 'resolved quality: ${c.quality} (${c.label})');
+            _triggerCache(song, c.quality, variantHash: c.hash);
             break;
           }
         } catch (e) {
@@ -574,6 +580,9 @@ class AudioEngine {
     _player.setVolume(volume);
   }
 
+  // ✅ 新增适配代码：当前音量（平板手势调音量基准）
+  double get volume => _player.volume;
+
   void setSpeed(double speed) {
     _speed = speed;
     _player.setSpeed(speed);
@@ -596,6 +605,20 @@ class AudioEngine {
         _player.setVolume(vol);
       }
     });
+  }
+
+  /// 播放成功后触发后台缓存（先播后缓），非阻塞
+  void _triggerCache(Song song, String quality, {String? variantHash}) {
+    try {
+      DownloadService.instance.maybeCacheSong(
+        song,
+        quality,
+        variantHash: variantHash,
+      );
+    } catch (e) {
+      // 缓存失败不影响播放
+      Log.w('audio_engine', 'cache trigger failed', e);
+    }
   }
 
   /// 上报播放历史，重试最多 3 次，指数退避

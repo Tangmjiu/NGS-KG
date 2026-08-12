@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import '../utils/app_icons.dart';
 import '../utils/theme.dart';
 import 'package:provider/provider.dart';
+import 'package:material_symbols_icons/material_symbols_icons.dart';
 import '../models/song.dart';
 import '../providers/auth_provider.dart';
 import '../providers/player_provider.dart';
 import '../utils/logger.dart';
 import '../services/music_service.dart';
+import '../utils/responsive.dart';
 
 class CloudDiskScreen extends StatefulWidget {
   const CloudDiskScreen({super.key});
@@ -81,7 +84,6 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final bodyContent = _isLoading
         ? const Center(child: CircularProgressIndicator())
         : _error != null
@@ -89,7 +91,7 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.error_outline, size: 80, color: Theme.of(context).colorScheme.error),
+                    AppIcon(Symbols.error_outline_rounded, size: 80, color: Theme.of(context).colorScheme.error),
                     const SizedBox(height: 16),
                     Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
                   ],
@@ -100,7 +102,7 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.cloud_off, size: 80, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        AppIcon(Symbols.cloud_off_rounded, size: 80, color: Theme.of(context).colorScheme.onSurfaceVariant),
                         const SizedBox(height: 16),
                         Text('云盘暂无歌曲', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                       ],
@@ -108,7 +110,79 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                   )
                 : RefreshIndicator(
                 onRefresh: _load,
-                child: ListView.builder(
+                // ✅ 新增适配代码：平板网格封面墙（云盘歌曲无封面，图标卡片）/ 手机线性列表
+                child: context.isTablet
+                    ? GridView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 180,
+                          childAspectRatio: 0.75,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 16,
+                        ),
+                        itemCount: _songs.length,
+                        itemBuilder: (_, i) {
+                          final item = _songs[i];
+                          final name = item['name'] as String? ?? '';
+                          final author =
+                              item['author_name'] as String? ?? '';
+                          final isPlaying = _playingIndex == i;
+                          final cs = Theme.of(context).colorScheme;
+                          return InkWell(
+                            borderRadius: AppShape.md,
+                            onTap: isPlaying
+                                ? null
+                                : () => _playSong(i, item),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                AspectRatio(
+                                  aspectRatio: 1,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: cs.surfaceContainerHighest,
+                                      borderRadius: AppShape.md,
+                                    ),
+                                    child: isPlaying
+                                        ? const Padding(
+                                            padding: EdgeInsets.all(32),
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 2),
+                                          )
+                                        : AppIcon(Symbols.cloud_done_rounded,
+                                            size: 64,
+                                            color: cs.primary),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
+                                          fontWeight: FontWeight.w500),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  author,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                          color: cs.onSurfaceVariant),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      )
+                    : ListView.builder(
                   padding: const EdgeInsets.only(top: 8),
                   itemCount: _songs.length,
                   itemBuilder: (_, i) {
@@ -129,7 +203,7 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
                                 padding: EdgeInsets.all(12),
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : Icon(Icons.cloud_done, color: Theme.of(context).colorScheme.primary),
+                            : AppIcon(Symbols.cloud_done_rounded, color: Theme.of(context).colorScheme.primary),
                       ),
                       title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
                       subtitle: Text(author, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
@@ -141,14 +215,7 @@ class _CloudDiskScreenState extends State<CloudDiskScreen> {
               );
     return Scaffold(
       appBar: AppBar(title: const Text('云盘')),
-      body: isWide
-          ? Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: bodyContent,
-              ),
-            )
-          : bodyContent,
+      body: bodyContent,
     );
   }
 }

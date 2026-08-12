@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/playlist_detail_screen.dart';
@@ -28,6 +29,12 @@ import '../screens/audio_effects_screen.dart';
 import '../screens/about_screen.dart';
 import '../screens/log_viewer_screen.dart';
 import '../screens/lyric_settings_screen.dart';
+import '../screens/audio_quality_screen.dart';
+import '../screens/download_screen.dart';
+import '../screens/profile_screen.dart';
+import '../navidrome/navidrome_login_screen.dart';
+import '../features/developer/developer_screen.dart';
+import '../features/developer/network/network_log_screen.dart';
 
 class AppRoutes {
   static const String home = '/';
@@ -59,7 +66,13 @@ class AppRoutes {
   static const String audioEffects = '/settings/audio/effects';
   static const String about = '/about';
   static const String logViewer = '/settings/developer/log';
+  static const String developer = '/settings/developer';
+  static const String networkMonitor = '/settings/developer/network';
   static const String lyricSettings = '/settings/lyric';
+  static const String audioQuality = '/settings/audio/quality';
+  static const String likedSongs = '/user/liked';
+  static const String navidromeLogin = '/navidrome/login';
+  static const String downloads = '/downloads';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -168,25 +181,36 @@ class AppRoutes {
           ),
         );
       case AppRoutes.apiSettings:
-        return MaterialPageRoute(
-            builder: (_) => const ApiSettingsScreen());
+        return MaterialPageRoute(builder: (_) => const ApiSettingsScreen());
       case AppRoutes.themeSettings:
-        return MaterialPageRoute(
-            builder: (_) => const ThemeSettingsScreen());
+        return MaterialPageRoute(builder: (_) => const ThemeSettingsScreen());
       case AppRoutes.themeMarket:
-        return MaterialPageRoute(
-            builder: (_) => const ThemeMarketScreen());
+        return MaterialPageRoute(builder: (_) => const ThemeMarketScreen());
       case AppRoutes.audioEffects:
-        return MaterialPageRoute(
-            builder: (_) => const AudioEffectsScreen());
+        return MaterialPageRoute(builder: (_) => const AudioEffectsScreen());
       case AppRoutes.about:
         return MaterialPageRoute(builder: (_) => const AboutScreen());
       case AppRoutes.logViewer:
-        return MaterialPageRoute(
-            builder: (_) => const LogViewerScreen());
+        // 日志查看器仅 Debug/Profile 构建可达（release 纵深防御）
+        if (kReleaseMode) return _fallback();
+        return MaterialPageRoute(builder: (_) => const LogViewerScreen());
+      case AppRoutes.developer:
+        // 开发者工具页仅 Debug/Profile 构建可达（release 纵深防御）
+        if (kReleaseMode) return _fallback();
+        return MaterialPageRoute(builder: (_) => const DeveloperScreen());
+      case AppRoutes.networkMonitor:
+        if (kReleaseMode) return _fallback();
+        return MaterialPageRoute(builder: (_) => const NetworkLogScreen());
       case AppRoutes.lyricSettings:
-        return MaterialPageRoute(
-            builder: (_) => const LyricSettingsScreen());
+        return MaterialPageRoute(builder: (_) => const LyricSettingsScreen());
+      case AppRoutes.audioQuality:
+        return MaterialPageRoute(builder: (_) => const AudioQualityScreen());
+      case AppRoutes.likedSongs:
+        return MaterialPageRoute(builder: (_) => const LikedSongsScreen());
+      case AppRoutes.navidromeLogin:
+        return MaterialPageRoute(builder: (_) => const NavidromeLoginScreen());
+      case AppRoutes.downloads:
+        return MaterialPageRoute(builder: (_) => const DownloadScreen());
       default:
         return _fallback();
     }
