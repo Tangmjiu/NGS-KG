@@ -14,6 +14,7 @@ import android.view.MotionEvent
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.BasicMessageChannel
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.StringCodec
 import kotlinx.coroutines.CoroutineScope
@@ -36,9 +37,12 @@ class MainActivity : FlutterActivity() {
     private val CHANNEL_METADATA = "com.mjiutang.ngskg/metadata"
     private val CHANNEL_MEDIA = "com.mjiutang.ngskg/media_session"
     private val CHANNEL_DEVICE = "com.mjiutang.ngskg/device"
+    private val CHANNEL_AUDIO_ROUTE = "com.mjiutang.ngskg/audio_route"
+    private val CHANNEL_AUDIO_ROUTE_EVENTS = "com.mjiutang.ngskg/audio_route_events"
 
     private var playbackService: PlaybackService? = null
     private var callbackChannel: BasicMessageChannel<String>? = null
+    private var audioRouteManager: AudioRouteManager? = null
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             playbackService = (service as PlaybackService.LocalBinder).getService()
@@ -147,6 +151,39 @@ class MainActivity : FlutterActivity() {
             }
         }
 
+        // 音频输出路由（设备枚举 / 切换 / 系统面板）
+        val routeManager = AudioRouteManager(this).also { audioRouteManager = it }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            CHANNEL_AUDIO_ROUTE
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getAudioOutputs" -> result.success(routeManager.getAudioOutputs())
+                "setAudioOutput" -> {
+                    val deviceId = (call.argument<Number>("deviceId"))?.toInt() ?: -1
+                    result.success(routeManager.setAudioOutput(deviceId))
+                }
+                "showSystemOutputSwitcher" -> {
+                    routeManager.showSystemOutputSwitcher()
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            CHANNEL_AUDIO_ROUTE_EVENTS
+        ).setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                routeManager.eventSink = events
+                routeManager.start()
+            }
+            override fun onCancel(arguments: Any?) {
+                routeManager.eventSink = null
+                routeManager.stop()
+            }
+        })
+
         // 设置回调通道（Native → Flutter）
         callbackChannel = BasicMessageChannel<String>(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -161,6 +198,8 @@ class MainActivity : FlutterActivity() {
         try {
             unbindService(serviceConnection)
         } catch (_: Exception) {}
+        audioRouteManager?.stop()
+        audioRouteManager = null
         lastService = null
         super.onDestroy()
     }

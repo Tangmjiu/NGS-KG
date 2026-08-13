@@ -1,51 +1,25 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
 //
-// Wear OS 圆屏列表项 — 大触控区域、圆角卡片样式，适配圆形屏幕
+// 手表列表项 — M3E 胶囊条目，大触控区域，适配圆屏/方屏
 
 import 'package:flutter/material.dart';
 
-/// Wear OS 圆屏列表项。
+import '../theme/watch_theme.dart';
+import '../utils/watch_motion.dart';
+
+/// 手表列表项（Wear M3 Chip 风格）。
 ///
-/// 提供了一个适合在圆屏上触摸操作的列表条目：
-/// - 最小 48px 高度，便于手指触控
-/// - 12px 圆角
-/// - 支持标题、副标题、前置图标、后置组件
-/// - `selected` 高亮状态
-///
-/// 通常与 [WatchScrollList] 配合使用：
-/// ```dart
-/// WatchScrollList(
-///   itemCount: items.length,
-///   itemBuilder: (context, index) {
-///     final item = items[index];
-///     return RoundListTile(
-///       title: item.name,
-///       subtitle: item.subtitle,
-///       onTap: () => handleTap(index),
-///     );
-///   },
-/// )
-/// ```
-class RoundListTile extends StatelessWidget {
-  /// 标题（必填）
+/// - 胶囊形（全圆角）容器，surfaceContainerHigh 底色
+/// - 最小 48 高度触控目标
+/// - 按下缩小微交互（M3E）
+/// - [selected] 时用 primaryContainer 高亮
+class RoundListTile extends StatefulWidget {
   final String title;
-
-  /// 副标题（可选）
   final String? subtitle;
-
-  /// 前置组件（可选），通常为图标
   final Widget? leading;
-
-  /// 后置组件（可选）
   final Widget? trailing;
-
-  /// 点击回调
   final VoidCallback? onTap;
-
-  /// 是否处于选中状态（高亮背景）
-  ///
-  /// 默认 false。
   final bool selected;
 
   const RoundListTile({
@@ -59,72 +33,89 @@ class RoundListTile extends StatelessWidget {
   });
 
   @override
+  State<RoundListTile> createState() => _RoundListTileState();
+}
+
+class _RoundListTileState extends State<RoundListTile> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    // 选中状态下的背景色
-    final bgColor = selected
-        ? colorScheme.primaryContainer.withValues(alpha: 0.3)
-        : Colors.transparent;
+    final bgColor = widget.selected
+        ? colorScheme.primaryContainer
+        : colorScheme.surfaceContainerHigh;
+    final fgColor = widget.selected
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurface;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      child: Material(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 48),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                // ── 前置组件 ──
-                if (leading != null) ...[
-                  leading!,
-                  const SizedBox(width: 12),
-                ],
-
-                // ── 文字区域 ──
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        title,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight:
-                              selected ? FontWeight.bold : FontWeight.w500,
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: AnimatedScale(
+        scale: _pressed ? 0.96 : 1.0,
+        duration: WatchMotion.durShort2,
+        curve: WatchMotion.curveEmphasized,
+        child: Material(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(WatchShapeTokens.full),
+          child: InkWell(
+            onTap: widget.onTap == null
+                ? null
+                : () {
+                    WatchMotion.tap();
+                    widget.onTap!();
+                  },
+            onTapDown: (_) => setState(() => _pressed = true),
+            onTapUp: (_) => setState(() => _pressed = false),
+            onTapCancel: () => setState(() => _pressed = false),
+            borderRadius: BorderRadius.circular(WatchShapeTokens.full),
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 46),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+              child: Row(
+                children: [
+                  if (widget.leading != null) ...[
+                    IconTheme(
+                      data: IconThemeData(color: fgColor, size: 20),
+                      child: widget.leading!,
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.title,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: fgColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (subtitle != null && subtitle!.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            subtitle!,
+                        if (widget.subtitle != null &&
+                            widget.subtitle!.isNotEmpty)
+                          Text(
+                            widget.subtitle!,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurface
-                                  .withValues(alpha: 0.6),
+                              color: fgColor.withValues(alpha: 0.6),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-
-                // ── 后置组件 ──
-                if (trailing != null) ...[
-                  const SizedBox(width: 8),
-                  trailing!,
+                  if (widget.trailing != null) ...[
+                    const SizedBox(width: 8),
+                    widget.trailing!,
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

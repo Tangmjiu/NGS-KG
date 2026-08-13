@@ -89,19 +89,14 @@ class KugouSigner {
       final val = v is Map || v is List ? jsonEncode(v) : v.toString();
       return '$k=$val';
     }).join('');
-    return md5
-        .convert(utf8.encode('$secret$paramsStr$data$secret'))
-        .toString();
+    return md5.convert(utf8.encode('$secret$paramsStr$data$secret')).toString();
   }
 
   /// Register 设备注册版参数签名
   ///
   /// 算法: md5("1014" + sortedValues + "1014")
   String signatureRegisterParams(Map<String, dynamic> params) {
-    final values = params.values
-        .map((v) => v.toString())
-        .toList()
-      ..sort();
+    final values = params.values.map((v) => v.toString()).toList()..sort();
     final paramsStr = values.join('');
     return md5.convert(utf8.encode('1014${paramsStr}1014')).toString();
   }
@@ -118,25 +113,20 @@ class KugouSigner {
   /// signKey 加密 — 用于获取播放 URL 时的 key 参数
   ///
   /// 算法: md5(hash + secret + appid + mid + userid)
-  String signKey(String hash, String mid,
-      {int? userId, int? appidOverride}) {
+  String signKey(String hash, String mid, {int? userId, int? appidOverride}) {
     final secret = isLite ? _signKeyLiteSecret : _signKeySecret;
     final appid = appidOverride ?? (isLite ? appidLite : appidStandard);
     return md5
-        .convert(utf8.encode(
-            '$hash$secret$appid$mid${userId ?? 0}'))
+        .convert(utf8.encode('$hash$secret$appid$mid${userId ?? 0}'))
         .toString();
   }
 
   /// signParams — 用于一些新版接口的参数签名
-  String signParams(Map<String, dynamic> params,
-      [String data = '']) {
+  String signParams(Map<String, dynamic> params, [String data = '']) {
     const str = 'R6snCXJgbCaj9WFRJKefTMIFp0ey6Gza';
     final keys = params.keys.toList()..sort();
     final paramsStr = keys.map((k) => '$k${params[k]}').join('');
-    return md5
-        .convert(utf8.encode('$paramsStr$data$str'))
-        .toString();
+    return md5.convert(utf8.encode('$paramsStr$data$str')).toString();
   }
 
   // ─── 请求构造辅助 ───

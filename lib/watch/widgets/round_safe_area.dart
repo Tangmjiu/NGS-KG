@@ -48,16 +48,24 @@ class RoundSafeArea extends StatelessWidget {
 
     // 圆屏：水平用内接正方形边距，垂直仅避让系统 chin
     final horizontalInset = size.shortestSide * 0.146;
-    final verticalInset =
-        (systemPadding.top > systemPadding.bottom ? systemPadding.top : systemPadding.bottom)
-            .clamp(12.0, double.infinity) + extraVerticalPadding;
+    final verticalInset = (systemPadding.top > systemPadding.bottom
+                ? systemPadding.top
+                : systemPadding.bottom)
+            .clamp(12.0, double.infinity) +
+        extraVerticalPadding;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        horizontalInset > systemPadding.left ? horizontalInset : systemPadding.left,
+        horizontalInset > systemPadding.left
+            ? horizontalInset
+            : systemPadding.left,
         verticalInset > systemPadding.top ? verticalInset : systemPadding.top,
-        horizontalInset > systemPadding.right ? horizontalInset : systemPadding.right,
-        verticalInset > systemPadding.bottom ? verticalInset : systemPadding.bottom,
+        horizontalInset > systemPadding.right
+            ? horizontalInset
+            : systemPadding.right,
+        verticalInset > systemPadding.bottom
+            ? verticalInset
+            : systemPadding.bottom,
       ),
       child: child,
     );

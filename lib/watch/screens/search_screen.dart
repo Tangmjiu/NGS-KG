@@ -1,7 +1,8 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
 //
-// Wear OS 圆屏搜索页 — 语音搜索 + 文本搜索，适配圆形屏幕
+// 手表搜索页 — 键盘输入搜索，进入自动唤起输入法
+// 圆屏/方屏自适应，结果列表适配圆屏安全边距
 
 import 'dart:async';
 
@@ -11,21 +12,18 @@ import 'package:provider/provider.dart';
 import '../../../models/song.dart';
 import '../../../providers/player_provider.dart';
 import '../../../services/music_service.dart';
-import '../services/voice_search_service.dart';
+import '../utils/watch_layout.dart';
+import '../utils/watch_motion.dart';
+import '../widgets/watch_scroll_list.dart';
 import '../widgets/watch_song_tile.dart';
-import '../widgets/round_safe_area.dart';
-import 'package:wearable_rotary/wearable_rotary.dart';
 
-/// 搜索页面内部状态
-enum _SearchState { initial, listening, searching, results, empty, error }
+enum _SearchState { initial, searching, results, empty, error }
 
-/// 手表版搜索页面
+/// 手表搜索页。
 ///
-/// 提供两种搜索方式：
-/// - 语音搜索：点击大麦克风按钮，启动语音识别后自动搜索
-/// - 文本搜索：输入关键字，300ms debounce 后自动搜索
-///
-/// 搜索结果以 [WatchSongTile] 列表展示，点击即播。
+/// - 进入后自动唤起输入法
+/// - 输入 300ms 防抖后自动搜索
+/// - 结果列表适配圆屏安全边距，表冠/触摸可滚动
 class WatchSearchScreen extends StatefulWidget {
   const WatchSearchScreen({super.key});
 
@@ -36,8 +34,6 @@ class WatchSearchScreen extends StatefulWidget {
 class _WatchSearchScreenState extends State<WatchSearchScreen> {
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
-  final _scrollController = RotaryScrollController();
-  final _voiceService = VoiceSearchService();
 
   List<Song> _results = [];
   _SearchState _state = _SearchState.initial;
@@ -48,6 +44,10 @@ class _WatchSearchScreenState extends State<WatchSearchScreen> {
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchTextChanged);
+    // 进入页面后自动唤起输入法
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
   }
 
   @override
@@ -56,16 +56,9 @@ class _WatchSearchScreenState extends State<WatchSearchScreen> {
     _searchController.removeListener(_onSearchTextChanged);
     _searchController.dispose();
     _focusNode.dispose();
-    _scrollController.dispose();
-    _voiceService.stop();
     super.dispose();
   }
 
-  // ─────────────────────────────────────────────
-  // 搜索逻辑
-  // ─────────────────────────────────────────────
-
-  /// 文本输入变化时 debounce 300ms 后搜索
   void _onSearchTextChanged() {
     _debounceTimer?.cancel();
     final keyword = _searchController.text.trim();
@@ -82,32 +75,25 @@ class _WatchSearchScreenState extends State<WatchSearchScreen> {
     });
   }
 
-  /// 执行搜索请求
   Future<void> _performSearch(String keyword) async {
     if (keyword.trim().isEmpty) return;
-
     setState(() {
       _state = _SearchState.searching;
       _errorMessage = null;
     });
-
     try {
-      final musicService = context.read<MusicService>();
-      final songs = await musicService.search(keyword.trim(), limit: 20);
-
+      final songs =
+          await context.read<MusicService>().search(keyword.trim(), limit: 20);
       if (!mounted) return;
-
-      if (songs.isEmpty) {
-        setState(() {
+      setState(() {
+        if (songs.isEmpty) {
           _results = [];
           _state = _SearchState.empty;
-        });
-      } else {
-        setState(() {
+        } else {
           _results = songs;
           _state = _SearchState.results;
-        });
-      }
+        }
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -118,127 +104,52 @@ class _WatchSearchScreenState extends State<WatchSearchScreen> {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // 语音搜索
-  // ─────────────────────────────────────────────
-
-  /// 启动语音搜索流程
-  Future<void> _startVoiceSearch() async {
-    setState(() => _state = _SearchState.listening);
-
-    try {
-      final available = await _voiceService.initialize();
-      if (!available) {
-        if (!mounted) return;
-        setState(() {
-          _state = _SearchState.error;
-          _errorMessage = '语音搜索不可用';
-        });
-        return;
-      }
-
-      final result = await _voiceService.listenOnce();
-      if (!mounted) return;
-
-      if (result != null && result.isNotEmpty) {
-        _searchController.text = result;
-        _searchController.selection = TextSelection.fromPosition(
-          TextPosition(offset: _searchController.text.length),
-        );
-        // 跳过 debounce，立即搜索
-        _debounceTimer?.cancel();
-        _performSearch(result);
-      } else {
-        setState(() {
-          _state = _searchController.text.trim().isEmpty
-              ? _SearchState.initial
-              : _SearchState.results;
-        });
-      }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _state = _SearchState.error;
-        _errorMessage = '语音搜索失败';
-      });
-    }
-  }
-
-  // ─────────────────────────────────────────────
-  // 播放
-  // ─────────────────────────────────────────────
-
-  /// 点击结果项播放歌曲
-  void _playSong(Song song) {
-    context.read<PlayerProvider>().playSong(song, playlist: _results);
-  }
-
-  // ─────────────────────────────────────────────
-  // UI 构建
-  // ─────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final cs = theme.colorScheme;
+    final layout = WatchLayout.of(context);
+    final isRound = layout.isRound;
+    final horizontal = isRound ? layout.contentHorizontal : 10.0;
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      body: RoundSafeArea(
-        child: Column(
+    return Semantics(
+      container: true,
+      label: '音乐搜索',
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Column(
           children: [
-            // ── 搜索输入框 ──
+            // ── 搜索栏 ──
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              child: TextField(
+              padding: EdgeInsets.fromLTRB(
+                horizontal,
+                layout.topInset,
+                horizontal,
+                4,
+              ),
+              child: _SearchBar(
                 controller: _searchController,
                 focusNode: _focusNode,
-                textInputAction: TextInputAction.search,
-                style: theme.textTheme.bodyMedium,
-                decoration: InputDecoration(
-                  hintText: '搜索音乐',
-                  hintStyle: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.4),
-                  ),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    size: 18,
-                    color: colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? GestureDetector(
-                          onTap: () {
-                            _searchController.clear();
-                            _focusNode.unfocus();
-                          },
-                          child: Icon(
-                            Icons.clear,
-                            size: 16,
-                            color: colorScheme.onSurface.withValues(alpha: 0.6),
-                          ),
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: colorScheme.surfaceContainerHighest,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                ),
+                layout: layout,
+                theme: theme,
+                cs: cs,
+                onClear: () {
+                  _searchController.clear();
+                  // 保留焦点方便连续搜索
+                  _focusNode.requestFocus();
+                },
                 onSubmitted: (value) {
                   _debounceTimer?.cancel();
                   _performSearch(value);
                 },
               ),
             ),
-
-            // ── 内容区 ──
+            // ── 结果区 ──
             Expanded(
-              child: _buildContent(theme, colorScheme),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: horizontal * 0.5),
+                child: _buildContent(theme, cs, layout),
+              ),
             ),
           ],
         ),
@@ -246,249 +157,232 @@ class _WatchSearchScreenState extends State<WatchSearchScreen> {
     );
   }
 
-  /// 根据当前状态构建内容区域
-  Widget _buildContent(ThemeData theme, ColorScheme colorScheme) {
-    switch (_state) {
-      case _SearchState.initial:
-        return _buildInitialState(theme, colorScheme);
-      case _SearchState.listening:
-        return _buildListeningState(theme, colorScheme);
-      case _SearchState.searching:
-        return _buildLoadingState(theme, colorScheme);
-      case _SearchState.results:
-        return _buildResultsList(theme, colorScheme);
-      case _SearchState.empty:
-        return _buildEmptyState(theme, colorScheme);
-      case _SearchState.error:
-        return _buildErrorState(theme, colorScheme);
-    }
+  Widget _buildContent(ThemeData theme, ColorScheme cs, WatchLayout layout) {
+    return switch (_state) {
+      _SearchState.initial => _StateView(
+          icon: Icons.search_rounded,
+          iconSize: layout.diameter * 0.16,
+          iconColor: cs.primary.withValues(alpha: 0.5),
+          text: '输入歌名或歌手',
+          layout: layout,
+          cs: cs,
+        ),
+      _SearchState.searching => _StateView(
+          icon: null,
+          customChild: SizedBox(
+            width: layout.touchTarget,
+            height: layout.touchTarget,
+            child: const Padding(
+              padding: EdgeInsets.all(8),
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            ),
+          ),
+          text: '搜索中…',
+          layout: layout,
+          cs: cs,
+        ),
+      _SearchState.results => _buildResults(layout),
+      _SearchState.empty => _StateView(
+          icon: Icons.search_off_rounded,
+          iconSize: 30,
+          iconColor: cs.onSurface.withValues(alpha: 0.3),
+          text: '未找到结果',
+          layout: layout,
+          cs: cs,
+        ),
+      _SearchState.error => _buildError(theme, cs, layout),
+    };
   }
 
-  /// 初始状态 — 大麦克风按钮 + 提示文字
-  Widget _buildInitialState(ThemeData theme, ColorScheme colorScheme) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Material(
-            color: colorScheme.primaryContainer,
-            shape: const CircleBorder(),
-            child: InkWell(
-              onTap: _startVoiceSearch,
-              customBorder: const CircleBorder(),
-              child: Container(
-                width: 64,
-                height: 64,
-                alignment: Alignment.center,
-                child: Icon(
-                  Icons.mic,
-                  size: 32,
-                  color: colorScheme.onPrimaryContainer,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '点击语音搜索',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurface.withValues(alpha: 0.6),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 语音监听状态 — 脉冲动画麦克风
-  Widget _buildListeningState(ThemeData theme, ColorScheme colorScheme) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _PulseMicIndicator(color: colorScheme.primary),
-          const SizedBox(height: 12),
-          Text(
-            '正在聆听...',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.primary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '说出歌曲名称',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurface.withValues(alpha: 0.5),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 加载中状态
-  Widget _buildLoadingState(ThemeData theme, ColorScheme colorScheme) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 12),
-          Text(
-            '搜索中...',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurface.withValues(alpha: 0.6),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 搜索结果列表
-  Widget _buildResultsList(ThemeData theme, ColorScheme colorScheme) {
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.only(top: 4, bottom: 16),
+  Widget _buildResults(WatchLayout layout) {
+    return WatchScrollList(
       itemCount: _results.length,
+      itemExtent: 52 * layout.scale,
+      topPadding: 4,
+      bottomPadding: layout.bottomInset,
       itemBuilder: (context, index) {
         final song = _results[index];
-        return WatchSongTile.fromSong(
-          song: song,
-          onTap: () => _playSong(song),
+        return Semantics(
+          button: true,
+          label: '${song.name}，${song.artistDisplay}',
+          child: WatchSongTile.fromSong(
+            song: song,
+            onTap: () {
+              WatchMotion.tap();
+              context.read<PlayerProvider>().playSong(song, playlist: _results);
+            },
+          ),
         );
       },
     );
   }
 
-  /// 空结果状态
-  Widget _buildEmptyState(ThemeData theme, ColorScheme colorScheme) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.search_off,
-            size: 36,
-            color: colorScheme.onSurface.withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '未找到结果',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurface.withValues(alpha: 0.5),
-            ),
-          ),
-        ],
+  Widget _buildError(ThemeData theme, ColorScheme cs, WatchLayout layout) {
+    return _StateView(
+      icon: Icons.error_outline_rounded,
+      iconSize: 30,
+      iconColor: cs.error,
+      text: _errorMessage ?? '出错了',
+      layout: layout,
+      cs: cs,
+      action: TextButton.icon(
+        onPressed: () {
+          final keyword = _searchController.text.trim();
+          if (keyword.isNotEmpty) {
+            _performSearch(keyword);
+          } else {
+            setState(() => _state = _SearchState.initial);
+          }
+        },
+        icon: const Icon(Icons.refresh_rounded, size: 16),
+        label: const Text('重试'),
       ),
     );
   }
+}
 
-  /// 错误状态
-  Widget _buildErrorState(ThemeData theme, ColorScheme colorScheme) {
+// ═══════════════════════════════════════════════════════
+//  搜索栏组件
+// ═══════════════════════════════════════════════════════
+
+class _SearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final WatchLayout layout;
+  final ThemeData theme;
+  final ColorScheme cs;
+  final VoidCallback onClear;
+  final ValueChanged<String> onSubmitted;
+
+  const _SearchBar({
+    required this.controller,
+    required this.focusNode,
+    required this.layout,
+    required this.theme,
+    required this.cs,
+    required this.onClear,
+    required this.onSubmitted,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: layout.touchTarget,
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        textInputAction: TextInputAction.search,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          fontSize: 13 * layout.scale,
+        ),
+        decoration: InputDecoration(
+          hintText: '搜索音乐',
+          hintStyle: theme.textTheme.bodySmall?.copyWith(
+            color: cs.onSurface.withValues(alpha: 0.45),
+            fontSize: 12 * layout.scale,
+          ),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            size: 18 * layout.scale,
+            color: cs.onSurfaceVariant,
+          ),
+          prefixIconConstraints: BoxConstraints(
+            minWidth: 32 * layout.scale,
+          ),
+          suffixIcon: controller.text.isNotEmpty
+              ? Semantics(
+                  button: true,
+                  label: '清除',
+                  child: IconButton(
+                    onPressed: onClear,
+                    icon: const Icon(Icons.close_rounded),
+                    iconSize: 16 * layout.scale,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
+                  ),
+                )
+              : null,
+          filled: true,
+          fillColor: cs.surfaceContainerHigh,
+          isDense: true,
+          border: const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(999)),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: const BorderRadius.all(Radius.circular(999)),
+            borderSide: BorderSide(color: cs.primary, width: 1.5),
+          ),
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: 10 * layout.scale,
+            vertical: 0,
+          ),
+        ),
+        onSubmitted: onSubmitted,
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  状态视图（初始/加载/空/错误共用）
+// ═══════════════════════════════════════════════════════
+
+class _StateView extends StatelessWidget {
+  final IconData? icon;
+  final double iconSize;
+  final Color iconColor;
+  final String text;
+  final Widget? customChild;
+  final Widget? action;
+  final WatchLayout layout;
+  final ColorScheme cs;
+
+  const _StateView({
+    this.icon,
+    this.iconSize = 28,
+    this.iconColor = Colors.white38,
+    required this.text,
+    this.customChild,
+    this.action,
+    required this.layout,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: EdgeInsets.symmetric(
+          horizontal: layout.contentHorizontal,
+          vertical: 8,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 36,
-              color: colorScheme.error,
-            ),
-            const SizedBox(height: 8),
+            if (customChild != null)
+              customChild!
+            else if (icon != null)
+              Icon(icon, size: iconSize, color: iconColor),
+            const SizedBox(height: 6),
             Text(
-              _errorMessage ?? '出错了',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.error,
+              text,
+              style: TextStyle(
+                color: cs.onSurface.withValues(alpha: 0.5),
+                fontSize: 12 * layout.scale,
               ),
               textAlign: TextAlign.center,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 12),
-            TextButton.icon(
-              onPressed: () {
-                final keyword = _searchController.text.trim();
-                if (keyword.isNotEmpty) {
-                  _performSearch(keyword);
-                } else {
-                  setState(() => _state = _SearchState.initial);
-                }
-              },
-              icon: const Icon(Icons.refresh, size: 16),
-              label: Text(
-                '重试',
-                style: theme.textTheme.labelMedium,
-              ),
-            ),
+            if (action != null) ...[
+              const SizedBox(height: 8),
+              action!,
+            ],
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// 语音脉冲动画指示器
-// ══════════════════════════════════════════════════════════════════════════════
-
-/// 语音监听时脉冲缩放动画麦克风按钮
-class _PulseMicIndicator extends StatefulWidget {
-  final Color color;
-
-  const _PulseMicIndicator({required this.color});
-
-  @override
-  State<_PulseMicIndicator> createState() => _PulseMicIndicatorState();
-}
-
-class _PulseMicIndicatorState extends State<_PulseMicIndicator> {
-  double _scale = 1.0;
-  bool _growing = true;
-  Timer? _pulseTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
-      if (!mounted) {
-        _pulseTimer?.cancel();
-        return;
-      }
-      setState(() {
-        _scale = _growing ? 0.85 : 1.0;
-        _growing = !_growing;
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _pulseTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedScale(
-      scale: _scale,
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOut,
-      child: Material(
-        color: widget.color.withValues(alpha: 0.15),
-        shape: const CircleBorder(),
-        child: Container(
-          width: 64,
-          height: 64,
-          alignment: Alignment.center,
-          child: Icon(
-            Icons.mic,
-            size: 32,
-            color: widget.color,
-          ),
         ),
       ),
     );

@@ -5,7 +5,8 @@ class CacheInterceptor extends Interceptor {
   final CacheService _cache = CacheService.instance;
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+  void onRequest(
+      RequestOptions options, RequestInterceptorHandler handler) async {
     final ttl = options.extra['cache_ttl'] as Duration?;
     if (ttl == null) return handler.next(options);
 

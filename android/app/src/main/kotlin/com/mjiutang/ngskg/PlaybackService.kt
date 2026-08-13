@@ -72,6 +72,11 @@ class PlaybackService : android.app.Service() {
     private var isLiked: Boolean = false
     private var playModeLabel: String = "sequential"  // sequential | shuffle | repeatOne
 
+    // ─── 公共只读属性（供 PlaybackTileService 读取当前播放状态）───
+    val tileTitle: String get() = currentTitle
+    val tileArtist: String get() = currentArtist
+    val tileIsPlaying: Boolean get() = isCurrentlyPlaying
+
     // ─── Flutter 回调（由 MainActivity 设置） ───
     var onPrev: (() -> Unit)? = null
     var onPlayPause: (() -> Unit)? = null

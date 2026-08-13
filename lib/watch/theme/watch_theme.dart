@@ -1,12 +1,24 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
 //
-// Wear OS 圆屏深色主题 — 始终 [Brightness.dark]，适合 AMOLED 屏幕
+// 手表主题 — Material 3 Expressive 风格，始终深色（AMOLED 省电）
 
 import 'package:flutter/material.dart';
-import 'package:animations/animations.dart';
 
-import '../utils/watch_motion.dart';
+/// M3E 形状令牌（手表端）
+abstract final class WatchShapeTokens {
+  /// 小组件圆角
+  static const double small = 10;
+
+  /// 卡片/列表项圆角
+  static const double medium = 16;
+
+  /// 大卡片圆角
+  static const double large = 24;
+
+  /// 胶囊（stadium）全圆角
+  static const double full = 999;
+}
 
 ThemeData buildWatchTheme(Color seedColor) {
   final colorScheme = ColorScheme.fromSeed(
@@ -23,31 +35,37 @@ ThemeData buildWatchTheme(Color seedColor) {
     visualDensity: VisualDensity.compact,
     materialTapTargetSize: MaterialTapTargetSize.padded,
     splashFactory: InkSparkle.splashFactory,
+    // M3E：进度指示器统一圆头
+    progressIndicatorTheme: ProgressIndicatorThemeData(
+      color: colorScheme.primary,
+      linearTrackColor: colorScheme.surfaceContainerHighest,
+      circularTrackColor: colorScheme.surfaceContainerHighest,
+    ),
     listTileTheme: ListTileThemeData(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(WatchShapeTokens.medium),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       dense: true,
     ),
     cardTheme: CardThemeData(
-      elevation: 1,
+      elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(WatchShapeTokens.large),
       ),
-      color: colorScheme.surfaceContainerHighest,
+      color: colorScheme.surfaceContainerHigh,
     ),
     dialogTheme: DialogThemeData(
-      elevation: 3,
+      elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(WatchShapeTokens.large),
       ),
       backgroundColor: colorScheme.surfaceContainerHigh,
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(WatchShapeTokens.small),
       ),
     ),
     pageTransitionsTheme: const PageTransitionsTheme(
@@ -55,11 +73,12 @@ ThemeData buildWatchTheme(Color seedColor) {
         TargetPlatform.android: OpenUpwardsPageTransitionsBuilder(),
       },
     ),
+    // M3E：按钮一律胶囊形、最小 48 触控目标
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         minimumSize: const Size(48, 48),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(WatchShapeTokens.full),
         ),
       ),
     ),
@@ -67,7 +86,15 @@ ThemeData buildWatchTheme(Color seedColor) {
       style: FilledButton.styleFrom(
         minimumSize: const Size(48, 48),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(WatchShapeTokens.full),
+        ),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(48, 44),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(WatchShapeTokens.full),
         ),
       ),
     ),
@@ -76,15 +103,16 @@ ThemeData buildWatchTheme(Color seedColor) {
         minimumSize: const Size(48, 48),
       ),
     ),
-    sliderTheme: SliderThemeData(
+    sliderTheme: const SliderThemeData(
       trackHeight: 4,
-      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-      overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
+      thumbShape: RoundSliderThumbShape(enabledThumbRadius: 10),
+      overlayShape: RoundSliderOverlayShape(overlayRadius: 20),
+      trackShape: RoundedRectSliderTrackShape(),
     ),
   );
 }
 
-/// 圆屏大字号适配
+/// 手表小屏字号体系
 TextTheme _watchTextTheme(TextTheme base) {
   return base.copyWith(
     displayLarge: base.displayLarge?.copyWith(fontSize: 28),

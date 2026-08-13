@@ -5,9 +5,9 @@ import 'device_service.dart';
 
 /// GitHub Release 信息
 class ReleaseInfo {
-  final String tagName;    // e.g. "v1.1.0"
-  final String version;    // e.g. "1.1.0"
-  final String body;       // CHANGELOG / release notes
+  final String tagName; // e.g. "v1.1.0"
+  final String version; // e.g. "1.1.0"
+  final String body; // CHANGELOG / release notes
   final String? downloadUrl; // APK download URL (first asset)
 
   const ReleaseInfo({
@@ -40,7 +40,8 @@ class UpdateChecker {
 
       final tagName = data['tag_name'] as String? ?? '';
       final body = data['body'] as String? ?? '';
-      final version = tagName.replaceFirst(RegExp(r'^v', caseSensitive: false), '');
+      final version =
+          tagName.replaceFirst(RegExp(r'^v', caseSensitive: false), '');
 
       // 平台和 ABI 检测，匹配对应下载链接
       String? downloadUrl;
@@ -68,7 +69,8 @@ class UpdateChecker {
   }
 
   /// 遍历 assets，找到第一个匹配 [predicate] 的下载 URL。
-  static String? _matchAsset(dynamic assets, bool Function(String name) predicate) {
+  static String? _matchAsset(
+      dynamic assets, bool Function(String name) predicate) {
     if (assets is! List) return null;
     for (final asset in assets) {
       if (asset is Map) {
@@ -100,7 +102,10 @@ class UpdateChecker {
 
   /// 清理版本号：去掉 v 前缀、仅保留 x.y.z
   static String _cleanVersion(String v) {
-    return v.replaceFirst(RegExp(r'^v', caseSensitive: false), '').split('+').first;
+    return v
+        .replaceFirst(RegExp(r'^v', caseSensitive: false), '')
+        .split('+')
+        .first;
   }
 
   /// 直接用 Dio 请求 GitHub API（不走 ApiClient，避免 404 被日志记录）

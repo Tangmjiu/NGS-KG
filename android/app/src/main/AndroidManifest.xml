@@ -1,7 +1,12 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Wear OS 必须声明 -->
-    <uses-feature android:name="android.hardware.type.watch" />
+    <!-- 手表特性：非必需 — 同时支持 Wear OS 与普通 Android 手表
+         （wear_plus 插件清单默认 required=true，这里 tools:replace 强制覆盖） -->
+    <uses-feature
+        android:name="android.hardware.type.watch"
+        android:required="false"
+        tools:replace="android:required" />
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -14,18 +19,15 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-    <!-- 语音搜索 -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-
     <!-- 本地音乐读取 -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
-    <!-- 语音识别查询配置 -->
-    <queries>
-        <intent>
-            <action android:name="android.speech.RecognitionService" />
-        </intent>
-    </queries>
+    <!-- 蓝牙音频设备（A2DP 状态监听、设备名/电量读取） -->
+    <uses-permission android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
     <application
         android:label="NGS-KG+ Watch"
@@ -74,6 +76,19 @@
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>
         </receiver>
+
+        <!-- Wear OS 系统磁贴（Tile）— 快捷查看播放状态 -->
+        <service
+            android:name="com.mjiutang.ngskg.PlaybackTileService"
+            android:exported="true"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@string/tile_preview" />
+        </service>
 
         <meta-data
             android:name="flutterEmbedding"

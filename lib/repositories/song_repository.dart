@@ -22,7 +22,9 @@ class SongRepository extends BaseRepository {
     final res = await get('/search', params: params);
     final data = res['data'] as Map<String, dynamic>?;
     if (data == null) return [];
-    final list = data['songs'] as List<dynamic>? ?? data['lists'] as List<dynamic>? ?? [];
+    final list = data['songs'] as List<dynamic>? ??
+        data['lists'] as List<dynamic>? ??
+        [];
     return list
         .map((e) => SongMapper.fromKugouJson(e as Map<String, dynamic>))
         .whereType<Song>()
@@ -48,7 +50,8 @@ class SongRepository extends BaseRepository {
   }
 
   Future<List<Map<String, dynamic>>> getHotSearch() async {
-    final res = await cachedGet('/search/hot', ttl: const Duration(minutes: 30));
+    final res =
+        await cachedGet('/search/hot', ttl: const Duration(minutes: 30));
     final data = res['data'];
     if (data is Map) {
       final list = data['list'] as List<dynamic>?;
@@ -69,7 +72,8 @@ class SongRepository extends BaseRepository {
     return [];
   }
 
-  Future<SongUrl> getSongUrl(int songId, {String? hash, String? quality}) async {
+  Future<SongUrl> getSongUrl(int songId,
+      {String? hash, String? quality}) async {
     final params = <String, dynamic>{};
     if (hash != null) {
       params['hash'] = hash;
@@ -96,7 +100,8 @@ class SongRepository extends BaseRepository {
     return get('/privilege/lite', params: {'hash': hash});
   }
 
-  Future<Map<String, dynamic>> searchLyricByHash(String hash, {String? keywords}) async {
+  Future<Map<String, dynamic>> searchLyricByHash(String hash,
+      {String? keywords}) async {
     final params = <String, dynamic>{'hash': hash};
     if (keywords != null && keywords.isNotEmpty) {
       params['keywords'] = keywords;
@@ -111,7 +116,19 @@ class SongRepository extends BaseRepository {
       'fmt': 'lrc',
       'decode': 'true',
     });
-    return res['content'] as String? ?? '';
+    final content = res['content'] as String? ?? '';
+    if (content.isEmpty) return '';
+    // API 可能返回 base64 编码的 LRC 文本，尝试解码
+    // 如果内容已经是明文 LRC（以 [ 开头），直接返回
+    if (content.trimLeft().startsWith('[')) return content;
+    // 否则尝试 base64 解码
+    try {
+      final decoded = utf8.decode(base64Decode(content));
+      if (decoded.trimLeft().startsWith('[')) return decoded;
+      return decoded; // 返回解码后的文本，即使是纯文本歌词
+    } catch (_) {
+      return content; // base64 解码失败，返回原始内容
+    }
   }
 
   /// 获取 KRC 格式歌词（包含翻译信息）
@@ -184,7 +201,8 @@ class SongRepository extends BaseRepository {
   ///
   /// 返回 data.song_list，每项含 hash/ori_audio_name/sizable_cover/author_name/time_length
   Future<List<Song>> getDailyRecommend() async {
-    final res = await get('/everyday/recommend', params: {'platform': 'android'});
+    final res =
+        await get('/everyday/recommend', params: {'platform': 'android'});
     final data = res['data'] as Map<String, dynamic>?;
     if (data == null) return [];
     final list = data['song_list'] as List<dynamic>? ?? [];
@@ -197,7 +215,8 @@ class SongRepository extends BaseRepository {
       }
       final timelength = SongMapper.tryInt(json['time_length']);
       return Song(
-        id: SongMapper.tryInt(json['mixsongid'] ?? json['audio_id'] ?? json['id']),
+        id: SongMapper.tryInt(
+            json['mixsongid'] ?? json['audio_id'] ?? json['id']),
         mixSongId: SongMapper.safeInt(json['mixsongid']),
         name: json['ori_audio_name'] as String? ?? '',
         artists: [(json['author_name'] as String? ?? '')],
@@ -269,6 +288,9 @@ class SongRepository extends BaseRepository {
         'fields': 'album_info,authors.base,base',
       });
       final data = res['data'];
+      if (data is List && data.isNotEmpty) {
+        return data.first as Map<String, dynamic>;
+      }
       if (data is Map) return data as Map<String, dynamic>;
       return null;
     } catch (_) {

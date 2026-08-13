@@ -20,14 +20,16 @@ class NotificationService {
 
   // ─── 原生通信 ───
 
-  static const _mediaChannel = MethodChannel('com.mjiutang.ngskg/media_session');
+  static const _mediaChannel =
+      MethodChannel('com.mjiutang.ngskg/media_session');
   static const _callbackChannel = BasicMessageChannel<String>(
     'com.mjiutang.ngskg/media_callbacks',
     StringCodec(),
   );
 
   // ─── 全局通知（非媒体，仅用于消息提示） ───
-  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
   // ─── 回调 ───
@@ -45,8 +47,10 @@ class NotificationService {
     if (_initialized) return;
 
     // 初始化 flutter_local_notifications（仅用于非媒体消息提示）
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await _plugin.initialize(const InitializationSettings(android: androidSettings));
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    await _plugin
+        .initialize(const InitializationSettings(android: androidSettings));
 
     // Android 13+ 通知权限请求
     if (Platform.isAndroid) {
@@ -79,7 +83,6 @@ class NotificationService {
         }
         return '';
       });
-
     }
 
     _initialized = true;
@@ -96,8 +99,8 @@ class NotificationService {
     String? albumArtUrl,
     String? lyricLine,
     bool isPlaying = true,
-    int duration = 0,    // 秒
-    int position = 0,    // 秒
+    int duration = 0, // 秒
+    int position = 0, // 秒
     bool isBuffering = false, // 是否缓冲中
   }) async {
     if (!Platform.isAndroid) return;
@@ -126,7 +129,7 @@ class NotificationService {
   /// 更新自定义按钮状态（收藏、播放模式）
   Future<void> updateCustomButtons({
     required bool liked,
-    required String playMode,  // "sequential" | "shuffle" | "repeatOne"
+    required String playMode, // "sequential" | "shuffle" | "repeatOne"
   }) async {
     if (!Platform.isAndroid) return;
     try {
@@ -162,6 +165,5 @@ class NotificationService {
   }
 
   /// 释放
-  void dispose() {
-  }
+  void dispose() {}
 }

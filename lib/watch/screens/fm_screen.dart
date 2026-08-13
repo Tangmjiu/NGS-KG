@@ -1,27 +1,27 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
 //
-// Wear OS 圆屏私人 FM 电台界面 — 播放/暂停、下一首、收藏
+// 手表私人 FM — 封面 + 歌曲信息 + 播放/下一首/收藏
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'dart:math' as math;
+
 import 'package:provider/provider.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../models/song.dart';
 import '../../../models/song_mapper.dart';
 import '../../../providers/player_provider.dart';
-import '../../../providers/liked_songs_provider.dart';
 import '../../../services/music_service.dart';
 import '../../../utils/logger.dart';
+import '../utils/watch_layout.dart';
 import '../utils/watch_motion.dart';
-import '../widgets/round_safe_area.dart';
+import '../widgets/faded_album_art.dart';
+import '../widgets/watch_like_button.dart';
 
-/// 手表版私人 FM 电台屏幕
+/// 手表版私人 FM 电台（外壳 PageView 第 5 页）。
 ///
-/// 加载酷狗私人 FM 推荐列表并逐首播放。
-/// 包含：歌曲信息显示、播放/暂停、下一首切换、收藏按钮。
-/// 适配圆形屏幕，深色背景极简布局。
+/// 加载酷狗私人 FM 推荐并逐首播放；队列播完自动续杯
+/// （[PlayerProvider.startFmPlaylist] 的 bufferProvider）。
 class WatchFmScreen extends StatefulWidget {
   const WatchFmScreen({super.key});
 
@@ -39,32 +39,18 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
     _loadFmSongs();
   }
 
-  // ═══════════════════════════════════════════════════════════
-  //  数据加载
-  // ═══════════════════════════════════════════════════════════
-
-  /// 首次加载私人 FM 推荐列表
   Future<void> _loadFmSongs() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
-
     try {
       final musicService = context.read<MusicService>();
       final raw = await musicService.getPersonalFm();
-      final songs = raw
-          .map((e) => SongMapper.fromFmJson(e))
-          .whereType<Song>()
-          .toList();
-
+      final songs =
+          raw.map((e) => SongMapper.fromFmJson(e)).whereType<Song>().toList();
       if (!mounted) return;
-
-      setState(() {
-        _isLoading = false;
-      });
-
-      // 进入 FM 模式并自动播放第一首
+      setState(() => _isLoading = false);
       if (songs.isNotEmpty) {
         context.read<PlayerProvider>().startFmPlaylist(
               songs,
@@ -81,7 +67,6 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
     }
   }
 
-  /// 加载更多 FM 推荐（供 PlayerProvider 的 playlistEndProvider 回调使用）
   Future<List<Song>> _fetchMoreFm() async {
     try {
       final player = context.read<PlayerProvider>();
@@ -104,288 +89,173 @@ class _WatchFmScreenState extends State<WatchFmScreen> {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════
-  //  播放操作
-  // ═══════════════════════════════════════════════════════════
-
-  /// 切换到下一首（委托给 PlayerProvider，FM 模式下自动续播）
-  void _nextTrack() {
-    context.read<PlayerProvider>().playNext();
-  }
-
-  /// 切换当前歌曲的收藏状态
-  void _toggleLike() {
-    final song = context.read<PlayerProvider>().currentSong;
-    if (song == null) return;
-    final likedSongs = context.read<LikedSongsProvider>();
-    final songInfo = SongInfo(
-      id: song.id,
-      name: song.name,
-      hash: song.hash ?? '',
-      albumId: song.albumId,
-      audioId: 0,
-    );
-    likedSongs.toggle(songInfo);
-    HapticFeedback.lightImpact();
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  //  构建 UI
-  // ═══════════════════════════════════════════════════════════
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2.5));
     }
+    if (_error != null) return _buildError();
 
-    if (_error != null) {
-      return _buildErrorOrEmpty();
-    }
+    final layout = WatchLayout.of(context);
 
-    // 等待 FM 队列加载到 PlayerProvider
-    final player = context.read<PlayerProvider>();
-    if (player.playlist.isEmpty) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    return _buildMainView();
-  }
-
-  /// 主界面 — 歌曲信息 + 控制区
-  Widget _buildMainView() {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: RoundSafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Column(
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        layout.playerHorizontal,
+        layout.topInset,
+        layout.playerHorizontal,
+        layout.bottomInset,
+      ),
+      child: Consumer<PlayerProvider>(
+        builder: (context, player, _) {
+          final song = player.currentSong;
+          if (song == null) {
+            return Center(
+              child: Text(
+                '暂无播放',
+                style: TextStyle(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.5),
+                  fontSize: 12,
+                ),
+              ),
+            );
+          }
+          final cs = Theme.of(context).colorScheme;
+          return Column(
             children: [
-              // ── 顶部：私人 FM 标识 ──
-              _buildHeader(),
-
-              // ── 中间：歌曲信息 + 播放暂停 ──
-              Expanded(
-                child: Consumer<PlayerProvider>(
-                  builder: (context, player, _) {
-                    final song = player.currentSong;
-                    if (song == null) {
-                      return Center(
-                        child: Text(
-                          '暂无播放',
-                          style: TextStyle(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.5),
-                            fontSize: 12,
-                          ),
-                        ),
-                      );
-                    }
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildSongSection(song),
-                        const SizedBox(height: 8),
-                        _buildPlayButton(player),
-                      ],
+              // 顶部标识
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '私人 FM',
+                  style: TextStyle(
+                    color: cs.onSurface.withValues(alpha: 0.7),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              // 封面：Flexible 吃掉剩余空间，按可用高度收缩防溢出
+              Flexible(
+                child: LayoutBuilder(
+                  builder: (context, c) {
+                    final size =
+                        math.min(layout.coverDiameter, c.maxHeight * 0.85);
+                    return Center(
+                      child: FadedAlbumArt(
+                        key: ValueKey(song.id),
+                        imageUrl: song.albumCoverUrl,
+                        size: size,
+                        alpha: 0.9,
+                        fadeStart: 0.65,
+                      ),
                     );
                   },
                 ),
               ),
-
-              // ── 底部：收藏 + 下一首 ──
-              Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildLikeButton(),
-                    const SizedBox(width: 24),
-                    _buildNextButton(),
-                  ],
+              const SizedBox(height: 6),
+              // 歌曲信息
+              Text(
+                song.name,
+                style: TextStyle(
+                  color: cs.onSurface,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                song.artistDisplay,
+                style: TextStyle(
+                  color: cs.onSurface.withValues(alpha: 0.6),
+                  fontSize: 11,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const Spacer(),
+              // 控制行：收藏 / 播放暂停 / 下一首
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  WatchLikeButton(song: song, size: 18),
+                  const SizedBox(width: 12),
+                  AnimatedSwitcher(
+                    duration: WatchMotion.durMedium1,
+                    transitionBuilder: (child, anim) =>
+                        ScaleTransition(scale: anim, child: child),
+                    child: Material(
+                      key: ValueKey(player.isPlaying),
+                      color: cs.primary,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        onTap: () {
+                          WatchMotion.confirm();
+                          player.togglePlayPause();
+                        },
+                        customBorder: const CircleBorder(),
+                        child: SizedBox(
+                          width: 50,
+                          height: 50,
+                          child: Icon(
+                            player.isPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                            size: 28,
+                            color: cs.onPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    icon: const Icon(Icons.skip_next_rounded, size: 24),
+                    color: cs.onSurface,
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 40, minHeight: 40),
+                    onPressed: () {
+                      WatchMotion.tap();
+                      player.playNext();
+                    },
+                  ),
+                ],
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 顶部 FM 标识
-  Widget _buildHeader() {
-    return Text(
-      '私人FM',
-      style: TextStyle(
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-        fontSize: 10,
-        fontWeight: FontWeight.w500,
-      ),
-      textAlign: TextAlign.center,
-    );
-  }
-
-  Widget _buildSongSection(Song song) {
-    return Column(
-      key: ValueKey(song.id),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          song.name,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          song.artistDisplay,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-            fontSize: 11,
-          ),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    )
-    .animate()
-    .fadeIn(duration: WatchMotion.durMedium2, curve: WatchMotion.curveDecelerate)
-    .slideY(
-      begin: 0.1,
-      duration: WatchMotion.durMedium2,
-      curve: WatchMotion.curveDecelerate,
-    );
-  }
-
-  Widget _buildPlayButton(PlayerProvider player) {
-    return SizedBox(
-      width: 48,
-      height: 48,
-      child: AnimatedSwitcher(
-        duration: WatchMotion.durMedium1,
-        transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
-        child: IconButton(
-          key: ValueKey(player.isPlaying),
-          icon: Icon(
-            player.isPlaying
-                ? Icons.pause_circle_filled_rounded
-                : Icons.play_circle_filled_rounded,
-            size: 40,
-          ),
-          color: Theme.of(context).colorScheme.primary,
-          padding: EdgeInsets.zero,
-          onPressed: () {
-            WatchMotion.confirm();
-            player.togglePlayPause();
-          },
-          splashRadius: 24,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLikeButton() {
-    return Consumer2<PlayerProvider, LikedSongsProvider>(
-      builder: (context, player, likedSongs, _) {
-        final song = player.currentSong;
-        if (song == null) {
-          return const SizedBox(width: 40, height: 40);
-        }
-        final isLiked = likedSongs.likedIds.contains(song.id);
-        return SizedBox(
-          width: 40,
-          height: 40,
-          child: IconButton(
-            icon: Icon(
-              isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
-              size: 20,
-              color: isLiked
-                  ? Theme.of(context).colorScheme.error
-                  : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-            ),
-            padding: EdgeInsets.zero,
-            splashRadius: 20,
-            onPressed: _toggleLike,
-          )
-          .animate(target: isLiked ? 1 : 0, value: isLiked ? 1 : 0)
-          .scale(
-            begin: const Offset(1.0, 1.0),
-            end: const Offset(1.3, 1.3),
-            duration: WatchMotion.durShort4,
-            curve: WatchMotion.curveEmphasized,
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildNextButton() {
-    return SizedBox(
-      width: 40,
-      height: 40,
-      child: IconButton(
-        icon: const Icon(Icons.skip_next_rounded, size: 24),
-        color: Theme.of(context).colorScheme.onSurface,
-        padding: EdgeInsets.zero,
-        splashRadius: 20,
-        onPressed: () {
-          WatchMotion.tap();
-          _nextTrack();
+          );
         },
       ),
     );
   }
 
-  /// 错误 / 空数据占位
-  Widget _buildErrorOrEmpty() {
+  Widget _buildError() {
     final theme = Theme.of(context);
-    final isError = _error != null;
-
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isError ? Icons.error_outline : Icons.radio_rounded,
-                size: 40,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                isError ? '加载失败' : '暂无FM推荐',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                ),
-              ),
-              if (isError) ...[
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: _loadFmSongs,
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('重试'),
-                ),
-              ],
-            ],
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.error_outline_rounded,
+              size: 36, color: theme.colorScheme.error),
+          const SizedBox(height: 8),
+          Text('加载失败', style: theme.textTheme.bodyMedium),
+          TextButton.icon(
+            onPressed: _loadFmSongs,
+            icon: const Icon(Icons.refresh_rounded, size: 16),
+            label: const Text('重试'),
           ),
-        ),
+        ],
       ),
     );
   }

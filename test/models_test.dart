@@ -114,8 +114,9 @@ void main() {
     });
 
     test('qualityKeys order', () {
-      expect(Song.qualityKeys, ['128', '320', 'flac', 'high', 'viper_atmos', 'viper_clear', 'viper_tape']);
-      expect(Song.qualityLabels, ['标准', 'HQ', 'SQ', 'Hi-Res', '全景声', '蝰蛇超清', '母带']);
+      // 基础音质 4 档；viper 音效已独立到 Quality.effects（见 constants/quality.dart）
+      expect(Song.qualityKeys, ['128', '320', 'flac', 'high']);
+      expect(Song.qualityLabels, ['标准', 'HQ', 'SQ', 'Hi-Res']);
     });
   });
 

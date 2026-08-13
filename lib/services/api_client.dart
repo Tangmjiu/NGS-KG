@@ -3,12 +3,9 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
-import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
+import 'package:flutter/foundation.dart';
 import '../utils/constants.dart';
 import '../utils/error_dialog.dart';
-import '../utils/navigation.dart' as app;
-import '../utils/login_required_dialog.dart';
 import '../utils/logger.dart';
 import 'api_exception.dart';
 import 'api_config.dart';
@@ -188,17 +185,9 @@ class _ErrorDialogInterceptor extends Interceptor {
             apiCode == '20010' ||
             rawErrorCode == 20010 ||
             rawErrorCode == '20010') {
-          // 登录过期 → 清除 token + 弹登录弹窗，不显示错误弹窗
+          showLogin = true;
+          // 清除过期 token，后续请求不再携带
           ApiClient.clearAuth();
-          final ctx = app.navKey.currentContext;
-          if (ctx != null) {
-            final auth = ctx.read<AuthProvider>();
-            if (!auth.isLoggedIn) {
-              showLoginRequiredDialog(ctx);
-            }
-          }
-          handler.next(err);
-          return;
         }
       } else {
         message = rawMsg ?? '请求失败';
@@ -317,7 +306,8 @@ class ApiClient {
 
     _dio = Dio(BaseOptions(
       // 初始 baseUrl — 会被 _DynamicBaseUrlInterceptor 在运行期覆盖
-      baseUrl: ApiConfig.chinaUrl,
+      // 默认使用域名路线，真实 IP 通过远程配置或自定义模式下发
+      baseUrl: ApiConfig.cloudflareUrl,
       connectTimeout: AppConstants.connectTimeout,
       receiveTimeout: AppConstants.receiveTimeout,
       headers: {
@@ -336,12 +326,14 @@ class ApiClient {
     _dio.interceptors.add(CookieManager(_cookieJar));
     // 5. 响应缓存
     _dio.interceptors.add(CacheInterceptor());
-    // 6. 日志
-    _dio.interceptors.add(LogInterceptor(
-      requestBody: true,
-      responseBody: true,
-      logPrint: (o) {},
-    ));
+    // 6. 日志（仅在 debug/profile 模式下启用，避免 release 包在主线程拼日志字符串）
+    if (!kReleaseMode) {
+      _dio.interceptors.add(LogInterceptor(
+        requestBody: true,
+        responseBody: true,
+        logPrint: (o) {},
+      ));
+    }
     // 7. 错误弹窗（最后执行，捕获所有未被其他拦截器吞掉的异常）
     _dio.interceptors.add(_ErrorDialogInterceptor());
   }

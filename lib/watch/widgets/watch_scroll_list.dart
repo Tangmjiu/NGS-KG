@@ -1,45 +1,52 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
 //
-// Wear OS 圆屏可滚动列表 — 适配圆形屏幕的通用列表组件
+// 手表通用滚动列表 — 表冠滚动、圆屏曲面衰减、精确自动定位
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:wear_plus/wear_plus.dart';
 import 'package:wearable_rotary/wearable_rotary.dart';
 
-/// Wear OS 圆屏通用可滚动列表。
+import '../utils/watch_layout.dart';
+
+/// 手表通用可滚动列表（Wear M3 风格）。
 ///
-/// 封装了 [ListView.builder] 并包含：
-/// - 圆屏自动适配的左右内边距
-/// - 大触控区域
-/// - 可选的底部留空（避让 MiniPlayer）
-/// - 可选的自动滚动到指定索引（用于歌词同步等场景）
+/// - 表冠/旋转表圈滚动（[RotaryScrollController]，外部可传入自己的控制器）
+/// - [itemExtent] 固定行高：自动滚动定位精确（同时启用圆屏曲面衰减）
+/// - [autoScrollTo] 变化时平滑滚动到目标行（用户手动滚动后 3 秒内暂停同步）
+/// - 圆屏：靠近上下边缘的条目自动缩放/淡出（曲面列表观感）
 class WatchScrollList extends StatefulWidget {
   final int itemCount;
   final IndexedWidgetBuilder itemBuilder;
   final ScrollController? controller;
-  final double horizontalPadding;
-  final double bottomPadding;
 
-  /// 当设置此值时，列表会自动平滑滚动到该索引位置。
-  /// 典型的用法是传入当前播放的歌词行索引。
+  /// 固定行高。传入后启用精确滚动定位与曲面衰减。
+  final double? itemExtent;
+
+  /// 目标行索引，变化时自动滚动到该行。
   final int? autoScrollTo;
 
-  /// [autoScrollTo] 的对齐方式。0.0 = 顶部对齐，0.5 = 居中对齐，1.0 = 底部对齐。
-  /// 默认 0.35 使当前行略偏上，留出下方内容可视空间。
+  /// [autoScrollTo] 的视口对齐（0 顶部 / 0.5 居中）。
   final double autoScrollAlignment;
+
+  /// 底部额外留白（避让 MiniPlayer 等）。
+  final double bottomPadding;
+
+  /// 顶部额外留白。
+  final double topPadding;
 
   const WatchScrollList({
     super.key,
     required this.itemCount,
     required this.itemBuilder,
     this.controller,
-    this.horizontalPadding = 8.0,
-    this.bottomPadding = 60.0,
+    this.itemExtent,
     this.autoScrollTo,
     this.autoScrollAlignment = 0.35,
+    this.bottomPadding = 56.0,
+    this.topPadding = 0.0,
   });
 
   @override
@@ -51,6 +58,8 @@ class _WatchScrollListState extends State<WatchScrollList> {
   bool _isUserScrolling = false;
   Timer? _userScrollResetTimer;
 
+  ScrollController get controller => _controller;
+
   @override
   void initState() {
     super.initState();
@@ -60,7 +69,6 @@ class _WatchScrollListState extends State<WatchScrollList> {
   @override
   void didUpdateWidget(WatchScrollList oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 当 autoScrollTo 变化且不是用户在手动滚动时，自动跳转
     if (widget.autoScrollTo != null &&
         widget.autoScrollTo != oldWidget.autoScrollTo &&
         !_isUserScrolling &&
@@ -79,42 +87,102 @@ class _WatchScrollListState extends State<WatchScrollList> {
   void _onUserScroll() {
     _isUserScrolling = true;
     _userScrollResetTimer?.cancel();
-    // 用户停止滚动 3 秒后恢复自动同步
     _userScrollResetTimer = Timer(const Duration(seconds: 3), () {
       _isUserScrolling = false;
     });
   }
 
   void _scrollToIndex(int index) {
-    // 估算每个 item 的高度约为 48px（含 padding），做粗略滚动
-    const itemHeight = 48.0;
-    final offset =
-        index * itemHeight - widget.autoScrollAlignment * itemHeight;
+    if (!_controller.hasClients) return;
+    final extent = widget.itemExtent ?? 52.0;
+    final viewport = _controller.position.viewportDimension;
+    final target = index * extent +
+        widget.topPadding -
+        viewport * widget.autoScrollAlignment;
     _controller.animateTo(
-      offset.clamp(0.0, _controller.position.maxScrollExtent),
+      target.clamp(0.0, _controller.position.maxScrollExtent),
       duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
+      curve: Curves.easeInOutCubic,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isRound = WatchShape.of(context) == WearShape.round;
-    final hp = isRound ? widget.horizontalPadding + 4 : widget.horizontalPadding;
+    final layout = WatchLayout.of(context);
+    final curve = layout.curveStrength;
+    final extent = widget.itemExtent;
 
     return NotificationListener<ScrollNotification>(
       onNotification: (notif) {
-        if (notif is UserScrollNotification) {
-          _onUserScroll();
-        }
+        if (notif is UserScrollNotification) _onUserScroll();
         return false;
       },
       child: ListView.builder(
         controller: _controller,
-        padding: EdgeInsets.fromLTRB(hp, 4, hp, widget.bottomPadding),
+        itemExtent: extent,
+        padding: EdgeInsets.fromLTRB(
+          layout.listHorizontal,
+          widget.topPadding,
+          layout.listHorizontal,
+          widget.bottomPadding,
+        ),
         itemCount: widget.itemCount,
-        itemBuilder: widget.itemBuilder,
+        // 固定行高 + 圆屏时启用曲面衰减包装
+        itemBuilder: (curve > 0 && extent != null)
+            ? (context, index) => _CurvedEdgeItem(
+                  index: index,
+                  extent: extent,
+                  controller: _controller,
+                  strength: curve,
+                  child: widget.itemBuilder(context, index),
+                )
+            : widget.itemBuilder,
       ),
+    );
+  }
+}
+
+/// 圆屏曲面列表条目：靠近视口边缘时按距离平方衰减缩放与不透明度。
+class _CurvedEdgeItem extends StatelessWidget {
+  final int index;
+  final double extent;
+  final ScrollController controller;
+  final double strength;
+  final Widget child;
+
+  const _CurvedEdgeItem({
+    required this.index,
+    required this.extent,
+    required this.controller,
+    required this.strength,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, child) {
+        var scale = 1.0;
+        var opacity = 1.0;
+        if (controller.hasClients && controller.position.hasViewportDimension) {
+          final viewport = controller.position.viewportDimension;
+          final itemCenter = index * extent + extent / 2 - controller.offset;
+          final dist = ((itemCenter - viewport / 2).abs() / (viewport / 2))
+              .clamp(0.0, 1.0);
+          final falloff = dist * dist * strength;
+          scale = 1 - 0.10 * falloff;
+          opacity = 1 - 0.45 * falloff;
+        }
+        return Opacity(
+          opacity: opacity,
+          child: Transform.scale(
+            scale: math.max(scale, 0.85),
+            child: child,
+          ),
+        );
+      },
+      child: child,
     );
   }
 }

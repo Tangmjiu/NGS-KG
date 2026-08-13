@@ -8,7 +8,7 @@ class CacheService {
   static CacheService get instance => _instance;
   CacheService._();
 
-  static const int _maxCacheCount = 500;
+  static const int _maxCacheCount = 2000;
 
   Database? _db;
   bool _initialized = false;
@@ -34,27 +34,34 @@ class CacheService {
     _cleanExpired();
   }
 
-  Future<void> put(String key, String value, {Duration ttl = const Duration(hours: 2)}) async {
+  Future<void> put(String key, String value,
+      {Duration ttl = const Duration(hours: 2)}) async {
     if (_db == null) return;
     await _enforceCapacity();
-    final expiresAt = DateTime.now().millisecondsSinceEpoch + ttl.inMilliseconds;
-    await _db!.insert('cache', {
-      'key': key,
-      'value': value,
-      'expires_at': expiresAt,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    final expiresAt =
+        DateTime.now().millisecondsSinceEpoch + ttl.inMilliseconds;
+    await _db!.insert(
+        'cache',
+        {
+          'key': key,
+          'value': value,
+          'expires_at': expiresAt,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> _enforceCapacity() async {
     if (_db == null) return;
     final count = (await _db!.rawQuery('SELECT COUNT(*) as cnt FROM cache'))
-            .firstOrNull?['cnt'] as int? ?? 0;
+            .firstOrNull?['cnt'] as int? ??
+        0;
     if (count >= _maxCacheCount) {
+      // 达到上限时清理 200 条最老的缓存，避免每次 put 都触发删除
       await _db!.rawDelete('''
         DELETE FROM cache WHERE key IN (
           SELECT key FROM cache ORDER BY expires_at ASC LIMIT ?
         )
-      ''', [(count - _maxCacheCount + 100)]);
+      ''', [(count - _maxCacheCount + 200)]);
     }
   }
 
@@ -79,7 +86,8 @@ class CacheService {
 
   Future<void> _cleanExpired() async {
     if (_db == null) return;
-    await _db!.delete('cache', where: 'expires_at < ?',
+    await _db!.delete('cache',
+        where: 'expires_at < ?',
         whereArgs: [DateTime.now().millisecondsSinceEpoch]);
   }
 

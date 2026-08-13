@@ -29,7 +29,18 @@ class LocalSong {
 
   String get displayName {
     final name = title;
-    if (name.endsWith('.mp3')) return name.substring(0, name.length - 4);
+    final dot = name.lastIndexOf('.');
+    if (dot <= 0) return name;
+    final ext = name.substring(dot + 1).toLowerCase();
+    if (_audioExtensions.contains(ext)) {
+      return name.substring(0, dot);
+    }
     return name;
   }
+
+  /// 已知音频扩展名（小写）
+  static const _audioExtensions = {
+    'mp3', 'flac', 'wav', 'aac', 'ogg', 'wma', 'm4a', 'opus',
+    'ape', 'dsd', 'dff', 'aiff', 'alac', 'mka', 'tta', 'amr',
+  };
 }

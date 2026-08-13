@@ -15,11 +15,13 @@ import 'providers/player_provider.dart';
 import 'providers/playlist_provider.dart';
 import 'providers/liked_songs_provider.dart';
 import 'services/api_client.dart';
+import 'services/api_config.dart';
 import 'services/music_service.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/cache_service.dart';
 import 'services/device_service.dart';
+import 'services/remote_config_service.dart';
 import 'providers/audio_settings_provider.dart';
 import 'providers/local_music_provider.dart';
 import 'utils/logger.dart';
@@ -35,7 +37,8 @@ Future<void> main() async {
 
   FlutterError.onError = (details) {
     try {
-      Log.e('WATCH', details.exceptionAsString(), details.exception, details.stack);
+      Log.e('WATCH', details.exceptionAsString(), details.exception,
+          details.stack);
     } catch (_) {
       debugPrint('WATCH_ERROR: ${details.exceptionAsString()}');
     }
@@ -59,9 +62,10 @@ Future<void> main() async {
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Text(
-            'Σ(°△°)︴',
-            style: const TextStyle(color: Colors.white38, fontSize: 24),
+          child: Icon(
+            Icons.error_outline_rounded,
+            size: 28,
+            color: Colors.white38,
           ),
         ),
       ),
@@ -69,7 +73,7 @@ Future<void> main() async {
   };
 
   runZonedGuarded(() {
-    _initDevice();
+    _initRemoteConfigAndDevice();
     _initNotifications();
   }, (error, stack) {
     Log.e('WATCH_ZONE', 'Background init error', error, stack);
@@ -96,11 +100,12 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: audioSettings),
         ChangeNotifierProvider.value(value: watchThemeProvider),
         ChangeNotifierProvider.value(value: authProvider),
-        ChangeNotifierProvider(create: (_) => PlayerProvider(
-          musicService,
-          audioSettings: audioSettings,
-          likedSongs: likedSongs,
-        )),
+        ChangeNotifierProvider(
+            create: (_) => PlayerProvider(
+                  musicService,
+                  audioSettings: audioSettings,
+                  likedSongs: likedSongs,
+                )),
         ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
         ChangeNotifierProvider.value(value: likedSongs),
         ChangeNotifierProvider(create: (_) => LocalMusicProvider()),
@@ -110,8 +115,19 @@ Future<void> main() async {
   );
 }
 
-Future<void> _initDevice() async {
+Future<void> _initRemoteConfigAndDevice() async {
   try {
+    // 1. 先加载远程配置缓存并尝试拉取最新配置
+    await RemoteConfigService.instance.init();
+    await RemoteConfigService.instance.fetch();
+
+    // 2. 远程配置拿到后，重新初始化 ApiClient 以应用新的 baseUrl
+    ApiClient.instance.reinitialize();
+
+    // 3. 探测域名路线可用性（仅日志提示）
+    await ApiConfig.instance.detectBestRoute();
+
+    // 4. 设备注册/恢复
     final device = await DeviceService.instance.getDeviceInfo();
     if (device == null || !device.isValid) {
       final newDevice = await DeviceService.instance.registerDevice();
@@ -153,12 +169,12 @@ void _notifAction(String action) {
       final song = player.currentSong;
       if (song != null) {
         ctx.read<LikedSongsProvider>().toggle(SongInfo(
-        id: song.id,
-        name: song.name,
-        hash: song.hash ?? '',
-        albumId: song.albumId,
-        audioId: 0,
-      ));
+              id: song.id,
+              name: song.name,
+              hash: song.hash ?? '',
+              albumId: song.albumId,
+              audioId: 0,
+            ));
       }
     case 'switch_mode':
       final modes = [PlayMode.sequential, PlayMode.shuffle, PlayMode.repeatOne];

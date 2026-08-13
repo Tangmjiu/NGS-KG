@@ -92,4 +92,9 @@ dependencies {
     implementation "androidx.core:core-ktx:1.15.0"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
     implementation "com.google.android.play:core:1.10.3"
+    // Wear OS Tiles — 系统快捷磁贴（显示当前播放状态，点击进入应用）
+    implementation "androidx.wear.tiles:tiles:1.4.1"
+    // Tiles 依赖 protolayout 和 guava（协程桥接）
+    implementation "androidx.wear.protolayout:protolayout:1.2.1"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.9.0"
 }

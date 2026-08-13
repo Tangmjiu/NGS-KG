@@ -39,3 +39,6 @@ gradle-user-home/
 *.keystore
 # 本地 API 文档参考
 APIDOCS/
+
+# Linux build artifacts
+linux/flutter/

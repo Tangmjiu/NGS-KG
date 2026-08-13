@@ -1,7 +1,7 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
 //
-// Wear OS 手表设置页
+// 手表设置页 — 账号 / 音质 / 关于，M3E 胶囊列表
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -9,30 +9,33 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/audio_settings_provider.dart';
-import '../widgets/round_safe_area.dart';
+import '../../services/audio_cache_service.dart';
+import '../utils/watch_layout.dart';
+import '../widgets/round_list_tile.dart';
+import '../widgets/watch_scaffold.dart';
 import 'login_screen.dart';
 
-/// 手表版设置
+/// 手表版设置。
 class WatchSettingsScreen extends StatelessWidget {
   const WatchSettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('设置', style: TextStyle(fontSize: 14)),
-      ),
-      body: RoundSafeArea(
-        child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          children: const [
-            _LoginSection(),
-            SizedBox(height: 8),
-            _AudioSection(),
-            SizedBox(height: 8),
-            _AboutSection(),
-          ],
+    final layout = WatchLayout.of(context);
+    return WatchScaffold(
+      body: ListView(
+        padding: EdgeInsets.fromLTRB(
+          layout.listHorizontal,
+          4,
+          layout.listHorizontal,
+          layout.bottomInset + 16,
         ),
+        children: const [
+          _LoginSection(),
+          _AudioSection(),
+          _CacheSection(),
+          _AboutSection(),
+        ],
       ),
     );
   }
@@ -46,125 +49,72 @@ class _LoginSection extends StatelessWidget {
     final theme = Theme.of(context);
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
-        if (auth.isLoggedIn) {
+        if (auth.isLoggedIn && auth.user != null) {
           final user = auth.user!;
-          final isVip = user.isVipActive ||
-              (user.vipType != null && user.vipType! > 0);
-          return Card(
-            color: theme.colorScheme.surfaceContainerHighest,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14)),
-            child: Column(
-              children: [
-                // 用户信息头部
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Column(
-                    children: [
-                      // 头像
-                      ClipOval(
-                        child: SizedBox(
-                          width: 48,
-                          height: 48,
-                          child: (user.avatarUrl != null &&
-                                  user.avatarUrl!.isNotEmpty)
-                              ? CachedNetworkImage(
-                                  imageUrl: user.avatarUrl!,
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) => Container(
-                                    color: theme
-                                        .colorScheme.surfaceContainerHighest,
-                                  ),
-                                  errorWidget: (context, url, error) => Icon(
-                                    Icons.person,
-                                    size: 32,
-                                    color: theme.colorScheme.onSurface,
-                                  ),
-                                )
-                              : Icon(
-                                  Icons.person,
-                                  size: 32,
-                                  color: theme.colorScheme.onSurface,
-                                ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      // 昵称
-                      Text(
-                        user.nickname ?? '用户',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      // VIP 状态
-                      if (isVip)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.workspace_premium,
-                                size: 14, color: Colors.amber),
-                            const SizedBox(width: 4),
-                            const Text(
-                              'VIP',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.amber,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        )
-                      else
-                        Text(
-                          '普通用户',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: theme.colorScheme.onSurfaceVariant,
+          final isVip =
+              user.isVipActive || (user.vipType != null && user.vipType! > 0);
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              ClipOval(
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: (user.avatarUrl != null && user.avatarUrl!.isNotEmpty)
+                      ? CachedNetworkImage(
+                          imageUrl: user.avatarUrl!,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(
+                            color: theme.colorScheme.surfaceContainerHighest,
                           ),
+                          errorWidget: (_, __, ___) => Icon(
+                            Icons.person_rounded,
+                            size: 28,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        )
+                      : Icon(
+                          Icons.person_rounded,
+                          size: 28,
+                          color: theme.colorScheme.onSurface,
                         ),
-                    ],
-                  ),
                 ),
-                // 退出登录按钮
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () => auth.logout(),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        foregroundColor: theme.colorScheme.error,
-                        side: BorderSide(
-                          color: theme.colorScheme.error.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: const Text('退出登录',
-                          style: TextStyle(fontSize: 12)),
-                    ),
-                  ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                user.nickname ?? '用户',
+                style: theme.textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w600),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                isVip ? 'VIP' : '普通用户',
+                style: TextStyle(
+                  fontSize: 11,
+                  color:
+                      isVip ? Colors.amber : theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 10),
+              RoundListTile(
+                title: '退出登录',
+                leading: Icon(Icons.logout_rounded,
+                    color: theme.colorScheme.error, size: 20),
+                onTap: () => auth.logout(),
+              ),
+            ],
           );
         }
-        return Card(
-          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14)),
-          child: ListTile(
-            leading: Icon(Icons.login, size: 22,
-              color: theme.colorScheme.primary),
-            title: const Text('登录账号',
-              style: TextStyle(fontSize: 13)),
-            subtitle: const Text('登录后可使用收藏等功能',
-              style: TextStyle(fontSize: 11)),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const WatchLoginScreen()),
-            ),
+        return RoundListTile(
+          title: '登录账号',
+          subtitle: '登录后可使用收藏等功能',
+          leading: Icon(Icons.login_rounded, color: theme.colorScheme.primary),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const WatchLoginScreen()),
           ),
         );
       },
@@ -175,59 +125,82 @@ class _LoginSection extends StatelessWidget {
 class _AudioSection extends StatelessWidget {
   const _AudioSection();
 
+  static const _qualities = ['128', '320', 'high', 'flac'];
+
+  static String _label(String q) => switch (q) {
+        '128' => '标准',
+        '320' => '高品',
+        'high' => '无损',
+        'flac' => 'Hi-Res',
+        _ => q,
+      };
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Consumer<AudioSettingsProvider>(
       builder: (context, settings, _) {
-        final wifiQ = settings.wifiQuality;
-        return Card(
-          color: theme.colorScheme.surfaceContainerHighest,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
-                child: Text('音质', style: theme.textTheme.titleSmall),
+        return RoundListTile(
+          title: 'WiFi 音质',
+          subtitle: _label(settings.wifiQuality),
+          leading: const Icon(Icons.graphic_eq_rounded),
+          onTap: () {
+            final idx = _qualities.indexOf(settings.wifiQuality);
+            final next = _qualities[(idx + 1) % _qualities.length];
+            settings.setWifiQuality(next);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('WiFi 音质：${_label(next)}'),
+                duration: const Duration(seconds: 1),
               ),
-              ListTile(
-                dense: true,
-                title: const Text('WiFi音质',
-                  style: TextStyle(fontSize: 12)),
-                trailing: Text(_qualityLabel(wifiQ),
-                  style: const TextStyle(fontSize: 11)),
-                onTap: () => _cycleQuality(context, settings),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
+}
 
-  String _qualityLabel(String q) {
-    switch (q) {
-      case '128': return '标准';
-      case '320': return '高品';
-      case 'high': return '无损';
-      case 'flac': return 'Hi-Res';
-      default: return q;
-    }
+class _CacheSection extends StatefulWidget {
+  const _CacheSection();
+
+  @override
+  State<_CacheSection> createState() => _CacheSectionState();
+}
+
+class _CacheSectionState extends State<_CacheSection> {
+  String _sizeText = '...';
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshSize();
   }
 
-  void _cycleQuality(BuildContext context, AudioSettingsProvider settings) {
-    const qualities = ['128', '320', 'high', 'flac'];
-    final current = settings.wifiQuality;
-    final idx = qualities.indexOf(current);
-    final next = qualities[(idx + 1) % qualities.length];
-    settings.setWifiQuality(next);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('WiFi音质: ${_qualityLabel(next)}'),
-        duration: const Duration(seconds: 1),
-      ),
+  Future<void> _refreshSize() async {
+    final size = await AudioCacheService.instance.getCacheSizeFormatted();
+    if (mounted) setState(() => _sizeText = size);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return RoundListTile(
+      title: '清除音频缓存',
+      subtitle: '当前缓存: $_sizeText',
+      leading: Icon(Icons.cleaning_services_rounded,
+          color: theme.colorScheme.primary, size: 20),
+      onTap: () async {
+        final messenger = ScaffoldMessenger.of(context);
+        await AudioCacheService.instance.clearCache();
+        _refreshSize();
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('缓存已清除'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      },
     );
   }
 }
@@ -237,15 +210,10 @@ class _AboutSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14)),
-      child: const ListTile(
-        leading: Icon(Icons.info_outline, size: 22),
-        title: Text('NGS-KG+ Watch', style: TextStyle(fontSize: 13)),
-        subtitle: Text('v1.5.0 | Wear OS', style: TextStyle(fontSize: 11)),
-      ),
+    return const RoundListTile(
+      title: 'NGS-KG+ Watch',
+      subtitle: 'v1.5.3-preview-watch · Wear OS / Android 手表',
+      leading: Icon(Icons.info_outline_rounded),
     );
   }
 }

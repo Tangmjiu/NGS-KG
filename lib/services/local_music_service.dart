@@ -9,7 +9,15 @@ import '../models/local_song.dart';
 import 'metadata_reader.dart';
 
 class LocalMusicService {
-  static const _audioExtensions = ['.mp3', '.flac', '.wav', '.aac', '.ogg', '.wma', '.m4a'];
+  static const _audioExtensions = [
+    '.mp3',
+    '.flac',
+    '.wav',
+    '.aac',
+    '.ogg',
+    '.wma',
+    '.m4a'
+  ];
   static const _persistedDirsKey = 'local_music_folders';
 
   // ─── Public API ─────────────────────────────────────────────
@@ -130,7 +138,9 @@ class LocalMusicService {
     try {
       final appDir = await getApplicationDocumentsDirectory();
       dirs.add(Directory('${appDir.path}/music'));
-    } catch (e, s) { Log.e('local_music_service', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('local_music_service', 'error', e, s);
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getStringList(_persistedDirsKey) ?? [];
@@ -159,26 +169,42 @@ class LocalMusicService {
 
           final meta = await MetadataReader.read(entry);
           if (meta != null) {
-            if (meta.title != null && meta.title!.isNotEmpty) title = meta.title!;
-            if (meta.artist != null && meta.artist!.isNotEmpty) artist = meta.artist!;
-            if (meta.album != null && meta.album!.isNotEmpty) album = meta.album!;
-            if (meta.durationMs > 0) duration = (meta.durationMs / 1000).round();
-            if (meta.bitrate != null && meta.bitrate! > 0) bitrate = meta.bitrate!;
+            if (meta.title != null && meta.title!.isNotEmpty)
+              title = meta.title!;
+            if (meta.artist != null && meta.artist!.isNotEmpty)
+              artist = meta.artist!;
+            if (meta.album != null && meta.album!.isNotEmpty)
+              album = meta.album!;
+            if (meta.durationMs > 0)
+              duration = (meta.durationMs / 1000).round();
+            if (meta.bitrate != null && meta.bitrate! > 0)
+              bitrate = meta.bitrate!;
             if (meta.albumArt != null && meta.albumArt!.isNotEmpty) {
               coverCachePath = await _cacheAlbumArt(entry.path, meta.albumArt!);
             }
           }
           coverCachePath ??= await _findFolderCover(entry.path);
 
-          if (ext == '.flac') { codec = 'FLAC'; bitrate ??= 900; }
-          else if (ext == '.wav') { codec = 'WAV'; bitrate ??= 1411; }
-          else if (ext == '.mp3') { codec = 'MP3'; }
-          else if (ext == '.aac' || ext == '.m4a') { codec = 'AAC'; }
-          else if (ext == '.ogg') { codec = 'OGG'; }
-          else if (ext == '.wma') { codec = 'WMA'; }
+          if (ext == '.flac') {
+            codec = 'FLAC';
+            bitrate ??= 900;
+          } else if (ext == '.wav') {
+            codec = 'WAV';
+            bitrate ??= 1411;
+          } else if (ext == '.mp3') {
+            codec = 'MP3';
+          } else if (ext == '.aac' || ext == '.m4a') {
+            codec = 'AAC';
+          } else if (ext == '.ogg') {
+            codec = 'OGG';
+          } else if (ext == '.wma') {
+            codec = 'WMA';
+          }
 
           String? lyrics = await _readCompanionLrc(entry.path);
-          if ((lyrics == null || lyrics.isEmpty) && meta?.lyrics != null && meta!.lyrics!.isNotEmpty) {
+          if ((lyrics == null || lyrics.isEmpty) &&
+              meta?.lyrics != null &&
+              meta!.lyrics!.isNotEmpty) {
             lyrics = meta.lyrics;
           }
 
@@ -197,7 +223,9 @@ class LocalMusicService {
           ));
         }
       }
-    } catch (e, s) { Log.e('local_music_service', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('local_music_service', 'error', e, s);
+    }
   }
 
   // ─── Shared helpers ─────────────────────────────────────────
@@ -209,8 +237,16 @@ class LocalMusicService {
 
   static Future<String?> _findFolderCover(String audioPath) async {
     final dir = p.dirname(audioPath);
-    const candidates = ['cover.jpg', 'cover.png', 'folder.jpg', 'folder.png',
-      'Cover.jpg', 'Front.jpg', 'Folder.jpg', 'AlbumArtSmall.jpg'];
+    const candidates = [
+      'cover.jpg',
+      'cover.png',
+      'folder.jpg',
+      'folder.png',
+      'Cover.jpg',
+      'Front.jpg',
+      'Folder.jpg',
+      'AlbumArtSmall.jpg'
+    ];
     for (final name in candidates) {
       final candidate = p.join(dir, name);
       if (await File(candidate).exists()) return candidate;
@@ -242,25 +278,37 @@ class LocalMusicService {
 
   static String _detectCodec(String ext) {
     switch (ext) {
-      case '.flac': return 'FLAC';
-      case '.wav': return 'WAV';
-      case '.mp3': return 'MP3';
-      case '.aac': case '.m4a': return 'AAC';
-      case '.ogg': return 'OGG';
-      case '.wma': return 'WMA';
-      default: return '';
+      case '.flac':
+        return 'FLAC';
+      case '.wav':
+        return 'WAV';
+      case '.mp3':
+        return 'MP3';
+      case '.aac':
+      case '.m4a':
+        return 'AAC';
+      case '.ogg':
+        return 'OGG';
+      case '.wma':
+        return 'WMA';
+      default:
+        return '';
     }
   }
 
   static int _estimateBitrate(String codec) {
     switch (codec) {
-      case 'FLAC': return 900;
-      case 'WAV': return 1411;
-      default: return 0;
+      case 'FLAC':
+        return 900;
+      case 'WAV':
+        return 1411;
+      default:
+        return 0;
     }
   }
 
-  static Future<String?> _cacheAlbumArt(String audioPath, Uint8List artData) async {
+  static Future<String?> _cacheAlbumArt(
+      String audioPath, Uint8List artData) async {
     try {
       final cacheDir = await getTemporaryDirectory();
       final baseName = p.basenameWithoutExtension(audioPath);
