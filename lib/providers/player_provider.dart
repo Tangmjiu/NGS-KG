@@ -273,6 +273,13 @@ class PlayerProvider extends ChangeNotifier
 
     _onLoadingChanged = () {
       _isLoading = _engine.isLoading.value;
+      if (!_isLoading) {
+        // 加载完成（成功或失败）时同步底层的播放状态
+        _isPlaying = _engine.isPlaying.value;
+        // 加载期间播放事件可能被 isLoading 保护跳过，
+        // 加载完成时必须强制刷新一次系统通知，否则控制栏状态会滞留旧值
+        _updateNotification();
+      }
       notifyListeners();
     };
     _engine.isLoading.addListener(_onLoadingChanged);

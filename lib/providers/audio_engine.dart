@@ -210,6 +210,7 @@ class AudioEngine {
           if (version != _playRequestVersion) { isLoading.value = false; return; }
           _lastUrlFetchTime = DateTime.now();
           await _player.play();
+          isPlaying.value = _player.playing;
           _hasActivePlayback = true;
         } else {
           // 本地文件：尝试 setFilePath，若失败则用 file:// URI + setUrl 重试
@@ -222,6 +223,7 @@ class AudioEngine {
           if (version != _playRequestVersion) { isLoading.value = false; return; }
           _lastUrlFetchTime = DateTime.now();
           await _player.play();
+          isPlaying.value = _player.playing;
           _hasActivePlayback = true;
         }
         isLoading.value = false;
@@ -251,6 +253,7 @@ class AudioEngine {
                 if (version != _playRequestVersion) { isLoading.value = false; return; }
                 _lastUrlFetchTime = DateTime.now();
                 await _player.play();
+                isPlaying.value = _player.playing;
                 _hasActivePlayback = true;
                 played = true;
                 resolvedQualityNotifier.value = opt.value;
@@ -291,6 +294,7 @@ class AudioEngine {
             _lastUrlFetchTime = DateTime.now();
 
             await _player.play();
+            isPlaying.value = _player.playing;
             _hasActivePlayback = true;
             played = true;
 
@@ -377,6 +381,7 @@ class AudioEngine {
       await _player.setUrl(songUrl.url);
       await _player.seek(pos);
       await _player.play();
+      isPlaying.value = _player.playing;
       isLoading.value = false;
     } catch (e, s) {
       Log.e('audio_engine', 'refresh URL error', e, s);
