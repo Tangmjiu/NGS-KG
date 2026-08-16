@@ -70,23 +70,38 @@ jobs:
           sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
           sed -i '/maven.*aliyun/d' android/settings.gradle android/build.gradle
 
-      # ── Build watch debug APK ──
-      - name: Build watch debug APK
+      # ── Build watch debug APK (arm64 + armv7) ──
+      - name: Build watch debug APK (arm64)
         run: flutter build apk --debug --target-platform android-arm64 --android-skip-build-dependency-validation
 
-      # ── Build watch release APK ──
-      - name: Build watch release APK
+      - name: Build watch debug APK (armv7)
+        run: flutter build apk --debug --target-platform android-arm --android-skip-build-dependency-validation
+
+      # ── Build watch release APK (arm64 + armv7) ──
+      - name: Build watch release APK (arm64)
         run: flutter build apk --release --target-platform android-arm64
 
+      - name: Build watch release APK (armv7)
+        run: flutter build apk --release --target-platform android-arm
+
       # ── Upload artifacts ──
-      - name: Upload debug APK
+      - name: Upload debug APK (arm64)
         uses: actions/upload-artifact@v4
         with:
           name: NGS-KG-watch-debug-arm64-v8a
           path: build/app/outputs/flutter-apk/app-debug.apk
 
-      - name: Upload release APK
+      - name: Upload release APK (arm64)
         uses: actions/upload-artifact@v4
         with:
           name: NGS-KG-watch-release-arm64-v8a
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Build watch release APK (armv7, retry)
+        run: flutter build apk --release --target-platform android-arm
+
+      - name: Upload release APK (armv7)
+        uses: actions/upload-artifact@v4
+        with:
+          name: NGS-KG-watch-release-armeabi-v7a
           path: build/app/outputs/flutter-apk/app-release.apk
