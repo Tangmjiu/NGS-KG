@@ -35,3 +35,8 @@
 
 # Keep 自有服务/接收器
 -keep class com.mjiutang.ngskg.** { *; }
+
+# Play Core：已移除 com.google.android.play:core 依赖，但 Flutter 引擎内部
+# 仍引用 Play Core 类（FlutterPlayStoreSplitApplication / PlayStoreDeferredComponentManager）。
+# 本应用不使用延迟组件（deferred components），忽略这些缺失类即可。
+-dontwarn com.google.android.play.core.**
