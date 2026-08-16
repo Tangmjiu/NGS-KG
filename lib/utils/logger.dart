@@ -56,6 +56,40 @@ class Log {
 
   static List<LogEntry> get entries => List.unmodifiable(_entries);
 
+  /// 日志目录（与 init() 中一致）。
+  static Future<Directory?> logDirectory() async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final logDir = Directory('${dir.path}/logs');
+      if (!await logDir.exists()) await logDir.create(recursive: true);
+      return logDir;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 刷新文件写入缓冲，确保导出前日志已落盘。
+  static Future<void> flush() async {
+    try {
+      final sink = _instance?._sink;
+      if (sink != null) await sink.flush();
+    } catch (_) {}
+  }
+
+  /// 列出所有日志文件（按修改时间倒序，最新的在前）。
+  static Future<List<File>> logFiles() async {
+    final dir = await logDirectory();
+    if (dir == null) return [];
+    try {
+      final files = dir.listSync().whereType<File>().toList()
+        ..sort(
+            (a, b) => b.statSync().modified.compareTo(a.statSync().modified));
+      return files;
+    } catch (_) {
+      return [];
+    }
+  }
+
   static Future<void> init() async {
     final log = Log._();
     _instance = log;
@@ -151,8 +185,7 @@ class Log {
       tag: tag,
       message: message,
       error: error,
-      stackTrace:
-          stack?.toString().split('\n').take(6).join('\n'),
+      stackTrace: stack?.toString().split('\n').take(6).join('\n'),
     );
     _entries.add(entry);
     if (_entries.length > _maxBufferLines) {

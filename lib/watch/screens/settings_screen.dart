@@ -13,6 +13,7 @@ import '../../services/audio_cache_service.dart';
 import '../utils/watch_layout.dart';
 import '../widgets/round_list_tile.dart';
 import '../widgets/watch_scaffold.dart';
+import 'log_export_screen.dart';
 import 'login_screen.dart';
 
 /// 手表版设置。
@@ -210,10 +211,28 @@ class _AboutSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const RoundListTile(
-      title: 'NGS-KG+ Watch',
-      subtitle: 'v1.5.3-preview-watch · Wear OS / Android 手表',
-      leading: Icon(Icons.info_outline_rounded),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        RoundListTile(
+          title: '导出日志',
+          subtitle: '导出完整日志用于反馈问题',
+          leading: const Icon(Icons.bug_report_outlined),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const WatchLogExportScreen(),
+              ),
+            );
+          },
+        ),
+        const RoundListTile(
+          title: 'NGS-KG+ Watch',
+          subtitle: 'v1.5.3-preview-watch-hotfix1 · Wear OS',
+          leading: Icon(Icons.info_outline_rounded),
+        ),
+      ],
     );
   }
 }

@@ -39,6 +39,7 @@ class MainActivity : FlutterActivity() {
     private val CHANNEL_DEVICE = "com.mjiutang.ngskg/device"
     private val CHANNEL_AUDIO_ROUTE = "com.mjiutang.ngskg/audio_route"
     private val CHANNEL_AUDIO_ROUTE_EVENTS = "com.mjiutang.ngskg/audio_route_events"
+    private val CHANNEL_LOG_EXPORT = "com.mjiutang.ngskg/log_export"
 
     private var playbackService: PlaybackService? = null
     private var callbackChannel: BasicMessageChannel<String>? = null
@@ -192,6 +193,22 @@ class MainActivity : FlutterActivity() {
         ).also { channel ->
             // 回调由 PlaybackService 的 binder lambdas 触发
         }
+
+        // 日志导出通道：dumpLogcat（尽力读取本进程 logcat）、getDeviceInfo
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            CHANNEL_LOG_EXPORT
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "dumpLogcat" -> {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        result.success(dumpLogcat())
+                    }
+                }
+                "getDeviceInfo" -> result.success(getDeviceInfoMap())
+                else -> result.notImplemented()
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -202,6 +219,43 @@ class MainActivity : FlutterActivity() {
         audioRouteManager = null
         lastService = null
         super.onDestroy()
+    }
+
+    /// 尽力读取本进程的 logcat 日志。
+    /// Android 4.1+ 普通应用无 READ_LOGS 权限，`logcat` 命令通常只能读取自身进程日志
+    /// 或被拒绝；失败时返回说明字符串，而非抛异常，便于导出文件中留下痕迹。
+    private fun dumpLogcat(): String {
+        return try {
+            val pid = android.os.Process.myPid().toString()
+            val process = Runtime.getRuntime().exec(
+                arrayOf("logcat", "-d", "-v", "threadtime", "--pid=$pid")
+            )
+            val output = process.inputStream.bufferedReader().use { it.readText() }
+            process.waitFor()
+            if (output.isBlank()) {
+                "(logcat 返回为空：可能受系统限制无法读取，已附 Flutter 日志与错误记录)"
+            } else {
+                output
+            }
+        } catch (e: Exception) {
+            "(logcat 读取失败: ${e.message}；已附 Flutter 日志与错误记录)"
+        }
+    }
+
+    /// 设备信息映射（用于日志导出头）
+    private fun getDeviceInfoMap(): Map<String, Any?> {
+        return mapOf(
+            "manufacturer" to Build.MANUFACTURER,
+            "model" to Build.MODEL,
+            "device" to Build.DEVICE,
+            "brand" to Build.BRAND,
+            "product" to Build.PRODUCT,
+            "androidVersion" to Build.VERSION.RELEASE,
+            "sdkInt" to Build.VERSION.SDK_INT,
+            "hardware" to Build.HARDWARE,
+            "abi" to (Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown"),
+            "package" to packageName
+        )
     }
 
     private fun readMetadata(path: String): Map<String, Any?> {

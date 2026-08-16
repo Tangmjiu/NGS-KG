@@ -64,6 +64,15 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
+    // Android 15+（Wear OS 6）要求原生库支持 16KB 内存页对齐。
+    // 保持 useLegacyPackaging=false（默认），AGP 8.5+ 会以 16KB 对齐打包 .so，
+    // 避免 dlopen 失败导致的启动闪退。
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
 }
 
 flutter {
@@ -91,7 +100,10 @@ dependencies {
     implementation "androidx.media:media:1.7.0"
     implementation "androidx.core:core-ktx:1.15.0"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
-    implementation "com.google.android.play:core:1.10.3"
+    // 注意：已移除 com.google.android.play:core:1.10.3
+    // 该旧版 Play Core 在 Android 14+（Wear OS 6）会因未指定
+    // RECEIVER_EXPORTED/RECEIVER_NOT_EXPORTED 而抛 SecurityException 闪退。
+    // 本应用不使用应用内更新 / 延迟组件，无需 Play Core。
     // Wear OS Tiles — 系统快捷磁贴（显示当前播放状态，点击进入应用）
     implementation "androidx.wear.tiles:tiles:1.4.1"
     // Tiles 依赖 protolayout 和 guava（协程桥接）

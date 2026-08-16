@@ -1,5 +1,33 @@
 # NGS-KG+ 更新日志
 
+## v1.5.3-preview-watch-hotfix1（2026-08-16）
+
+> **Hotfix 1**：修复三星 Watch4 Classic（One UI 8.0 / Wear OS 6.0）启动闪退，新增日志导出界面。
+
+### 修复
+
+- **三星 Watch4 Classic / Wear OS 6.0 启动闪退**：
+  - 移除旧版 Google Play Core（`com.google.android.play:core:1.10.3`），该依赖在 Android 14+ 会因未指定 `RECEIVER_EXPORTED / RECEIVER_NOT_EXPORTED` 抛 `SecurityException` 闪退
+  - 前台播放服务 `PlaybackService` 在 Android 14+（API 34+）显式声明 `mediaPlayback` 前台服务类型，避免 `MissingForegroundServiceTypeException`
+  - 原生库（`.so`）按 16KB 内存页对齐打包（`useLegacyPackaging = false`），适配 Wear OS 6（Android 15+），避免 `dlopen` 失败导致启动闪退
+  - 完善 release 混淆 ProGuard 规则，补全 `wear_plus`、`wearable_rotary`、`just_audio`、`flutter_local_notifications`、`permission_handler`、`on_audio_query`、Wear OS Tiles 等插件原生类 keep 规则，防止 `NoClassDefFoundError` 闪退
+
+### 新增
+
+- **日志导出界面**（设置 → 导出日志）：
+  - 独立页面，一键导出完整日志文件
+  - 导出内容：设备 / 应用信息头 + Android logcat（本进程）+ Flutter 内存日志（含 `FlutterError` / 平台错误）+ 磁盘历史日志
+  - 导出后展示文件路径，并提供三种取回方式的操作指引：
+    - **电脑 / 平板**：通过 adb pull 取回
+    - **手机**：通过甲壳虫ADB助手（国内推荐）/ LADB / Bugjaeger 无线连接取回
+    - **USB 数据线**：文件管理器直接复制
+  - 文件位置：`{appDocDir}/logs/ngskg_watch_log_<时间戳>.txt`
+
+### 构建
+
+- 版本号：`1.5.3-preview-watch-hotfix1`（versionCode `251`，高于旧版 `21`，应用商店可正常推送更新）
+- 发布多架构 Release APK：`arm64-v8a` / `armeabi-v7a` / `x86_64`
+
 ## v1.5.0-preview（2026-07-xx）
 
 > **首次发布**：Wear OS 手表版基于 Android 分支移植，针对圆形屏幕和手表交互优化。
