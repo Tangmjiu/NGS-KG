@@ -5,7 +5,7 @@
 <h1 align="center">NGS-KG+</h1>
 
 <p align="center">
-  基于酷狗音乐第三方 API 的 Flutter 音乐播放器（Linux 桌面版）
+  下一步桌面端以维护未来仅维护手表端和移动端
 </p>
 
 <p align="center">
