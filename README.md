@@ -5,7 +5,7 @@
 <h1 align="center">NGS-KG+</h1>
 
 <p align="center">
-  基于酷狗音乐第三方 API 的 Flutter 跨平台音乐播放器（Android）
+  本项目桌面端已停止维护后续仅维护移动端和手表端）
 </p>
 
 <p align="center">
