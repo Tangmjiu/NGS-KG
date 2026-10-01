@@ -23,8 +23,26 @@ class EqualizerService {
   double get minBandLevel => _minBandLevel;
   double get maxBandLevel => _maxBandLevel;
 
-  /// 初始化：查询均衡器信息
+  int? _sessionId;
+
+  /// 绑定播放器的音频会话（由 AudioEngine 在会话 ID 可用/变化时调用）。
+  /// 均衡器只有挂在实际播放的会话上才会生效。
+  Future<void> attachSession(int sessionId) async {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    if (sessionId <= 0 || sessionId == _sessionId) return;
+    try {
+      final ok = await _channel
+          .invokeMethod<bool>('attachSession', {'sessionId': sessionId});
+      if (ok == true) _sessionId = sessionId;
+    } catch (_) {}
+  }
+
+  /// 初始化：查询均衡器信息（需先 [attachSession]，否则视为不可用）
   Future<void> init() async {
+    if (_sessionId == null) {
+      _initialized = false;
+      return;
+    }
     try {
       final range =
           await _channel.invokeMethod<List<dynamic>>('getBandLevelRange');
@@ -77,5 +95,6 @@ class EqualizerService {
       await _channel.invokeMethod('release');
     } catch (_) {}
     _initialized = false;
+    _sessionId = null;
   }
 }

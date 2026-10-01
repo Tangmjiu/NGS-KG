@@ -6,6 +6,7 @@ import '../providers/playlist_provider.dart';
 import '../theme/theme_assets.dart';
 import '../utils/theme.dart';
 import '../services/music_service.dart';
+import '../services/api_exception.dart';
 
 class PlaybackControls extends StatelessWidget {
   const PlaybackControls({super.key});
@@ -158,7 +159,9 @@ class PlaybackControls extends StatelessWidget {
         minChildSize: 0.3,
         maxChildSize: 0.85,
         expand: false,
-        builder: (_, scrollCtrl) => SafeArea(
+        // 订阅 provider：重排、删除、切歌后列表立即刷新
+        builder: (_, scrollCtrl) => Consumer<PlayerProvider>(
+          builder: (_, player, __) => SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -216,17 +219,33 @@ class PlaybackControls extends StatelessWidget {
                 Expanded(child: Center(child: emptyStateWidget(ThemeAssets.emptyContent, Icons.queue_music, '列表为空')))
               else
                 Expanded(
-                  child: ReorderableListView.builder(
+                  child: Builder(builder: (_) {
+                  // 稳定 key = 歌曲实例 + 该实例在队列中第几次出现：
+                  // 不含位置下标，重排后 key 不变（拖拽落位动画正常）；
+                  // 同一首歌重复入队也能区分；删除后不会复用已移除项的 key。
+                  final seen = <int, int>{};
+                  final itemKeys = [
+                    for (final s in player.playlist)
+                      ValueKey((
+                        identityHashCode(s),
+                        seen.update(identityHashCode(s), (n) => n + 1,
+                            ifAbsent: () => 0),
+                      )),
+                  ];
+                  return ReorderableListView.builder(
                     buildDefaultDragHandles: false,
                     scrollController: scrollCtrl,
                     itemCount: player.playlist.length,
                     onReorder: (from, to) {
+                      // ReorderableListView 的 to 是移除前的插入位置
+                      if (to > from) to -= 1;
                       player.moveInQueue(from, to);
                     },
                     itemBuilder: (_, i) {
                       final s = player.playlist[i];
+                      final itemKey = itemKeys[i];
                       return Dismissible(
-                        key: ValueKey('queue_$i'),
+                        key: itemKey,
                         direction: DismissDirection.endToStart,
                         confirmDismiss: (_) async {
                           return await showDialog<bool>(
@@ -248,7 +267,11 @@ class PlaybackControls extends StatelessWidget {
                           );
                         },
                         onDismissed: (_) {
-                          player.removeFromQueue(i);
+                          // 列表若在确认期间变化，按实例重新定位，避免删错
+                          final idx = identical(player.playlist.elementAtOrNull(i), s)
+                              ? i
+                              : player.playlist.indexWhere((e) => identical(e, s));
+                          if (idx >= 0) player.removeFromQueue(idx);
                         },
                         background: Container(
                           alignment: Alignment.centerRight,
@@ -257,7 +280,6 @@ class PlaybackControls extends StatelessWidget {
                           child: Icon(Icons.delete, color: cs.onError),
                         ),
                         child: ListTile(
-                          key: ValueKey('tile_$i'),
                           leading: ReorderableDragStartListener(
                             index: i,
                             child: Row(
@@ -302,7 +324,8 @@ class PlaybackControls extends StatelessWidget {
                         ),
                       );
                     },
-                  ),
+                  );
+                  }),
                 ),
               Divider(height: 1, color: cs.outlineVariant),
               ListTile(
@@ -348,6 +371,7 @@ class PlaybackControls extends StatelessWidget {
               ),
             ],
           ),
+        ),
         ),
       ),
       ),
@@ -417,7 +441,7 @@ class PlaybackControls extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('收藏失败: $e')));
+            .showSnackBar(SnackBar(content: Text('收藏失败：${friendlyError(e)}')));
       }
     }
   }
@@ -538,7 +562,7 @@ class PlaybackControls extends StatelessWidget {
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text('保存失败: $e')));
+                      .showSnackBar(SnackBar(content: Text('保存失败：${friendlyError(e)}')));
                 }
               }
             },

@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/player_provider.dart';
 import '../models/song.dart';
-import '../utils/navigation.dart' as app;
 import '../utils/theme.dart';
 import '../screens/player_screen.dart';
 
@@ -91,12 +90,10 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
                             padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
                             child: Row(
                               children: [
-                                // 专辑封面（含安全过渡与 Hero 动效）
-                                Hero(
-                                  tag: 'album_art_${song.hash ?? song.id}',
-                                  flightShuttleBuilder: _safeFlightShuttle,
-                                  child: _MiniCoverArt(song: song),
-                                ),
+                                // 专辑封面
+                                // 注：MiniPlayer 位于 Navigator 之外（AppShell Stack），
+                                // HeroController 无法与路由内的封面配对，故不使用 Hero。
+                                _MiniCoverArt(song: song),
                                 const SizedBox(width: 10),
 
                                 // 歌曲信息排版（运用 FittedBox.scaleDown 彻底消灭各种大字号与行高带来的 Bottom/Right Overflowed）
@@ -168,21 +165,6 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-
-  /// 飞行安全过渡组件（防止路由与 Hero 切出同时出现排版异常抛出黑框）
-  Widget _safeFlightShuttle(
-    BuildContext flightContext,
-    Animation<double> animation,
-    HeroFlightDirection flightDirection,
-    BuildContext fromHeroContext,
-    BuildContext toHeroContext,
-  ) {
-    final Hero toHero = toHeroContext.widget as Hero;
-    return Material(
-      color: Colors.transparent,
-      child: toHero.child,
     );
   }
 
@@ -397,30 +379,7 @@ class M3ExpressiveMiniPlayer extends StatelessWidget {
   }
 
   void _openPlayerScreen(BuildContext context) {
-    final player = context.read<PlayerProvider>();
-    player.setPlayerScreenVisible(true);
-    app.navKey.currentState
-        ?.push(
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => const PlayerScreen(),
-            transitionsBuilder: (_, animation, __, child) {
-              return SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 0.15),
-                  end: Offset.zero,
-                ).animate(
-                  CurvedAnimation(
-                    parent: animation,
-                    curve: AppMotion.emphasizedDecelerate,
-                  ),
-                ),
-                child: FadeTransition(opacity: animation, child: child),
-              );
-            },
-            transitionDuration: AppMotion.dMedium2,
-          ),
-        )
-        .then((_) => player.setPlayerScreenVisible(false));
+    PlayerScreen.open();
   }
 }
 

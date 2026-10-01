@@ -558,7 +558,21 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
                     // 黑胶唱片（MD3: hover scale via Transform + InkWell）
                     InkWell(
                       borderRadius: AppShape.xl,
-                      onTap: () {},
+                      // 已在队列中的歌直接跳过去播放；仅在缓冲区的歌给出提示
+                      onTap: () {
+                        final idx = player.playlist
+                            .indexWhere((s) => s.id == song.id);
+                        if (idx < 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('「${song.name}」将在稍后播放'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        } else if (idx != player.currentIndex) {
+                          player.playIndex(idx);
+                        }
+                      },
                       child: Container(
                         width: 44,
                         height: 44,

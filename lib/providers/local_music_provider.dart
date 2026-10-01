@@ -104,7 +104,9 @@ class LocalMusicProvider extends ChangeNotifier {
           : (coverPath ?? old.albumCoverUrl),
       filePath: old.filePath,
       duration: meta.durationMs > 0 ? (meta.durationMs / 1000).round() : old.duration,
-      coverData: meta.albumArt,
+      // 有磁盘封面时只用路径（FileImage 可按需解码/被 imageCache 回收），
+      // 不让每首歌都常驻一份原始封面字节
+      coverData: coverPath == null ? meta.albumArt : null,
       mediaStoreId: old.mediaStoreId,
       size: old.size,
       bitrate: meta.bitrate ?? old.bitrate,

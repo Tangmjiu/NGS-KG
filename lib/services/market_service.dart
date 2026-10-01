@@ -67,8 +67,9 @@ class MarketService {
 
   // ─── 下载与安装 ───
 
-  /// 下载主题 ZIP 字节
-  static Future<Uint8List?> downloadTheme(String downloadUrl) async {
+  /// 下载主题 ZIP 字节（[cancelToken] 取消时返回 null）
+  static Future<Uint8List?> downloadTheme(String downloadUrl,
+      {CancelToken? cancelToken}) async {
     try {
       final dio = Dio(BaseOptions(
         connectTimeout: const Duration(seconds: 15),
@@ -78,10 +79,12 @@ class MarketService {
       final res = await dio.get<List<int>>(
         downloadUrl,
         options: Options(responseType: ResponseType.bytes),
+        cancelToken: cancelToken,
       );
       if (res.data == null || res.data!.isEmpty) return null;
       return Uint8List.fromList(res.data!);
     } catch (e, s) {
+      if (e is DioException && CancelToken.isCancel(e)) return null;
       Log.e('MarketService', 'downloadTheme failed', e, s);
       return null;
     }

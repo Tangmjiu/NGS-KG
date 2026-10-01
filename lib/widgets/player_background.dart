@@ -73,17 +73,30 @@ class _PlayerBackgroundState extends State<PlayerBackground>
 
       _accumulatedTime += delta * _currentSpeed;
       _elapsed.value = _accumulatedTime;
+
+      // 速度缓降到 0 后在回调内停止：暂停后父组件不再重建，
+      // 若只在 build 里判断，ticker 会一直以 60fps 空转。
+      if (!isPlaying && _currentSpeed == 0.0) {
+        _ticker.stop();
+      }
     });
   }
 
-  void _updateTickerState(bool isPlaying) {
-    // 播放时启动 ticker；暂停时让速度缓降到 0 后再停止，避免动画突兀中断。
+  void _updateTickerState(bool isPlaying, bool flowEnabled) {
+    if (!flowEnabled) {
+      if (_ticker.isActive) _ticker.stop();
+      return;
+    }
     if (isPlaying && !_ticker.isActive) {
+      // 重新启动后 elapsed 从 0 开始计，重置基准避免 delta 为负。
+      _lastElapsed = Duration.zero;
       _ticker.start();
-    } else if (!isPlaying && _ticker.isActive && _currentSpeed < 0.001) {
-      _ticker.stop();
     }
   }
+
+  /// 流光源图解码尺寸。小图拉伸到全屏本身就很柔和，
+  /// 只需一次轻度模糊即可，显存占用与解码开销都极低。
+  static const int _flowDecodeSize = 96;
 
   @override
   void dispose() {
@@ -97,7 +110,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
   Widget build(BuildContext context) {
     final flowEnabled = context.watch<ThemeProvider>().flowLightEnabled;
     final isPlaying = context.select<PlayerProvider, bool>((p) => p.isPlaying);
-    _updateTickerState(isPlaying);
+    _updateTickerState(isPlaying, flowEnabled);
     final hasColors = widget.paletteColors.length >= 3;
 
     return Stack(
@@ -168,6 +181,8 @@ class _PlayerBackgroundState extends State<PlayerBackground>
                   child: CachedNetworkImage(
                     key: ValueKey('flow_image_${widget.albumCoverUrl}'),
                     imageUrl: widget.albumCoverUrl!,
+                    memCacheWidth: _flowDecodeSize,
+                    memCacheHeight: _flowDecodeSize,
                     placeholder: (_, __) => const SizedBox.shrink(),
                     errorWidget: (_, __, ___) => const SizedBox.shrink(),
                     imageBuilder: (context, imageProvider) {
@@ -175,10 +190,10 @@ class _PlayerBackgroundState extends State<PlayerBackground>
                         animation: _elapsed,
                         builder: (context, _) {
                           final elapsedVal = _elapsed.value;
-                          final opacity = 1.0 - widget.scrollOffset * 0.5;
+                          final opacity =
+                              (1.0 - widget.scrollOffset * 0.5).clamp(0.0, 1.0);
 
-                          return Opacity(
-                            opacity: opacity,
+                          return _FlowBlur(
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
@@ -193,8 +208,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
                                   panSpeedX: 0.04,
                                   panSpeedY: 0.03,
                                   panRadius: 50.0,
-                                  opacity: 0.85,
-                                  blurSigma: 45.0,
+                                  opacity: 0.85 * opacity,
                                 ),
                                 // Layer B: 顶层流光封面，反向旋转，速度不同，缩放比大，起混色作用
                                 FlowingImageLayer(
@@ -207,8 +221,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
                                   panSpeedX: 0.06,
                                   panSpeedY: 0.08,
                                   panRadius: 70.0,
-                                  opacity: 0.45,
-                                  blurSigma: 55.0,
+                                  opacity: 0.45 * opacity,
                                 ),
                               ],
                             ),
@@ -231,11 +244,16 @@ class _PlayerBackgroundState extends State<PlayerBackground>
                   animation: _elapsed,
                   builder: (context, _) {
                     final elapsedVal = _elapsed.value;
-                    final opacity = 1.0 - widget.scrollOffset * 0.5;
-                    final imageProvider = FileImage(File(ThemeAssets.playerBg));
+                    final opacity =
+                        (1.0 - widget.scrollOffset * 0.5).clamp(0.0, 1.0);
+                    final imageProvider = ResizeImage(
+                      FileImage(File(ThemeAssets.playerBg)),
+                      width: _flowDecodeSize,
+                      height: _flowDecodeSize,
+                      policy: ResizeImagePolicy.fit,
+                    );
 
-                    return Opacity(
-                      opacity: opacity,
+                    return _FlowBlur(
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
@@ -249,8 +267,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
                             panSpeedX: 0.04,
                             panSpeedY: 0.03,
                             panRadius: 40.0,
-                            opacity: 0.85,
-                            blurSigma: 45.0,
+                            opacity: 0.85 * opacity,
                           ),
                           FlowingImageLayer(
                             imageProvider: imageProvider,
@@ -262,8 +279,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
                             panSpeedX: 0.06,
                             panSpeedY: 0.08,
                             panRadius: 60.0,
-                            opacity: 0.45,
-                            blurSigma: 55.0,
+                            opacity: 0.45 * opacity,
                           ),
                         ],
                       ),
@@ -297,10 +313,15 @@ class _PlayerBackgroundState extends State<PlayerBackground>
 //  FlowingImageLayer — 仿 Apple Music 与 Ken Burns 动效的流光图片层
 //
 //  原理：
-//    接收一张图片源（封面图或主题背景），对其执行超大 Radius 的高斯模糊。
-//    在 GPU 上以极慢的速度对该模糊图片执行平移（pan）、缩放（zoom）和旋转（rotate）变换。
-//    由于图片被高度模糊，当其进行复杂的矩阵变换时，边缘色彩在屏幕上的运动会被人眼感知为
-//    平滑的、无边界的“液态极光流动”，彻底避免了多个分离色块强行相加（BlendMode.plus）导致的忽明忽暗和闪烁。
+//    接收一张低分辨率（~96px）的图片源，拉伸到全屏后本身就是柔和的色块，
+//    在 GPU 上以极慢的速度执行平移（pan）、缩放（zoom）和旋转（rotate）变换，
+//    人眼感知为平滑、无边界的“液态极光流动”。
+//
+//  性能要点：
+//    - 不在每层内部做模糊：放大变换下的 ImageFiltered 会生成数倍屏幕尺寸的
+//      离屏纹理，两层 × 60fps 足以耗尽共享显存，导致 SystemUI 重启。
+//    - 透明度通过 Image.opacity 直接作用于绘制，避免 Opacity 的 saveLayer。
+//    - 统一由 [_FlowBlur] 在屏幕尺寸内做一次轻度模糊。
 // ─────────────────────────────────────────────────────────────────────────────
 class FlowingImageLayer extends StatelessWidget {
   final ImageProvider imageProvider;
@@ -313,7 +334,6 @@ class FlowingImageLayer extends StatelessWidget {
   final double panSpeedY;
   final double panRadius;
   final double opacity;
-  final double blurSigma;
 
   const FlowingImageLayer({
     super.key,
@@ -327,7 +347,6 @@ class FlowingImageLayer extends StatelessWidget {
     required this.panSpeedY,
     required this.panRadius,
     required this.opacity,
-    required this.blurSigma,
   });
 
   @override
@@ -355,25 +374,38 @@ class FlowingImageLayer extends StatelessWidget {
       ..multiply(Matrix4.diagonal3Values(scale, scale, 1.0))
       ..multiply(Matrix4.rotationZ(angle));
 
-    return Opacity(
-      opacity: opacity,
-      child: Transform(
-        alignment: Alignment.center,
-        transform: transform,
-        child: ImageFiltered(
-          imageFilter: ImageFilter.blur(
-            sigmaX: blurSigma,
-            sigmaY: blurSigma,
-            tileMode: TileMode.clamp,
-          ),
-          child: Image(
-            image: imageProvider,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
-          ),
-        ),
+    return Transform(
+      alignment: Alignment.center,
+      transform: transform,
+      child: Image(
+        image: imageProvider,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        filterQuality: FilterQuality.medium,
+        opacity: AlwaysStoppedAnimation(opacity),
+        gaplessPlayback: true,
       ),
+    );
+  }
+}
+
+/// 在屏幕尺寸内对流光层做一次模糊，抹平低分辨率拉伸带来的条纹。
+/// ClipRect 位于滤镜内部，保证离屏纹理不超过屏幕大小。
+class _FlowBlur extends StatelessWidget {
+  final Widget child;
+
+  const _FlowBlur({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(
+        sigmaX: 24,
+        sigmaY: 24,
+        tileMode: TileMode.clamp,
+      ),
+      child: ClipRect(child: child),
     );
   }
 }

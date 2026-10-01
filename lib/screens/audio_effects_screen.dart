@@ -26,21 +26,32 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
   Future<void> _initEq() async {
     final eq = EqualizerService.instance;
     await eq.init();
-    if (eq.isAvailable && mounted) {
-      final bands = eq.numberOfBands;
-      final levels = <double>[];
-      final labels = <String>[];
-      for (int i = 0; i < bands; i++) {
-        levels.add(0);
-        final freq = await eq.getCenterFreq(i);
-        labels.add(_freqLabel(freq));
-      }
-      setState(() {
-        _eqLevels = levels;
-        _freqLabels = labels;
-        _eqAvailable = true;
-      });
+    if (!eq.isAvailable || !mounted) return;
+    final bands = eq.numberOfBands;
+    final levels = <double>[];
+    final labels = <String>[];
+    for (int i = 0; i < bands; i++) {
+      // 读取当前实际增益（离开页面再进入时保留用户的调节）
+      levels.add((await eq.getBandLevel(i))
+          .clamp(eq.minBandLevel, eq.maxBandLevel));
+      labels.add(_freqLabel(await eq.getCenterFreq(i)));
     }
+    if (!mounted) return;
+    setState(() {
+      _eqLevels = levels;
+      _freqLabels = labels;
+      _eqAvailable = true;
+    });
+  }
+
+  void _resetEq() {
+    final eq = EqualizerService.instance;
+    setState(() {
+      for (int i = 0; i < _eqLevels.length; i++) {
+        _eqLevels[i] = 0.0.clamp(eq.minBandLevel, eq.maxBandLevel);
+        eq.setBandLevel(i, _eqLevels[i]);
+      }
+    });
   }
 
   String _freqLabel(int hz) {
@@ -110,7 +121,16 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
         const SizedBox(height: 24),
 
         // ── 均衡器 ──
-        Text('均衡器', style: Theme.of(context).textTheme.titleMedium),
+        Row(
+          children: [
+            Expanded(
+              child: Text('均衡器',
+                  style: Theme.of(context).textTheme.titleMedium),
+            ),
+            if (_eqAvailable)
+              TextButton(onPressed: _resetEq, child: const Text('重置')),
+          ],
+        ),
         const SizedBox(height: 8),
         if (_eqAvailable && _freqLabels.length == _eqLevels.length)
           ...List.generate(_eqLevels.length, (i) {
@@ -137,9 +157,10 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
                     ),
                   ),
                   SizedBox(
-                    width: 32,
+                    width: 48,
                     child: Text(
-                      '${_eqLevels[i].round()}dB',
+                      // 原生单位是毫贝（mB），1 dB = 100 mB
+                      '${(_eqLevels[i] / 100).round()}dB',
                       style: Theme.of(context).textTheme.bodySmall,
                       textAlign: TextAlign.right,
                     ),
@@ -156,20 +177,15 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
                 child: Row(
                   children: [
                     SizedBox(width: 60, child: Text(freq, style: Theme.of(context).textTheme.bodySmall)),
-                    Expanded(
-                      child: Slider(
-                        value: 0,
-                        min: -12,
-                        max: 12,
-                        divisions: 24,
-                        onChanged: (_) {},
-                      ),
+                    const Expanded(
+                      // onChanged 为 null → 禁用态，不再给出"能拖但无效"的假交互
+                      child: Slider(value: 0, min: -12, max: 12, onChanged: null),
                     ),
                   ],
                 ),
               )),
               const SizedBox(height: 16),
-              Text('均衡器需要设备支持，当前版本暂不可调',
+              Text('当前设备不支持系统均衡器，或尚未开始播放（播放一首歌后再进入此页）',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.outline)),
             ],

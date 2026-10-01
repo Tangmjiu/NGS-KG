@@ -8,6 +8,7 @@ import '../services/music_service.dart';
 import '../theme/theme_assets.dart';
 import '../widgets/song_tile.dart';
 import '../widgets/list_bottom_spacer.dart';
+import '../services/api_exception.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
   final String? gcId;
@@ -297,7 +298,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                               ScaffoldMessenger.of(context)
                                   .showSnackBar(SnackBar(
                                       content:
-                                          Text('移除失败: $e')));
+                                          Text('移除失败：${friendlyError(e)}')));
                               context
                                   .read<PlaylistProvider>()
                                   .fetchPlaylistDetail(
@@ -465,7 +466,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           ScaffoldMessenger.of(context)
                               .showSnackBar(SnackBar(
                                   content:
-                                      Text('添加失败: $e')));
+                                      Text('添加失败：${friendlyError(e)}')));
                         }
                       }
                     },
@@ -516,7 +517,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('删除失败: $e')),
+                    SnackBar(content: Text('删除失败：${friendlyError(e)}')),
                   );
                 }
               }

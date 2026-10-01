@@ -10,6 +10,7 @@ import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../widgets/song_tile.dart';
 import '../widgets/list_bottom_spacer.dart';
+import '../services/api_exception.dart';
 
 class AlbumDetailScreen extends StatefulWidget {
   final int albumId;
@@ -428,7 +429,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                           ScaffoldMessenger.of(context)
                               .showSnackBar(SnackBar(
                                   content:
-                                      Text('添加失败: $e')));
+                                      Text('添加失败：${friendlyError(e)}')));
                         }
                       }
                     },

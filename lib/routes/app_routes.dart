@@ -115,7 +115,7 @@ class AppRoutes {
       case localMusic:
         return MaterialPageRoute(builder: (_) => const LocalMusicScreen());
       case player:
-        return MaterialPageRoute(builder: (_) => const PlayerScreen());
+        return PlayerScreen.route();
       case history:
         return MaterialPageRoute(builder: (_) => const HistoryScreen());
       case AppRoutes.cloud:

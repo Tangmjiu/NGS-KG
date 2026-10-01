@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../services/music_service.dart';
+import '../services/api_exception.dart';
 
 class MvPlayerScreen extends StatefulWidget {
   final String? hash;
@@ -82,7 +83,7 @@ class _MvPlayerScreenState extends State<MvPlayerScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = '加载失败: $e';
+          _error = '加载失败：${friendlyError(e)}';
           _isLoading = false;
         });
       }

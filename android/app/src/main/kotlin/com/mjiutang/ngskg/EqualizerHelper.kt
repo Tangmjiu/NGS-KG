@@ -14,170 +14,147 @@ import io.flutter.plugin.common.MethodChannel
  * 包装 android.media.audiofx.Equalizer，通过 MethodChannel 向 Flutter 暴露
  * 频段增益查询与设置能力。
  *
+ * 均衡器必须挂在播放器自己的音频会话上（just_audio 的 androidAudioSessionId），
+ * 由 Flutter 侧通过 attachSession 传入；全局会话 0 已被弃用，多数设备上无效。
+ *
  * 使用示例（Flutter 侧）：
  * ```dart
  * const platform = MethodChannel('com.mjiutang.ngskg/equalizer');
+ * await platform.invokeMethod('attachSession', {'sessionId': id});
  * final range = await platform.invokeMethod('getBandLevelRange');
- * final bands = await platform.invokeMethod('getNumberOfBands');
  * ```
  */
-class EqualizerHelper(context: Context, audioSessionId: Int) {
+object EqualizerHelper {
+    private const val TAG = "EqualizerHelper"
 
-    companion object {
-        private const val TAG = "EqualizerHelper"
-        private const val CHANNEL = "com.mjiutang.ngskg/equalizer"
-
-        /**
-         * 在指定 MethodChannel 上注册均衡器方法调用处理。
-         *
-         * 支持的方法：
-         * - getBandLevelRange -> List<Int> [min, max] 毫贝
-         * - getNumberOfBands  -> Int 频段数
-         * - getCenterFreq     -> Int 中心频率（mHz），参数："band"
-         * - setBandLevel      -> Unit，参数："band", "level"
-         * - getBandLevel      -> Short 当前增益，参数："band"
-         * - release           -> Unit 释放均衡器
-         */
-        fun registerWith(channel: MethodChannel, context: Context) {
-            channel.setMethodCallHandler { call, result ->
-                val equalizer = EqualizerHolder.getForContext(context)
-                    ?: run {
-                        result.error("EQ_NOT_READY", "Equalizer not initialized", null)
-                        return@setMethodCallHandler
-                    }
-
-                try {
-                    when (call.method) {
-                        "getBandLevelRange" -> {
-                            val range = equalizer.bandLevelRange
-                            result.success(listOf(range[0].toInt(), range[1].toInt()))
-                        }
-                        "getNumberOfBands" -> {
-                            result.success(equalizer.numberOfBands)
-                        }
-                        "getCenterFreq" -> {
-                            val band = call.argument<Int>("band")
-                            if (band == null) {
-                                result.error("INVALID_ARG", "band required", null)
-                                return@setMethodCallHandler
-                            }
-                            result.success(equalizer.getCenterFreq(band.toShort()))
-                        }
-                        "setBandLevel" -> {
-                            val band = call.argument<Int>("band")
-                            val level = call.argument<Int>("level")
-                            if (band == null || level == null) {
-                                result.error("INVALID_ARG", "band and level required", null)
-                                return@setMethodCallHandler
-                            }
-                            equalizer.setBandLevel(band.toShort(), level.toShort())
-                            result.success(null)
-                        }
-                        "getBandLevel" -> {
-                            val band = call.argument<Int>("band")
-                            if (band == null) {
-                                result.error("INVALID_ARG", "band required", null)
-                                return@setMethodCallHandler
-                            }
-                            result.success(equalizer.getBandLevel(band.toShort()).toInt())
-                        }
-                        "release" -> {
-                            equalizer.release()
-                            EqualizerHolder.clear()
-                            result.success(null)
-                        }
-                        else -> {
-                            result.notImplemented()
+    /**
+     * 在指定 MethodChannel 上注册均衡器方法调用处理。
+     *
+     * 支持的方法：
+     * - attachSession     -> Bool 绑定播放器音频会话，参数："sessionId"
+     * - getBandLevelRange -> List<Int> [min, max] 毫贝
+     * - getNumberOfBands  -> Int 频段数
+     * - getCenterFreq     -> Int 中心频率（mHz），参数："band"
+     * - setBandLevel      -> Unit，参数："band", "level"
+     * - getBandLevel      -> Int 当前增益，参数："band"
+     * - release           -> Unit 释放均衡器
+     */
+    fun registerWith(channel: MethodChannel, @Suppress("UNUSED_PARAMETER") context: Context) {
+        channel.setMethodCallHandler { call, result ->
+            try {
+                when (call.method) {
+                    "attachSession" -> {
+                        val id = call.argument<Int>("sessionId")
+                        if (id == null || id <= 0) {
+                            result.error("INVALID_ARG", "valid sessionId required", null)
+                        } else {
+                            result.success(EqualizerHolder.attach(id) != null)
                         }
                     }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Method '${call.method}' failed", e)
-                    result.error("EQ_ERROR", e.message, null)
+                    "release" -> {
+                        EqualizerHolder.clear()
+                        result.success(null)
+                    }
+                    else -> {
+                        val equalizer = EqualizerHolder.current()
+                        if (equalizer == null) {
+                            result.error("EQ_NOT_READY", "Equalizer not attached to a session", null)
+                            return@setMethodCallHandler
+                        }
+                        handle(call.method, call, equalizer, result)
+                    }
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Method '${call.method}' failed", e)
+                result.error("EQ_ERROR", e.message, null)
             }
         }
     }
 
-    /** 实际 Equalizer 实例（priority: 每个音频会话一个实例） */
-    private val equalizer: Equalizer
-
-    init {
-        equalizer = EqualizerHolder.getOrCreate(audioSessionId)
-        Log.i(TAG, "Equalizer initialized for session $audioSessionId, bands=${equalizer.numberOfBands}")
-    }
-
-    /** 获取均衡器增益范围（毫贝），返回 [min, max] */
-    fun getBandLevelRange(): Pair<Short, Short> {
-        val range = equalizer.bandLevelRange
-        return Pair(range[0], range[1])
-    }
-
-    /** 获取频段数量 */
-    fun getNumberOfBands(): Short = equalizer.numberOfBands
-
-    /** 获取指定频段的中心频率（毫赫兹 mHz） */
-    fun getCenterFreq(band: Int): Int = equalizer.getCenterFreq(band.toShort())
-
-    /** 设置指定频段的增益（毫贝） */
-    fun setBandLevel(band: Int, level: Short) {
-        equalizer.setBandLevel(band.toShort(), level)
-    }
-
-    /** 获取指定频段的当前增益（毫贝） */
-    fun getBandLevel(band: Int): Short = equalizer.getBandLevel(band.toShort())
-
-    /** 释放均衡器资源 */
-    fun release() {
-        equalizer.release()
-        EqualizerHolder.clear()
+    private fun handle(
+        method: String,
+        call: io.flutter.plugin.common.MethodCall,
+        equalizer: Equalizer,
+        result: MethodChannel.Result,
+    ) {
+        when (method) {
+            "getBandLevelRange" -> {
+                val range = equalizer.bandLevelRange
+                result.success(listOf(range[0].toInt(), range[1].toInt()))
+            }
+            "getNumberOfBands" -> result.success(equalizer.numberOfBands.toInt())
+            "getCenterFreq" -> {
+                val band = call.argument<Int>("band")
+                    ?: return result.error("INVALID_ARG", "band required", null)
+                result.success(equalizer.getCenterFreq(band.toShort()))
+            }
+            "setBandLevel" -> {
+                val band = call.argument<Int>("band")
+                val level = call.argument<Int>("level")
+                if (band == null || level == null) {
+                    return result.error("INVALID_ARG", "band and level required", null)
+                }
+                EqualizerHolder.setBandLevel(band.toShort(), level.toShort())
+                result.success(null)
+            }
+            "getBandLevel" -> {
+                val band = call.argument<Int>("band")
+                    ?: return result.error("INVALID_ARG", "band required", null)
+                result.success(equalizer.getBandLevel(band.toShort()).toInt())
+            }
+            else -> result.notImplemented()
+        }
     }
 }
 
 /**
  * 均衡器实例持有者（单例）
  *
- * Android 的 Equalizer 构造需要音频会话 ID，且在同一个音频会话上
- * 重复创建多个实例可能导致音频路由异常。此持有者确保全局只有一个
- * 活跃的 Equalizer 实例，避免竞态。
+ * 同一音频会话上重复创建多个 Equalizer 可能导致音频路由异常，
+ * 因此全局只保留一个实例。会话变化（播放器重建）时释放旧实例并
+ * 把用户设置过的增益恢复到新实例上。
  */
 private object EqualizerHolder {
     private const val TAG = "EqualizerHelper.Holder"
     private var instance: Equalizer? = null
     private var sessionId: Int = -1
 
-    /**
-     * 获取或创建均衡器实例。
-     * 如果 sessionId 变化，会释放旧实例并创建新的。
-     */
-    @Synchronized
-    fun getOrCreate(audioSessionId: Int): Equalizer {
-        val current = instance
-        if (current != null && sessionId == audioSessionId) {
-            return current
-        }
-        // session 变化或首次创建：释放旧的
-        current?.release()
-        val created = Equalizer(0, audioSessionId)
-        instance = created
-        sessionId = audioSessionId
-        Log.i(TAG, "Created Equalizer for session $audioSessionId")
-        return created
-    }
+    /** 用户设置过的频段增益，会话切换时恢复 */
+    private val savedLevels = mutableMapOf<Short, Short>()
 
-    /** 获取当前实例（可能为 null） */
     @Synchronized
-    fun getForContext(context: Context): Equalizer? {
-        if (instance == null) {
-            // 如果 registerWith 先于构造调用，使用默认音频会话 0 创建
-            val created = Equalizer(0, 0)
+    fun attach(audioSessionId: Int): Equalizer? {
+        val existing = instance
+        if (existing != null && sessionId == audioSessionId) return existing
+        existing?.release()
+        instance = null
+        return try {
+            val created = Equalizer(0, audioSessionId)
+            for ((band, level) in savedLevels) {
+                created.setBandLevel(band, level)
+            }
+            // 新建的 Equalizer 默认是禁用状态，不启用则调节没有任何效果
+            created.enabled = true
             instance = created
-            sessionId = 0
-            Log.i(TAG, "Lazy-created Equalizer for MethodChannel (session 0)")
+            sessionId = audioSessionId
+            Log.i(TAG, "Equalizer attached to session $audioSessionId, bands=${created.numberOfBands}")
+            created
+        } catch (e: Exception) {
+            Log.e(TAG, "Equalizer unsupported for session $audioSessionId", e)
+            sessionId = -1
+            null
         }
-        return instance
     }
 
-    /** 释放并清除实例 */
+    @Synchronized
+    fun current(): Equalizer? = instance
+
+    @Synchronized
+    fun setBandLevel(band: Short, level: Short) {
+        savedLevels[band] = level
+        instance?.setBandLevel(band, level)
+    }
+
     @Synchronized
     fun clear() {
         instance?.release()

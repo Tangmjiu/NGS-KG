@@ -42,3 +42,15 @@ class NetworkErrorException extends ApiException {
     return NetworkErrorException(msg);
   }
 }
+
+/// 把任意异常转成可以直接展示给用户的简短中文文案。
+///
+/// 业务异常（[ApiException]）的 message 本身就是给人看的；其余异常
+/// （PlatformException、FormatException、Dart 内部错误等）一律不外露原文，
+/// 原始信息请通过 Log 记录。
+String friendlyError(Object e) {
+  if (e is NeedLoginException) return '登录已失效，请重新登录';
+  if (e is ApiException) return e.message;
+  if (e is DioException) return NetworkErrorException.fromDio(e).message;
+  return '出了点问题，请稍后重试';
+}

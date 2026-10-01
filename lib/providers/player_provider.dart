@@ -52,6 +52,9 @@ class PlayerProvider extends ChangeNotifier
 
   bool _isPlaying = false;
   bool _isLoading = false;
+  /// 系统 STOP 后不再推送通知（否则又会把刚撤下的通知顶回来），
+  /// 用户重新播放时解除。
+  bool _notificationSuppressed = false;
   bool _isPlayerScreenVisible = false;
   bool _isMiniPlayerDismissed = false;
   Duration _position = Duration.zero;
@@ -321,10 +324,8 @@ class PlayerProvider extends ChangeNotifier
         notifyListeners();
       }
       if (sleepTimerRemaining != null && sleepTimerRemaining!.inSeconds <= 0) {
-        _engine.pause();
-        _isPlaying = false;
         cancelSleepTimer();
-        notifyListeners();
+        pause();
       }
       // 通知更新策略：
       // - 歌词行切换时 → 即时更新（锁屏歌词不卡顿）
@@ -352,10 +353,9 @@ class PlayerProvider extends ChangeNotifier
     _onLoadingChanged = () {
       _isLoading = _engine.isLoading.value;
       if (!_isLoading) {
-        // 加载完成（成功或失败）时同步底层的播放状态
+        // 加载结束（成功或失败）时以底层真实状态为准；
+        // 加载期间被跳过的播放事件在此补一次通知刷新
         _isPlaying = _engine.isPlaying.value;
-        // 加载期间播放事件可能被 isLoading 保护跳过，
-        // 加载完成时必须强制刷新一次系统通知，否则控制栏状态会滞留旧值
         _updateNotification();
       }
       notifyListeners();
@@ -364,15 +364,16 @@ class PlayerProvider extends ChangeNotifier
 
     _onErrorChanged = () {
       _error = _engine.error.value;
+      if (_error != null) _isPlaying = _engine.isPlaying.value;
       notifyListeners();
     };
     _engine.error.addListener(_onErrorChanged);
 
     _onPlayingChanged = () {
-      if (_engine.isLoading.value) {
-        // 正在加载新歌时，不要让上一首 stop() 引起的 isPlaying=false 覆盖当前为 true 的状态
-        return;
-      }
+      // 加载新歌期间 stop() 会广播 playing=false，此时保留"即将播放"的 UI 状态，
+      // 加载结束时由 _onLoadingChanged 统一同步。
+      if (_engine.isLoading.value) return;
+      if (_isPlaying == _engine.isPlaying.value) return;
       _isPlaying = _engine.isPlaying.value;
       notifyListeners();
       _updateNotification();
@@ -405,6 +406,7 @@ class PlayerProvider extends ChangeNotifier
   }
 
   void _updateNotification() {
+    if (_notificationSuppressed) return;
     final song = _queue.currentSong;
     if (song == null) {
       _audioHandler.cancelNotification();
@@ -458,26 +460,31 @@ class PlayerProvider extends ChangeNotifier
         'cover': song.albumCoverUrl ?? '',
         'albumId': song.albumId,
         'positionMs': _position.inMilliseconds,
+        'durationMs': _duration.inMilliseconds,
         'playMode': _queue.playMode.name,
         'quality': _qualityLevel,
         'speed': _engine.speed,
         'filePath': song.filePath ?? '',
         'queueIndex': _queue.currentIndex,
-        'queue': queueLimit.map((s) => {
-          'id': s.id,
-          'name': s.name,
-          'hash': s.hash ?? '',
-          'artist': s.artistDisplay,
-          'cover': s.albumCoverUrl ?? '',
-          'albumId': s.albumId,
-          'filePath': s.filePath ?? '',
-          'isLocal': s.isLocal,
-          'lyrics': s.lyrics ?? '',
-        }).toList(),
+        'queue': queueLimit.map((s) => _songToJson(s)).toList(),
       };
       await prefs.setString(_keySavedPlaybackStateV2, jsonEncode(state));
     } catch (_) {}
   }
+
+  /// 队列持久化用的精简歌曲 JSON（与 [_parseQueueJson] 对应）。
+  /// 歌词只为没有 hash 的歌曲保留（有 hash 的可重新拉取，没必要写进 prefs）。
+  Map<String, dynamic> _songToJson(Song s, {bool withLyrics = true}) => {
+        'id': s.id,
+        'name': s.name,
+        'hash': s.hash ?? '',
+        'artist': s.artistDisplay,
+        'cover': s.albumCoverUrl ?? '',
+        'albumId': s.albumId,
+        'filePath': s.filePath ?? '',
+        'isLocal': s.isLocal,
+        if (withLyrics && (s.isLocal || s.hash == null)) 'lyrics': s.lyrics ?? '',
+      };
 
   /// 从 SharedPreferences 恢复播放状态。
   /// 仅供初始化时调用，不自动播放 —— 只让 Mini Bar 显示上次的歌曲。
@@ -596,6 +603,13 @@ class PlayerProvider extends ChangeNotifier
     _qualityLevel = (state['quality'] as num?)?.toInt() ?? 0;
     _engine.qualityLevel = _qualityLevel;
     _position = Duration(milliseconds: (state['positionMs'] as num?)?.toInt() ?? 0);
+    // 播放器尚未加载音源：记下进度，首次点播放时从这里开始
+    _engine.startPosition = _position;
+    final savedDurationMs = (state['durationMs'] as num?)?.toInt() ?? 0;
+    if (savedDurationMs > 0) {
+      // 让进度条在加载前就能显示上次的位置
+      _duration = Duration(milliseconds: savedDurationMs);
+    }
     final modeName = state['playMode'] as String? ?? 'sequential';
     final mode = PlayMode.values.where((m) => m.name == modeName).firstOrNull;
     if (mode != null) _queue.setPlayMode(mode);
@@ -786,8 +800,8 @@ class PlayerProvider extends ChangeNotifier
     _updateNotification();
     // 异步查询高潮时间（不阻塞播放，失败静默）
     _fetchClimax(current);
-    // Upload play history via new API
-    if (current.mixSongId != null) {
+    // Upload play history via new API（尊重设置中的"提交听歌历史"开关）
+    if (current.mixSongId != null && _engine.uploadHistory) {
       _musicService.uploadMixPlayHistory(current.mixSongId.toString());
     }
     // FM 模式：上报歌曲开始播放，让 API 获知当前上下文
@@ -932,25 +946,43 @@ class PlayerProvider extends ChangeNotifier
   }
 
   Future<void> togglePlayPause() async {
+    if (_isPlaying) {
+      await pause();
+    } else {
+      await play();
+    }
+  }
+
+  /// 明确的"播放"指令（幂等）。系统 / 蓝牙 / 锁屏的 PLAY 走这里，
+  /// 避免耳机重连时自动发来的 PLAY 把正在播放的歌暂停。
+  Future<void> play() async {
     final song = _queue.currentSong;
     if (song == null) return;
-    if (_isPlaying) {
-      await _engine.pause();
-      _isPlaying = false;
-    } else {
-      if (_position == Duration.zero || _position >= _duration) {
-        _engine.resetForNewSong();
-        final version = _engine.currentVersion;
-        notifyListeners();
-        await _engine.play(song, version: version, effectKey: _effectKey);
-      } else {
-        _engine.clearError();
-        _isLoading = false;
-        await _engine.togglePlayPause(song);
-      }
-    }
+    _notificationSuppressed = false;
+    _isPlaying = true;
+    _engine.clearError();
     notifyListeners();
     _updateNotification();
+    await _engine.resume(song, effectKey: _effectKey);
+  }
+
+  /// 明确的"暂停"指令（幂等）。
+  Future<void> pause() async {
+    if (_queue.currentSong == null) return;
+    _isPlaying = false;
+    notifyListeners();
+    await _engine.pause();
+    _updateNotification();
+  }
+
+  /// 系统 STOP 指令：停止并释放音源，通知由 audio_service 撤下。
+  /// 保留当前歌曲与进度，之后点播放会从原位置重新加载。
+  Future<void> stop() async {
+    _isPlaying = false;
+    _notificationSuppressed = true;
+    await _engine.stop();
+    _savePlaybackState();
+    notifyListeners();
   }
 
   void playNext() {
@@ -981,14 +1013,24 @@ class PlayerProvider extends ChangeNotifier
   }
 
   Future<void> seek(Duration pos) async {
+    // 冷启动恢复 / stop 后尚未加载音源：记下位置，播放时从这里开始
+    // （切歌加载中播放器也短暂处于 idle，此时忽略，避免把位置带到新歌上）
+    if (_engine.needsLoad) {
+      if (_isLoading) return;
+      _engine.startPosition = pos;
+      _position = pos;
+      _lyricController.setProgress(pos);
+      notifyListeners();
+      return;
+    }
     await _engine.seek(pos);
   }
 
   void setPlaylist(List<Song> songs, {int startIndex = 0}) {
     _queue.setPlaylist(songs, startIndex: startIndex);
     if (songs.isEmpty) {
-      _engine.pause();
       _isPlaying = false;
+      _engine.pause();
       notifyListeners();
     }
   }
@@ -1056,27 +1098,39 @@ class PlayerProvider extends ChangeNotifier
     _persistQueueNames();
   }
 
-  /// 持久化队列名称列表（仅保存名称，歌曲数据在内存中）
+  /// 持久化已保存队列（名称 + 歌曲，单队列上限 500 首，不含歌词文本）
   Future<void> _persistQueueNames() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-          _keySavedQueueNames, jsonEncode(_savedQueues.keys.toList()));
+      await prefs.setString(_keySavedQueueNames, jsonEncode({
+        for (final e in _savedQueues.entries)
+          e.key: e.value
+              .take(500)
+              .map((s) => _songToJson(s, withLyrics: false))
+              .toList(),
+      }));
     } catch (_) {}
   }
 
-  /// 从 SharedPreferences 恢复队列名称列表
+  /// 从 SharedPreferences 恢复已保存队列（兼容旧版只存名称的格式）
   Future<void> restoreQueueNames() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final json = prefs.getString(_keySavedQueueNames);
-      if (json != null && json.isNotEmpty) {
-        final names = jsonDecode(json) as List<dynamic>;
-        for (final name in names) {
-          _savedQueues[name as String] = [];
+      if (json == null || json.isEmpty) return;
+      final decoded = jsonDecode(json);
+      if (decoded is Map<String, dynamic>) {
+        for (final e in decoded.entries) {
+          _savedQueues[e.key] = _parseQueueJson(e.value as List<dynamic>);
         }
+      } else if (decoded is List<dynamic>) {
+        // 旧版只持久化了名称，歌曲已无法找回：丢弃空壳，避免 UI 中出现空队列
+        await prefs.remove(_keySavedQueueNames);
       }
-    } catch (_) {}
+      notifyListeners();
+    } catch (e, s) {
+      Log.e('player_provider', 'restore saved queues error', e, s);
+    }
   }
 
   void setPlayerScreenVisible(bool v) {
@@ -1138,14 +1192,12 @@ class PlayerProvider extends ChangeNotifier
     _qualityLevel = idx;
     _engine.qualityLevel = idx;
 
-    // 用 engine 的无缝切换
-    final success = await _engine.switchQuality(song, qualityKey,
-        currentPosition: _position, effectKey: _effectKey);
+    // 用 engine 的无缝切换（不传 currentPosition：以替换瞬间的实际进度为准）
+    final success =
+        await _engine.switchQuality(song, qualityKey, effectKey: _effectKey);
 
-    // 切换成功后强制刷新歌词
-    if (success) {
-      _lyricController.loadLyricModel(LyricModel(lines: []));
-    }
+    // 同一首歌的歌词与音质无关，保持不变
+    _savePlaybackState();
     notifyListeners();
     return success;
   }
@@ -1163,7 +1215,6 @@ class PlayerProvider extends ChangeNotifier
       if (song != null && song.hash != null && song.hash!.isNotEmpty) {
         await _engine.switchQuality(song,
             Quality.levels[_qualityLevel % Quality.levels.length],
-            currentPosition: _position,
             effectKey: _effectKey);
       }
     }
@@ -1252,7 +1303,11 @@ class PlayerProvider extends ChangeNotifier
 
   // ─── 歌词自动拉取与转换核心逻辑 ───
 
+  /// 歌词请求序号：快速切歌时，迟到的旧请求不得改写当前歌曲的歌词状态。
+  int _lyricRequestId = 0;
+
   void loadLyricsForSong(Song song) {
+    final requestId = ++_lyricRequestId;
     _lyricLangMap = {};
     _krcLines = null;
     _selectedLyricLang = 0;
@@ -1269,16 +1324,21 @@ class PlayerProvider extends ChangeNotifier
     if (song.hash != null) {
       _lyricLoading = true;
       notifyListeners();
-      _loadLyrics(song.hash!, songName: song.name);
+      _loadLyrics(song.hash!, requestId, songName: song.name);
     } else {
+      _lyricLoading = false;
       clearLyrics();
     }
   }
 
-  Future<void> _loadLyrics(String hash, {String? songName}) async {
+  Future<void> _loadLyrics(String hash, int requestId,
+      {String? songName}) async {
+    bool stale() =>
+        requestId != _lyricRequestId || hash != _queue.currentSong?.hash;
     try {
       final searchRes =
           await _musicService.searchLyricByHash(hash, keywords: songName);
+      if (stale()) return;
       final data = searchRes['data'] as Map<String, dynamic>? ?? searchRes;
       final candidates = data['candidates'] as List<dynamic>? ?? [];
       if (candidates.isNotEmpty) {
@@ -1288,12 +1348,13 @@ class PlayerProvider extends ChangeNotifier
 
         // 优先 KRC
         final krcBytes = await _musicService.fetchKrcContent(id, key);
+        if (stale()) return;
         if (krcBytes.isNotEmpty) {
           try {
             final krcModel = KrcLyricUtil.parseLyrics(krcBytes);
             if (krcModel.krcLyricList.isEmpty) throw 'empty krc';
 
-            _lyricLangMap = {};
+            final langMap = <int, List<String>>{};
             if (krcModel.lyricTag.language != null &&
                 krcModel.lyricTag.language!.isNotEmpty) {
               try {
@@ -1302,7 +1363,7 @@ class PlayerProvider extends ChangeNotifier
                 );
                 final krcLang = KrcLanguage.fromJson(langJson);
                 for (final c in krcLang.content) {
-                  _lyricLangMap[c.language] = c.lyricContent
+                  langMap[c.language] = c.lyricContent
                       .map((words) => words.join())
                       .toList();
                 }
@@ -1311,6 +1372,7 @@ class PlayerProvider extends ChangeNotifier
               }
             }
 
+            _lyricLangMap = langMap;
             _krcLines = krcModel.krcLyricList;
             _selectedLyricLang = _lyricLangMap.keys.contains(0)
                 ? 0
@@ -1319,10 +1381,8 @@ class PlayerProvider extends ChangeNotifier
             final transMap = _buildTransMap(_selectedLyricLang);
             final lines = _buildLyricLines(krcModel.krcLyricList, transMap);
 
-            if (hash == _queue.currentSong?.hash) {
-              _lyricController.loadLyricModel(LyricModel(lines: lines));
-              _updateNotification();
-            }
+            _lyricController.loadLyricModel(LyricModel(lines: lines));
+            _updateNotification();
             _lyricLoading = false;
             notifyListeners();
             return;
@@ -1333,6 +1393,7 @@ class PlayerProvider extends ChangeNotifier
 
         // 降级 LRC
         final rawContent = await _musicService.fetchLyricContent(id, key);
+        if (stale()) return;
         if (rawContent.isNotEmpty) {
           try {
             String decoded;
@@ -1341,10 +1402,8 @@ class PlayerProvider extends ChangeNotifier
             } catch (_) {
               decoded = rawContent;
             }
-            if (hash == _queue.currentSong?.hash) {
-              _lyricController.loadLyric(decoded);
-              _updateNotification();
-            }
+            _lyricController.loadLyric(decoded);
+            _updateNotification();
           } catch (e, s) {
             Log.e('player_provider', 'lrc parse error', e, s);
           }
@@ -1355,6 +1414,7 @@ class PlayerProvider extends ChangeNotifier
     } catch (e, s) {
       Log.e('player_provider', 'lyric load error', e, s);
     }
+    if (stale()) return;
     _lyricLoading = false;
     notifyListeners();
   }
@@ -1434,8 +1494,7 @@ class PlayerProvider extends ChangeNotifier
 
   @override
   void onSleepTimerExpired() {
-    _engine.pause();
-    _isPlaying = false;
+    pause();
   }
 
   void setVolume(double volume) {

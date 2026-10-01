@@ -1,6 +1,7 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 import 'package:flutter_lyric/flutter_lyric.dart';
@@ -19,11 +20,50 @@ import '../widgets/player_progress_bar.dart';
 import '../widgets/playback_controls.dart' as legacy;
 import '../widgets/login_required_dialog.dart';
 import '../widgets/lyric_settings_panel.dart';
+import '../routes/app_routes.dart';
+import '../utils/navigation.dart' as app;
 
-/// Apple Music-style full player screen with dynamic background,
+/// Full player screen with dynamic background,
 /// cover-art / lyrics PageView, and smooth transitions.
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key});
+
+  /// 播放页唯一的路由构造：统一的自下而上进入动效，并带上路由名，
+  /// 让 AppShell 能通过 AppRouteObserver 正确识别并隐藏 MiniPlayer。
+  static Route<void> route() => PageRouteBuilder<void>(
+        settings: const RouteSettings(name: AppRoutes.player),
+        pageBuilder: (_, __, ___) => const PlayerScreen(),
+        transitionsBuilder: (_, animation, __, child) => SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.15),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: AppMotion.emphasizedDecelerate,
+            reverseCurve: AppMotion.emphasizedAccelerate,
+          )),
+          child: FadeTransition(opacity: animation, child: child),
+        ),
+        transitionDuration: AppMotion.dMedium2,
+        reverseTransitionDuration: AppMotion.dShort4,
+      );
+
+  /// 打开播放页（已在播放页时不重复入栈）。
+  static Future<void> open() async {
+    final nav = app.navKey.currentState;
+    if (nav == null) return;
+    if (app.AppRouteObserver.instance.currentRouteNotifier.value ==
+        AppRoutes.player) {
+      return;
+    }
+    final player = nav.context.read<PlayerProvider>();
+    player.setPlayerScreenVisible(true);
+    try {
+      await nav.push(route());
+    } finally {
+      player.setPlayerScreenVisible(false);
+    }
+  }
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -92,6 +132,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
+  // ─── 播放页底部弹窗统一样式 ───
+  // 播放页是沉浸式深色界面，弹窗沿用深色表面；圆角与拖拽把手对齐 M3 规范（28dp），
+  // 与全局主题中的 bottomSheetTheme 保持一致。
+  static const Color _sheetColor = Color(0xFF1E1E1E);
+  static const ShapeBorder _sheetShape = RoundedRectangleBorder(
+    borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+  );
+
   // ─── PageView ───
   final PageController _pageController = PageController();
   double _pageOffset = 0.0; // 0 = cover, 1 = lyrics
@@ -128,7 +176,31 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void dispose() {
     _pageController.removeListener(_onPageScroll);
     _pageController.dispose();
+    _dragOffset.dispose();
     super.dispose();
+  }
+
+  // ─── 下滑关闭（跟手） ───
+  // 偏移量存放在 State 中（而非 build 局部变量），不会被 provider 的
+  // 周期性重建清零；_dismissing 保证只 pop 一次。
+  final ValueNotifier<double> _dragOffset = ValueNotifier(0.0);
+  bool _dismissing = false;
+  static const double _dismissThreshold = 150;
+
+  void _onDragUpdate(DragUpdateDetails details) {
+    if (_dismissing) return;
+    _dragOffset.value = (_dragOffset.value + details.delta.dy).clamp(0.0, double.infinity);
+  }
+
+  void _onDragEnd(DragEndDetails details) {
+    if (_dismissing) return;
+    final fling = (details.primaryVelocity ?? 0) > 800;
+    if (fling || _dragOffset.value > _dismissThreshold) {
+      _dismissing = true;
+      Navigator.of(context).maybePop();
+    } else {
+      _dragOffset.value = 0;
+    }
   }
 
   // ─── Speech bubble helper for menu items shows a bottom sheet ──
@@ -147,7 +219,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return ListTile(
       title: Text(label, style: const TextStyle(color: Colors.white)),
       trailing: isSelected
-          ? const Icon(Icons.check, color: Colors.blueAccent)
+          ? Icon(Icons.check, color: Theme.of(ctx).colorScheme.inversePrimary)
           : null,
       onTap: () {
         Navigator.pop(ctx);
@@ -163,10 +235,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _showSleepTimerSheet() {
     showM3ModalBottomSheet(
       context: context,
-      backgroundColor: Colors.grey[900],
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      backgroundColor: _sheetColor,
+      shape: _sheetShape,
+      showDragHandle: true,
       builder: (ctx) {
         final player = context.read<PlayerProvider>();
         return SafeArea(
@@ -197,10 +268,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _showLyricSettingsSheet() {
     showM3ModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      backgroundColor: _sheetColor,
+      shape: _sheetShape,
+      showDragHandle: true,
       builder: (_) => const SafeArea(
         child: LyricSettingsPanel(),
       ),
@@ -224,10 +294,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     showM3ModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      backgroundColor: _sheetColor,
+      shape: _sheetShape,
+      showDragHandle: true,
       builder: (ctx) {
         return SafeArea(
           child: Padding(
@@ -277,10 +346,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
     const spds = [1.0, 0.5, 0.75, 1.25, 1.5, 2.0];
     showM3ModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      backgroundColor: _sheetColor,
+      shape: _sheetShape,
+      showDragHandle: true,
       builder: (ctx) {
         return SafeArea(
           child: Padding(
@@ -496,10 +564,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _showEffectSheet() {
     showM3ModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      backgroundColor: _sheetColor,
+      shape: _sheetShape,
+      showDragHandle: true,
       builder: (ctx) {
         final p = context.read<PlayerProvider>();
         final currentEffect = p.effectKey;
@@ -584,10 +651,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final availableQualities = player.getAvailableQualities();
     showM3ModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      backgroundColor: _sheetColor,
+      shape: _sheetShape,
+      showDragHandle: true,
       builder: (ctx) {
         final p = context.read<PlayerProvider>();
         return SafeArea(
@@ -853,8 +919,28 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 背景经由 Consumer.child 传入：该实例在 Consumer 每 200ms 的进度重建中
+    // 保持不变（identical widget 会被跳过），只在封面/取色变化或翻页时重建。
+    final background = Selector<PlayerProvider, (String?, Color?, List<Color>)>(
+      selector: (_, p) => (
+        p.currentSong?.albumCoverUrl,
+        p.backgroundColor,
+        p.paletteColors,
+      ),
+      // paletteColors 在无调色板时每次返回新列表，需按内容比较
+      shouldRebuild: (a, b) =>
+          a.$1 != b.$1 || a.$2 != b.$2 || !listEquals(a.$3, b.$3),
+      builder: (_, bg, __) => PlayerBackground(
+        albumCoverUrl: bg.$1,
+        paletteColor: bg.$2,
+        paletteColors: bg.$3,
+        scrollOffset: _pageOffset,
+      ),
+    );
+
     return Consumer<PlayerProvider>(
-      builder: (ctx, player, _) {
+      child: background,
+      builder: (ctx, player, background) {
         final song = player.currentSong;
         if (song == null) {
           return const Scaffold(
@@ -865,34 +951,24 @@ class _PlayerScreenState extends State<PlayerScreen> {
           );
         }
 
-        // ── Slide-down gesture state ──
-        double dragOffset = 0;
-        const double dismissThreshold = 150;
-
         return Scaffold(
           backgroundColor: Colors.black,
           body: GestureDetector(
-            onVerticalDragUpdate: (details) {
-              dragOffset += details.delta.dy;
-              if (dragOffset > dismissThreshold && mounted) {
-                Navigator.pop(context);
-              }
+            onVerticalDragUpdate: _onDragUpdate,
+            onVerticalDragEnd: _onDragEnd,
+            onVerticalDragCancel: () {
+              if (!_dismissing) _dragOffset.value = 0;
             },
-            onVerticalDragEnd: (details) {
-              dragOffset = 0;
-              if ((details.primaryVelocity ?? 0) > 800 && mounted) {
-                Navigator.pop(context);
-              }
-            },
-            child: Stack(
+            child: ValueListenableBuilder<double>(
+              valueListenable: _dragOffset,
+              builder: (context, offset, child) => Transform.translate(
+                offset: Offset(0, offset),
+                child: child,
+              ),
+              child: Stack(
               children: [
                 // ── Dynamic background ──
-                PlayerBackground(
-                  albumCoverUrl: song.albumCoverUrl,
-                  paletteColor: player.backgroundColor,
-                  paletteColors: player.paletteColors,
-                  scrollOffset: _pageOffset,
-                ),
+                background!,
 
                 // ── Content ──
                 SafeArea(
@@ -916,6 +992,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   ),
                 ),
               ],
+            ),
             ),
           ),
         );

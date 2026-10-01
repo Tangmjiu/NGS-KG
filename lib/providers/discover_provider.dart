@@ -10,6 +10,7 @@ import '../services/music_service.dart';
 import '../utils/logger.dart';
 import '../constants/discover_constants.dart';
 import 'player_provider.dart';
+import '../services/api_exception.dart';
 
 /// 发现页状态管理
 ///
@@ -93,7 +94,7 @@ class DiscoverProvider extends ChangeNotifier {
       ]);
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadAll error', e, s);
-      _error = e.toString();
+      _error = friendlyError(e);
     }
 
     _loading = false;

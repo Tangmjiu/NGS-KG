@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../../../models/song.dart';
 import '../../../providers/player_provider.dart';
+import '../../player_screen.dart';
 
 /// 新歌速递 — 横向滚动歌曲卡片
 class DiscoverSongRow extends StatelessWidget {
@@ -14,8 +15,7 @@ class DiscoverSongRow extends StatelessWidget {
   void _playFrom(BuildContext context, int index) {
     final player = context.read<PlayerProvider>();
     player.playSong(songs[index], playlist: songs.sublist(index));
-    player.setPlayerScreenVisible(true);
-    Navigator.pushNamed(context, '/player').then((_) => player.setPlayerScreenVisible(false));
+    PlayerScreen.open();
   }
 
   @override

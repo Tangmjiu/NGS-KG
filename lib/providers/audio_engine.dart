@@ -9,6 +9,7 @@ import '../models/song.dart';
 import '../constants/quality.dart';
 import '../services/music_service.dart';
 import '../services/api_exception.dart';
+import '../services/equalizer_service.dart';
 import '../utils/navigation.dart' as app;
 import '../providers/auth_provider.dart';
 import '../widgets/login_required_dialog.dart';
@@ -85,10 +86,6 @@ class AudioEngine {
       } else if (state == ProcessingState.ready) {
         isCompleting.value = false;
         onReady?.call();
-        // 淡入效果：从 0 逐渐升到 1.0
-        if (crossfadeMs > 0) {
-          _startFadeIn();
-        }
       } else if (state == ProcessingState.idle) {
         if (_hasActivePlayback) {
           _hasActivePlayback = false;
@@ -98,8 +95,41 @@ class AudioEngine {
         }
       }
     });
-    _playbackSub = _player.playbackEventStream.listen((event) {
-      isPlaying.value = _player.playing;
+    // playingStream 是播放意图的唯一事实来源（play/pause/stop 都会同步广播），
+    // 其余地方不再手动赋值 isPlaying，避免事件乱序导致状态颠倒。
+    _playbackSub = _player.playingStream.listen((playing) {
+      isPlaying.value = playing;
+    });
+    // 系统均衡器需挂在播放器自己的音频会话上才会生效
+    _sessionIdSub = _player.androidAudioSessionIdStream.listen((id) {
+      if (id != null) EqualizerService.instance.attachSession(id);
+    });
+  }
+
+  StreamSubscription? _sessionIdSub;
+
+  /// 下一次加载音源时的起始位置（冷启动恢复进度用），加载时取出并清空。
+  Duration? startPosition;
+
+  Duration? _takeStartPosition() {
+    final p = startPosition;
+    startPosition = null;
+    return (p != null && p > Duration.zero) ? p : null;
+  }
+
+  /// 播放器当前没有已加载的音源（冷启动恢复后 / stop 之后）。
+  bool get needsLoad => _player.processingState == ProcessingState.idle;
+
+  /// 启动播放但不等待。
+  ///
+  /// just_audio 的 play() 返回的 Future 要到暂停/停止/播完才完成，
+  /// 若 await 它，后续的 isLoading 复位、通知刷新、历史上报都会被拖到
+  /// 整首歌结束之后才执行——这也是此前播放/暂停状态反复颠倒的根源。
+  void _startPlayback() {
+    _hasActivePlayback = true;
+    if (crossfadeMs > 0) _startFadeIn();
+    _player.play().catchError((Object e, StackTrace s) {
+      Log.w('audio_engine', 'play() failed', e, s);
     });
   }
 
@@ -240,32 +270,23 @@ class AudioEngine {
       // Direct filePath URL (cloud disk, local, etc.)
       if (song.filePath != null && song.filePath!.isNotEmpty) {
         final fp = song.filePath!;
+        final startAt = _takeStartPosition();
         if (fp.startsWith('http') || fp.startsWith('https')) {
-          await _player.setUrl(fp);
+          await _player.setUrl(fp, initialPosition: startAt);
           if (version != _playRequestVersion) { isLoading.value = false; return; }
           _lastUrlFetchTime = DateTime.now();
-          if (_playWhenReady) {
-            await _player.play();
-            // 显式同步播放状态：just_audio 的 stop() 会异步广播 playing=false，
-            // 若不在此强制同步，事件乱序会导致 UI/系统控制栏显示与真实状态颠倒
-            isPlaying.value = _player.playing;
-            _hasActivePlayback = true;
-          }
+          if (_playWhenReady) _startPlayback();
         } else {
           // 本地文件：尝试 setFilePath，若失败则用 file:// URI + setUrl 重试
           try {
-            await _player.setFilePath(fp);
+            await _player.setFilePath(fp, initialPosition: startAt);
           } catch (_) {
             final fileUri = Uri.file(fp).toString();
-            await _player.setUrl(fileUri);
+            await _player.setUrl(fileUri, initialPosition: startAt);
           }
           if (version != _playRequestVersion) { isLoading.value = false; return; }
           _lastUrlFetchTime = DateTime.now();
-          if (_playWhenReady) {
-            await _player.play();
-            isPlaying.value = _player.playing;
-            _hasActivePlayback = true;
-          }
+          if (_playWhenReady) _startPlayback();
         }
         isLoading.value = false;
         return;
@@ -290,14 +311,11 @@ class AudioEngine {
               );
               if (version != _playRequestVersion) { isLoading.value = false; return; }
               if (!songUrl.isVideo && songUrl.url.isNotEmpty) {
-                await _player.setUrl(songUrl.url);
+                await _player.setUrl(songUrl.url,
+                    initialPosition: _takeStartPosition());
                 if (version != _playRequestVersion) { isLoading.value = false; return; }
                 _lastUrlFetchTime = DateTime.now();
-                if (_playWhenReady) {
-                  await _player.play();
-                  isPlaying.value = _player.playing;
-                  _hasActivePlayback = true;
-                }
+                if (_playWhenReady) _startPlayback();
                 played = true;
                 resolvedQualityNotifier.value = opt.value;
                 Log.i('audio_engine', 'effect resolved: ${opt.value} (${opt.label})');
@@ -332,14 +350,11 @@ class AudioEngine {
           }
 
           if (songUrl.url.isNotEmpty) {
-            await _player.setUrl(songUrl.url);
+            await _player.setUrl(songUrl.url,
+                initialPosition: _takeStartPosition());
             if (version != _playRequestVersion) { isLoading.value = false; return; }
             _lastUrlFetchTime = DateTime.now();
-            if (_playWhenReady) {
-              await _player.play();
-              isPlaying.value = _player.playing;
-              _hasActivePlayback = true;
-            }
+            if (_playWhenReady) _startPlayback();
             played = true;
 
             // ✅ 记录最终解析到的音质
@@ -367,13 +382,13 @@ class AudioEngine {
       Log.w('audio_engine', 'play error (attempt $_playAttempts)', e, s);
       if (e is NoCopyrightException) {
         isLoading.value = false;
-        error.value = '播放失败: $e';
-        showErrorDialog(title: '播放失败', errorCode: 'API 3', message: '$e');
+        error.value = e.message;
+        showErrorDialog(title: '播放失败', errorCode: 'API 3', message: e.message);
         return;
       }
       if (e is NeedLoginException) {
         isLoading.value = false;
-        error.value = '播放失败: $e';
+        error.value = '播放需要重新登录';
         showErrorDialog(title: '登录失效', errorCode: 'API 20010', message: '播放需要重新登录', showLogin: true);
         return;
       }
@@ -382,7 +397,7 @@ class AudioEngine {
         return;
       }
       isLoading.value = false;
-      error.value = '播放失败: $e';
+      error.value = '播放失败：${friendlyError(e)}';
       Log.e('audio_engine', '', e, s);
       _showLoginIfUnauth();
       return;
@@ -390,49 +405,56 @@ class AudioEngine {
     isLoading.value = false;
   }
 
-  Future<void> togglePlayPause(Song? currentSong) async {
-    if (currentSong == null) return;
-    if (_player.playing) {
-      _playWhenReady = false; // 暂停时设为 false
-      await _player.pause();
+  /// 继续播放当前歌曲（幂等：已在播放时什么都不做）。
+  ///
+  /// 播放器没有音源（冷启动恢复后 / stop 后）或已播完时重新加载；
+  /// 音源加载超过 10 分钟时先刷新地址再从原位置继续。
+  Future<void> resume(Song currentSong, {String effectKey = 'none'}) async {
+    if (_player.playing) return;
+    _playWhenReady = true;
+    // 正在加载：只需恢复"就绪即播"意图，进行中的 play() 会据此启动播放
+    if (isLoading.value) return;
+    final completed = _player.processingState == ProcessingState.completed;
+    if (needsLoad || completed) {
+      if (completed) startPosition = null;
+      error.value = null;
+      isLoading.value = true;
+      _playRequestVersion++;
+      _playAttempts = 0;
+      await play(currentSong, effectKey: effectKey);
+      return;
+    }
+    final lastFetch = _lastUrlFetchTime;
+    final isStale = lastFetch != null &&
+        DateTime.now().difference(lastFetch) > _urlStaleDuration;
+    if (isStale && !currentSong.isLocal) {
+      await _refreshUrlAndPlay(currentSong);
     } else {
-      _playWhenReady = true;  // 播放时设为 true
-      if (position.value == Duration.zero || position.value >= duration.value) {
-        error.value = null;
-        isLoading.value = true;
-        _playRequestVersion++;
-        _playAttempts = 0;
-        await play(currentSong);
-      } else {
-        final lastFetch = _lastUrlFetchTime;
-        final isStale = lastFetch != null &&
-            DateTime.now().difference(lastFetch) > _urlStaleDuration;
-        if (isStale && !currentSong.isLocal) {
-          await _refreshUrlAndPlay(currentSong);
-        } else {
-          await _player.play();
-        }
-      }
+      _startPlayback();
     }
   }
 
-
   Future<void> _refreshUrlAndPlay(Song song) async {
+    final version = _playRequestVersion;
+    bool cancelled() => version != _playRequestVersion || !_playWhenReady;
     try {
       final quality = _currentQualityKey();
       final pos = position.value;
       final songUrl = await _musicService.getSongUrl(song.id,
           hash: song.hash, quality: quality);
-      if (songUrl.url.isEmpty) return;
+      if (cancelled()) return;
+      if (songUrl.url.isEmpty) {
+        _startPlayback();
+        return;
+      }
       _lastUrlFetchTime = DateTime.now();
-      await _player.setUrl(songUrl.url);
-      await _player.seek(pos);
-      await _player.play();
-      isPlaying.value = _player.playing;
-      isLoading.value = false;
+      await _player.setUrl(songUrl.url, initialPosition: pos);
+      if (cancelled()) return;
+      _startPlayback();
     } catch (e, s) {
       Log.e('audio_engine', 'refresh URL error', e, s);
-      error.value = '刷新播放地址失败';
+      // 刷新失败时退回旧地址继续播放（多数情况下仍有效，403 由 idle 分支兜底）
+      if (!cancelled()) _startPlayback();
     }
   }
 
@@ -440,94 +462,81 @@ class AudioEngine {
   ///
   /// [qualityKey] 编码音质 key，[effectKey] 可选音效 key（'none' 表示无效果）。
   /// 有效果时优先尝试音效 URL，失败后回退到编码音质候选链。
+  ///
+  /// 解析新地址期间旧音源继续播放，拿到地址后才替换，切换几乎无感；
+  /// 期间若用户切歌（请求版本变化）则放弃本次切换，避免旧歌音源覆盖新歌。
   Future<bool> switchQuality(Song song, String qualityKey,
       {Duration? currentPosition, String effectKey = 'none'}) async {
     if (song.hash == null || song.hash!.isEmpty) return false;
-
-    final pos = currentPosition ?? position.value;
-    final wasPlaying = _player.playing;
-
-    // 暂停当前播放
-    await _player.pause();
+    final version = _playRequestVersion;
+    bool stale() => version != _playRequestVersion;
 
     try {
       // 失效缓存，_buildCandidates 会重新查询
       invalidatePrivilege(song.hash);
 
-      bool played = false;
+      String? url;
+      String? resolved;
 
       // 有效果选中时有 privilege 数据 → 优先尝试效果 URL
       if (effectKey != 'none') {
-        // 先触发 privilege 加载
         await _buildCandidates(song, qualityKey);
-        final effectOpts = _currentEffectOptions;
-        if (effectOpts.isNotEmpty) {
-          final matched = effectOpts.where((o) => o.value == effectKey);
-          if (matched.isNotEmpty) {
-            final opt = matched.first;
-            try {
-              final songUrl = await _musicService.getSongUrl(
-                song.id,
-                hash: opt.hash.isNotEmpty ? opt.hash : song.hash,
-                quality: opt.value,
-              );
-              if (!songUrl.isVideo && songUrl.url.isNotEmpty) {
-                await _player.setUrl(songUrl.url);
-                _lastUrlFetchTime = DateTime.now();
-                resolvedQualityNotifier.value = opt.value;
-                await _player.seek(pos);
-                if (wasPlaying) await _player.play();
-                played = true;
-                Log.i('audio_engine', 'effect switch: -> ${opt.value} (${opt.label})');
-              }
-            } catch (_) {
-              // 效果失败，降级到编码音质
+        if (stale()) return false;
+        final matched =
+            _currentEffectOptions.where((o) => o.value == effectKey);
+        if (matched.isNotEmpty) {
+          final opt = matched.first;
+          try {
+            final songUrl = await _musicService.getSongUrl(
+              song.id,
+              hash: opt.hash.isNotEmpty ? opt.hash : song.hash,
+              quality: opt.value,
+            );
+            if (!songUrl.isVideo && songUrl.url.isNotEmpty) {
+              url = songUrl.url;
+              resolved = opt.value;
             }
+          } catch (_) {
+            // 效果失败，降级到编码音质
           }
         }
       }
 
       // 效果未选中或效果失败 → 编码音质候选链
-      if (!played) {
+      if (url == null) {
         final candidates = await _buildCandidates(song, qualityKey);
         for (final c in candidates) {
+          if (stale()) return false;
           try {
             final songUrl = await _musicService.getSongUrl(
               song.id,
               hash: c.hash.isNotEmpty ? c.hash : song.hash,
               quality: c.quality,
             );
-            if (songUrl.isVideo) continue;
-            if (songUrl.url.isNotEmpty) {
-              await _player.setUrl(songUrl.url);
-              _lastUrlFetchTime = DateTime.now();
-              resolvedQualityNotifier.value = c.quality;
-
-              await _player.seek(pos);
-
-              if (wasPlaying) {
-                await _player.play();
-              }
-              played = true;
-              Log.i('audio_engine', 'quality switch: -> ${c.quality} (${c.label})');
-              break;
-            }
+            if (songUrl.isVideo || songUrl.url.isEmpty) continue;
+            url = songUrl.url;
+            resolved = c.quality;
+            break;
           } catch (_) {
             continue;
           }
         }
       }
 
-      if (!played) {
-        // 切换失败，尝试恢复
-        if (wasPlaying) await _player.play();
-        return false;
-      }
+      if (stale() || url == null) return false;
 
+      // 以替换瞬间的实际进度为准（解析地址期间旧音源仍在播放）
+      final pos = currentPosition ?? position.value;
+      final wasPlaying = _player.playing;
+      await _player.setUrl(url, initialPosition: pos);
+      if (stale()) return false;
+      _lastUrlFetchTime = DateTime.now();
+      resolvedQualityNotifier.value = resolved;
+      if (wasPlaying) _startPlayback();
+      Log.i('audio_engine', 'quality switch: -> $resolved');
       return true;
     } catch (e, s) {
       Log.e('audio_engine', 'quality switch error', e, s);
-      if (wasPlaying) await _player.play();
       return false;
     }
   }
@@ -539,6 +548,9 @@ class AudioEngine {
   void resetForNewSong() {
     _playAttempts = 0;
     _playRequestVersion++;
+    // 新歌从头播放：丢弃冷启动恢复/stop 时留下的起播位置
+    startPosition = null;
+    _fadeTimer?.cancel();
     error.value = null;
     isLoading.value = true;
     isCompleting.value = false;
@@ -558,15 +570,28 @@ class AudioEngine {
   }
 
   Future<void> seekAndPlay(Duration pos) async {
+    _playWhenReady = true;
     await _player.seek(pos);
-    await _player.play();
-    isPlaying.value = true;
+    _startPlayback();
     isLoading.value = false;
   }
 
   Future<void> pause() async {
     _playWhenReady = false; // 暂停时标记为不需要播放
+    _fadeTimer?.cancel();
+    // 正在加载新歌时也取消待播：play() 的后续步骤会检查 _playWhenReady
     await _player.pause();
+  }
+
+  /// 停止播放并释放音源（系统 STOP 指令）。之后 resume 会重新加载。
+  Future<void> stop() async {
+    _playWhenReady = false;
+    _playRequestVersion++; // 作废进行中的加载
+    _fadeTimer?.cancel();
+    _hasActivePlayback = false;
+    startPosition = position.value;
+    isLoading.value = false;
+    await _player.stop();
   }
 
 
@@ -579,15 +604,21 @@ class AudioEngine {
     _player.setSpeed(speed);
   }
 
-  /// 淡入：从静音逐渐升到正常音量
+  Timer? _fadeTimer;
+
+  /// 淡入：从静音逐渐升到正常音量。
+  ///
+  /// 只在真正开始播放（新歌 / 继续播放）时调用，seek 和缓冲恢复不会触发；
+  /// 新的淡入会取消上一个，避免多个计时器同时改音量。
   void _startFadeIn() {
     final dur = crossfadeMs;
     if (dur <= 0) return;
+    _fadeTimer?.cancel();
     final steps = (dur / 50).round().clamp(5, 100);
     final interval = Duration(milliseconds: dur ~/ steps);
     _player.setVolume(0.0);
     double vol = 0.0;
-    Timer.periodic(interval, (timer) {
+    _fadeTimer = Timer.periodic(interval, (timer) {
       vol += 1.0 / steps;
       if (vol >= 1.0) {
         _player.setVolume(1.0);
@@ -596,24 +627,6 @@ class AudioEngine {
         _player.setVolume(vol);
       }
     });
-  }
-
-  /// 上报播放历史，重试最多 3 次，指数退避
-  Future<void> _uploadHistoryWithRetry(int songId, {int? duration, int retries = 3}) async {
-    for (int attempt = 0; attempt < retries; attempt++) {
-      try {
-        await _musicService.uploadPlayHistory(songId, duration: duration);
-        return; // 成功
-      } catch (e, s) {
-        Log.w('audio_engine', 'uploadPlayHistory failed (attempt ${attempt + 1}/$retries): $e');
-        if (attempt < retries - 1) {
-          // 指数退避：1s, 2s, 4s
-          await Future.delayed(Duration(seconds: 1 << attempt));
-        } else {
-          Log.e('audio_engine', 'uploadPlayHistory exhausted retries', e, s);
-        }
-      }
-    }
   }
 
   /// 未登录时播放失败 → 弹出登录提醒
@@ -627,6 +640,8 @@ class AudioEngine {
   }
 
   void dispose() {
+    _fadeTimer?.cancel();
+    _sessionIdSub?.cancel();
     _positionSub?.cancel();
     _durationSub?.cancel();
     _processingStateSub?.cancel();

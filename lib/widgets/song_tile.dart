@@ -9,6 +9,7 @@ import '../services/music_service.dart';
 import '../theme/theme_assets.dart';
 import '../utils/theme.dart';
 import 'playing_indicator.dart';
+import '../services/api_exception.dart';
 
 class SongTile extends StatelessWidget {
   final Song song;
@@ -288,7 +289,7 @@ class SongTile extends StatelessWidget {
                           } catch (e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('添加失败: $e')),
+                                SnackBar(content: Text('添加失败：${friendlyError(e)}')),
                               );
                             }
                           }

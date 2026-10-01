@@ -162,8 +162,8 @@ Future<void> main() async {
     Log.e('audio_service', 'asyncError', error);
   });
   // 系统控制回调 → PlayerProvider（通过 navKey 获取 context）
-  audioHandler.onPlay = () => _notifAction('play_pause');
-  audioHandler.onPause = () => _notifAction('play_pause');
+  audioHandler.onPlay = () => _notifAction('play');
+  audioHandler.onPause = () => _notifAction('pause');
   audioHandler.onSkipNext = () => _notifAction('next');
   audioHandler.onSkipPrevious = () => _notifAction('prev');
   audioHandler.onSeek = (pos) {
@@ -171,7 +171,9 @@ Future<void> main() async {
     if (ctx == null) return;
     ctx.read<PlayerProvider>().seek(pos);
   };
-  audioHandler.onStop = () {}; // BaseAudioHandler.stop() 自动清理通知
+  // 必须真正停止播放：BaseAudioHandler.stop() 会撤下通知与前台服务，
+  // 若声音继续播放，进程将失去前台保护且用户找不到暂停入口。
+  audioHandler.onStop = () => _notifAction('stop');
   audioHandler.onLike = () => _notifAction('like');
   audioHandler.onSwitchMode = () => _notifAction('switch_mode');
 
@@ -283,8 +285,12 @@ void _notifAction(String action) {
   switch (action) {
     case 'prev':
       player.playPrevious();
-    case 'play_pause':
-      player.togglePlayPause();
+    case 'play':
+      player.play();
+    case 'pause':
+      player.pause();
+    case 'stop':
+      player.stop();
     case 'next':
       player.playNext();
     case 'like':
@@ -346,13 +352,18 @@ class NGSKGApp extends StatelessWidget {
                 // ── 全局主题背景（首�?发现/搜索等页面共用） ──
                 if (ThemeAssets.playerBg.isNotEmpty)
                   Positioned.fill(
-                    child: ImageFiltered(
-                      // 降低 sigma 以减少低端机 GPU 负载（视觉差异小）
-                      imageFilter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                      child: Image.file(
-                        File(ThemeAssets.playerBg),
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    // 独立图层：上层页面重绘时不会连带重新模糊整屏背景
+                    child: RepaintBoundary(
+                      child: ImageFiltered(
+                        // 降低 sigma 以减少低端机 GPU 负载（视觉差异小）
+                        imageFilter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                        child: Image.file(
+                          File(ThemeAssets.playerBg),
+                          fit: BoxFit.cover,
+                          // 背景会被模糊，按 720px 宽解码足够，避免原图（可能 4K）常驻显存
+                          cacheWidth: 720,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
                       ),
                     ),
                   ),

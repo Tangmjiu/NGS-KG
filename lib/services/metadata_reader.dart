@@ -196,25 +196,36 @@ class MetadataReader {
          if (!await cacheFile.exists()) {
            await cacheFile.writeAsBytes(effectiveMeta.albumArt!);
          }
-         // Return the updated metadata with the cache path
-         _cache[fp] = AudioMetadata(
+         // 封面字节已落盘：缓存里只保留路径，不再常驻原始字节
+         // （每首几百 KB～数 MB，本地曲库大时会把 Dart 堆撑到数百 MB）
+         return _put(fp, AudioMetadata(
            title: effectiveMeta.title,
            artist: effectiveMeta.artist,
            album: effectiveMeta.album,
            durationMs: effectiveMeta.durationMs,
            bitrate: effectiveMeta.bitrate,
-           albumArt: effectiveMeta.albumArt,
            lyrics: effectiveMeta.lyrics,
            albumCoverCachePath: cacheFile.path,
-         );
-         return _cache[fp];
+         ));
        } catch (e, s) {
          Log.e('metadata_reader', 'cover cache error', e, s);
        }
      }
 
-     _cache[fp] = effectiveMeta;
-     return effectiveMeta;
+     // 落盘失败时才保留字节（作为唯一的封面来源）
+     return _put(fp, effectiveMeta);
+  }
+
+  /// 内存缓存上限：按插入顺序淘汰最旧条目（LinkedHashMap 保序）
+  static const int _maxCacheEntries = 300;
+
+  static AudioMetadata _put(String key, AudioMetadata meta) {
+    _cache.remove(key);
+    _cache[key] = meta;
+    while (_cache.length > _maxCacheEntries) {
+      _cache.remove(_cache.keys.first);
+    }
+    return meta;
   }
 
   /// Returns the cached cover path for [filePath], or null.

@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:dio/dio.dart' show CancelToken;
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -76,18 +77,28 @@ class _ThemeMarketScreenState extends State<ThemeMarketScreen> {
   Future<void> _install(ThemeMarketListing listing) async {
     // ── 显示下载中 ──
     if (!mounted) return;
+    final cancelToken = CancelToken();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('正在下载…'),
-        duration: const Duration(seconds: 30),
+        duration: const Duration(seconds: 60),
         action: SnackBarAction(
           label: '取消',
-          onPressed: () {},
+          onPressed: () => cancelToken.cancel(),
         ),
       ),
     );
 
-    final bytes = await MarketService.downloadTheme(listing.downloadUrl);
+    final bytes = await MarketService.downloadTheme(listing.downloadUrl,
+        cancelToken: cancelToken);
+    if (cancelToken.isCancelled) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已取消下载')),
+      );
+      return;
+    }
     if (bytes == null || bytes.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();

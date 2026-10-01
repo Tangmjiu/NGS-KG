@@ -13,7 +13,10 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AudioServiceActivity() {
     private val CHANNEL_METADATA = "com.mjiutang.ngskg/metadata"
@@ -26,6 +29,9 @@ class MainActivity : AudioServiceActivity() {
 
     // 若 Flutter 引擎尚未就绪，暂存冷启动时的 URI
     private var pendingFileUri: String? = null
+
+    // 与 Activity 生命周期绑定的协程作用域：后台读取、主线程回调，销毁时统一取消
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -41,9 +47,10 @@ class MainActivity : AudioServiceActivity() {
                     result.error("INVALID_ARG", "path required", null)
                     return@setMethodCallHandler
                 }
-                CoroutineScope(Dispatchers.IO).launch {
+                scope.launch {
+                    // MethodChannel.Result 必须在主线程回调
                     try {
-                        val meta = readMetadata(path)
+                        val meta = withContext(Dispatchers.IO) { readMetadata(path) }
                         result.success(meta)
                     } catch (e: Exception) {
                         result.error("READ_FAILED", e.message, null)
@@ -140,6 +147,7 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun onDestroy() {
+        scope.cancel()
         super.onDestroy()
     }
 
@@ -164,7 +172,9 @@ class MainActivity : AudioServiceActivity() {
                 "album" to (album?.takeIf { it.isNotEmpty() }),
                 "duration" to duration,
                 "bitrate" to bitrate,
-                "albumArt" to (embeddedPicture?.toList())
+                // ByteArray 经 StandardMessageCodec 直接变成 Dart 的 Uint8List；
+                // 转成 List<Int> 会把每个字节装箱，内存放大数十倍
+                "albumArt" to embeddedPicture
             )
         } finally {
             retriever.release()
