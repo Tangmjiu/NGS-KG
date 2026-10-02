@@ -134,7 +134,7 @@ private object EqualizerHolder {
                 created.setBandLevel(band, level)
             }
             // 新建的 Equalizer 默认是禁用状态，不启用则调节没有任何效果
-            created.enabled = true
+            created.setEnabled(true)
             instance = created
             sessionId = audioSessionId
             Log.i(TAG, "Equalizer attached to session $audioSessionId, bands=${created.numberOfBands}")
