@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/painting.dart' show HSLColor;
 import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:flutter_lyric/flutter_lyric.dart';
@@ -41,6 +42,8 @@ class FmQueueSnapshot {
   });
 }
 
+typedef PlaybackProgress = ({Duration position, Duration duration});
+
 class PlayerProvider extends ChangeNotifier
     with SleepTimerMixin, KeepScreenOnMixin {
   final MusicService _musicService;
@@ -49,6 +52,39 @@ class PlayerProvider extends ChangeNotifier
   final MusicAudioHandler _audioHandler;
   late final AudioEngine _engine;
   late final PlaylistQueue _queue;
+  final Future<void>? _ready;
+  final Connectivity _connectivity;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+  bool _isWifi = false; // 未知网络按蜂窝处理，不能默认消耗无损音质流量。
+  int _connectivityRevision = 0;
+  bool _disposed = false;
+  int _playbackGeneration = 0;
+  int _loadMoreRequestId = 0;
+  int _savedQueuesVersion = 0;
+  int get savedQueuesVersion => _savedQueuesVersion;
+
+  final ValueNotifier<PlaybackProgress> _playbackProgress = ValueNotifier((
+    position: Duration.zero,
+    duration: Duration.zero,
+  ));
+  ValueListenable<PlaybackProgress> get playbackProgress => _playbackProgress;
+
+  void _publishProgress() {
+    if (!_disposed) {
+      _playbackProgress.value = (position: _position, duration: _duration);
+    }
+  }
+
+  /// 手动切歌/替换队列使冷启动恢复和旧补队列请求失效。
+  void _invalidatePendingPlayback() {
+    _playbackGeneration++;
+    _loadMoreRequestId++;
+    _handlingComplete = false;
+    if (_queue.isLoadingMore) {
+      _isLoading = _engine.isLoading.value;
+      _queue.setLoadingMore(false);
+    }
+  }
 
   bool _isPlaying = false;
   bool _isLoading = false;
@@ -150,6 +186,7 @@ class PlayerProvider extends ChangeNotifier
   late final VoidCallback _onLoadingChanged;
   late final VoidCallback _onErrorChanged;
   late final VoidCallback _onPlayingChanged;
+  late final VoidCallback _onQualityChanged;
   late final VoidCallback _onQueueChanged;
 
   Song? get currentSong => _queue.currentSong;
@@ -306,22 +343,28 @@ class PlayerProvider extends ChangeNotifier
   PlayerProvider(this._musicService,
       {required MusicAudioHandler audioHandler,
       AudioSettingsProvider? audioSettings,
-      LikedSongsProvider? likedSongs})
+      LikedSongsProvider? likedSongs,
+      Future<void>? ready,
+      AudioEngine? audioEngine,
+      Connectivity? connectivity})
       : _audioSettings = audioSettings,
         _likedSongs = likedSongs,
-        _audioHandler = audioHandler {
-    _engine = AudioEngine(_musicService);
+        _audioHandler = audioHandler,
+        _ready = ready,
+        _connectivity = connectivity ?? Connectivity() {
+    _engine = audioEngine ?? AudioEngine(_musicService);
     _queue = PlaylistQueue();
+    _observeConnectivity();
 
     _onPositionChanged = () {
       _position = _engine.position.value;
       _lyricController.setProgress(_position);
-      // 对 UI rebuild 节流：200ms 内最多通知一次。
-      // 歌词同步仍保持高精度，不随 notifyListeners 节流。
+      // 只有进度控件订阅这个通道，不再使歌词样式、封面、列表等整树重建。
+      // 歌词 controller 仍保持底层进度流的精度。
       final now = DateTime.now().millisecondsSinceEpoch;
-      if (now - _lastPositionNotifyMs > 200) {
+      if (now - _lastPositionNotifyMs >= 200) {
         _lastPositionNotifyMs = now;
-        notifyListeners();
+        _publishProgress();
       }
       if (sleepTimerRemaining != null && sleepTimerRemaining!.inSeconds <= 0) {
         cancelSleepTimer();
@@ -346,7 +389,8 @@ class PlayerProvider extends ChangeNotifier
 
     _onDurationChanged = () {
       _duration = _engine.duration.value;
-      notifyListeners();
+      _publishProgress();
+      _updateNotification();
     };
     _engine.duration.addListener(_onDurationChanged);
 
@@ -379,7 +423,9 @@ class PlayerProvider extends ChangeNotifier
       _updateNotification();
     };
     _engine.isPlaying.addListener(_onPlayingChanged);
-
+    // 移除进度的全局通知后，音质异步解析必须拥有独立的业务通知。
+    _onQualityChanged = notifyListeners;
+    _engine.resolvedQualityNotifier.addListener(_onQualityChanged);
 
     _engine.onComplete = _onComplete;
     _onQueueChanged = () {
@@ -389,16 +435,17 @@ class PlayerProvider extends ChangeNotifier
     _queue.addListener(_onQueueChanged);
 
     // 启动后恢复上次的播放状态和队列列表
+    final initialGeneration = _playbackGeneration;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      restorePlaybackState();
+      if (_disposed) return;
+      if (initialGeneration == _playbackGeneration) restorePlaybackState();
       restoreQueueNames();
     });
   }
 
   /// Clears the entire playlist.
   void clearPlaylist() {
-    _queue.setPlaylist([]);
-    notifyListeners();
+    setPlaylist([]);
   }
 
   void clearError() {
@@ -406,7 +453,7 @@ class PlayerProvider extends ChangeNotifier
   }
 
   void _updateNotification() {
-    if (_notificationSuppressed) return;
+    if (_disposed || _notificationSuppressed) return;
     final song = _queue.currentSong;
     if (song == null) {
       _audioHandler.cancelNotification();
@@ -416,7 +463,7 @@ class PlayerProvider extends ChangeNotifier
     String? lyricLine;
     final cl = _lyricController.activeIndexNotifiter.value;
     final model = _lyricController.lyricNotifier.value;
-    if (model != null && cl < model.lines.length) {
+    if (model != null && cl >= 0 && cl < model.lines.length) {
       final line = model.lines[cl].text;
       if (line.isNotEmpty) lyricLine = line;
     }
@@ -447,11 +494,15 @@ class PlayerProvider extends ChangeNotifier
   /// 保存完整队列（上限 200 首）、当前歌曲、进度、模式。
   /// 使用单个 JSON 字符串一次性写入，避免 13 次独立 prefs 写入。
   Future<void> _savePlaybackState() async {
-    final song = _queue.currentSong;
-    if (song == null) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final queueLimit = _queue.playlist.take(200);
+      if (_disposed) return;
+      final song = _queue.currentSong;
+      if (song == null) return;
+      final queue = _queue.playlist;
+      // 只保存最多 200 首，但窗口必须包含当前歌曲，否则第 201 首以后恢复错歌。
+      final queueStart = (_queue.currentIndex - 199).clamp(0, queue.length).toInt();
+      final queueLimit = queue.skip(queueStart).take(200);
       final state = {
         'songId': song.id,
         'name': song.name,
@@ -465,7 +516,7 @@ class PlayerProvider extends ChangeNotifier
         'quality': _qualityLevel,
         'speed': _engine.speed,
         'filePath': song.filePath ?? '',
-        'queueIndex': _queue.currentIndex,
+        'queueIndex': _queue.currentIndex - queueStart,
         'queue': queueLimit.map((s) => _songToJson(s)).toList(),
       };
       await prefs.setString(_keySavedPlaybackStateV2, jsonEncode(state));
@@ -489,8 +540,14 @@ class PlayerProvider extends ChangeNotifier
   /// 从 SharedPreferences 恢复播放状态。
   /// 仅供初始化时调用，不自动播放 —— 只让 Mini Bar 显示上次的歌曲。
   Future<void> restorePlaybackState() async {
+    final generation = _playbackGeneration;
+    bool stale() => _disposed || generation != _playbackGeneration;
     try {
+      // 仅恢复等待认证/设置，不阻塞 runApp 或首帧；用户先点新歌则放弃恢复。
+      await (_ready ?? Future<void>.value());
+      if (stale()) return;
       final prefs = await SharedPreferences.getInstance();
+      if (stale()) return;
       final v2Str = prefs.getString(_keySavedPlaybackStateV2);
       if (v2Str != null && v2Str.isNotEmpty) {
         await _restoreFromV2(v2Str);
@@ -598,7 +655,8 @@ class PlayerProvider extends ChangeNotifier
 
   /// 应用恢复的歌曲列表和状态。
   void _applyRestoredState(List<Song> restoreSongs, int savedIndex, Map<String, dynamic> state) {
-    final validIndex = savedIndex.clamp(0, restoreSongs.length - 1);
+    if (_disposed || restoreSongs.isEmpty) return;
+    final validIndex = savedIndex.clamp(0, restoreSongs.length - 1).toInt();
     _queue.setPlaylist(restoreSongs, startIndex: validIndex);
     _qualityLevel = (state['quality'] as num?)?.toInt() ?? 0;
     _engine.qualityLevel = _qualityLevel;
@@ -610,6 +668,7 @@ class PlayerProvider extends ChangeNotifier
       // 让进度条在加载前就能显示上次的位置
       _duration = Duration(milliseconds: savedDurationMs);
     }
+    _publishProgress();
     final modeName = state['playMode'] as String? ?? 'sequential';
     final mode = PlayMode.values.where((m) => m.name == modeName).firstOrNull;
     if (mode != null) _queue.setPlayMode(mode);
@@ -715,33 +774,35 @@ class PlayerProvider extends ChangeNotifier
   }
 
   Future<void> _loadMoreAndContinue() async {
-    if (_queue.isLoadingMore) return;
+    if (_disposed || _queue.isLoadingMore) return;
+    final provider = _queue.playlistEndProvider;
+    if (provider == null) {
+      _handlingComplete = false;
+      return;
+    }
+    final requestId = ++_loadMoreRequestId;
+    final generation = _playbackGeneration;
+    bool stale() => _disposed || requestId != _loadMoreRequestId ||
+        generation != _playbackGeneration;
     _queue.setLoadingMore(true);
     _isLoading = true;
     notifyListeners();
-    debugPrint('[FM] _loadMoreAndContinue: START type=${_queue.type}');
     try {
-      final moreSongs = await _queue.playlistEndProvider?.call() ?? [];
-      debugPrint('[FM] _loadMoreAndContinue: got ${moreSongs.length} songs,'
-          ' queueLen=${_queue.playlist.length} curIdx=${_queue.currentIndex}');
+      final moreSongs = await provider();
+      if (stale()) return;
       if (moreSongs.isNotEmpty) {
+        final nextIndex = _queue.playlist.length;
         _queue.append(moreSongs);
         _queue.setLoadingMore(false);
-        _engine.resetForNewSong();
-        _queue.playIndex(_queue.currentIndex + 1);
-        final next = _queue.currentSong;
-        if (next != null) {
-          loadLyricsForSong(next);
-          _onSongChanged(next);
-          _engine.precheckPrivilege(next);
-          _enginePlayWithQuality(next);
-          _handlingComplete = false;
-          return;
-        }
+        _handlingComplete = false;
+        await playIndex(nextIndex);
+        return;
       }
     } catch (e, s) {
+      if (stale()) return;
       Log.e('player_provider', 'loadMore error', e, s);
     }
+    if (stale()) return;
     _queue.setLoadingMore(false);
     _isLoading = false;
     _handlingComplete = false;
@@ -749,11 +810,28 @@ class PlayerProvider extends ChangeNotifier
     notifyListeners();
   }
 
-  /// 获取当前网络应是 WiFi 还是蜂窝，用于选择对应的音质设置。
-  bool get _isWifi {
-    // connectivity_plus 6.x checkConnectivity 返回 Future，同步调用无效
-    // 降级为返回 true（WiFi），避免类型强转崩溃
-    return true;
+  void _observeConnectivity() {
+    _connectivitySub = _connectivity.onConnectivityChanged.listen((results) {
+      if (_disposed) return;
+      _connectivityRevision++;
+      _isWifi = results.contains(ConnectivityResult.wifi);
+    }, onError: (Object error) {
+      if (_disposed) return;
+      _connectivityRevision++;
+      _isWifi = false;
+    });
+    _checkInitialConnectivity();
+  }
+
+  Future<void> _checkInitialConnectivity() async {
+    final revision = _connectivityRevision;
+    try {
+      final results = await _connectivity.checkConnectivity();
+      if (_disposed || revision != _connectivityRevision) return;
+      _isWifi = results.contains(ConnectivityResult.wifi);
+    } catch (_) {
+      if (!_disposed && revision == _connectivityRevision) _isWifi = false;
+    }
   }
 
   /// 播放前根据 AudioSettingsProvider 设置目标音质
@@ -773,8 +851,16 @@ class PlayerProvider extends ChangeNotifier
   }
 
   Future<void> playIndex(int index) async {
-    if (index < 0 || index >= _queue.playlist.length) return;
+    if (_disposed || index < 0 || index >= _queue.playlist.length) return;
+    _invalidatePendingPlayback();
+    final generation = _playbackGeneration;
+    _notificationSuppressed = false;
     _queue.playIndex(index);
+    _applyQualityFromSettings();
+    _engine.resetForNewSong();
+    _position = Duration.zero;
+    _duration = Duration.zero;
+    _publishProgress();
     // Reset state for new song
     _isMiniPlayerDismissed = false;
     _engine.clearError();
@@ -791,12 +877,12 @@ class PlayerProvider extends ChangeNotifier
     // 3. 异步预查特权以立刻在 UI 展现最高可用音质
     _engine.precheckPrivilege(current);
 
-    _applyQualityFromSettings();
-    _engine.resetForNewSong();
     _isPlaying = true; // ← 立即标记，UI 及时响应
     notifyListeners();
     final version = _engine.currentVersion;
     await _engine.play(current, version: version, effectKey: _effectKey);
+    if (_disposed || generation != _playbackGeneration ||
+        version != _engine.currentVersion) return;
     _updateNotification();
     // 异步查询高潮时间（不阻塞播放，失败静默）
     _fetchClimax(current);
@@ -839,12 +925,17 @@ class PlayerProvider extends ChangeNotifier
   Future<void> _fetchClimax(Song song) async {
     final hash = song.hash;
     if (hash == null || hash.isEmpty) return;
+    final version = _engine.currentVersion;
     final ms = await _musicService.getSongClimax(hash);
+    if (_disposed || version != _engine.currentVersion ||
+        !identical(song, currentSong)) return;
     _climaxMs = ms;
     notifyListeners();
   }
 
   Future<void> playSong(Song song, {List<Song>? playlist}) async {
+    if (_disposed) return;
+    _invalidatePendingPlayback();
     // 退出 FM 模式（恢复普通队列，下方 setPlaylist 会覆盖为新的播放列表）
     if (_queue.type == QueueType.fm) {
       exitFmMode();
@@ -853,13 +944,8 @@ class PlayerProvider extends ChangeNotifier
     _engine.clearError();
     if (playlist != null) {
       final idx = playlist.indexWhere((s) => s.id == song.id);
-      _queue.setPlaylist(playlist, startIndex: idx < 0 ? 0 : idx);
-      if (idx < 0 && playlist.isNotEmpty) {
-        _queue.setPlaylist([song]);
-      }
-      if (_queue.playMode == PlayMode.shuffle) {
-        _queue.setPlayMode(PlayMode.shuffle);
-      }
+      _queue.setPlaylist(idx < 0 ? [song] : playlist,
+          startIndex: idx < 0 ? 0 : idx);
     } else {
       _queue.setPlaylist([song]);
     }
@@ -875,7 +961,8 @@ class PlayerProvider extends ChangeNotifier
       {required Future<List<Song>> Function() bufferProvider,
       VoidCallback? onDislike,
       void Function(Song song, {int playtime})? onPlaybackUpdate}) {
-    if (songs.isEmpty) return;
+    if (_disposed || songs.isEmpty) return;
+    _invalidatePendingPlayback();
     // 进入 FM 模式前保存当前普通队列快照
     if (_queue.type != QueueType.fm) {
       _fmSavedNormalSnapshot = FmQueueSnapshot(
@@ -902,6 +989,7 @@ class PlayerProvider extends ChangeNotifier
   /// 恢复的快照会被覆盖，这是预期行为。
   void exitFmMode() {
     if (_queue.type != QueueType.fm) return;
+    _invalidatePendingPlayback();
     debugPrint('[FM] exitFmMode: restoring saved queue'
         ' (${_fmSavedNormalSnapshot?.songs.length ?? 0} songs)');
     _queue.playlistEndProvider = null;
@@ -923,7 +1011,8 @@ class PlayerProvider extends ChangeNotifier
   /// 不保存/恢复队列快照，保留现有 FM 回调。前一首歌到下一首的过渡动画由调用方处理。
   void replaceFmPlaylist(List<Song> songs,
       {required Future<List<Song>> Function() bufferProvider}) {
-    if (songs.isEmpty) return;
+    if (_disposed || songs.isEmpty) return;
+    _invalidatePendingPlayback();
     _queue.playlistEndProvider = null; // 防止切换过程中触发加载
     _engine.clearError();
     _queue.setPlaylist(songs, startIndex: 0);
@@ -957,7 +1046,9 @@ class PlayerProvider extends ChangeNotifier
   /// 避免耳机重连时自动发来的 PLAY 把正在播放的歌暂停。
   Future<void> play() async {
     final song = _queue.currentSong;
-    if (song == null) return;
+    if (_disposed || song == null) return;
+    _invalidatePendingPlayback();
+    _applyQualityFromSettings();
     _notificationSuppressed = false;
     _isPlaying = true;
     _engine.clearError();
@@ -969,6 +1060,7 @@ class PlayerProvider extends ChangeNotifier
   /// 明确的"暂停"指令（幂等）。
   Future<void> pause() async {
     if (_queue.currentSong == null) return;
+    _invalidatePendingPlayback();
     _isPlaying = false;
     notifyListeners();
     await _engine.pause();
@@ -978,6 +1070,7 @@ class PlayerProvider extends ChangeNotifier
   /// 系统 STOP 指令：停止并释放音源，通知由 audio_service 撤下。
   /// 保留当前歌曲与进度，之后点播放会从原位置重新加载。
   Future<void> stop() async {
+    _invalidatePendingPlayback();
     _isPlaying = false;
     _notificationSuppressed = true;
     await _engine.stop();
@@ -1020,17 +1113,19 @@ class PlayerProvider extends ChangeNotifier
       _engine.startPosition = pos;
       _position = pos;
       _lyricController.setProgress(pos);
-      notifyListeners();
+      _publishProgress();
       return;
     }
     await _engine.seek(pos);
   }
 
   void setPlaylist(List<Song> songs, {int startIndex = 0}) {
+    _invalidatePendingPlayback();
     _queue.setPlaylist(songs, startIndex: startIndex);
     if (songs.isEmpty) {
       _isPlaying = false;
-      _engine.pause();
+      _engine.stop();
+      _updateNotification();
       notifyListeners();
     }
   }
@@ -1044,8 +1139,12 @@ class PlayerProvider extends ChangeNotifier
   void removeFromQueue(int index) {
     final wasCurrent = index == _queue.currentIndex;
     _queue.removeAt(index);
-    if (wasCurrent && _queue.playlist.isNotEmpty) {
-      playIndex(_queue.currentIndex);
+    if (wasCurrent) {
+      if (_queue.playlist.isEmpty) {
+        setPlaylist([]);
+      } else {
+        playIndex(_queue.currentIndex);
+      }
     }
   }
 
@@ -1067,11 +1166,15 @@ class PlayerProvider extends ChangeNotifier
   List<String> get savedQueueNames => _savedQueues.keys.toList();
 
   /// 获取已保存队列的歌曲列表
-  List<Song>? playlistOfSavedQueue(String name) => _savedQueues[name];
+  List<Song>? playlistOfSavedQueue(String name) {
+    final songs = _savedQueues[name];
+    return songs == null ? null : List<Song>.unmodifiable(songs);
+  }
 
   /// 将当前播放队列保存为指定名称
   void saveQueueAs(String name) {
     _savedQueues[name] = List.from(_queue.playlist);
+    _savedQueuesVersion++;
     notifyListeners();
     _persistQueueNames();
   }
@@ -1080,6 +1183,7 @@ class PlayerProvider extends ChangeNotifier
   void loadQueue(String name) {
     final songs = _savedQueues[name];
     if (songs == null) return;
+    _invalidatePendingPlayback();
     _queue.setPlaylist(List.from(songs), startIndex: 0);
     notifyListeners();
   }
@@ -1087,6 +1191,7 @@ class PlayerProvider extends ChangeNotifier
   /// 删除已保存的队列
   void deleteQueue(String name) {
     _savedQueues.remove(name);
+    _savedQueuesVersion++;
     notifyListeners();
     _persistQueueNames();
   }
@@ -1094,6 +1199,7 @@ class PlayerProvider extends ChangeNotifier
   /// 将当前队列追加到已保存队列末尾
   void appendToSavedQueue(String name) {
     _savedQueues[name]?.addAll(_queue.playlist);
+    _savedQueuesVersion++;
     notifyListeners();
     _persistQueueNames();
   }
@@ -1114,8 +1220,10 @@ class PlayerProvider extends ChangeNotifier
 
   /// 从 SharedPreferences 恢复已保存队列（兼容旧版只存名称的格式）
   Future<void> restoreQueueNames() async {
+    final version = _savedQueuesVersion;
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (_disposed || version != _savedQueuesVersion) return;
       final json = prefs.getString(_keySavedQueueNames);
       if (json == null || json.isEmpty) return;
       final decoded = jsonDecode(json);
@@ -1127,6 +1235,8 @@ class PlayerProvider extends ChangeNotifier
         // 旧版只持久化了名称，歌曲已无法找回：丢弃空壳，避免 UI 中出现空队列
         await prefs.remove(_keySavedQueueNames);
       }
+      if (_disposed) return;
+      _savedQueuesVersion++;
       notifyListeners();
     } catch (e, s) {
       Log.e('player_provider', 'restore saved queues error', e, s);
@@ -1237,12 +1347,16 @@ class PlayerProvider extends ChangeNotifier
   /// [Song.coverImageProvider] (handles both network and local file:// URIs).
   Future<void> _extractPaletteFromCover(Song song) async {
     if (song.albumCoverUrl == null) return;
+    final version = _engine.currentVersion;
     try {
-      _cachedPaletteColors = null;
       final provider = song.coverImageProvider;
-      _palette = await PaletteExtractor.instance
+      final palette = await PaletteExtractor.instance
           .extractFromProvider(provider, song.albumCoverUrl!);
-      _backgroundColor = _palette?.dominant;
+      if (_disposed || version != _engine.currentVersion ||
+          !identical(song, currentSong)) return;
+      _cachedPaletteColors = null;
+      _palette = palette;
+      _backgroundColor = palette.dominant;
       notifyListeners();
     } catch (_) {
       // Palette extraction is cosmetic — ignore failures.
@@ -1254,9 +1368,11 @@ class PlayerProvider extends ChangeNotifier
     final songId = song.mixSongId ?? song.id;
     if (songId <= 0 || song.isLocal) return;
 
+    final version = _engine.currentVersion;
     try {
       final data = await _musicService.getKrmAudio(songId);
-      if (data == null || currentSong?.id != song.id) return;
+      if (_disposed || data == null || version != _engine.currentVersion ||
+          !identical(song, currentSong)) return;
 
       // ── hash 校验：确认 /krm/audio 返回的确实是同一首歌 ──
       // 酷狗 KRM 数据库中部分 mixSongId 映射错乱，会返回其他歌曲的元数据。
@@ -1334,7 +1450,7 @@ class PlayerProvider extends ChangeNotifier
   Future<void> _loadLyrics(String hash, int requestId,
       {String? songName}) async {
     bool stale() =>
-        requestId != _lyricRequestId || hash != _queue.currentSong?.hash;
+        _disposed || requestId != _lyricRequestId || hash != _queue.currentSong?.hash;
     try {
       final searchRes =
           await _musicService.searchLyricByHash(hash, keywords: songName);
@@ -1507,11 +1623,18 @@ class PlayerProvider extends ChangeNotifier
 
   @override
   void dispose() {
+    _disposed = true;
+    _playbackGeneration++;
+    _loadMoreRequestId++;
+    _lyricRequestId++;
+    _connectivitySub?.cancel();
     _engine.position.removeListener(_onPositionChanged);
     _engine.duration.removeListener(_onDurationChanged);
     _engine.isLoading.removeListener(_onLoadingChanged);
     _engine.error.removeListener(_onErrorChanged);
     _engine.isPlaying.removeListener(_onPlayingChanged);
+    _engine.resolvedQualityNotifier.removeListener(_onQualityChanged);
+    _playbackProgress.dispose();
     _queue.removeListener(_onQueueChanged);
     disposeSleepTimer();
     disposeKeepScreenOn();

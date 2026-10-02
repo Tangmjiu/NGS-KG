@@ -43,9 +43,15 @@ class LocalCoverArt extends StatelessWidget {
   }
 
   Widget _buildContent(BuildContext context, double imageSize) {
+    final cacheSize = (imageSize * MediaQuery.devicePixelRatioOf(context)).ceil();
     if (coverData != null && coverData!.isNotEmpty) {
-      return Image.memory(
-        coverData!,
+      return Image(
+        image: ResizeImage(
+          MemoryImage(coverData!),
+          width: cacheSize,
+          height: cacheSize,
+          policy: ResizeImagePolicy.fit,
+        ),
         fit: fit,
         width: imageSize,
         height: imageSize,
@@ -91,8 +97,14 @@ class LocalCoverArt extends StatelessWidget {
   }
 
   Widget _buildFileImage(File file, double imageSize, BuildContext context) {
-    return Image.file(
-      file,
+    final cacheSize = (imageSize * MediaQuery.devicePixelRatioOf(context)).ceil();
+    return Image(
+      image: ResizeImage(
+        FileImage(file),
+        width: cacheSize,
+        height: cacheSize,
+        policy: ResizeImagePolicy.fit,
+      ),
       fit: fit,
       width: imageSize,
       height: imageSize,
@@ -101,14 +113,14 @@ class LocalCoverArt extends StatelessWidget {
   }
 
   Widget _buildNetworkImage(BuildContext context, double imageSize) {
+    final cacheSize = (imageSize * MediaQuery.devicePixelRatioOf(context)).ceil();
     return CachedNetworkImage(
       imageUrl: url!,
       fit: fit,
       width: imageSize,
       height: imageSize,
       // 限制内存中解码尺寸，避免小封面持有全尺寸位图
-      memCacheWidth: (imageSize * 2).toInt(),
-      memCacheHeight: (imageSize * 2).toInt(),
+      memCacheWidth: cacheSize,
       placeholder: (_, __) => _placeholder(context, imageSize),
       errorWidget: (_, __, ___) => _placeholder(context, imageSize),
     );

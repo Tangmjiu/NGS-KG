@@ -155,225 +155,260 @@ class PlaybackControls extends StatelessWidget {
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) => DraggableScrollableSheet(
-        initialChildSize: 0.8,
-        minChildSize: 0.3,
-        maxChildSize: 0.85,
-        expand: false,
-        // 订阅 provider：重排、删除、切歌后列表立即刷新
-        builder: (_, scrollCtrl) => Consumer<PlayerProvider>(
-          builder: (_, player, __) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ── 队列选择器 ──
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-                child: Row(
+          initialChildSize: 0.8,
+          minChildSize: 0.3,
+          maxChildSize: 0.85,
+          expand: false,
+          // 只订阅队列快照/索引/保存队列，不因歌词、音质、取色通知重建全部 keys。
+          builder: (_, scrollCtrl) =>
+              Selector<PlayerProvider, (List<Song>, int, int)>(
+            selector: (_, p) =>
+                (p.playlist, p.currentIndex, p.savedQueuesVersion),
+            shouldRebuild: (a, b) =>
+                !identical(a.$1, b.$1) || a.$2 != b.$2 || a.$3 != b.$3,
+            builder: (selectorContext, _, __) {
+              final player = selectorContext.read<PlayerProvider>();
+              return SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.queue_music, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: null,
-                          hint: Text('当前队列 (${player.playlist.length})',
-                              style: Theme.of(context).textTheme.titleSmall),
-                          isExpanded: false,
-                          dropdownColor: const Color(0xFF1E1E1E),
-                          items: [
-                            if (player.savedQueueNames.isNotEmpty)
-                              ...player.savedQueueNames.where((n) => (player.playlistOfSavedQueue(n)?.isNotEmpty ?? false)).map((name) =>
-                                DropdownMenuItem(
-                                  value: 'load_$name',
-                                  child: Text(name, style: const TextStyle(color: Colors.white)),
+                    // ── 队列选择器 ──
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.queue_music, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: null,
+                                hint: Text(
+                                  '当前队列 (${player.playlist.length})',
+                                  style: Theme.of(context).textTheme.titleSmall,
                                 ),
+                                isExpanded: false,
+                                dropdownColor: const Color(0xFF1E1E1E),
+                                items: [
+                                  if (player.savedQueueNames.isNotEmpty)
+                                    ...player.savedQueueNames
+                                        .where((n) =>
+                                            player.playlistOfSavedQueue(n)
+                                                ?.isNotEmpty ??
+                                            false)
+                                        .map((name) => DropdownMenuItem(
+                                              value: 'load_$name',
+                                              child: Text(name,
+                                                  style: const TextStyle(
+                                                      color: Colors.white)),
+                                            )),
+                                  const DropdownMenuItem(
+                                    value: '__save',
+                                    child: Text('+ 保存当前队列',
+                                        style: TextStyle(color: Colors.white54)),
+                                  ),
+                                ],
+                                onChanged: (v) {
+                                  if (v == null) return;
+                                  if (v == '__save') {
+                                    _showSaveQueueDialog(
+                                        context, player, setSheetState);
+                                  } else if (v.startsWith('load_')) {
+                                    final name = v.substring(5);
+                                    player.loadQueue(name);
+                                    Navigator.pop(context);
+                                  }
+                                },
                               ),
-                            const DropdownMenuItem(
-                              value: '__save',
-                              child: Text('+ 保存当前队列', style: TextStyle(color: Colors.white54)),
                             ),
-                          ],
-                          onChanged: (v) {
-                            if (v == null) return;
-                            if (v == '__save') {
-                              _showSaveQueueDialog(context, player, setSheetState);
-                            } else if (v.startsWith('load_')) {
-                              final name = v.substring(5);
-                              player.loadQueue(name);
-                              Navigator.pop(context);
-                            }
-                          },
-                        ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add, size: 20),
+                            tooltip: '保存当前队列',
+                            onPressed: () => _showSaveQueueDialog(
+                                context, player, setSheetState),
+                          ),
+                        ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.add, size: 20),
-                      tooltip: '保存当前队列',
-                      onPressed: () => _showSaveQueueDialog(context, player, setSheetState),
+                    Divider(height: 1, color: cs.outlineVariant),
+                    if (player.playlist.isEmpty)
+                      Expanded(
+                        child: Center(
+                          child: emptyStateWidget(ThemeAssets.emptyContent,
+                              Icons.queue_music, '列表为空'),
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: Builder(builder: (_) {
+                          // 稳定 key = 歌曲实例 + 该实例在队列中第几次出现：
+                          // 不含位置下标，重排后 key 不变（拖拽落位动画正常）；
+                          // 同一首歌重复入队也能区分；删除后不会复用已移除项的 key。
+                          final seen = <int, int>{};
+                          final itemKeys = [
+                            for (final s in player.playlist)
+                              ValueKey((
+                                identityHashCode(s),
+                                seen.update(identityHashCode(s), (n) => n + 1,
+                                    ifAbsent: () => 0),
+                              )),
+                          ];
+                          return ReorderableListView.builder(
+                            buildDefaultDragHandles: false,
+                            scrollController: scrollCtrl,
+                            itemCount: player.playlist.length,
+                            onReorder: (from, to) {
+                              // ReorderableListView 的 to 是移除前的插入位置
+                              if (to > from) to -= 1;
+                              player.moveInQueue(from, to);
+                            },
+                            itemBuilder: (_, i) {
+                              final s = player.playlist[i];
+                              final itemKey = itemKeys[i];
+                              return Dismissible(
+                                key: itemKey,
+                                direction: DismissDirection.endToStart,
+                                confirmDismiss: (_) async {
+                                  return await showDialog<bool>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('移除'),
+                                      content: Text('从播放列表移除「${s.name}」？'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(ctx, false),
+                                          child: const Text('取消'),
+                                        ),
+                                        FilledButton(
+                                          onPressed: () =>
+                                              Navigator.pop(ctx, true),
+                                          child: const Text('移除'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                                onDismissed: (_) {
+                                  // 列表若在确认期间变化，按实例重新定位，避免删错
+                                  final idx = identical(
+                                          player.playlist.elementAtOrNull(i), s)
+                                      ? i
+                                      : player.playlist
+                                          .indexWhere((e) => identical(e, s));
+                                  if (idx >= 0) player.removeFromQueue(idx);
+                                },
+                                background: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 20),
+                                  color: cs.error,
+                                  child: Icon(Icons.delete, color: cs.onError),
+                                ),
+                                child: ListTile(
+                                  leading: ReorderableDragStartListener(
+                                    index: i,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.drag_handle,
+                                            size: 18,
+                                            color: cs.onSurfaceVariant),
+                                        const SizedBox(width: 4),
+                                        CircleAvatar(
+                                          radius: 14,
+                                          backgroundColor:
+                                              i == player.currentIndex
+                                                  ? cs.primaryContainer
+                                                  : Colors.transparent,
+                                          child: Text(
+                                            '${i + 1}',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color: i == player.currentIndex
+                                                      ? cs.onPrimaryContainer
+                                                      : cs.onSurfaceVariant,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  title: Text(s.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis),
+                                  subtitle: Text(
+                                    s.artistDisplay,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(color: cs.onSurfaceVariant),
+                                  ),
+                                  selected: i == player.currentIndex,
+                                  selectedTileColor: cs.primaryContainer
+                                      .withValues(alpha: 40 / 255),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    player.playIndex(i);
+                                  },
+                                ),
+                              );
+                            },
+                          );
+                        }),
+                      ),
+                    Divider(height: 1, color: cs.outlineVariant),
+                    ListTile(
+                      leading: const Icon(Icons.playlist_add),
+                      title: const Text('收藏到歌单'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _showAddToPlaylist(context, player);
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.playlist_add),
+                      title: const Text('将队列存为歌单'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _saveQueueAsPlaylist(context, player);
+                      },
+                    ),
+                    ListTile(
+                      leading: Icon(Icons.my_location, color: cs.primary),
+                      title: const Text('跳转到当前播放'),
+                      subtitle: Text(player.currentSong?.name ?? '',
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                      onTap: () {
+                        final idx = player.currentIndex;
+                        if (idx >= 0) {
+                          final offset = (idx * 72.0) - 100;
+                          scrollCtrl.animateTo(
+                            offset.clamp(0, scrollCtrl.position.maxScrollExtent),
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        }
+                      },
+                    ),
+                    ListTile(
+                      leading: Icon(Icons.delete_sweep, color: cs.error),
+                      title: Text('清空列表', style: TextStyle(color: cs.error)),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _confirmClear(context, player);
+                      },
                     ),
                   ],
                 ),
-              ),
-              Divider(height: 1, color: cs.outlineVariant),
-              if (player.playlist.isEmpty)
-                Expanded(child: Center(child: emptyStateWidget(ThemeAssets.emptyContent, Icons.queue_music, '列表为空')))
-              else
-                Expanded(
-                  child: Builder(builder: (_) {
-                  // 稳定 key = 歌曲实例 + 该实例在队列中第几次出现：
-                  // 不含位置下标，重排后 key 不变（拖拽落位动画正常）；
-                  // 同一首歌重复入队也能区分；删除后不会复用已移除项的 key。
-                  final seen = <int, int>{};
-                  final itemKeys = [
-                    for (final s in player.playlist)
-                      ValueKey((
-                        identityHashCode(s),
-                        seen.update(identityHashCode(s), (n) => n + 1,
-                            ifAbsent: () => 0),
-                      )),
-                  ];
-                  return ReorderableListView.builder(
-                    buildDefaultDragHandles: false,
-                    scrollController: scrollCtrl,
-                    itemCount: player.playlist.length,
-                    onReorder: (from, to) {
-                      // ReorderableListView 的 to 是移除前的插入位置
-                      if (to > from) to -= 1;
-                      player.moveInQueue(from, to);
-                    },
-                    itemBuilder: (_, i) {
-                      final s = player.playlist[i];
-                      final itemKey = itemKeys[i];
-                      return Dismissible(
-                        key: itemKey,
-                        direction: DismissDirection.endToStart,
-                        confirmDismiss: (_) async {
-                          return await showDialog<bool>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('移除'),
-                              content: Text('从播放列表移除「${s.name}」？'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(ctx, false),
-                                  child: const Text('取消'),
-                                ),
-                                FilledButton(
-                                  onPressed: () => Navigator.pop(ctx, true),
-                                  child: const Text('移除'),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                        onDismissed: (_) {
-                          // 列表若在确认期间变化，按实例重新定位，避免删错
-                          final idx = identical(player.playlist.elementAtOrNull(i), s)
-                              ? i
-                              : player.playlist.indexWhere((e) => identical(e, s));
-                          if (idx >= 0) player.removeFromQueue(idx);
-                        },
-                        background: Container(
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 20),
-                          color: cs.error,
-                          child: Icon(Icons.delete, color: cs.onError),
-                        ),
-                        child: ListTile(
-                          leading: ReorderableDragStartListener(
-                            index: i,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.drag_handle,
-                                    size: 18, color: cs.onSurfaceVariant),
-                                const SizedBox(width: 4),
-                                CircleAvatar(
-                                  radius: 14,
-                                  backgroundColor: i == player.currentIndex
-                                      ? cs.primaryContainer
-                                      : Colors.transparent,
-                                  child: Text(
-                                    '${i + 1}',
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: i == player.currentIndex
-                                          ? cs.onPrimaryContainer
-                                          : cs.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          title: Text(s.name,
-                              maxLines: 1, overflow: TextOverflow.ellipsis),
-                          subtitle: Text(
-                            s.artistDisplay,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: cs.onSurfaceVariant),
-                          ),
-                          selected: i == player.currentIndex,
-                          selectedTileColor:
-                              cs.primaryContainer.withValues(alpha: 40 / 255),
-                          onTap: () {
-                            Navigator.pop(context);
-                            player.playIndex(i);
-                          },
-                        ),
-                      );
-                    },
-                  );
-                  }),
-                ),
-              Divider(height: 1, color: cs.outlineVariant),
-              ListTile(
-                leading: const Icon(Icons.playlist_add),
-                title: const Text('收藏到歌单'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showAddToPlaylist(context, player);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.playlist_add),
-                title: const Text('将队列存为歌单'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _saveQueueAsPlaylist(context, player);
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.my_location, color: cs.primary),
-                title: const Text('跳转到当前播放'),
-                subtitle: Text(player.currentSong?.name ?? '',
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                onTap: () {
-                  final idx = player.currentIndex;
-                  if (idx >= 0) {
-                    final offset = (idx * 72.0) - 100;
-                    scrollCtrl.animateTo(
-                      offset.clamp(0, scrollCtrl.position.maxScrollExtent),
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
-                  }
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.delete_sweep, color: cs.error),
-                title: Text('清空列表', style: TextStyle(color: cs.error)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _confirmClear(context, player);
-                },
-              ),
-            ],
+              );
+            },
           ),
         ),
-        ),
-      ),
       ),
     );
   }

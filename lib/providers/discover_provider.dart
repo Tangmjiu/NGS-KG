@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/radio.dart';
 import '../models/playlist.dart';
@@ -44,6 +45,9 @@ class DiscoverProvider extends ChangeNotifier {
 
   bool _loading = true;
   String? _error;
+  bool _loaded = false;
+  bool _disposed = false;
+  Future<void>? _loadInFlight;
 
   // ─── Getters ───
 
@@ -75,12 +79,25 @@ class DiscoverProvider extends ChangeNotifier {
 
   // ─── 加载 ───
 
-  /// 加载全部发现数据（首屏 + 下拉刷新）
-  Future<void> loadAll() async {
+  /// 首次加载（空结果也视为已尝试，避免组件重挂载触发循环请求）。
+  Future<void> ensureLoaded() => loadAll(force: false);
+
+  /// 加载全部发现数据；并发调用共享同一批请求，下拉刷新默认重新加载。
+  Future<void> loadAll({bool force = true}) {
+    if (_disposed) return Future<void>.value();
+    final inFlight = _loadInFlight;
+    if (inFlight != null) return inFlight;
+    if (!force && _loaded) return Future<void>.value();
+    final completer = Completer<void>();
+    _loadInFlight = completer.future;
     _loading = true;
     _error = null;
     notifyListeners();
+    _loadAll(completer);
+    return completer.future;
+  }
 
+  Future<void> _loadAll(Completer<void> completer) async {
     try {
       await Future.wait([
         _loadFm(),
@@ -95,10 +112,13 @@ class DiscoverProvider extends ChangeNotifier {
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadAll error', e, s);
       _error = friendlyError(e);
+    } finally {
+      _loaded = true;
+      _loading = false;
+      _loadInFlight = null;
+      if (!_disposed) notifyListeners();
+      completer.complete();
     }
-
-    _loading = false;
-    notifyListeners();
   }
 
   Future<void> _loadFm() async {
@@ -382,5 +402,11 @@ class DiscoverProvider extends ChangeNotifier {
     final song = player.currentSong;
     if (song == null) return;
     dislikeCurrentFmSong(song);
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }

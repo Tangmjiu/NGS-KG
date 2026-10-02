@@ -18,8 +18,8 @@ mixin SleepTimerMixin on ChangeNotifier {
         _checkSleepTimer();
         // 避免每秒 notifyListeners 导致全量 rebuild：
         // 最后 5 秒实时更新 UI，其余每 5 秒更新一次。
-        final seconds = _sleepTimerRemaining!.inSeconds;
-        if (seconds <= 5 || seconds % 5 == 0) {
+        final seconds = _sleepTimerRemaining?.inSeconds;
+        if (seconds != null && (seconds <= 5 || seconds % 5 == 0)) {
           notifyListeners();
         }
       }

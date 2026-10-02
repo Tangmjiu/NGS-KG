@@ -20,7 +20,9 @@ import '../widgets/song_tile.dart';
 import '../providers/local_music_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final MusicService? musicService;
+
+  const ProfileScreen({super.key, this.musicService});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -28,13 +30,14 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen>
     with WidgetsBindingObserver {
-  final MusicService _musicService = MusicService();
+  late final MusicService _musicService;
   VipInfo? _vipInfo;
   final ScrollController _scrollCtrl = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _musicService = widget.musicService ?? MusicService();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refresh();
@@ -58,24 +61,25 @@ class _ProfileScreenState extends State<ProfileScreen>
   /// 公开刷新方法，供 HomeScreen 在切到该 tab 时调用
   void refresh() => _refresh();
 
-  Future<void> _refresh() async {
+  Future<void> _refresh({bool force = false}) async {
+    if (!mounted) return;
     final auth = context.read<AuthProvider>();
     final futures = <Future<void>>[
-      _loadPlaylists(),
+      _loadPlaylists(force: force),
       _loadVipInfo(),
       context.read<LocalMusicProvider>().scanMusic(),
     ];
     if (auth.isLoggedIn) {
-      futures.add(context.read<LikedSongsProvider>().load());
+      futures.add(context.read<LikedSongsProvider>().load(force: force));
     }
     await Future.wait(futures);
   }
 
-  Future<void> _loadPlaylists() async {
+  Future<void> _loadPlaylists({bool force = false}) async {
     final auth = context.read<AuthProvider>();
     final uid = auth.user?.userId;
     if (auth.isLoggedIn && uid != null) {
-      context.read<PlaylistProvider>().fetchUserPlaylist(uid);
+      await context.read<PlaylistProvider>().fetchUserPlaylist(uid, force: force);
     }
   }
 
@@ -98,22 +102,34 @@ class _ProfileScreenState extends State<ProfileScreen>
     final likedSongs = context.watch<LikedSongsProvider>();
 
     return RefreshIndicator(
-      onRefresh: _refresh,
-      child: ListView(
+      onRefresh: () => _refresh(force: true),
+      child: CustomScrollView(
         controller: _scrollCtrl,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        children: [
-          SizedBox(height: MediaQuery.of(context).padding.top),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  SizedBox(height: MediaQuery.of(context).padding.top),
+                  if (auth.isLoggedIn)
+                    _buildUserHeader(auth)
+                  else
+                    _buildLoggedOutHeader(),
+                  const SizedBox(height: 12),
+                  _buildMenu(auth, playlistProv, localMusic, likedSongs),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+          ),
           if (auth.isLoggedIn)
-            _buildUserHeader(auth)
-          else
-            _buildLoggedOutHeader(),
-          const SizedBox(height: 12),
-          _buildMenu(auth, playlistProv, localMusic, likedSongs),
-          const SizedBox(height: 12),
-          if (auth.isLoggedIn) _buildPlaylists(playlistProv, auth),
-          const ListBottomSpacer(isHome: true),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: _buildPlaylists(playlistProv, auth),
+            ),
+          const SliverToBoxAdapter(child: ListBottomSpacer(isHome: true)),
         ],
       ),
     );
@@ -386,11 +402,15 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Widget _buildPlaylists(PlaylistProvider playlistProv, AuthProvider auth) {
     if (playlistProv.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const SliverToBoxAdapter(
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
 
     if (playlistProv.userPlaylists.isEmpty) {
-      return emptyStateWidget(ThemeAssets.emptyPlaylist, Icons.playlist_play, '暂无歌单');
+      return SliverToBoxAdapter(
+        child: emptyStateWidget(ThemeAssets.emptyPlaylist, Icons.playlist_play, '暂无歌单'),
+      );
     }
 
     final userId = auth.user?.userId;
@@ -414,39 +434,51 @@ class _ProfileScreenState extends State<ProfileScreen>
       collected.addAll(unknown);
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (personal.isNotEmpty) ...[
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('我的歌单', style: Theme.of(context).textTheme.titleLarge),
-              TextButton.icon(
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('新建'),
-                onPressed: () => showM3Dialog(
-                    context: context,
-                    builder: (_) => const CreatePlaylistDialog()),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ...personal.asMap().entries.map((e) => M3StaggeredFadeIn(
-            index: e.key,
-            child: PlaylistCard(playlist: e.value),
-          )),
-        ],
-        if (collected.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text('收藏的歌单', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 8),
-          ...collected.asMap().entries.map((e) => M3StaggeredFadeIn(
-            index: e.key,
-            child: PlaylistCard(playlist: e.value),
-          )),
-        ],
-      ],
+    final personalCount = personal.isEmpty ? 0 : personal.length + 1;
+    final collectedCount = collected.isEmpty ? 0 : collected.length + 1;
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (_, index) {
+          if (index < personalCount) {
+            if (index == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('我的歌单', style: Theme.of(context).textTheme.titleLarge),
+                    TextButton.icon(
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('新建'),
+                      onPressed: () => showM3Dialog(
+                          context: context,
+                          builder: (_) => const CreatePlaylistDialog()),
+                    ),
+                  ],
+                ),
+              );
+            }
+            final playlist = personal[index - 1];
+            return PlaylistCard(
+              key: ValueKey(('personal', playlist.id)),
+              playlist: playlist,
+            );
+          }
+          final collectedIndex = index - personalCount;
+          if (collectedIndex == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 16, bottom: 8),
+              child: Text('收藏的歌单', style: Theme.of(context).textTheme.titleLarge),
+            );
+          }
+          final playlist = collected[collectedIndex - 1];
+          return PlaylistCard(
+            key: ValueKey(('collected', playlist.id)),
+            playlist: playlist,
+          );
+        },
+        childCount: personalCount + collectedCount,
+      ),
     );
   }
 }

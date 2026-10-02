@@ -59,12 +59,17 @@ class _NavidromeLoginScreenState extends State<NavidromeLoginScreen> {
     });
 
     final service = NavidromeService();
-    service.configure(
-      _urlCtrl.text.trim(),
-      _userCtrl.text.trim(),
-      _passCtrl.text,
-    );
-    final ok = await service.ping();
+    var ok = false;
+    try {
+      service.configure(
+        _urlCtrl.text.trim(),
+        _userCtrl.text.trim(),
+        _passCtrl.text,
+      );
+      ok = await service.ping();
+    } finally {
+      service.dispose();
+    }
 
     if (mounted) {
       setState(() {

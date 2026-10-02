@@ -93,6 +93,7 @@ class PlaylistCard extends StatelessWidget {
                             imageUrl: playlist.coverUrl!,
                             width: 68,
                             height: 68,
+                            memCacheWidth: (68 * MediaQuery.devicePixelRatioOf(context)).ceil(),
                             fit: BoxFit.cover,
                             placeholder: (_, __) => ExcludeSemantics(
                               child: Container(

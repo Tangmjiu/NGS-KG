@@ -71,6 +71,8 @@ class ThemeProvider extends ChangeNotifier {
 
   final List<ThemePack> _packs = [ngsNagisa, md3Default];
   String _selectedPackId = 'ngs_nagisa';
+  bool _hasValidBg = false;
+  int _packAssetsGeneration = 0;
 
   int _launchCount = 0;
   int _firstLaunchDate = 0;
@@ -224,7 +226,7 @@ class ThemeProvider extends ChangeNotifier {
       }
 
       // 应用当前主题包的资源路径到 ThemeAssets
-      _applyPackAssets();
+      await _applyPackAssets();
 
       // ─── 加载自定义字体 ───
       unawaited(_loadFontsForPack(currentPack));
@@ -255,11 +257,15 @@ class ThemeProvider extends ChangeNotifier {
     if (_selectedPackId == packId) return;
     if (!_packs.any((p) => p.id == packId)) return;
     _selectedPackId = packId;
-    _applyPackAssets();
-    await _loadFontsForPack(currentPack);
+    final pack = currentPack;
+    await _applyPackAssets();
+    if (_selectedPackId != packId) return;
+    await _loadFontsForPack(pack);
+    if (_selectedPackId != packId) return;
     notifyListeners();
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (_selectedPackId != packId) return;
       await prefs.setString(_keySelectedPack, packId);
     } catch (e, s) {
       Log.e('ThemeProvider', 'persist selectedPack error', e, s);
@@ -272,7 +278,7 @@ class ThemeProvider extends ChangeNotifier {
     if (pack == null) return false;
     _packs.add(pack);
     _selectedPackId = pack.id;
-    _applyPackAssets();
+    await _applyPackAssets();
     notifyListeners();
     return true;
   }
@@ -298,14 +304,16 @@ class ThemeProvider extends ChangeNotifier {
     _packs.removeWhere((p) => p.id == packId);
     if (_selectedPackId == packId) {
       _selectedPackId = 'ngs_nagisa';
-      _applyPackAssets();
+      await _applyPackAssets();
     }
     notifyListeners();
   }
 
   /// 把当前主题包的资源加载到 ThemeAssets
-  void _applyPackAssets() {
+  Future<void> _applyPackAssets() async {
     final pack = currentPack;
+    final generation = ++_packAssetsGeneration;
+    _hasValidBg = false;
     if (pack.assetFiles != null && pack.assetFiles!.isNotEmpty) {
       ThemeAssets.loadFromThemePack(pack);
     } else {
@@ -315,6 +323,13 @@ class ThemeProvider extends ChangeNotifier {
         ThemeAssets.playerBg = pack.playerBgPath!;
       }
     }
+    final path = pack.playerBgPath;
+    if (path == null || path.isEmpty) return;
+    var exists = false;
+    try {
+      exists = await File(path).exists();
+    } catch (_) {}
+    if (generation == _packAssetsGeneration) _hasValidBg = exists;
   }
 
   /// 加载主题包的自定义字体
@@ -491,12 +506,5 @@ class ThemeProvider extends ChangeNotifier {
   ThemeData buildDarkTheme(BuildContext context, {ColorScheme? dynamicScheme}) {
     final scheme = _resolveScheme(Brightness.dark, dynamicScheme: dynamicScheme);
     return buildThemeData(scheme, currentPack, hasGlobalBg: _hasValidBg);
-  }
-
-  /// 是否有有效的背景图文件（路径不为空且文件存在）
-  bool get _hasValidBg {
-    final path = currentPack.playerBgPath;
-    if (path == null || path.isEmpty) return false;
-    return File(path).existsSync();
   }
 }

@@ -16,7 +16,9 @@ import '../theme/theme_assets.dart';
 import '../constants/banned_words.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  final MusicService? musicService;
+
+  const SearchScreen({super.key, this.musicService});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -26,7 +28,7 @@ class _SearchScreenState extends State<SearchScreen>
     with SingleTickerProviderStateMixin {
   final _searchCtrl = TextEditingController();
   final _focusNode = FocusNode();
-  final _musicService = MusicService();
+  late final MusicService _musicService;
 
   final _tabs = ['单曲', '歌单', '专辑', '歌手', '歌词'];
   final _types = ['song', 'special', 'album', 'author', 'lyric'];
@@ -49,6 +51,9 @@ class _SearchScreenState extends State<SearchScreen>
   bool _isBanned = false;
   String _currentKeyword = '';
   Timer? _debounce;
+  int _selectedTabIndex = 0;
+  int _searchRequestId = 0;
+  int _suggestRequestId = 0;
 
   /// 搜索屏蔽关键词列表
   static const _bannedKeywords = kBannedWords;
@@ -56,6 +61,7 @@ class _SearchScreenState extends State<SearchScreen>
   @override
   void initState() {
     super.initState();
+    _musicService = widget.musicService ?? MusicService();
     _tabController = TabController(length: _tabs.length, vsync: this);
     _tabController.addListener(_onTabChanged);
     _loadHotSearch();
@@ -76,12 +82,17 @@ class _SearchScreenState extends State<SearchScreen>
   void dispose() {
     _searchCtrl.dispose();
     _focusNode.dispose();
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _debounce?.cancel();
     super.dispose();
   }
 
   void _onTabChanged() {
+    final index = _tabController.index;
+    // animateTo 在开始、结束时都会通知，只在索引真正变化时请求。
+    if (index == _selectedTabIndex) return;
+    _selectedTabIndex = index;
     if (_showResult && _currentKeyword.isNotEmpty) {
       _doSearch(_currentKeyword);
     }
@@ -108,72 +119,86 @@ class _SearchScreenState extends State<SearchScreen>
 
   void _onSearchChanged(String keyword) {
     _debounce?.cancel();
+    final requestId = ++_suggestRequestId;
+    // 编辑/清空关键词后，旧搜索也不能再发布结果或结束新请求的 loading。
+    _searchRequestId++;
+    setState(() {
+      _suggestions = [];
+      _showResult = false;
+      _isLoading = false;
+      _isBanned = false;
+    });
     if (keyword.isEmpty) {
-      setState(() {
-        _suggestions = [];
-        _showResult = false;
-      });
+      _currentKeyword = '';
       return;
     }
-    // 屏蔽词不触发建议
     final lower = keyword.toLowerCase();
-    if (_bannedKeywords.any((b) => lower.contains(b.toLowerCase()))) {
-      setState(() => _suggestions = []);
-      return;
-    }
+    if (_bannedKeywords.any((b) => lower.contains(b.toLowerCase()))) return;
     _debounce = Timer(const Duration(milliseconds: 400), () async {
       try {
-        _suggestions = await _musicService.getSearchSuggest(keyword);
-        if (mounted) setState(() {});
+        final suggestions = await _musicService.getSearchSuggest(keyword);
+        if (!mounted || requestId != _suggestRequestId ||
+            _searchCtrl.text != keyword || _showResult) return;
+        setState(() => _suggestions = suggestions);
       } catch (e, s) { Log.e('search_screen', 'error', e, s); }
     });
   }
 
   Future<void> _doSearch(String keyword) async {
     if (keyword.isEmpty) return;
+    _debounce?.cancel();
+    _suggestRequestId++;
+    final requestId = ++_searchRequestId;
+    final tabIndex = _tabController.index;
     _focusNode.unfocus();
     _currentKeyword = keyword;
 
-    // 检查是否屏蔽关键词
     final lower = keyword.toLowerCase();
-    if (_bannedKeywords.any((b) => lower.contains(b.toLowerCase()))) {
-      setState(() {
-        _isBanned = true;
-        _isLoading = false;
-        _showResult = true;
-      });
-      return;
-    }
-    setState(() => _isBanned = false);
-
-    final type = _types[_tabController.index];
+    final banned = _bannedKeywords.any((b) => lower.contains(b.toLowerCase()));
     setState(() {
-      _isLoading = true;
+      _isBanned = banned;
+      _isLoading = !banned;
       _showResult = true;
+      _suggestions = [];
     });
+    if (banned) return;
+
+    bool isCurrentRequest() => mounted && requestId == _searchRequestId &&
+        tabIndex == _tabController.index && keyword == _currentKeyword;
+
     try {
-      switch (_tabController.index) {
+      switch (tabIndex) {
         case 0:
-          _songs = await _musicService.search(keyword, type: type);
+          final songs = await _musicService.search(keyword, type: _types[tabIndex]);
+          if (!isCurrentRequest()) return;
+          setState(() => _songs = songs);
           break;
         case 1:
-          _playlists = await _musicService.searchPlaylists(keyword);
+          final playlists = await _musicService.searchPlaylists(keyword);
+          if (!isCurrentRequest()) return;
+          setState(() => _playlists = playlists);
           break;
         case 2:
-          _albums = await _musicService.searchAlbums(keyword);
+          final albums = await _musicService.searchAlbums(keyword);
+          if (!isCurrentRequest()) return;
+          setState(() => _albums = albums);
           break;
         case 3:
-          _artists = await _musicService.searchArtists(keyword);
+          final artists = await _musicService.searchArtists(keyword);
+          if (!isCurrentRequest()) return;
+          setState(() => _artists = artists);
           break;
-        // MV: case 4:
-        // MV:   _mvs = await _musicService.searchMvs(keyword);
-        // MV:   break;
         case 4:
-          _lyrics = await _musicService.searchLyrics(keyword);
+          final lyrics = await _musicService.searchLyrics(keyword);
+          if (!isCurrentRequest()) return;
+          setState(() => _lyrics = lyrics);
           break;
       }
-    } catch (e, s) { Log.e('search_screen', 'error', e, s); }
-    if (mounted) setState(() => _isLoading = false);
+    } catch (e, s) {
+      Log.e('search_screen', 'error', e, s);
+    } finally {
+      if (isCurrentRequest()) setState(() => _isLoading = false);
+    }
   }
 
   @override

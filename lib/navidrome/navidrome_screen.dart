@@ -230,25 +230,25 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
       );
     }
 
-    final player = context.watch<PlayerProvider>();
-    final song = player.currentSong;
-    final showMini = song != null && !player.isPlayerScreenVisible;
-    final double extraBottomPadding = showMini ? 92.0 : 24.0;
-
-    return GridView.builder(
-      padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: extraBottomPadding),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.85,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-      ),
-      itemCount: prov.albums.length,
-      itemBuilder: (_, i) => _AlbumCard(
-        album: prov.albums[i],
-        onTap: () =>
-            prov.selectAlbum(prov.albums[i].id, prov.albums[i].name),
-        getCoverUrl: (id) => prov.getCoverArtUrl(id),
+    return Selector<PlayerProvider, bool>(
+      selector: (_, player) =>
+          player.currentSong != null && !player.isPlayerScreenVisible,
+      builder: (_, showMini, __) => GridView.builder(
+        padding: EdgeInsets.only(
+            left: 8, right: 8, top: 8, bottom: showMini ? 92.0 : 24.0),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.85,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+        ),
+        itemCount: prov.albums.length,
+        itemBuilder: (_, i) => _AlbumCard(
+          album: prov.albums[i],
+          onTap: () =>
+              prov.selectAlbum(prov.albums[i].id, prov.albums[i].name),
+          getCoverUrl: (id) => prov.getCoverArtUrl(id),
+        ),
       ),
     );
   }
@@ -256,7 +256,7 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
   // ── Songs (ListView with SongTile style) ──
 
   Widget _buildSongList(NavidromeProvider prov) {
-    final songs = prov.toSongList(prov.songs);
+    final songs = prov.playbackSongs;
     if (songs.isEmpty) {
       return Center(
         child: Column(
@@ -279,8 +279,16 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
   }
 
   Widget _buildSongListView(List<Song> songs) {
+    return Selector<PlayerProvider, int?>(
+      selector: (_, player) => player.currentSong?.id,
+      builder: (context, currentSongId, _) =>
+          _buildSongListItems(context, songs, currentSongId),
+    );
+  }
+
+  Widget _buildSongListItems(
+      BuildContext context, List<Song> songs, int? currentSongId) {
     final cs = Theme.of(context).colorScheme;
-    final currentSongId = context.watch<PlayerProvider>().currentSong?.id;
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -347,7 +355,7 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
         ),
       );
     }
-    final songs = prov.toSongList(prov.searchResults);
+    final songs = prov.searchPlaybackSongs;
     return _buildSongListView(songs);
   }
 }

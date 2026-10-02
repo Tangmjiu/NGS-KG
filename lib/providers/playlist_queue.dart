@@ -1,3 +1,6 @@
+// Copyright (c) 2025-2026 mjiutang
+// SPDX-License-Identifier: MIT
+
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import '../models/song.dart';
@@ -11,6 +14,7 @@ class PlaylistQueue extends ValueNotifier<int> {
   final Random _random = Random();
 
   List<Song> _playlist = [];
+  List<Song>? _playlistSnapshot;
   int _currentIndex = 0;
   PlayMode _playMode = PlayMode.sequential;
   List<int> _shuffleOrder = [];
@@ -34,19 +38,27 @@ class PlaylistQueue extends ValueNotifier<int> {
 
   PlaylistQueue() : super(0);
 
-  List<Song> get playlist => _playlist;
+  /// 只读快照：外部列表和已取得的快照都不会被队列操作原地修改。
+  /// 仅结构变化时重建，切歌和读取不会反复复制整张列表。
+  List<Song> get playlist =>
+      _playlistSnapshot ??= List<Song>.unmodifiable(_playlist);
   int get currentIndex => _currentIndex;
   PlayMode get playMode => _playMode;
   bool get isLoadingMore => _isLoadingMore;
   Song? get currentSong =>
-      _playlist.isNotEmpty && _currentIndex < _playlist.length
+      _currentIndex >= 0 && _currentIndex < _playlist.length
           ? _playlist[_currentIndex]
           : null;
 
   void setPlaylist(List<Song> songs, {int startIndex = 0}) {
-    _playlist = songs;
-    _currentIndex = startIndex;
+    _playlist = List<Song>.of(songs);
+    _playlistSnapshot = null;
+    _currentIndex = songs.isEmpty
+        ? 0
+        : startIndex.clamp(0, songs.length - 1).toInt();
     _shuffleOrder = [];
+    _shufflePos = 0;
+    if (_playMode == PlayMode.shuffle) _initShuffle();
     notifyListeners();
   }
 
@@ -65,6 +77,7 @@ class PlaylistQueue extends ValueNotifier<int> {
   }
 
   void setPlayMode(PlayMode mode) {
+    if (_playMode == mode) return;
     _playMode = mode;
     if (mode == PlayMode.shuffle) _initShuffle();
     notifyListeners();
@@ -92,24 +105,18 @@ class PlaylistQueue extends ValueNotifier<int> {
       case PlayMode.repeatOne:
         return _currentIndex;
       case PlayMode.sequential:
-        if (_currentIndex + 1 < _playlist.length) {
-          return _currentIndex + 1;
-        }
-        return null; // caller checks playlistEndProvider
       case PlayMode.radio:
         if (_currentIndex + 1 < _playlist.length) {
           return _currentIndex + 1;
         }
-        return null;
+        return null; // caller checks playlistEndProvider
     }
   }
 
   int? previousIndex() {
     if (_playlist.isEmpty) return null;
     if (_playMode == PlayMode.shuffle) {
-      if (_shuffleOrder.isEmpty) {
-        _initShuffle();
-      }
+      if (_shuffleOrder.isEmpty) _initShuffle();
       if (_shuffleOrder.isEmpty) return null;
       _shufflePos =
           (_shufflePos - 1 + _shuffleOrder.length) % _shuffleOrder.length;
@@ -120,13 +127,19 @@ class PlaylistQueue extends ValueNotifier<int> {
 
   void insertAt(int index, Song song) {
     if (index < 0 || index > _playlist.length) return;
+    final wasEmpty = _playlist.isEmpty;
     _playlist.insert(index, song);
-    if (index <= _currentIndex) {
-      _currentIndex++;
-    }
-    if (_playMode == PlayMode.shuffle && _shuffleOrder.isNotEmpty) {
-      for (int i = 0; i < _shuffleOrder.length; i++) {
-        if (_shuffleOrder[i] >= index) _shuffleOrder[i]++;
+    _playlistSnapshot = null;
+    if (!wasEmpty && index <= _currentIndex) _currentIndex++;
+    if (_playMode == PlayMode.shuffle) {
+      if (_shuffleOrder.isEmpty) {
+        _initShuffle();
+      } else {
+        for (int i = 0; i < _shuffleOrder.length; i++) {
+          if (_shuffleOrder[i] >= index) _shuffleOrder[i]++;
+        }
+        // “下一首播放”在随机模式下也应排在当前歌曲之后。
+        _shuffleOrder.insert(_shufflePos + 1, index);
       }
     }
     notifyListeners();
@@ -134,17 +147,23 @@ class PlaylistQueue extends ValueNotifier<int> {
 
   void removeAt(int index) {
     if (index < 0 || index >= _playlist.length) return;
+    final removedShufflePos = _shuffleOrder.indexOf(index);
     _playlist.removeAt(index);
-    if (_currentIndex >= _playlist.length) {
-      _currentIndex = _playlist.length - 1;
+    _playlistSnapshot = null;
+    if (_playlist.isEmpty) {
+      _currentIndex = 0;
     } else if (index < _currentIndex) {
       _currentIndex--;
+    } else if (_currentIndex >= _playlist.length) {
+      _currentIndex = _playlist.length - 1;
     }
-    if (_playMode == PlayMode.shuffle && _shuffleOrder.isNotEmpty) {
-      _shuffleOrder.removeWhere((i) => i == index);
+    if (_playMode == PlayMode.shuffle && removedShufflePos >= 0) {
+      _shuffleOrder.removeAt(removedShufflePos);
       for (int i = 0; i < _shuffleOrder.length; i++) {
         if (_shuffleOrder[i] > index) _shuffleOrder[i]--;
       }
+      // 删除 shuffle 游标之前的条目后，游标仍指向实际正在播放的歌曲。
+      _shufflePos = _shuffleOrder.indexOf(_currentIndex);
     }
     notifyListeners();
   }
@@ -155,6 +174,7 @@ class PlaylistQueue extends ValueNotifier<int> {
     if (from == to) return;
     final song = _playlist.removeAt(from);
     _playlist.insert(to, song);
+    _playlistSnapshot = null;
     if (_currentIndex == from) {
       _currentIndex = to;
     } else {
@@ -186,15 +206,21 @@ class PlaylistQueue extends ValueNotifier<int> {
     if (songs.isEmpty) return;
     final oldLen = _playlist.length;
     _playlist.addAll(songs);
-    if (_playMode == PlayMode.shuffle && _shuffleOrder.isNotEmpty) {
-      for (int i = oldLen; i < _playlist.length; i++) {
-        _shuffleOrder.add(i);
+    _playlistSnapshot = null;
+    if (_playMode == PlayMode.shuffle) {
+      if (_shuffleOrder.isEmpty) {
+        _initShuffle();
+      } else {
+        for (int i = oldLen; i < _playlist.length; i++) {
+          _shuffleOrder.add(i);
+        }
       }
     }
     notifyListeners();
   }
 
   void setLoadingMore(bool v) {
+    if (_isLoadingMore == v) return;
     _isLoadingMore = v;
     notifyListeners();
   }
@@ -224,7 +250,7 @@ class PlaylistQueue extends ValueNotifier<int> {
     if (_shufflePos == 0 && _shuffleOrder.length > 1) {
       final last = _shuffleOrder.last;
       _shuffleOrder.shuffle(_random);
-      if (_shuffleOrder[0] == last && _shuffleOrder.length > 1) {
+      if (_shuffleOrder[0] == last) {
         _shuffleOrder[0] = _shuffleOrder[1];
         _shuffleOrder[1] = last;
       }

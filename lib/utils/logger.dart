@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:io';
 import 'dart:developer' as dev;
 import 'package:flutter/foundation.dart';
@@ -48,10 +49,10 @@ class Log {
   File? _logFile;
   IOSink? _sink;
   bool _ready = false;
-  final List<String> _buffer = [];
+  final Queue<String> _buffer = Queue<String>();
 
   static const int _maxBufferLines = 2000;
-  static final List<LogEntry> _entries = [];
+  static final Queue<LogEntry> _entries = Queue<LogEntry>();
   static final ValueNotifier<LogEntry?> onEntry = ValueNotifier(null);
 
   static List<LogEntry> get entries => List.unmodifiable(_entries);
@@ -68,7 +69,11 @@ class Log {
       final now = DateTime.now();
       final date = '${now.year}${_pad(now.month)}${_pad(now.day)}';
       log._logFile = File('${logDir.path}/app_$date.log');
-      log._sink = log._logFile!.openWrite(mode: FileMode.append);
+      final sink = log._logFile!.openWrite(mode: FileMode.append);
+      log._sink = sink;
+      sink.done.then<void>((_) {}, onError: (Object error, StackTrace stack) {
+        log._sink = null;
+      });
       log._ready = true;
       for (final line in log._buffer) {
         log._sink!.writeln(line);
@@ -78,16 +83,14 @@ class Log {
     } catch (_) {}
   }
 
-  static void _cleanOldLogs(Directory dir) async {
+  static Future<void> _cleanOldLogs(Directory dir) async {
     try {
       final cutoff = DateTime.now().subtract(const Duration(days: 7));
-      final files = dir.listSync();
-      for (final f in files) {
+      await for (final f in dir.list()) {
         if (f is File) {
-          final stat = f.statSync();
-          if (stat.changed.millisecondsSinceEpoch <
-              cutoff.millisecondsSinceEpoch) {
-            f.deleteSync();
+          final stat = await f.stat();
+          if (stat.changed.isBefore(cutoff)) {
+            await f.delete();
           }
         }
       }
@@ -156,7 +159,7 @@ class Log {
     );
     _entries.add(entry);
     if (_entries.length > _maxBufferLines) {
-      _entries.removeAt(0);
+      _entries.removeFirst();
     }
     onEntry.value = entry;
 
@@ -173,9 +176,11 @@ class Log {
     try {
       if (_ready && _sink != null) {
         _sink!.writeln(line);
-        _sink!.flush();
       } else if (!_ready) {
         _buffer.add(line);
+        if (_buffer.length > _maxBufferLines) {
+          _buffer.removeFirst();
+        }
       }
     } catch (_) {
       // Sink may be closed or in bad state — silently drop file writes

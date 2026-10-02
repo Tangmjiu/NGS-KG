@@ -105,10 +105,12 @@ Widget artistPlaceholderWidget({double size = 48, Color? color}) =>
 Widget _themedPlaceholder(String assetPath, IconData fallbackIcon,
     {double size = 48, Color? color}) {
   if (assetPath.isNotEmpty) {
-    final widget = assetPath.startsWith('assets/')
-        ? Image.asset(assetPath, width: size, height: size, fit: BoxFit.cover)
-        : Image.file(File(assetPath), width: size, height: size, fit: BoxFit.cover);
-    return widget;
+    return ThemeImage(
+      assetPath: assetPath,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+    );
   }
   return Icon(fallbackIcon, size: size * 0.7, color: color);
 }
@@ -117,17 +119,13 @@ Widget _themedPlaceholder(String assetPath, IconData fallbackIcon,
 Widget emptyStateWidget(String assetPath, IconData fallbackIcon, String fallbackText,
     {double iconSize = 80}) {
   if (assetPath.isNotEmpty) {
-    Widget image;
-    if (assetPath.startsWith('assets/')) {
-      image = Image.asset(assetPath, width: iconSize * 2, height: iconSize * 2, fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => const SizedBox.shrink());
-    } else {
-      image = Image.file(File(assetPath), width: iconSize * 2, height: iconSize * 2, fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => const SizedBox.shrink());
-    }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 32),
-      child: image,
+      child: ThemeImage(
+        assetPath: assetPath,
+        width: iconSize * 2,
+        height: iconSize * 2,
+      ),
     );
   }
   return Column(
@@ -159,21 +157,26 @@ class ThemeImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final widget = assetPath.startsWith('assets/')
-        ? Image.asset(
-            assetPath,
-            width: width,
-            height: height,
-            fit: fit,
-            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-          )
-        : Image.file(
-            File(assetPath),
-            width: width,
-            height: height,
-            fit: fit,
-            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-          );
+    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+    int? cacheDimension(double? value) => value != null && value.isFinite && value > 0
+        ? (value * pixelRatio).ceil()
+        : null;
+    ImageProvider provider = assetPath.startsWith('assets/')
+        ? AssetImage(assetPath)
+        : FileImage(File(assetPath));
+    final cacheWidth = cacheDimension(width);
+    final cacheHeight = cacheDimension(height);
+    if (cacheWidth != null || cacheHeight != null) {
+      provider = ResizeImage(provider,
+          width: cacheWidth, height: cacheHeight, policy: ResizeImagePolicy.fit);
+    }
+    final widget = Image(
+      image: provider,
+      width: width,
+      height: height,
+      fit: fit,
+      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+    );
 
     if (color != null) {
       return ColorFiltered(

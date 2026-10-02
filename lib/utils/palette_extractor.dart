@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/painting.dart';
 import 'package:palette_generator/palette_generator.dart';
@@ -80,7 +81,10 @@ class PaletteExtractor {
 
   // ───── Internal cache ─────
 
+  static const _maxCacheEntries = 128;
   final Map<String, ExtractedPalette> _cache = <String, ExtractedPalette>{};
+  final Map<String, Future<ExtractedPalette>> _inFlight = {};
+  int _cacheGeneration = 0;
 
   /// Converts a [PaletteGenerator] result into an [ExtractedPalette].
   static ExtractedPalette _toExtractedPalette(PaletteGenerator generator) {
@@ -114,48 +118,46 @@ class PaletteExtractor {
   ///
   /// Limits resolution to 256px for fast extraction.
   /// Never throws — returns the [fallbackPalette] on any error.
-  Future<ExtractedPalette> extract(String imageUrl) async {
-    final cached = _cache[imageUrl];
-    if (cached != null) return cached;
-
-    try {
-      final generator = await PaletteGenerator.fromImageProvider(
-        NetworkImage(imageUrl),
-        size: const Size(256, 256),
-        maximumColorCount: 16,
-      );
-      final palette = _toExtractedPalette(generator);
-      _cache[imageUrl] = palette;
-      return palette;
-    } catch (_) {
-      _cache[imageUrl] = _fallbackPalette;
-      return _fallbackPalette;
-    }
-  }
+  Future<ExtractedPalette> extract(String imageUrl) =>
+      extractFromProvider(NetworkImage(imageUrl), imageUrl);
 
   /// Extracts a color palette using a custom [ImageProvider] (e.g. [FileImage]
   /// for local files) and caches the result under [cacheKey].
   ///
-  /// Limits image resolution to 256px for fast extraction.
+  /// Concurrent requests for the same cover share both decoding and extraction.
   /// Never throws — returns the [fallbackPalette] on any error.
   Future<ExtractedPalette> extractFromProvider(
-      ImageProvider provider, String cacheKey) async {
+      ImageProvider provider, String cacheKey) {
     final cached = _cache[cacheKey];
-    if (cached != null) return cached;
+    if (cached != null) return Future.value(cached);
+    final pending = _inFlight[cacheKey];
+    if (pending != null) return pending;
 
-    try {
-      final generator = await PaletteGenerator.fromImageProvider(
-        provider,
-        size: const Size(256, 256),
-        maximumColorCount: 16,
-      );
-      final palette = _toExtractedPalette(generator);
-      _cache[cacheKey] = palette;
-      return palette;
-    } catch (_) {
-      _cache[cacheKey] = _fallbackPalette;
-      return _fallbackPalette;
-    }
+    final completer = Completer<ExtractedPalette>();
+    final future = completer.future;
+    final generation = _cacheGeneration;
+    _inFlight[cacheKey] = future;
+    unawaited(() async {
+      var palette = _fallbackPalette;
+      try {
+        final generator = await PaletteGenerator.fromImageProvider(
+          // size 只是 ImageConfiguration 提示，降采样由 ResizeImage 执行。
+          ResizeImage(provider, width: 256, height: 256,
+              policy: ResizeImagePolicy.fit),
+          size: const Size(256, 256),
+          maximumColorCount: 16,
+        );
+        palette = _toExtractedPalette(generator);
+      } catch (_) {
+      } finally {
+        if (generation == _cacheGeneration) {
+          _cache[cacheKey] = palette;
+          if (_cache.length > _maxCacheEntries) _cache.remove(_cache.keys.first);
+        }        if (identical(_inFlight[cacheKey], future)) _inFlight.remove(cacheKey);
+        completer.complete(palette);
+      }
+    }());
+    return future;
   }
 
   /// The default palette used when extraction fails.
@@ -163,6 +165,8 @@ class PaletteExtractor {
 
   /// Clears all cached palette results.
   void clearCache() {
+    _cacheGeneration++;
     _cache.clear();
+    _inFlight.clear();
   }
 }

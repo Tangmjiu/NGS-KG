@@ -16,7 +16,8 @@ import '../widgets/login_required_dialog.dart';
 
 class AudioEngine {
   final MusicService _musicService;
-  final AudioPlayer _player = AudioPlayer();
+  final AudioPlayer _player;
+  bool _disposed = false;
 
   int _playAttempts = 0;
   int _playRequestVersion = 0;
@@ -43,15 +44,45 @@ class AudioEngine {
   /// Privilege 缓存（hash → PrivilegeInfo），避免重复请求
   final Map<String, PrivilegeInfo> _privilegeCache = {};
 
-  /// 清除指定歌曲的 privilege 缓存
+  /// 合并预查和播放链的并发查询；失效后的旧请求不得重新填充缓存。
+  final Map<String, Future<PrivilegeInfo>> _privilegeInFlight = {};
+
+  Future<PrivilegeInfo> _getPrivilege(String hash) {
+    final cached = _privilegeCache[hash];
+    if (cached != null) return Future.value(cached);
+    final pending = _privilegeInFlight[hash];
+    if (pending != null) return pending;
+
+    late final Future<PrivilegeInfo> request;
+    request = Future.sync(() => _musicService.getPrivilegeLite(hash))
+        .then((res) {
+      final info = PrivilegeInfo.fromJson(res);
+      if (!_disposed && identical(_privilegeInFlight[hash], request) &&
+          (info.options.isNotEmpty || info.effectOptions.isNotEmpty)) {
+        _privilegeCache[hash] = info;
+      }
+      return info;
+    }).whenComplete(() {
+      if (identical(_privilegeInFlight[hash], request)) {
+        _privilegeInFlight.remove(hash);
+      }
+    });
+    _privilegeInFlight[hash] = request;
+    return request;
+  }
+
+  /// 清除指定歌曲的 privilege 缓存及正在进行的查询引用。
   void invalidatePrivilege(String? hash) {
     if (hash != null && hash.isNotEmpty) {
       _privilegeCache.remove(hash);
+      _privilegeInFlight.remove(hash);
     }
   }
 
-  /// 清除所有 privilege 缓存
-  void clearPrivilegeCache() => _privilegeCache.clear();
+  void clearPrivilegeCache() {
+    _privilegeCache.clear();
+    _privilegeInFlight.clear();
+  }
 
   StreamSubscription? _positionSub;
   StreamSubscription? _durationSub;
@@ -69,8 +100,10 @@ class AudioEngine {
   VoidCallback? onComplete;
   VoidCallback? onReady;
 
-  AudioEngine(this._musicService) {
-    _initSession();
+  AudioEngine(this._musicService,
+      {AudioPlayer? player, bool initializeSession = true})
+      : _player = player ?? AudioPlayer() {
+    if (initializeSession) _initSession();
     _positionSub = _player.positionStream.listen((p) {
       position.value = p;
     });
@@ -171,6 +204,8 @@ class AudioEngine {
 
   /// 异步预查特权与音质选项，让 UI 能在播放前显示正确的实际最高音质，避免冷启动及切歌时回退显示"标准"
   Future<void> precheckPrivilege(Song song) async {
+    if (_disposed) return;
+    final version = _playRequestVersion;
     final hash = song.hash;
     if (song.isLocal && hash == null) {
       resolvedQualityNotifier.value = '128';
@@ -180,14 +215,8 @@ class AudioEngine {
     }
     if (hash != null && hash.isNotEmpty) {
       try {
-        PrivilegeInfo? info = _privilegeCache[hash];
-        if (info == null) {
-          final res = await _musicService.getPrivilegeLite(hash);
-          info = PrivilegeInfo.fromJson(res);
-          if (info.options.isNotEmpty) {
-            _privilegeCache[hash] = info;
-          }
-        }
+        final info = await _getPrivilege(hash);
+        if (_disposed || version != _playRequestVersion) return;
         if (info.options.isNotEmpty || info.effectOptions.isNotEmpty) {
           _currentQualityOptions = info.options;
           _currentEffectOptions = info.effectOptions;
@@ -208,6 +237,9 @@ class AudioEngine {
   /// 1. 优先使用 /privilege/lite 获取歌曲可用音质变体（含独立 hash）
   /// 2. 回退到根据 qualityLevel 构建降级链（使用歌曲原始 hash）
   Future<List<_Candidate>> _buildCandidates(Song song, String preferredQuality) async {
+    final version = _playRequestVersion;
+    bool stale() => _disposed || version != _playRequestVersion;
+    if (stale()) return [];
     final hash = song.hash;
 
     // 本地歌曲不需要特权查询
@@ -218,14 +250,8 @@ class AudioEngine {
     // 尝试从 privilege 获取
     if (hash != null && hash.isNotEmpty) {
       try {
-        PrivilegeInfo? info = _privilegeCache[hash];
-        if (info == null) {
-          final res = await _musicService.getPrivilegeLite(hash);
-          info = PrivilegeInfo.fromJson(res);
-          if (info.options.isNotEmpty) {
-            _privilegeCache[hash] = info;
-          }
-        }
+        final info = await _getPrivilege(hash);
+        if (stale()) return [];
         if (info.options.isNotEmpty || info.effectOptions.isNotEmpty) {
           _currentQualityOptions = info.options;
           _currentEffectOptions = info.effectOptions;
@@ -241,6 +267,7 @@ class AudioEngine {
       }
     }
 
+    if (stale()) return [];
     // 回退：基于 qualityLevel 的降级链，使用歌曲原始 hash
     // privilege 失败时清空选项列表，让 UI 按全量 levels 回退显示
     _currentQualityOptions = [];
@@ -255,11 +282,9 @@ class AudioEngine {
 
   /// ─── 核心播放方法 ───
   Future<void> play(Song song, {int? version, String effectKey = 'none'}) async {
-    version ??= _playRequestVersion;
-    if (version != _playRequestVersion) {
-      isLoading.value = false;
-      return;
-    }
+    final requestVersion = version ?? _playRequestVersion;
+    bool stale() => _disposed || requestVersion != _playRequestVersion;
+    if (stale()) return;
     if (_playAttempts > _maxRetries) {
       isLoading.value = false;
       error.value = '播放失败: 已重试 $_maxRetries 次';
@@ -273,7 +298,7 @@ class AudioEngine {
         final startAt = _takeStartPosition();
         if (fp.startsWith('http') || fp.startsWith('https')) {
           await _player.setUrl(fp, initialPosition: startAt);
-          if (version != _playRequestVersion) { isLoading.value = false; return; }
+          if (stale()) return;
           _lastUrlFetchTime = DateTime.now();
           if (_playWhenReady) _startPlayback();
         } else {
@@ -281,10 +306,11 @@ class AudioEngine {
           try {
             await _player.setFilePath(fp, initialPosition: startAt);
           } catch (_) {
+            if (stale()) return;
             final fileUri = Uri.file(fp).toString();
             await _player.setUrl(fileUri, initialPosition: startAt);
           }
-          if (version != _playRequestVersion) { isLoading.value = false; return; }
+          if (stale()) return;
           _lastUrlFetchTime = DateTime.now();
           if (_playWhenReady) _startPlayback();
         }
@@ -298,6 +324,7 @@ class AudioEngine {
       // 有效果选中时，先尝试效果 URL（需先加载 privilege）
       if (effectKey != 'none') {
         await _buildCandidates(song, _currentQualityKey());
+        if (stale()) return;
         final effectOpts = _currentEffectOptions;
         if (effectOpts.isNotEmpty) {
           final matched = effectOpts.where((o) => o.value == effectKey);
@@ -309,11 +336,11 @@ class AudioEngine {
                 hash: opt.hash.isNotEmpty ? opt.hash : song.hash,
                 quality: opt.value,
               );
-              if (version != _playRequestVersion) { isLoading.value = false; return; }
+              if (stale()) return;
               if (!songUrl.isVideo && songUrl.url.isNotEmpty) {
                 await _player.setUrl(songUrl.url,
                     initialPosition: _takeStartPosition());
-                if (version != _playRequestVersion) { isLoading.value = false; return; }
+                if (stale()) return;
                 _lastUrlFetchTime = DateTime.now();
                 if (_playWhenReady) _startPlayback();
                 played = true;
@@ -328,11 +355,13 @@ class AudioEngine {
       }
 
       // 编码音质候选链
+      if (stale()) return;
       if (!played) {
         final preferred = _currentQualityKey();
         final candidates = await _buildCandidates(song, preferred);
+        if (stale()) return;
         for (final c in candidates) {
-        if (version != _playRequestVersion) { isLoading.value = false; return; }
+        if (stale()) return;
         if (c.hash.isEmpty && c.quality == '128') continue; // 无 hash 跳过
 
         try {
@@ -341,7 +370,7 @@ class AudioEngine {
             hash: c.hash.isNotEmpty ? c.hash : song.hash,
             quality: c.quality,
           );
-          if (version != _playRequestVersion) { isLoading.value = false; return; }
+          if (stale()) return;
 
           // 跳过 mp4 格式（Kugou 对部分 VIP 歌曲返回视频而非音频）
           if (songUrl.isVideo) {
@@ -352,7 +381,7 @@ class AudioEngine {
           if (songUrl.url.isNotEmpty) {
             await _player.setUrl(songUrl.url,
                 initialPosition: _takeStartPosition());
-            if (version != _playRequestVersion) { isLoading.value = false; return; }
+            if (stale()) return;
             _lastUrlFetchTime = DateTime.now();
             if (_playWhenReady) _startPlayback();
             played = true;
@@ -363,6 +392,7 @@ class AudioEngine {
             break;
           }
         } catch (e) {
+          if (stale()) return;
           // 特殊异常直接抛出让外层 catch 处理
           if (e is NoCopyrightException || e is NeedLoginException) rethrow;
           Log.w('audio_engine', 'candidate quality=${c.quality} failed: $e');
@@ -371,13 +401,15 @@ class AudioEngine {
       } // end for
       } // end if (!played) quality candidates
 
+      if (stale()) return;
       if (!played) {
         // 所有候选都失败，重试
         _playAttempts++;
-        await play(song, version: version);
+        await play(song, version: requestVersion, effectKey: effectKey);
         return;
       }
     } catch (e, s) {
+      if (stale()) return;
       _playAttempts++;
       Log.w('audio_engine', 'play error (attempt $_playAttempts)', e, s);
       if (e is NoCopyrightException) {
@@ -393,7 +425,7 @@ class AudioEngine {
         return;
       }
       if (_playAttempts <= _maxRetries) {
-        await play(song, version: version);
+        await play(song, version: requestVersion, effectKey: effectKey);
         return;
       }
       isLoading.value = false;
@@ -402,7 +434,7 @@ class AudioEngine {
       _showLoginIfUnauth();
       return;
     }
-    isLoading.value = false;
+    if (!stale()) isLoading.value = false;
   }
 
   /// 继续播放当前歌曲（幂等：已在播放时什么都不做）。
@@ -436,7 +468,7 @@ class AudioEngine {
 
   Future<void> _refreshUrlAndPlay(Song song) async {
     final version = _playRequestVersion;
-    bool cancelled() => version != _playRequestVersion || !_playWhenReady;
+    bool cancelled() => _disposed || version != _playRequestVersion || !_playWhenReady;
     try {
       final quality = _currentQualityKey();
       final pos = position.value;
@@ -469,7 +501,7 @@ class AudioEngine {
       {Duration? currentPosition, String effectKey = 'none'}) async {
     if (song.hash == null || song.hash!.isEmpty) return false;
     final version = _playRequestVersion;
-    bool stale() => version != _playRequestVersion;
+    bool stale() => _disposed || version != _playRequestVersion;
 
     try {
       // 失效缓存，_buildCandidates 会重新查询
@@ -503,6 +535,7 @@ class AudioEngine {
       }
 
       // 效果未选中或效果失败 → 编码音质候选链
+      if (stale()) return false;
       if (url == null) {
         final candidates = await _buildCandidates(song, qualityKey);
         for (final c in candidates) {
@@ -640,6 +673,11 @@ class AudioEngine {
   }
 
   void dispose() {
+    _disposed = true;
+    _playRequestVersion++;
+    onComplete = null;
+    onReady = null;
+    clearPrivilegeCache();
     _fadeTimer?.cancel();
     _sessionIdSub?.cancel();
     _positionSub?.cancel();

@@ -27,20 +27,31 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
   final TextEditingController _searchCtrl = TextEditingController();
   final ScrollController _allSongsScrollCtrl = ScrollController();
   bool _permissionDenied = false;
+  int _innerTabIndex = 0;
+  String? _lastScrolledHighlight;
+  final Map<int, Set<String>> _expandedGroups = {};
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
     _innerTabCtrl = TabController(length: 4, vsync: this);
+    _innerTabCtrl.addListener(_onInnerTabChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initScan();
     });
   }
 
+  void _onInnerTabChanged() {
+    final index = _innerTabCtrl.index;
+    if (index == _innerTabIndex) return;
+    setState(() => _innerTabIndex = index);
+  }
+
   @override
   void dispose() {
     _tabCtrl.dispose();
+    _innerTabCtrl.removeListener(_onInnerTabChanged);
     _innerTabCtrl.dispose();
     _searchCtrl.dispose();
     _allSongsScrollCtrl.dispose();
@@ -169,27 +180,36 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
             Expanded(
               child: TabBarView(
                 controller: _innerTabCtrl,
-                children: [
-                  _buildAllSongsTab(prov),
-                  _buildGroupedTab(
-                    prov: prov,
-                    grouper: () => prov.groupedByAlbum(),
-                    emptyIcon: Icons.album,
-                    emptyLabel: '专辑',
-                  ),
-                  _buildGroupedTab(
-                    prov: prov,
-                    grouper: () => prov.groupedByArtist(),
-                    emptyIcon: Icons.person,
-                    emptyLabel: '歌手',
-                  ),
-                  _buildGroupedTab(
-                    prov: prov,
-                    grouper: () => prov.groupedByFolder(),
-                    emptyIcon: Icons.folder_outlined,
-                    emptyLabel: '文件夹',
-                  ),
-                ],
+                // 不在构建 TabBarView 时提前计算所有分组。
+                children: List.generate(4, (index) => Builder(
+                  builder: (_) {
+                    if (index != _innerTabIndex) return const SizedBox.shrink();
+                    return switch (index) {
+                      0 => _buildAllSongsTab(prov),
+                      1 => _buildGroupedTab(
+                          prov: prov,
+                          entries: prov.groupedByAlbum(),
+                          tabIndex: index,
+                          emptyIcon: Icons.album,
+                          emptyLabel: '专辑',
+                        ),
+                      2 => _buildGroupedTab(
+                          prov: prov,
+                          entries: prov.groupedByArtist(),
+                          tabIndex: index,
+                          emptyIcon: Icons.person,
+                          emptyLabel: '歌手',
+                        ),
+                      _ => _buildGroupedTab(
+                          prov: prov,
+                          entries: prov.groupedByFolder(),
+                          tabIndex: index,
+                          emptyIcon: Icons.folder_outlined,
+                          emptyLabel: '文件夹',
+                        ),
+                    };
+                  },
+                )),
               ),
             ),
           ],
@@ -240,13 +260,16 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
     final songs = prov.songs;
     final highlightPath = prov.highlightedFilePath;
 
-    // 自动滚动到高亮歌曲
-    if (highlightPath != null) {
+    // 同一高亮只定位一次，避免通知或元数据更新反复打断用户滚动。
+    if (highlightPath == null) _lastScrolledHighlight = null;
+    if (highlightPath != null && highlightPath != _lastScrolledHighlight) {
       final idx = songs.indexWhere((s) => s.filePath == highlightPath);
       if (idx >= 0) {
+        _lastScrolledHighlight = highlightPath;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!_allSongsScrollCtrl.hasClients) return;
-          final itemHeight = 72.0;
+          if (!mounted || !_allSongsScrollCtrl.hasClients ||
+              prov.highlightedFilePath != highlightPath) return;
+          const itemHeight = 72.0;
           final offset = (idx * itemHeight)
               .clamp(0.0, _allSongsScrollCtrl.position.maxScrollExtent);
           _allSongsScrollCtrl.animateTo(
@@ -279,14 +302,13 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
 
   Widget _buildGroupedTab({
     required LocalMusicProvider prov,
-    required List<LocalGroupEntry> Function() grouper,
+    required List<LocalGroupEntry> entries,
+    required int tabIndex,
     required IconData emptyIcon,
     required String emptyLabel,
   }) {
-    final entries = grouper();
-    final cs = Theme.of(context).colorScheme;
-
     if (entries.isEmpty) {
+      final cs = Theme.of(context).colorScheme;
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -300,39 +322,70 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
       );
     }
 
+    final expanded = _expandedGroups.putIfAbsent(tabIndex, () => <String>{});
+    // 只记录每组起始索引，不创建展开分组中所有歌曲的 Widget。
+    final starts = <int>[];
+    var rowCount = 0;
+    for (final entry in entries) {
+      starts.add(rowCount);
+      rowCount += 1 + (expanded.contains(entry.title) ? entry.songs.length : 0);
+    }
+
     return ListView.builder(
-      itemCount: entries.length + 1,
+      key: PageStorageKey('local-groups-$tabIndex'),
+      itemCount: rowCount + 1,
       itemBuilder: (_, i) {
-        if (i == entries.length) {
+        if (i == rowCount) {
           return const ListBottomSpacer(isHome: false, showText: false);
         }
-        final entry = entries[i];
-        return M3StaggeredFadeIn(
-          index: i,
-          child: _buildGroupTile(entry, prov),
+        var low = 0;
+        var high = starts.length - 1;
+        while (low < high) {
+          final mid = (low + high + 1) ~/ 2;
+          if (starts[mid] <= i) {
+            low = mid;
+          } else {
+            high = mid - 1;
+          }
+        }
+        final entry = entries[low];
+        final songIndex = i - starts[low] - 1;
+        if (songIndex < 0) {
+          final isExpanded = expanded.contains(entry.title);
+          return _buildGroupTile(entry, isExpanded: isExpanded, onTap: () {
+            setState(() {
+              if (isExpanded) {
+                expanded.remove(entry.title);
+              } else {
+                expanded.add(entry.title);
+              }
+            });
+          });
+        }
+        final song = entry.songs[songIndex];
+        return Padding(
+          key: ValueKey((tabIndex, entry.title, song.filePath)),
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: _buildSongTile(song, prov),
         );
       },
     );
   }
 
-  Widget _buildGroupTile(LocalGroupEntry entry, LocalMusicProvider prov) {
+  Widget _buildGroupTile(LocalGroupEntry entry, {
+    required bool isExpanded,
+    required VoidCallback onTap,
+  }) {
     final cs = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: ExpansionTile(
-        shape: RoundedRectangleBorder(
-          borderRadius: AppShape.md,
-          side: BorderSide.none,
-        ),
-        collapsedShape: RoundedRectangleBorder(
-          borderRadius: AppShape.md,
-          side: BorderSide.none,
-        ),
-        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
-        backgroundColor: cs.surfaceContainerLow,
-        collapsedBackgroundColor: cs.surfaceContainerLow,
+    return Card(
+      key: ValueKey(entry.title),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      color: cs.surfaceContainerLow,
+      elevation: 0,
+      shape: const RoundedRectangleBorder(borderRadius: AppShape.md),
+      child: ListTile(
+        shape: const RoundedRectangleBorder(borderRadius: AppShape.md),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: _buildCoverAvatar(entry.thumbnail, cs),
         title: Text(
           entry.title,
@@ -344,16 +397,14 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
         ),
         subtitle: Text(
           '${entry.count} 首歌曲',
-          style: TextStyle(
-            color: cs.onSurfaceVariant,
-            fontSize: 12,
-          ),
+          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
         ),
-        children: [
-          const Divider(height: 1),
-          const SizedBox(height: 4),
-          ...entry.songs.map((song) => _buildSongTile(song, prov)),
-        ],
+        trailing: AnimatedRotation(
+          turns: isExpanded ? 0.5 : 0,
+          duration: const Duration(milliseconds: 200),
+          child: const Icon(Icons.expand_more),
+        ),
+        onTap: onTap,
       ),
     );
   }
@@ -372,6 +423,9 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
       } else {
         image = NetworkImage(coverUrl);
       }
+      final pixels = (40 * MediaQuery.devicePixelRatioOf(context)).ceil();
+      image = ResizeImage(image, width: pixels, height: pixels,
+          policy: ResizeImagePolicy.fit);
     }
     return CircleAvatar(
       backgroundColor: cs.surfaceContainerHighest,
@@ -385,51 +439,59 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
   // ── Shared song list tile (used in both flat and grouped views) ──
 
   Widget _buildSongTile(Song song, LocalMusicProvider prov, {bool isHighlighted = false}) {
-    final currentSongId = context.watch<PlayerProvider>().currentSong?.id;
-    final isPlaying = song.id == currentSongId;
-    final cs = Theme.of(context).colorScheme;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-      decoration: isHighlighted
-          ? BoxDecoration(
-              color: cs.primaryContainer.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(12),
-            )
-          : null,
-      child: ListTile(
-        leading: _buildCoverAvatar(song.albumCoverUrl, cs),
-        title: Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text(
-          '${song.artists.join(", ")}${song.albumName != null ? " · ${song.albumName}" : ""}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: cs.onSurfaceVariant),
-        ),
-        trailing: isPlaying
-            ? Icon(Icons.equalizer, color: cs.primary)
-            : IconButton(
-                icon: Icon(Icons.more_vert, color: cs.onSurfaceVariant, size: 20),
-                onPressed: () => _showSongMenu(song, prov),
-              ),
-        onTap: () async {
-          // 清除高亮
-          prov.clearHighlight();
-          // 按需加载完整元数据（内嵌封面 + 歌词），必须 await 再播放
-          await prov.loadDeferredMetadata(song);
-
-          // metadata 已刷新，songs 列表已更新，取出最新版本播放
-          if (!mounted) return;
-          final playlist = prov.songs;
-          final updatedSong = playlist.firstWhere(
-            (s) => s.filePath == song.filePath,
-            orElse: () => playlist.first,
-          );
-          if (!mounted) return;
-          context.read<PlayerProvider>().playSong(updatedSong, playlist: playlist);
-        },
-      ),
+    return Selector<PlayerProvider, ({bool isCurrent, bool isPlaying})>(
+      selector: (_, player) {
+        // 本地 ID 可随 MediaStore 重扫变化，路径才是稳定身份。
+        final isCurrent = song.filePath != null &&
+            song.filePath == player.currentSong?.filePath;
+        return (isCurrent: isCurrent, isPlaying: isCurrent && player.isPlaying);
+      },
+      builder: (context, playback, _) {
+        final cs = Theme.of(context).colorScheme;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          decoration: isHighlighted
+              ? BoxDecoration(
+                  color: cs.primaryContainer.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(12),
+                )
+              : null,
+          child: ListTile(
+            leading: _buildCoverAvatar(song.albumCoverUrl, cs),
+            title: Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+            subtitle: Text(
+              '${song.artists.join(", ")}${song.albumName != null ? " · ${song.albumName}" : ""}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: cs.onSurfaceVariant),
+            ),
+            trailing: playback.isCurrent
+                ? Icon(playback.isPlaying ? Icons.equalizer : Icons.pause,
+                    color: cs.primary)
+                : IconButton(
+                    icon: Icon(Icons.more_vert,
+                        color: cs.onSurfaceVariant, size: 20),
+                    onPressed: () => _showSongMenu(song, prov),
+                  ),
+            onTap: () async {
+              final player = context.read<PlayerProvider>();
+              prov.clearHighlight();
+              await prov.loadDeferredMetadata(song);
+              if (!mounted) return;
+              final playlist = prov.songs;
+              final updatedSong = playlist.firstWhere(
+                (s) => s.filePath == song.filePath,
+                orElse: () => song,
+              );
+              player.playSong(updatedSong,
+                  playlist: playlist.contains(updatedSong)
+                      ? playlist
+                      : [updatedSong]);
+            },
+          ),
+        );
+      },
     );
   }
 

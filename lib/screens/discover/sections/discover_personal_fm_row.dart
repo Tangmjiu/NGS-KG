@@ -91,17 +91,15 @@ class _DiscoverPersonalFmRowState extends State<DiscoverPersonalFmRow>
     }
   }
 
-  // ─── 预取 ───
+  // 独立使用时也可预取；空响应同样算一次已尝试，不能据此反复 loadAll。
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_fmPreloaded) {
       _fmPreloaded = true;
-      final provider = context.read<DiscoverProvider>();
-      if (provider.personalFmBuffer.isEmpty &&
-          provider.personalFmSongs.isEmpty) {
-        provider.loadAll();
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.read<DiscoverProvider>().ensureLoaded();
+      });
     }
   }
 

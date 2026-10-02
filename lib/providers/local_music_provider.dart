@@ -6,7 +6,20 @@ import '../services/metadata_reader.dart';
 import '../utils/logger.dart';
 
 class LocalMusicProvider extends ChangeNotifier {
-  final LocalMusicService _service = LocalMusicService();
+  final LocalMusicService _service;
+
+  LocalMusicProvider({LocalMusicService? service})
+      : _service = service ?? LocalMusicService();
+
+  List<LocalGroupEntry>? _albumGroups;
+  List<LocalGroupEntry>? _artistGroups;
+  List<LocalGroupEntry>? _folderGroups;
+
+  void _invalidateGroups() {
+    _albumGroups = null;
+    _artistGroups = null;
+    _folderGroups = null;
+  }
 
   // State
   List<Song> _songs = [];
@@ -61,6 +74,7 @@ class LocalMusicProvider extends ChangeNotifier {
         if (seen.add(s.filePath!)) _songs.add(s);
       }
       _scanned = true;
+      _invalidateGroups();
       _applyFilterAndSort();
       _status = _songs.isEmpty ? '未找到本地音乐' : '找到 ${_songs.length} 首';
     } catch (e, s) {
@@ -116,11 +130,13 @@ class LocalMusicProvider extends ChangeNotifier {
     );
 
     _songs[idx] = updated;
+    _invalidateGroups();
     _applyFilterAndSort();
     notifyListeners();
   }
 
   void search(String query) {
+    if (_searchQuery == query) return;
     _searchQuery = query;
     _applyFilterAndSort();
     notifyListeners();
@@ -138,9 +154,9 @@ class LocalMusicProvider extends ChangeNotifier {
   }
 
   void _applyFilterAndSort() {
+    final q = _searchQuery.toLowerCase();
     var result = _songs.where((s) {
-      if (_searchQuery.isEmpty) return true;
-      final q = _searchQuery.toLowerCase();
+      if (q.isEmpty) return true;
       final artist = s.artists.isNotEmpty ? s.artists.first : '';
       return s.name.toLowerCase().contains(q) ||
           artist.toLowerCase().contains(q) ||
@@ -175,6 +191,8 @@ class LocalMusicProvider extends ChangeNotifier {
   /// 按专辑分组（用于分 Tab 浏览）。
   /// 返回排序后的 Entry 列表，每个 Entry 含专辑名、封面、歌曲列表。
   List<LocalGroupEntry> groupedByAlbum() {
+    final cached = _albumGroups;
+    if (cached != null) return cached;
     final map = <String, List<Song>>{};
     for (final s in _songs) {
       final key = s.albumName ?? '未知专辑';
@@ -189,11 +207,13 @@ class LocalMusicProvider extends ChangeNotifier {
             ))
         .toList();
     list.sort((a, b) => a.title.compareTo(b.title));
-    return list;
+    return _albumGroups = list;
   }
 
   /// 按歌手分组。
   List<LocalGroupEntry> groupedByArtist() {
+    final cached = _artistGroups;
+    if (cached != null) return cached;
     final map = <String, List<Song>>{};
     for (final s in _songs) {
       final key = s.artists.isNotEmpty ? s.artists.first : '未知歌手';
@@ -208,11 +228,13 @@ class LocalMusicProvider extends ChangeNotifier {
             ))
         .toList();
     list.sort((a, b) => a.title.compareTo(b.title));
-    return list;
+    return _artistGroups = list;
   }
 
   /// 按文件夹分组（截取父目录名）。
   List<LocalGroupEntry> groupedByFolder() {
+    final cached = _folderGroups;
+    if (cached != null) return cached;
     final map = <String, List<Song>>{};
     for (final s in _songs) {
       final fp = s.filePath;
@@ -235,7 +257,7 @@ class LocalMusicProvider extends ChangeNotifier {
             ))
         .toList();
     list.sort((a, b) => a.title.compareTo(b.title));
-    return list;
+    return _folderGroups = list;
   }
 
   static String? _findThumbnail(List<Song> songs) {
@@ -306,6 +328,7 @@ class LocalMusicProvider extends ChangeNotifier {
       );
 
       _songs.add(song);
+      _invalidateGroups();
       _highlightedFilePath = filePath;
       _applyFilterAndSort();
       notifyListeners();
@@ -332,6 +355,7 @@ class LocalMusicProvider extends ChangeNotifier {
   /// 从列表中移除歌曲（不删除本地文件）。
   Future<void> removeSong(Song song) async {
     _songs.removeWhere((s) => s.filePath == song.filePath);
+    _invalidateGroups();
     if (_highlightedFilePath == song.filePath) {
       _highlightedFilePath = null;
     }

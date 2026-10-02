@@ -188,19 +188,19 @@ Future<void> main() async {
   CacheService.instance.init();
   final musicService = MusicService();
   final authService = AuthService();
-  final audioSettings = AudioSettingsProvider()..init();
+  final audioSettings = AudioSettingsProvider();
+  final audioSettingsReady = audioSettings.init();
   final themeProvider = ThemeProvider()..init();
   final likedSongs = LikedSongsProvider(musicService);
-  // 先初始化认证（从本地文件加载），避免 auth 准备就绪前 PlayerProvider 发起网络请求
   final authProvider = AuthProvider(authService, likedSongs: likedSongs);
-  // 小延迟确保文件读取完成；ready 在 _loadSavedUser() 完成后触发
   unawaited(authProvider.ready.then((_) {
     Log.i('main', 'AuthProvider ready, user=${authProvider.isLoggedIn}');
     if (authProvider.isLoggedIn) likedSongs.load();
   }));
-  // 注意：此处不能阻塞 runApp — authProvider 在构造时已启动 _loadSavedUser()
-  // apiClient.setAuth 在 _loadSavedUser 内调用，PlayerProvider 的 restorePlaybackState
-  // 通过 addPostFrameCallback 调度，通常在 auth 就绪之后才执行。
+  final playbackReady = Future.wait<void>([
+    authProvider.ready,
+    audioSettingsReady,
+  ]).then<void>((_) {});
   runApp(
     MultiProvider(
       providers: [
@@ -213,6 +213,7 @@ Future<void> main() async {
             audioHandler: audioHandler,
             audioSettings: audioSettings,
             likedSongs: likedSongs,
+            ready: playbackReady,
         )),
         ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
         ChangeNotifierProvider.value(value: likedSongs),

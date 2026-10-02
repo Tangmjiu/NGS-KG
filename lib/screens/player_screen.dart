@@ -1,7 +1,7 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
 
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show listEquals, ValueListenable;
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 import 'package:flutter_lyric/flutter_lyric.dart';
@@ -919,8 +919,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 背景经由 Consumer.child 传入：该实例在 Consumer 每 200ms 的进度重建中
-    // 保持不变（identical widget 会被跳过），只在封面/取色变化或翻页时重建。
+    // 歌词设置以前依赖进度重建顺带刷新，现在显式订阅设置变化。
+    context.select<ThemeProvider, Object>((p) => p.lyricSettings);
+    // 背景经由 Consumer.child 传入，只在封面/取色变化或翻页时重建。
+    // 播放进度走独立 ValueListenable，不再触发外层 Consumer。
     final background = Selector<PlayerProvider, (String?, Color?, List<Color>)>(
       selector: (_, p) => (
         p.currentSong?.albumCoverUrl,
@@ -1245,19 +1247,16 @@ class _PlayerProgressBarState extends State<_PlayerProgressBar> {
 
   @override
   Widget build(BuildContext context) {
-    return Selector<PlayerProvider, ({Duration position, Duration duration, double progress})>(
-      selector: (_, p) {
-        final durationMs = p.duration.inMilliseconds;
-        return (
-          position: p.position,
-          duration: p.duration,
-          progress: durationMs > 0 && p.progress.isFinite
-              ? p.progress.clamp(0.0, 1.0)
-              : 0.0,
-        );
-      },
+    final progressListenable = context.select<PlayerProvider,
+        ValueListenable<PlaybackProgress>>((p) => p.playbackProgress);
+    return ValueListenableBuilder<PlaybackProgress>(
+      valueListenable: progressListenable,
       builder: (context, state, _) {
         final player = context.read<PlayerProvider>();
+        final durationMs = state.duration.inMilliseconds;
+        final progress = durationMs > 0
+            ? (state.position.inMilliseconds / durationMs).clamp(0.0, 1.0)
+            : 0.0;
         return PlayerProgressBar(
           position: _isDragging
               ? Duration(
@@ -1266,9 +1265,12 @@ class _PlayerProgressBarState extends State<_PlayerProgressBar> {
                 )
               : state.position,
           duration: state.duration,
-          progress: _isDragging ? _dragValue : state.progress,
+          progress: _isDragging ? _dragValue : progress,
           onDragStart: () {
-            setState(() => _isDragging = true);
+            setState(() {
+              _dragValue = progress;
+              _isDragging = true;
+            });
           },
           onDragEnd: () async {
             await player.seek(Duration(

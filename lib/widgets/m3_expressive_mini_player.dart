@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -389,15 +390,14 @@ class _MiniProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Selector<PlayerProvider, double?>(
-      selector: (_, p) {
-        final duration = p.duration.inMilliseconds;
-        if (duration <= 0) return null;
-        final value = p.position.inMilliseconds / duration;
-        return value.isFinite ? value.clamp(0.0, 1.0) : null;
-      },
-      builder: (_, value, __) {
-        if (value == null) return const SizedBox.shrink();
+    final progressListenable = context.select<PlayerProvider,
+        ValueListenable<PlaybackProgress>>((p) => p.playbackProgress);
+    return ValueListenableBuilder<PlaybackProgress>(
+      valueListenable: progressListenable,
+      builder: (_, state, __) {
+        final duration = state.duration.inMilliseconds;
+        if (duration <= 0) return const SizedBox.shrink();
+        final value = (state.position.inMilliseconds / duration).clamp(0.0, 1.0);
         return Positioned(
           left: 0,
           right: 0,
