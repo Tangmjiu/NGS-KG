@@ -30,14 +30,34 @@ runs:
         channel: stable
         cache: true
 
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v2
-
+    # ubuntu runner 自带 Android SDK。这里不使用 android-actions/setup-android@v2：
+    # 该版本会尝试安装已下线的 legacy "tools" 包，sdkmanager 会以退出码 1 失败，
+    # 导致整个 setup 步骤中断。
     - name: Install Android SDK 36
       shell: bash
       run: |
-        yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" > /dev/null 2>&1 || true
-        sdkmanager --list_installed 2>/dev/null | grep platforms || true
+        sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+        sdkmanager="$(command -v sdkmanager || true)"
+        if [ -z "$sdkmanager" ]; then
+          sdkmanager="$(find "$sdk_root/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort | tail -1)"
+        fi
+        if [ -z "$sdkmanager" ]; then
+          echo "::error::未找到 sdkmanager（sdk_root=$sdk_root）"
+          exit 1
+        fi
+        echo "sdkmanager: $sdkmanager"
+
+        yes | "$sdkmanager" --licenses > /dev/null 2>&1 || true
+        yes | "$sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null 2>&1 || true
+
+        {
+          echo "ANDROID_HOME=$sdk_root"
+          echo "ANDROID_SDK_ROOT=$sdk_root"
+        } >> "$GITHUB_ENV"
+        echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
+
+        "$sdkmanager" --list_installed 2>/dev/null | grep -E 'platforms;android-36|build-tools;36\.0\.0' \
+          || echo "::warning::未能确认 SDK 36 已安装"
 
     - name: Cache pub packages
       uses: actions/cache@v4
