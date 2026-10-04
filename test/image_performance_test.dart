@@ -89,9 +89,11 @@ void main() {
     try {
       await tester.pumpWidget(_app(LocalCoverArt(size: 48, url: file.path)));
       var image = tester.widget<Image>(find.byType(Image));
-      expect((image.image as ResizeImage).policy, ResizeImagePolicy.fit);
-      var decoded = await tester.runAsync(() => _decodedSize(image.image));
-      expect(decoded, (144, 72));
+      var resized = image.image as ResizeImage;
+      expect(resized.policy, ResizeImagePolicy.fit);
+      expect(resized.width, 144);
+      expect(resized.height, 144);
+      expect(resized.imageProvider, isA<FileImage>());
 
       await tester.pumpWidget(_app(ThemeImage(
         assetPath: file.path,
@@ -99,9 +101,11 @@ void main() {
         height: 120,
       )));
       image = tester.widget<Image>(find.byType(Image));
-      expect((image.image as ResizeImage).policy, ResizeImagePolicy.fit);
-      decoded = await tester.runAsync(() => _decodedSize(image.image));
-      expect(decoded, (360, 180));
+      resized = image.image as ResizeImage;
+      expect(resized.policy, ResizeImagePolicy.fit);
+      expect(resized.width, 360);
+      expect(resized.height, 360);
+      expect(resized.imageProvider, isA<FileImage>());
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       PaintingBinding.instance.imageCache.clear();

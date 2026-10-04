@@ -264,7 +264,11 @@ void main() {
     expect(provider.currentSong, isNull);
     expect(service.metadataRequests, 0);
     ready.complete();
-    await tester.pump();
+    // 恢复要依次经过 ready、SharedPreferences、队列解析多次异步跳转，
+    // 单次 pump 不足以跑完。
+    for (var i = 0; i < 10 && provider.currentSong == null; i++) {
+      await tester.pump(const Duration(milliseconds: 10));
+    }
     expect(provider.currentSong?.id, 7);
     expect(provider.position, const Duration(seconds: 23));
     expect(provider.playbackProgress.value.position, provider.position);
