@@ -260,12 +260,13 @@ void main() {
     SharedPreferences.setMockInitialValues({'playback_state_v2': _savedState()});
     final ready = Completer<void>();
     final provider = create(ready: ready.future);
-    await tester.pump();
+    // 恢复逻辑在 postFrameCallback 中启动，必须先产生一个真实帧，
+    // 否则 tester.pump() 不会执行 handleDrawFrame，恢复永远不会发生。
+    await tester.pumpWidget(const SizedBox());
     expect(provider.currentSong, isNull);
     expect(service.metadataRequests, 0);
     ready.complete();
-    // 恢复要依次经过 ready、SharedPreferences、队列解析多次异步跳转，
-    // 单次 pump 不足以跑完。
+    // 恢复要依次经过 ready、SharedPreferences、队列解析多次异步跳转。
     for (var i = 0; i < 10 && provider.currentSong == null; i++) {
       await tester.pump(const Duration(milliseconds: 10));
     }
@@ -280,7 +281,7 @@ void main() {
     SharedPreferences.setMockInitialValues({'playback_state_v2': _savedState()});
     final ready = Completer<void>();
     final provider = create(ready: ready.future);
-    await tester.pump();
+    await tester.pumpWidget(const SizedBox());
     await provider.playSong(_song(1));
     ready.complete();
     await tester.pump();
@@ -292,7 +293,7 @@ void main() {
     SharedPreferences.setMockInitialValues({'playback_state_v2': _savedState()});
     final ready = Completer<void>();
     final provider = create(ready: ready.future);
-    await tester.pump();
+    await tester.pumpWidget(const SizedBox());
     provider.dispose();
     player = null;
     ready.complete();
