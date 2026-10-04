@@ -35,7 +35,8 @@ gradle-user-home/
 .omo/
 
 # Android signing
+android/key.properties
 *.jks
 *.keystore
-# ╠╬╣ь API нд╣╣╡н©╪
+# О©╫О©╫О©╫О©╫ API О©╫д╣О©╫О©╫н©О©╫
 APIDOCS/
