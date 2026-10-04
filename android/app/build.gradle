@@ -59,7 +59,9 @@ android {
 
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            // 未提供 key.properties（本地未配置 / CI 未注入 secrets）时回退 debug 签名，
+            // 否则 release 构建会因签名配置为空而失败。
+            signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
