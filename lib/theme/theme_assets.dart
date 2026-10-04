@@ -161,9 +161,14 @@ class ThemeImage extends StatelessWidget {
     int? cacheDimension(double? value) => value != null && value.isFinite && value > 0
         ? (value * pixelRatio).ceil()
         : null;
-    ImageProvider provider = assetPath.startsWith('assets/')
-        ? AssetImage(assetPath)
-        : FileImage(File(assetPath));
+    // 不能写成三目表达式：ImageProvider 的类型参数同时出现在返回位与参数位，
+    // 联合类型推断会退化成 Object 导致赋值失败。
+    ImageProvider provider;
+    if (assetPath.startsWith('assets/')) {
+      provider = AssetImage(assetPath);
+    } else {
+      provider = FileImage(File(assetPath));
+    }
     final cacheWidth = cacheDimension(width);
     final cacheHeight = cacheDimension(height);
     if (cacheWidth != null || cacheHeight != null) {
