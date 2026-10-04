@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: MIT
+name: CI (Android)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [android]
+  pull_request:
+    branches: [android]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── 静态分析与单元测试：失败不阻塞 APK 产物 ──
+  check:
+    name: Analyze & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter + Android
+        uses: ./.github/actions/setup-flutter-android
+        with:
+          cache-prefix: ci
+
+      # 仅真正报错（类型/导入等）才失败；项目有意保留的 lint 只作提示。
+      - name: Analyze
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      - name: Test
+        run: flutter test
+
+  # ── 构建产物 ──
+  apk:
+    name: Build APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter + Android
+        uses: ./.github/actions/setup-flutter-android
+        with:
+          cache-prefix: ci
+
+      - name: Build debug APK
+        run: flutter build apk --debug --target-platform android-arm64 --android-skip-build-dependency-validation
+
+      - name: Build release APK
+        run: flutter build apk --release --split-per-abi
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NGS-KG-debug-arm64-v8a
+          path: build/app/outputs/flutter-apk/app-debug.apk
+
+      - name: Upload release APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: NGS-KG-release-apks
+          path: build/app/outputs/flutter-apk/*-release.apk

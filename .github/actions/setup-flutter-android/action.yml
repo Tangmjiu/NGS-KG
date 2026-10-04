@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: MIT
+name: Setup Flutter (Android)
+description: >-
+  安装 Flutter 与 Android SDK 36、恢复缓存，并把仓库内的国内 Gradle/Maven 源
+  切换为 CI 可访问的地址。供 CI / Nightly / Release 工作流复用。
+
+inputs:
+  flutter-version:
+    description: Flutter SDK 版本
+    required: false
+    default: '3.44.0'
+  cache-prefix:
+    description: 缓存键前缀，用于区分调用方
+    required: false
+    default: 'android'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '17'
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: ${{ inputs.flutter-version }}
+        channel: stable
+        cache: true
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v2
+
+    - name: Install Android SDK 36
+      shell: bash
+      run: |
+        yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" > /dev/null 2>&1 || true
+        sdkmanager --list_installed 2>/dev/null | grep platforms || true
+
+    - name: Cache pub packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.pub-cache
+        key: ${{ inputs.cache-prefix }}-pub-${{ hashFiles('pubspec.lock') }}
+        restore-keys: |
+          ${{ inputs.cache-prefix }}-pub-
+
+    - name: Cache Gradle
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+          ~/.gradle/configuration-cache
+        key: ${{ inputs.cache-prefix }}-gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties', 'pubspec.lock') }}
+        restore-keys: |
+          ${{ inputs.cache-prefix }}-gradle-${{ runner.os }}-
+
+    - name: Use CI-accessible Gradle/Maven mirrors
+      shell: bash
+      run: |
+        sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
+        sed -i '/maven.*aliyun/d' android/settings.gradle android/build.gradle
+
+    - name: Create asset directories
+      shell: bash
+      run: |
+        mkdir -p assets/images
+        mkdir -p assets/icons
+
+    - name: Install dependencies
+      shell: bash
+      run: flutter pub get

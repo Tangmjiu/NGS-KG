@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: MIT
+name: Nightly APK
+
+on:
+  schedule:
+    # UTC 16:00 == 北京时间次日 00:00
+    - cron: '0 16 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly-apk
+  cancel-in-progress: true
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: android
+
+      # 版本 = pubspec 基线的后一个修订号 + 构建时刻，
+      # 例如 pubspec 1.5.3-preview 会产出 v1.5.4-nightly-2026-10-04-0130。
+      - name: Compute nightly version
+        id: version
+        shell: bash
+        run: |
+          base=$(grep -m1 '^version:' pubspec.yaml | sed -E 's/^version:[[:space:]]*//' | cut -d'+' -f1 | cut -d'-' -f1)
+          major=${base%%.*}
+          rest=${base#*.}
+          minor=${rest%%.*}
+          patch=${rest#*.}
+          name="${major}.${minor}.$((patch + 1))-nightly-$(TZ=Asia/Shanghai date +'%Y-%m-%d-%H%M')"
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+          echo "Nightly version: v${name}"
+
+      - name: Setup Flutter + Android
+        uses: ./.github/actions/setup-flutter-android
+        with:
+          cache-prefix: nightly
+
+      # 密钥已从仓库移除，改由 secrets 注入；未配置时回退 debug 签名，
+      # 保证 nightly 始终能产出可安装包。
+      - name: Restore signing config
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > android/upload-keystore.jks
+            {
+              echo "storePassword=${STORE_PASSWORD}"
+              echo "keyPassword=${KEY_PASSWORD}"
+              echo "keyAlias=${KEY_ALIAS:-upload}"
+              echo "storeFile=../upload-keystore.jks"
+            } > android/key.properties
+            echo "已注入仓库 secrets 中的签名密钥"
+          else
+            echo "未配置签名 secrets，本次产物使用 debug 签名"
+          fi
+
+      - name: Build nightly APK
+        shell: bash
+        run: |
+          flutter build apk --release --split-per-abi \
+            --build-name=${{ steps.version.outputs.name }} \
+            --build-number=${{ github.run_number }} \
+            --android-skip-build-dependency-validation
+
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          for apk in build/app/outputs/flutter-apk/*-release.apk; do
+            abi=$(basename "$apk" | sed -E 's/^app-(.*)-release\.apk$/\1/')
+            cp "$apk" "dist/NGS-KG-v${{ steps.version.outputs.name }}-${abi}.apk"
+          done
+          ls -lh dist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NGS-KG-v${{ steps.version.outputs.name }}
+          path: dist/*.apk
+          retention-days: 14
+
+      # 滚动更新同一个 nightly 预发布，避免每天堆积一个 Release。
+      - name: Publish rolling nightly release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete nightly --yes --cleanup-tag 2>/dev/null || true
+          gh release create nightly dist/*.apk \
+            --target "$GITHUB_SHA" \
+            --title "Nightly v${{ steps.version.outputs.name }}" \
+            --notes "由 GitHub Actions 定时构建的 Nightly 版本：\`v${{ steps.version.outputs.name }}\`" \
+            --prerelease
