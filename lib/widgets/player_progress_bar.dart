@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import 'package:flutter/material.dart';
 
 /// Apple Music-style progress bar with current time and total duration labels.
@@ -27,6 +28,11 @@ class PlayerProgressBar extends StatelessWidget {
     return '$m:$s';
   }
 
+  String _spokenDuration(Duration value) {
+    final seconds = value.inSeconds.clamp(0, 359999);
+    return '${seconds ~/ 60}分${seconds % 60}秒';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -41,9 +47,9 @@ class PlayerProgressBar extends StatelessWidget {
                 child: Text(
                   _formatDuration(position),
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white60,
-                    fontFamily: 'monospace',
-                  ),
+                        color: Colors.white60,
+                        fontFamily: 'monospace',
+                      ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -51,23 +57,33 @@ class PlayerProgressBar extends StatelessWidget {
                 child: SliderTheme(
                   data: const SliderThemeData(
                     trackHeight: 2,
-                    thumbShape:
-                        RoundSliderThumbShape(enabledThumbRadius: 6),
-                    overlayShape:
-                        RoundSliderOverlayShape(overlayRadius: 16),
+                    thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
+                    overlayShape: RoundSliderOverlayShape(overlayRadius: 16),
                     activeTrackColor: Colors.white,
                     inactiveTrackColor: Colors.white24,
                     thumbColor: Colors.white,
                     overlayColor: Color(0x26FFFFFF),
                   ),
-                  child: Slider(
-                    value: progress.clamp(0.0, 1.0),
-                    onChangeStart: (_) => onDragStart?.call(),
-                    onChangeEnd: (v) {
-                      onSeek(v);
-                      onDragEnd?.call();
-                    },
-                    onChanged: onSeek,
+                  child: MergeSemantics(
+                    child: Semantics(
+                      label: '播放进度',
+                      child: Slider(
+                        value: progress.clamp(0.0, 1.0),
+                        semanticFormatterCallback: (value) {
+                          final current = Duration(
+                            milliseconds:
+                                (duration.inMilliseconds * value).round(),
+                          );
+                          return '${_spokenDuration(current)}，共${_spokenDuration(duration)}';
+                        },
+                        onChangeStart: (_) => onDragStart?.call(),
+                        onChangeEnd: (v) {
+                          onSeek(v);
+                          onDragEnd?.call();
+                        },
+                        onChanged: onSeek,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -78,9 +94,9 @@ class PlayerProgressBar extends StatelessWidget {
                   _formatDuration(duration),
                   textAlign: TextAlign.end,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white60,
-                    fontFamily: 'monospace',
-                  ),
+                        color: Colors.white60,
+                        fontFamily: 'monospace',
+                      ),
                 ),
               ),
             ],

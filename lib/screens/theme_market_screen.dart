@@ -1,14 +1,13 @@
-import 'dart:typed_data';
+// SPDX-License-Identifier: MIT
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart' show CancelToken;
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
+
 import '../models/theme_market_listing.dart';
-import '../models/theme_pack.dart';
 import '../providers/theme_provider.dart';
 import '../services/market_service.dart';
-import '../theme/theme_assets.dart';
+import '../ui/app_ui.dart';
 import '../utils/logger.dart';
 
 class ThemeMarketScreen extends StatefulWidget {
@@ -18,10 +17,15 @@ class ThemeMarketScreen extends StatefulWidget {
   State<ThemeMarketScreen> createState() => _ThemeMarketScreenState();
 }
 
+enum _InstallStage { downloading, installing, applying }
+
 class _ThemeMarketScreenState extends State<ThemeMarketScreen> {
   List<ThemeMarketListing> _listings = [];
   Set<String> _installedIds = {};
+  final Map<String, _InstallStage> _operations = {};
+  final Map<String, CancelToken> _downloads = {};
   bool _loading = true;
+  bool _refreshing = false;
   String? _error;
 
   @override
@@ -30,375 +34,410 @@ class _ThemeMarketScreenState extends State<ThemeMarketScreen> {
     _load();
   }
 
-  Future<void> _load() async {
+  @override
+  void dispose() {
+    for (final token in _downloads.values) {
+      if (!token.isCancelled) token.cancel();
+    }
+    super.dispose();
+  }
+
+  Future<void> _load({bool refresh = false}) async {
+    if (refresh && (_loading || _refreshing)) return;
     setState(() {
-      _loading = true;
+      _loading = !refresh;
+      _refreshing = refresh;
       _error = null;
     });
     try {
       final results = await Future.wait([
-        MarketService.fetchRegistry(),
+        refresh
+            ? MarketService.refreshRegistry()
+            : MarketService.fetchRegistry(),
         MarketService.getInstalledIds(),
       ]);
       if (!mounted) return;
       setState(() {
         _listings = results[0] as List<ThemeMarketListing>;
         _installedIds = results[1] as Set<String>;
-        _loading = false;
       });
-    } catch (e, s) {
-      Log.e('ThemeMarketScreen', 'load failed', e, s);
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = '加载失败，请检查网络后重试';
-      });
+    } catch (error, stack) {
+      Log.e('ThemeMarketScreen', 'Cannot load themes', error, stack);
+      if (mounted) setState(() => _error = '加载失败，请检查网络后重试。');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _refreshing = false;
+        });
+      }
     }
   }
 
-  Future<void> _refresh() async {
-    try {
-      final results = await Future.wait([
-        MarketService.refreshRegistry(),
-        MarketService.getInstalledIds(),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _listings = results[0] as List<ThemeMarketListing>;
-        _installedIds = results[1] as Set<String>;
-        _error = null;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = '刷新失败');
-    }
+  void _message(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
   Future<void> _install(ThemeMarketListing listing) async {
-    // ── 显示下载中 ──
-    if (!mounted) return;
+    if (_operations.containsKey(listing.id)) return;
+    final theme = context.read<ThemeProvider>();
     final cancelToken = CancelToken();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('正在下载…'),
-        duration: const Duration(seconds: 60),
-        action: SnackBarAction(
-          label: '取消',
-          onPressed: () => cancelToken.cancel(),
+    setState(() {
+      _operations[listing.id] = _InstallStage.downloading;
+      _downloads[listing.id] = cancelToken;
+    });
+    try {
+      final bytes = await MarketService.downloadTheme(listing.downloadUrl,
+          cancelToken: cancelToken);
+      if (!mounted) return;
+      if (cancelToken.isCancelled) {
+        _message('已取消「${listing.name}」的下载');
+        return;
+      }
+      if (bytes == null || bytes.isEmpty) {
+        _message('下载失败，请重试');
+        return;
+      }
+      setState(() => _operations[listing.id] = _InstallStage.installing);
+      _downloads.remove(listing.id);
+      final pack = await MarketService.installTheme(bytes, '${listing.id}.zip');
+      if (pack == null) {
+        _message('安装失败，主题包格式不正确');
+        return;
+      }
+      // 安装写盘已完成时，即使离开市场，也同步应用中可用的主题列表。
+      theme.addMarketPack(pack);
+      if (!mounted) return;
+      setState(() => _installedIds.add(listing.id));
+      final apply = await showAppDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('安装完成'),
+          content: Text('「${listing.name}」已准备就绪。'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('稍后再说')),
+            FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('立即应用')),
+          ],
         ),
-      ),
-    );
-
-    final bytes = await MarketService.downloadTheme(listing.downloadUrl,
-        cancelToken: cancelToken);
-    if (cancelToken.isCancelled) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已取消下载')),
       );
-      return;
+      if (apply == true && mounted) {
+        setState(() => _operations[listing.id] = _InstallStage.applying);
+        await theme.selectPack(pack.id);
+        if (mounted) Navigator.pop(context);
+      }
+    } catch (error, stack) {
+      Log.e('ThemeMarketScreen', 'Cannot install theme', error, stack);
+      _message('主题安装未完成，请重试');
+    } finally {
+      _downloads.remove(listing.id);
+      if (mounted) setState(() => _operations.remove(listing.id));
     }
-    if (bytes == null || bytes.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('下载失败，请重试')),
-      );
-      return;
-    }
+  }
 
-    // ── 安装 ──
-    final pack = await MarketService.installTheme(bytes, '${listing.id}.zip');
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-
-    if (pack == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('安装失败，主题包格式不正确')),
-      );
-      return;
-    }
-
-    // ── 添加到 ThemeProvider ──
-    if (!mounted) return;
-    final tp = context.read<ThemeProvider>();
-    tp.addMarketPack(pack);
-
-    setState(() => _installedIds.add(listing.id));
-
-    // ── 弹窗：立即应用 / 稍后再说 ──
-    final apply = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('安装完成'),
-        content: Text('「${listing.name}」已下载'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('稍后再说'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('立即应用'),
-          ),
-        ],
-      ),
-    );
-
-    if (apply == true && mounted) {
-      await tp.selectPack(pack.id);
-      if (mounted) Navigator.pop(context);
+  Future<void> _apply(ThemeMarketListing listing) async {
+    if (_operations.containsKey(listing.id)) return;
+    setState(() => _operations[listing.id] = _InstallStage.applying);
+    try {
+      await context.read<ThemeProvider>().selectPack(listing.id);
+      _message('已应用「${listing.name}」');
+    } catch (error, stack) {
+      Log.e('ThemeMarketScreen', 'Cannot apply theme', error, stack);
+      _message('应用失败，请重试');
+    } finally {
+      if (mounted) setState(() => _operations.remove(listing.id));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final theme = context.watch<ThemeProvider>();
+    final available = theme.packs.map((pack) => pack.id).toSet();
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('主题市场'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loading ? null : _refresh,
-            tooltip: '刷新',
-          ),
-        ],
-      ),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(_error!, style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text('重试'),
-              onPressed: _load,
+      body: SafeArea(
+          bottom: false,
+          child: AppPageBody(
+              child: RefreshIndicator(
+            onRefresh: () => _load(refresh: true),
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                    child: AppPageHeader(
+                  title: '主题市场',
+                  subtitle: '发现新的配色、字体与音乐氛围',
+                  showBack: true,
+                  actions: [
+                    IconButton(
+                      tooltip: '刷新主题',
+                      onPressed: _loading || _refreshing
+                          ? null
+                          : () => _load(refresh: true),
+                      icon: _refreshing
+                          ? const SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.refresh_rounded),
+                    )
+                  ],
+                )),
+                if (_loading)
+                  const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(child: AppLoadingIndicator()))
+                else if (_error != null)
+                  SliverToBoxAdapter(
+                      child: AppEmptyState(
+                    icon: Icons.cloud_off_rounded,
+                    title: '暂时无法加载主题',
+                    message: _error,
+                    action: FilledButton.tonalIcon(
+                        onPressed: _load,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('重试')),
+                  ))
+                else if (_listings.isEmpty)
+                  SliverToBoxAdapter(
+                      child: AppEmptyState(
+                    icon: Icons.palette_outlined,
+                    title: '暂无可用主题',
+                    message: '稍后再来看看，或在主题设置中导入本地主题包。',
+                    action: FilledButton.tonalIcon(
+                        onPressed: () => _load(refresh: true),
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('刷新')),
+                  ))
+                else
+                  SliverPadding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: tokens.pagePadding),
+                    sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                      final listing = _listings[index];
+                      final installed = _installedIds.contains(listing.id) ||
+                          available.contains(listing.id);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: _ThemeMarketCard(
+                          key: ValueKey(listing.id),
+                          listing: listing,
+                          installed: installed,
+                          active: theme.selectedPackId == listing.id,
+                          canApply: available.contains(listing.id),
+                          stage: _operations[listing.id],
+                          onInstall: () => _install(listing),
+                          onApply: () => _apply(listing),
+                          onCancel: () => _downloads[listing.id]?.cancel(),
+                        ),
+                      );
+                    }, childCount: _listings.length)),
+                  ),
+                SliverToBoxAdapter(
+                    child: SizedBox(
+                        height: AppChrome.miniPlayerExtent(context) +
+                            MediaQuery.paddingOf(context).bottom +
+                            32)),
+              ],
             ),
-          ],
-        ),
-      );
-    }
-
-    if (_listings.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.storefront_outlined, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            const Text('暂无可用主题', style: TextStyle(color: Colors.grey)),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text('刷新'),
-              onPressed: _refresh,
-            ),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _refresh,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        itemCount: _listings.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (_, i) => _ThemeMarketCard(
-          listing: _listings[i],
-          installed: _installedIds.contains(_listings[i].id),
-          onInstall: () => _install(_listings[i]),
-        ),
-      ),
+          ))),
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────
-//  主题市场卡片
-// ─────────────────────────────────────────────────────────────
 
 class _ThemeMarketCard extends StatelessWidget {
   final ThemeMarketListing listing;
   final bool installed;
+  final bool active;
+  final bool canApply;
+  final _InstallStage? stage;
   final VoidCallback onInstall;
+  final VoidCallback onApply;
+  final VoidCallback onCancel;
 
   const _ThemeMarketCard({
+    super.key,
     required this.listing,
     required this.installed,
+    required this.active,
+    required this.canApply,
+    required this.stage,
     required this.onInstall,
+    required this.onApply,
+    required this.onCancel,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
+    final theme = Theme.of(context);
+    final tokens = AppThemeTokens.of(context);
+    return AppSurface(
+      padding: const EdgeInsets.all(20),
+      child: LayoutBuilder(builder: (context, constraints) {
+        final horizontal = constraints.maxWidth >= 620 &&
+            MediaQuery.textScalerOf(context).scale(14) <= 21;
+        final preview = ClipRRect(
+          borderRadius: BorderRadius.circular(tokens.controlRadius),
+          child: AspectRatio(
+              aspectRatio: 1,
+              child: listing.previewUrl.isEmpty
+                  ? _previewFallback(context)
+                  : CachedNetworkImage(
+                      imageUrl: listing.previewUrl,
+                      fit: BoxFit.cover,
+                      memCacheWidth: 640,
+                      placeholder: (_, __) => _previewFallback(context),
+                      errorWidget: (_, __, ___) => _previewFallback(context),
+                    )),
+        );
+        final details = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // ── 左侧预览图 ──
-            ClipRRect(
-              borderRadius: AppShape.md,
-              child: SizedBox(
-                width: 120,
-                height: 120,
-                child: CachedNetworkImage(
-                  imageUrl: listing.previewUrl,
-                  fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(
-                    color: cs.surfaceContainerHighest,
-                    child: const Icon(Icons.image_outlined, color: Colors.grey),
-                  ),
-                  errorWidget: (_, __, ___) => Container(
-                    color: cs.surfaceContainerHighest,
-                    child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
-                  ),
+            Text(listing.name, style: theme.textTheme.titleLarge),
+            const SizedBox(height: 6),
+            Text('v${listing.version} · ${listing.author}',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            if (listing.description.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(listing.description,
+                  style: theme.textTheme.bodyMedium,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis),
+            ],
+            if (listing.tags.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: listing.tags
+                      .map(
+                        (tag) => Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.secondaryContainer,
+                            borderRadius:
+                                BorderRadius.circular(tokens.controlRadius),
+                          ),
+                          child: Text(tag,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                  color:
+                                      theme.colorScheme.onSecondaryContainer)),
+                        ),
+                      )
+                      .toList()),
+            ],
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(listing.formattedSize,
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                if (installed) _StatusChip(label: active ? '使用中' : '已安装'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (stage != null)
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const LinearProgressIndicator(),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                        switch (stage!) {
+                          _InstallStage.downloading => '正在下载…',
+                          _InstallStage.installing => '正在安装…',
+                          _InstallStage.applying => '正在应用…',
+                        },
+                        style: theme.textTheme.bodyMedium),
+                    if (stage == _InstallStage.downloading)
+                      TextButton.icon(
+                          onPressed: onCancel,
+                          icon: const Icon(Icons.close_rounded),
+                          label: const Text('取消下载')),
+                  ],
                 ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // ── 右侧信息 ──
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 名称 + 版本 + 作者
-                  Text(
-                    listing.name,
-                    style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'v${listing.version} · ${listing.author}',
-                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                  ),
-                  const SizedBox(height: 6),
-                  // 描述
-                  Text(
-                    listing.description,
-                    style: tt.bodySmall,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  // 标签
-                  if (listing.tags.isNotEmpty)
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: listing.tags.map((tag) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: _tagColor(cs, listing.tagColorIndex).withValues(alpha: 0.15),
-                          borderRadius: AppShape.sm,
-                        ),
-                        child: Text(
-                          tag,
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: _tagColor(cs, listing.tagColorIndex),
-                          ),
-                        ),
-                      )).toList(),
-                    ),
-                  const SizedBox(height: 8),
-                  // 底部：大小 + 按钮
-                  Row(
-                    children: [
-                      Text(
-                        listing.formattedSize,
-                        style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
-                      ),
-                      const Spacer(),
-                      if (installed)
-                        _StatusChip(
-                          label: '已安装',
-                          icon: Icons.check_circle,
-                          color: Colors.green,
-                        )
-                      else
-                        FilledButton.tonalIcon(
-                          icon: const Icon(Icons.download, size: 18),
-                          label: const Text('安装'),
-                          onPressed: onInstall,
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ),
-                    ],
-                  ),
+              ])
+            else
+              Wrap(spacing: 12, runSpacing: 8, children: [
+                if (!installed || !canApply)
+                  FilledButton.icon(
+                      onPressed: onInstall,
+                      icon: const Icon(Icons.download_rounded),
+                      label: Text(installed ? '重新安装' : '安装主题'))
+                else ...[
+                  FilledButton.tonalIcon(
+                      onPressed: active ? null : onApply,
+                      icon: Icon(active
+                          ? Icons.check_rounded
+                          : Icons.palette_outlined),
+                      label: Text(active ? '正在使用' : '应用主题')),
+                  TextButton(onPressed: onInstall, child: const Text('重新安装')),
                 ],
-              ),
-            ),
+              ]),
           ],
-        ),
-      ),
+        );
+        if (horizontal) {
+          return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(width: 200, child: preview),
+            const SizedBox(width: 24),
+            Expanded(child: details),
+          ]);
+        }
+        return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              preview,
+              const SizedBox(height: 20),
+              details,
+            ]);
+      }),
     );
   }
 
-  Color _tagColor(ColorScheme cs, int index) {
-    const colors = [
-      Color(0xFF7C3AED), // 紫
-      Color(0xFF0891B2), // 青
-      Color(0xFF059669), // 绿
-      Color(0xFFD97706), // 橙
-      Color(0xFFDC2626), // 红
-      Color(0xFFDB2777), // 粉
-      Color(0xFF4F46E5), // 靛
-    ];
-    return colors[index % colors.length];
-  }
+  Widget _previewFallback(BuildContext context) => ColoredBox(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: Center(
+            child: Icon(Icons.palette_outlined,
+                size: 48,
+                color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      );
 }
 
 class _StatusChip extends StatelessWidget {
   final String label;
-  final IconData icon;
-  final Color color;
-
-  const _StatusChip({
-    required this.label,
-    required this.icon,
-    required this.color,
-  });
+  const _StatusChip({required this.label});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: AppShape.sm,
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
-          Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color, fontWeight: FontWeight.w500)),
-        ],
-      ),
+          color: theme.colorScheme.primaryContainer,
+          borderRadius:
+              BorderRadius.circular(AppThemeTokens.of(context).controlRadius)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.check_circle_outline_rounded,
+            size: 16, color: theme.colorScheme.onPrimaryContainer),
+        const SizedBox(width: 6),
+        Flexible(
+            child: Text(label,
+                style: theme.textTheme.labelMedium
+                    ?.copyWith(color: theme.colorScheme.onPrimaryContainer))),
+      ]),
     );
   }
 }

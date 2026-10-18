@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/radio.dart';
@@ -34,12 +35,18 @@ class DiscoverProvider extends ChangeNotifier {
   List<Song> _personalFmSongs = [];
 
   // ─── 私人 FM 状态 ───
-  String _fmMode = 'normal';                       // normal=红心 small=小众 peak=速览
-  int _fmPoolId = 0;                               // 0=口味(Alpha) 1=风格(Beta) 2=探索(Gamma)
-  List<Song> _personalFmBuffer = [];               // 预取缓冲池
-  static const int _fmBufferThreshold = 4;          // 自动补货阈值
-  bool _isFmActive = false;                        // 当前是否处于 FM 播放模式
-  Map<String, dynamic>? _currentFmFeedback;         // 当前歌曲反馈数据 {hash, songid, playtime}
+  String _fmMode = 'normal'; // normal=红心 small=小众 peak=速览
+  int _fmPoolId = 0; // 0=口味(Alpha) 1=风格(Beta) 2=探索(Gamma)
+  List<Song> _personalFmBuffer = []; // 预取缓冲池
+  PlayerProvider? _fmPlayer;
+  VoidCallback? _fmPlayerListener;
+  bool _observedFmMode = false;
+  int _fmRevision = 0;
+  int _fmPlaybackRequestId = 0;
+  int _fmDataRequestId = 0;
+  Future<void>? _fmRefillInFlight;
+  Future<List<Song>>? _fmBatchInFlight;
+  Map<String, dynamic>? _currentFmFeedback; // 当前歌曲反馈数据 {hash, songid, playtime}
 
   // ─── 状态 ───
 
@@ -66,7 +73,7 @@ class DiscoverProvider extends ChangeNotifier {
   String get fmMode => _fmMode;
   int get fmPoolId => _fmPoolId;
   List<Song> get personalFmBuffer => _personalFmBuffer;
-  bool get isFmActive => _isFmActive;
+  bool get isFmActive => _fmPlayer?.isFmMode ?? false;
 
   bool get hasPlaylists => _topPlaylists.isNotEmpty;
   bool get hasRanks => _rankList.isNotEmpty;
@@ -132,8 +139,8 @@ class DiscoverProvider extends ChangeNotifier {
 
   Future<void> _loadPlaylists() async {
     try {
-      _topPlaylists =
-          await _musicService.getTopPlaylists(limit: DiscoverConstants.playlistLimit);
+      _topPlaylists = await _musicService.getTopPlaylists(
+          limit: DiscoverConstants.playlistLimit);
     } catch (e, s) {
       Log.e('DiscoverProvider', 'loadPlaylists error', e, s);
     }
@@ -186,158 +193,197 @@ class DiscoverProvider extends ChangeNotifier {
   }
 
   Future<void> _loadPersonalFm() async {
-    try {
-      final raw = await _musicService.getPersonalFm(mode: _fmMode, songPoolId: _fmPoolId);
-      debugPrint('[FM] getPersonalFm raw count: ${raw.length}');
-      final songs = raw
-          .map((e) => SongMapper.fromFmJson(e))
-          .whereType<Song>()
-          .toList();
-      debugPrint('[FM] after mapping: ${songs.length} songs');
-      if (songs.isNotEmpty) {
-        debugPrint('[FM] first song: ${songs.first.name} / ${songs.first.artistDisplay} / cover: ${songs.first.albumCoverUrl}');
-      }
-      // 去重（id==0 不参与去重，因 fromFmJson 回退到 0）
-      final deduped = <Song>[];
-      for (final song in songs) {
-        if (!deduped.any((existing) =>
-            (existing.hash != null && song.hash != null && existing.hash == song.hash) ||
-            (existing.mixSongId != null && song.mixSongId != null && existing.mixSongId == song.mixSongId) ||
-            (existing.id > 0 && existing.id == song.id))) {
-          deduped.add(song);
-        }
-      }
-      _personalFmSongs = deduped.take(DiscoverConstants.topSongsLimit).toList();
-      _personalFmBuffer = List.from(_personalFmSongs);
-    } catch (e, s) {
-      Log.e('DiscoverProvider', 'loadPersonalFm error', e, s);
+    final pending = _fmRefillInFlight;
+    if (pending != null) {
+      await pending;
+      return;
     }
-  }
-
-  // ═══════════════════════════════════════════
-  //  私人 FM 操作方法
-  // ═══════════════════════════════════════════
-
-  /// 切换 FM 推荐模式（不中断当前播放，下次补货使用新模式）
-  void setFmMode(String mode) {
-    if (mode == _fmMode) return;
-    _fmMode = mode;
-    // FM 未启动时清空旧 buffer，确保 startFmPlayback 会用新模式重新取歌
-    if (!_isFmActive) _personalFmBuffer.clear();
-    notifyListeners();
-  }
-
-  /// 切换 AI 算法池（不中断当前播放，下次补货使用新算法池）
-  void setFmPoolId(int poolId) {
-    if (poolId == _fmPoolId) return;
-    _fmPoolId = poolId;
-    // FM 未启动时清空旧 buffer，确保 startFmPlayback 会用新算法池重新取歌
-    if (!_isFmActive) _personalFmBuffer.clear();
-    notifyListeners();
-  }
-
-  /// 提供者回调：由 PlayerProvider 在 FM 队列播完时调用，获取下一批歌曲
-  /// 始终先补货再取歌，确保不返回空列表
-  Future<List<Song>> fetchNextFmBatch() async {
-    // 先补货
-    await _refillFmBuffer();
-    // 从 buffer 取最多 10 首
-    final batchSize = _personalFmBuffer.length >= 10 ? 10 : _personalFmBuffer.length;
-    if (batchSize == 0) {
-      debugPrint('[FM] fetchNextFmBatch: buffer empty after refill — returning []');
-      return [];
-    }
-    final batch = _personalFmBuffer.take(batchSize).toList();
-    _personalFmBuffer.removeRange(0, batch.length);
-    debugPrint('[FM] fetchNextFmBatch: took $batchSize, buffer now has ${_personalFmBuffer.length}');
-    notifyListeners();
-    return batch;
-  }
-
-  /// 补货缓冲池（携带当前反馈数据）
-  ///
-  /// [isOverplay] 当前歌曲是否完整播完（1=是，0=跳过），传入 -1 表示从 _fmPendingOverplay 读取
-  Future<void> _refillFmBuffer({int isOverplay = 0}) async {
+    final revision = _fmRevision;
+    final requestId = ++_fmDataRequestId;
+    final playbackRequestId = _fmPlaybackRequestId;
     try {
-      final hash = _currentFmFeedback?['hash'] as String?;
-      final songid = _currentFmFeedback?['songid'] as int?;
-      final playtime = _currentFmFeedback?['playtime'] as int?;
-      debugPrint('[FM] _refillFmBuffer: mode=$_fmMode pool=$_fmPoolId'
-          ' hash=$hash songid=$songid playtime=$playtime'
-          ' remain=${_personalFmBuffer.length}');
       final raw = await _musicService.getPersonalFm(
-        mode: _fmMode,
-        songPoolId: _fmPoolId,
-        hash: hash,
-        songid: songid,
-        playtime: playtime,
-        action: 'play',
-        isOverplay: isOverplay,
-        remainSongcnt: _personalFmBuffer.length,
-      );
-      debugPrint('[FM] _refillFmBuffer: API returned ${raw.length} raw items');
-      final newSongs = raw
-          .map((e) => SongMapper.fromFmJson(e))
-          .whereType<Song>()
-          .toList();
-      debugPrint('[FM] _refillFmBuffer: after mapping ${newSongs.length} songs');
-      // 去重合并：以 hash > mixSongId > id 三级 key 去重（id==0 不参与）
-      int added = 0, skipped = 0;
-      for (final song in newSongs) {
-        if (!_songExistsInBuffer(song)) {
-          _personalFmBuffer.add(song);
-          added++;
-        } else {
-          skipped++;
-        }
+          mode: _fmMode, songPoolId: _fmPoolId);
+      if (_disposed ||
+          revision != _fmRevision ||
+          requestId != _fmDataRequestId) {
+        return;
       }
-      debugPrint('[FM] _refillFmBuffer: added $added, skipped $skipped dedup,'
-          ' buffer now ${_personalFmBuffer.length}');
-      notifyListeners();
-    } catch (e, s) {
-      Log.e('DiscoverProvider', '_refillFmBuffer error', e, s);
+      final songs =
+          _parseFmSongs(raw).take(DiscoverConstants.topSongsLimit).toList();
+      _personalFmSongs = songs;
+      // 页面刷新可以更新预览，但不能替换正在使用的推荐缓冲。
+      if (!isFmActive && playbackRequestId == _fmPlaybackRequestId) {
+        _personalFmBuffer = List.of(songs);
+      }
+    } catch (error, stack) {
+      Log.e('DiscoverProvider', 'loadPersonalFm error', error, stack);
     }
   }
 
-  /// 由 UI 调用：刷新 FM 缓冲池（切换模式/算法池后触发预取）
-  /// 跳过阈值检查，确保新参数立即生效
-  Future<void> refreshFmBuffer() async {
-    await _refillFmBuffer();
+  static List<Song> _parseFmSongs(List<Map<String, dynamic>> raw) {
+    final songs = <Song>[];
+    for (final item in raw) {
+      final song = SongMapper.fromFmJson(item);
+      if (song == null || songs.any((other) => _sameSong(other, song))) {
+        continue;
+      }
+      songs.add(song);
+    }
+    return songs;
   }
 
-  /// 替换缓冲池（切换模式/算法池时清空旧缓冲，立即获取新推荐）
-  Future<void> replaceFmBuffer() async {
-    _personalFmBuffer.clear();
-    await _refillFmBuffer();
+  static bool _sameSong(Song first, Song second) =>
+      (first.hash?.isNotEmpty == true && first.hash == second.hash) ||
+      (first.mixSongId != null && first.mixSongId == second.mixSongId) ||
+      (first.id > 0 && first.id == second.id);
+
+  void _invalidateFmRequests({bool clearBuffer = false}) {
+    _fmRevision++;
+    _fmPlaybackRequestId++;
+    _fmDataRequestId++;
+    _fmRefillInFlight = null;
+    _fmBatchInFlight = null;
+    if (clearBuffer) _personalFmBuffer.clear();
   }
 
-  /// 切换 FM 模式/算法池（立即生效，替换当前播放队列）
-  ///
-  /// 1. 清空旧 buffer → 2. 用新参数补货 → 3. 取前 10 首替换播放器队列
-  Future<void> switchFmPlayback(PlayerProvider player) async {
-    _personalFmBuffer.clear();
-    await _refillFmBuffer();
-    if (_personalFmBuffer.isNotEmpty) {
+  void _bindFmPlayer(PlayerProvider player) {
+    if (identical(_fmPlayer, player)) return;
+    if (_fmPlayerListener != null) {
+      _fmPlayer?.removeListener(_fmPlayerListener!);
+    }
+    _fmPlayer = player;
+    _observedFmMode = player.isFmMode;
+    _fmPlayerListener = () {
+      if (_disposed || _observedFmMode == player.isFmMode) return;
+      final wasFm = _observedFmMode;
+      _observedFmMode = player.isFmMode;
+      if (wasFm && !_observedFmMode) {
+        _invalidateFmRequests(clearBuffer: true);
+        _currentFmFeedback = null;
+      }
+      notifyListeners();
+    };
+    player.addListener(_fmPlayerListener!);
+  }
+
+  /// 参数变化让旧推荐作废；播放中的歌曲由调用方决定何时切换。
+  void setFmMode(String mode) {
+    if (_disposed || mode == _fmMode) return;
+    _fmMode = mode;
+    _personalFmSongs = [];
+    _invalidateFmRequests(clearBuffer: true);
+    notifyListeners();
+  }
+
+  void setFmPoolId(int poolId) {
+    if (_disposed || poolId == _fmPoolId) return;
+    _fmPoolId = poolId;
+    _personalFmSongs = [];
+    _invalidateFmRequests(clearBuffer: true);
+    notifyListeners();
+  }
+
+  /// 队列同时请求下一批时共享一次取歌，避免重复消费缓冲。
+  Future<List<Song>> fetchNextFmBatch() {
+    if (_disposed) return Future.value(<Song>[]);
+    final pending = _fmBatchInFlight;
+    if (pending != null) return pending;
+    final revision = _fmRevision;
+    late final Future<List<Song>> request;
+    request = (() async {
+      await _refillFmBuffer();
+      if (_disposed || revision != _fmRevision) return <Song>[];
       final songs = _personalFmBuffer.take(10).toList();
       _personalFmBuffer.removeRange(0, songs.length);
-      player.replaceFmPlaylist(songs, bufferProvider: fetchNextFmBatch);
+      notifyListeners();
+      return songs;
+    })()
+        .whenComplete(() {
+      if (identical(_fmBatchInFlight, request)) _fmBatchInFlight = null;
+    });
+    _fmBatchInFlight = request;
+    return request;
+  }
+
+  Future<void> _refillFmBuffer({int isOverplay = 0}) {
+    if (_disposed) return Future.value();
+    final pending = _fmRefillInFlight;
+    if (pending != null) return pending;
+    final revision = _fmRevision;
+    final requestId = ++_fmDataRequestId;
+    final mode = _fmMode;
+    final pool = _fmPoolId;
+    final feedback = _currentFmFeedback;
+    late final Future<void> request;
+    request = (() async {
+      try {
+        final raw = await _musicService.getPersonalFm(
+          mode: mode,
+          songPoolId: pool,
+          hash: feedback?['hash'] as String?,
+          songid: feedback?['songid'] as int?,
+          playtime: feedback?['playtime'] as int?,
+          action: 'play',
+          isOverplay: isOverplay,
+          remainSongcnt: _personalFmBuffer.length,
+        );
+        if (_disposed ||
+            revision != _fmRevision ||
+            requestId != _fmDataRequestId) {
+          return;
+        }
+        for (final song in _parseFmSongs(raw)) {
+          if (!_personalFmBuffer.any((other) => _sameSong(other, song))) {
+            _personalFmBuffer.add(song);
+          }
+        }
+        notifyListeners();
+      } catch (error, stack) {
+        Log.e('DiscoverProvider', 'refillFmBuffer error', error, stack);
+      }
+    })()
+        .whenComplete(() {
+      if (identical(_fmRefillInFlight, request)) _fmRefillInFlight = null;
+    });
+    _fmRefillInFlight = request;
+    return request;
+  }
+
+  Future<void> refreshFmBuffer() => _refillFmBuffer();
+
+  Future<void> replaceFmBuffer() {
+    if (_disposed) return Future.value();
+    _invalidateFmRequests(clearBuffer: true);
+    return _refillFmBuffer();
+  }
+
+  /// 最新的模式切换才可替换队列，退出 FM 后迟到结果不得重新接管播放。
+  Future<void> switchFmPlayback(PlayerProvider player) async {
+    if (_disposed || !player.isFmMode) return;
+    _bindFmPlayer(player);
+    _invalidateFmRequests(clearBuffer: true);
+    final revision = _fmRevision;
+    final requestId = _fmPlaybackRequestId;
+    final playbackIntentVersion = player.playbackIntentVersion;
+    await _refillFmBuffer();
+    if (_disposed ||
+        revision != _fmRevision ||
+        requestId != _fmPlaybackRequestId ||
+        playbackIntentVersion != player.playbackIntentVersion ||
+        !player.isFmMode) {
+      return;
     }
+    if (_personalFmBuffer.isEmpty) return;
+    final songs = _personalFmBuffer.take(10).toList();
+    _personalFmBuffer.removeRange(0, songs.length);
+    player.replaceFmPlaylist(songs, bufferProvider: fetchNextFmBatch);
+    notifyListeners();
   }
 
-  /// 三级 key 去重：hash > mixSongId > id（id==0 不参与去重，因 fromFmJson 回退到 0）
-  bool _songExistsInBuffer(Song song) {
-    return _personalFmBuffer.any((existing) =>
-        (existing.hash != null &&
-            song.hash != null &&
-            existing.hash == song.hash) ||
-        (existing.mixSongId != null &&
-            song.mixSongId != null &&
-            existing.mixSongId == song.mixSongId) ||
-        (existing.id > 0 && existing.id == song.id));
-  }
-
-  /// 上报「不喜欢」并获取替代推荐
   Future<List<Song>> dislikeCurrentFmSong(Song song) async {
+    if (_disposed) return [];
+    final revision = _fmRevision;
     try {
       final raw = await _musicService.getPersonalFm(
         mode: _fmMode,
@@ -349,26 +395,23 @@ class DiscoverProvider extends ChangeNotifier {
         isOverplay: 0,
         remainSongcnt: _personalFmBuffer.length,
       );
-      final newSongs = raw
-          .map((e) => SongMapper.fromFmJson(e))
-          .whereType<Song>()
-          .toList();
-      // 去重合并
-      for (final song in newSongs) {
-        if (!_songExistsInBuffer(song)) {
-          _personalFmBuffer.add(song);
+      if (_disposed || revision != _fmRevision) return [];
+      final songs = _parseFmSongs(raw);
+      for (final replacement in songs) {
+        if (!_personalFmBuffer.any((other) => _sameSong(other, replacement))) {
+          _personalFmBuffer.add(replacement);
         }
       }
       notifyListeners();
-      return newSongs;
-    } catch (e, s) {
-      Log.e('DiscoverProvider', 'dislikeCurrentFmSong error', e, s);
+      return songs;
+    } catch (error, stack) {
+      Log.e('DiscoverProvider', 'dislikeCurrentFmSong error', error, stack);
       return [];
     }
   }
 
-  /// 更新当前 FM 歌曲的反馈数据（播放时由 PlayerProvider 调用）
   void updateFmFeedback(Song song, {int playtime = 0}) {
+    if (_disposed) return;
     _currentFmFeedback = {
       'hash': song.hash,
       'songid': song.mixSongId ?? song.id,
@@ -376,37 +419,48 @@ class DiscoverProvider extends ChangeNotifier {
     };
   }
 
-  /// 启动私人 FM 播放
   Future<void> startFmPlayback(PlayerProvider player) async {
-    if (_personalFmBuffer.isEmpty) {
-      await _refillFmBuffer();
+    if (_disposed) return;
+    _bindFmPlayer(player);
+    final revision = _fmRevision;
+    final requestId = ++_fmPlaybackRequestId;
+    final playbackIntentVersion = player.playbackIntentVersion;
+    final previousSong = player.currentSong;
+    final previousQueue = List<Song>.of(player.playlist);
+    final previousFmMode = player.isFmMode;
+    if (_personalFmBuffer.isEmpty) await _refillFmBuffer();
+    if (_disposed ||
+        revision != _fmRevision ||
+        requestId != _fmPlaybackRequestId ||
+        playbackIntentVersion != player.playbackIntentVersion ||
+        !identical(player.currentSong, previousSong) ||
+        !listEquals(player.playlist, previousQueue) ||
+        player.isFmMode != previousFmMode ||
+        _personalFmBuffer.isEmpty) {
+      return;
     }
-    if (_personalFmBuffer.isNotEmpty) {
-      final initialSongs = _personalFmBuffer.take(10).toList();
-      _personalFmBuffer.removeRange(0, initialSongs.length);
-      _isFmActive = true;
-      notifyListeners();
-      // 传入 dislike 回调，让 player 在上一曲时触发
-      // 传入 playbackUpdate 回调，让 player 上报播放反馈
-      player.startFmPlaylist(
-        initialSongs,
-        bufferProvider: fetchNextFmBatch,
-        onDislike: () => _fmDislikeCallback(player),
-        onPlaybackUpdate: updateFmFeedback,
-      );
-    }
-  }
-
-  /// 被 PlayerProvider 调用的 dislike 回调
-  void _fmDislikeCallback(PlayerProvider player) {
-    final song = player.currentSong;
-    if (song == null) return;
-    dislikeCurrentFmSong(song);
+    final songs = _personalFmBuffer.take(10).toList();
+    _personalFmBuffer.removeRange(0, songs.length);
+    player.startFmPlaylist(
+      songs,
+      bufferProvider: fetchNextFmBatch,
+      onDislike: () {
+        final song = player.currentSong;
+        if (song != null && player.isFmMode) dislikeCurrentFmSong(song);
+      },
+      onPlaybackUpdate: updateFmFeedback,
+    );
+    notifyListeners();
   }
 
   @override
   void dispose() {
     _disposed = true;
+    _invalidateFmRequests(clearBuffer: true);
+    if (_fmPlayerListener != null) {
+      _fmPlayer?.removeListener(_fmPlayerListener!);
+    }
+    _fmPlayer = null;
     super.dispose();
   }
 }

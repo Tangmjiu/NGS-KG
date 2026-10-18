@@ -1,276 +1,242 @@
+// SPDX-License-Identifier: MIT
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollCacheExtent;
-import 'package:cached_network_image/cached_network_image.dart';
-import '../utils/theme.dart';
 import 'package:provider/provider.dart';
-import '../providers/discover_provider.dart';
-import 'discover/sections/discover_quick_actions.dart';
-import 'discover/sections/discover_section_header.dart';
-import 'discover/sections/discover_playlist_row.dart';
-import 'discover/sections/discover_rank_row.dart';
-import 'discover/sections/discover_song_row.dart';
-import 'discover/sections/discover_album_row.dart';
-import 'discover/sections/discover_scene_row.dart';
-import 'discover/sections/discover_ip_row.dart';
-import 'discover/sections/discover_fm_row.dart';
-import 'discover/sections/discover_personal_fm_row.dart';
-import '../widgets/list_bottom_spacer.dart';
 
-/// 发现页
-///
-/// 重构后：薄编排层 + Provider 状态管理 + 独立 Section Widget
-/// 原来 819 行单体文件 → ~200 行编排层 + 11 个独立 Widget
+import '../models/rank_entry.dart';
+import '../providers/discover_provider.dart';
+import '../ui/app_ui.dart';
+import '../ui/components/player_bottom_padding.dart';
+import 'discover/sections/discover_album_row.dart';
+import 'discover/sections/discover_fm_row.dart';
+import 'discover/sections/discover_ip_row.dart';
+import 'discover/sections/discover_media_rail.dart';
+import 'discover/sections/discover_personal_fm_row.dart';
+import 'discover/sections/discover_playlist_row.dart';
+import 'discover/sections/discover_quick_actions.dart';
+import 'discover/sections/discover_rank_row.dart';
+import 'discover/sections/discover_scene_row.dart';
+import 'discover/sections/discover_section_header.dart';
+import 'discover/sections/discover_song_row.dart';
+
 class DiscoverScreen extends StatefulWidget {
-  const DiscoverScreen({super.key});
+  final int privateFmFocusRequest;
+
+  const DiscoverScreen({super.key, this.privateFmFocusRequest = 0});
 
   @override
   State<DiscoverScreen> createState() => _DiscoverScreenState();
 }
 
 class _DiscoverScreenState extends State<DiscoverScreen> {
+  final _privateFmKey = GlobalKey();
+
+  void _focusPrivateFm() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _privateFmKey.currentContext;
+      if (mounted && target != null) {
+        Scrollable.ensureVisible(target,
+            duration: AppMotion.dMedium3, alignment: 0.08);
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant DiscoverScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.privateFmFocusRequest != widget.privateFmFocusRequest) {
+      _focusPrivateFm();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    // 首次加载数据
+    if (widget.privateFmFocusRequest > 0) _focusPrivateFm();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DiscoverProvider>().loadAll();
+      if (mounted) context.read<DiscoverProvider>().ensureLoaded();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<DiscoverProvider>();
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return RefreshIndicator(
-      onRefresh: () => provider.loadAll(),
-      child: CustomScrollView(
-        slivers: [
-          // ── Title ──
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                MediaQuery.of(context).padding.top + 20,
-                20,
-                4,
-              ),
-              child: Text(
-                '发现',
-                style: tt.headlineLarge
-                    ?.copyWith(fontWeight: FontWeight.bold),
+    final tokens = AppThemeTokens.of(context);
+    return AppPageBody(
+      child: RefreshIndicator(
+        onRefresh: () => provider.loadAll(),
+        child: CustomScrollView(
+          key: const PageStorageKey('discover_feed'),
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.only(
+                    top: MediaQuery.paddingOf(context).top + 12),
+                child: AppPageHeader(
+                  title: '发现',
+                  subtitle: '熟悉的旋律，意想不到的相遇',
+                  actions: [
+                    IconButton.filledTonal(
+                      tooltip: '设置',
+                      onPressed: () =>
+                          Navigator.pushNamed(context, '/settings'),
+                      icon: const Icon(Icons.settings_outlined),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-
-          if (provider.loading)
+            SliverToBoxAdapter(
+              child: DiscoverQuickActions(rankList: provider.rankList),
+            ),
             const SliverToBoxAdapter(
-              child: SizedBox(
-                height: 200,
-                child: Center(child: CircularProgressIndicator()),
+              child: DiscoverSectionHeader(
+                title: '专属于你的频道',
+                subtitle: '私人 FM · 随心听下去',
               ),
-            )
-          else ...[
-            // ── Error state ──
+            ),
+            SliverToBoxAdapter(
+              child: DiscoverPersonalFmRow(key: _privateFmKey),
+            ),
+            if (provider.loading)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: Center(child: AppLoadingIndicator()),
+                ),
+              ),
             if (provider.error != null)
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Icon(Icons.error_outline,
-                            size: 48, color: cs.error),
-                        const SizedBox(height: 8),
-                        Text('加载失败',
-                            style: tt.titleMedium
-                                ?.copyWith(color: cs.error)),
-                        const SizedBox(height: 4),
-                        Text(provider.error!,
-                            style: tt.bodySmall,
-                            textAlign: TextAlign.center),
-                        const SizedBox(height: 12),
-                        FilledButton.tonal(
-                          onPressed: () => provider.loadAll(),
-                          child: const Text('重试'),
-                        ),
-                      ],
+                  padding: EdgeInsets.symmetric(horizontal: tokens.pagePadding),
+                  child: AppEmptyState(
+                    icon: Icons.cloud_off_rounded,
+                    title: '推荐暂时未能加载',
+                    message: '检查网络后重试，或继续收听你的音乐。',
+                    action: FilledButton.tonalIcon(
+                      onPressed: () => provider.loadAll(),
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('重试'),
                     ),
                   ),
                 ),
-              )
-            else ...[
-              // ── 私人 FM（置顶） ──
-              const SliverToBoxAdapter(
-                child: DiscoverPersonalFmRow(),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
-              // ── Quick actions ──
+            if (provider.hasPlaylists) ...[
               SliverToBoxAdapter(
-                child: DiscoverQuickActions(rankList: provider.rankList),
+                child: DiscoverSectionHeader(
+                  title: '精选歌单',
+                  subtitle: '总有一份，适合此刻',
+                  onViewAll: () =>
+                      Navigator.pushNamed(context, '/recommended/playlists'),
+                ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
-              // ── 推荐歌单 ──
-              if (provider.hasPlaylists) ...[
-                SliverToBoxAdapter(
-                  child: DiscoverSectionHeader(
-                    title: '推荐歌单',
-                    onViewAll: () =>
-                        Navigator.pushNamed(context, '/recommended/playlists'),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: DiscoverPlaylistRow(playlists: provider.topPlaylists),
-                ),
-              ],
-
-              // ── 热门榜单 ──
-              if (provider.hasRanks) ...[
-                SliverToBoxAdapter(
-                  child: DiscoverSectionHeader(
-                    title: '热门榜单',
-                    onViewAll: () => _showRankList(provider.rankList),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: DiscoverRankRow(ranks: provider.rankList),
-                ),
-              ],
-
-              // ── 新歌速递 ──
-              if (provider.hasTopSongs) ...[
-                const SliverToBoxAdapter(
-                  child: DiscoverSectionHeader(title: '新歌速递'),
-                ),
-                SliverToBoxAdapter(
-                  child: DiscoverSongRow(songs: provider.topSongs),
-                ),
-              ],
-
-              // ── 新碟上架 ──
-              if (provider.hasTopAlbums) ...[
-                const SliverToBoxAdapter(
-                  child: DiscoverSectionHeader(title: '新碟上架'),
-                ),
-                SliverToBoxAdapter(
-                  child: DiscoverAlbumRow(albums: provider.topAlbums),
-                ),
-              ],
-
-              // ── 场景音乐 ──
-              if (provider.hasScenes) ...[
-                const SliverToBoxAdapter(
-                  child: DiscoverSectionHeader(title: '场景音乐'),
-                ),
-                SliverToBoxAdapter(
-                  child: DiscoverSceneRow(
-                      scenes: provider.sceneCategories),
-                ),
-              ],
-
-              // ── 编辑精选 ──
-              if (provider.hasIp) ...[
-                const SliverToBoxAdapter(
-                  child: DiscoverSectionHeader(title: '编辑精选'),
-                ),
-                SliverToBoxAdapter(
-                  child: DiscoverIpRow(ipList: provider.ipList),
-                ),
-              ],
-
-              // ── 电台推荐 ──
-              if (provider.hasFm) ...[
-                SliverToBoxAdapter(
-                  child: DiscoverSectionHeader(
-                    title: '电台推荐',
-                    onViewAll: () =>
-                        Navigator.pushNamed(context, '/fm'),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: DiscoverFmRow(fmList: provider.fmList),
-                ),
-              ],
-
-              const SliverToBoxAdapter(
-                child: ListBottomSpacer(isHome: true),
-              ),
+              SliverToBoxAdapter(
+                  child: DiscoverPlaylistRow(playlists: provider.topPlaylists)),
             ],
+            if (provider.hasRanks) ...[
+              SliverToBoxAdapter(
+                child: DiscoverSectionHeader(
+                  title: '热门榜单',
+                  onViewAll: () => _showRankList(provider.rankList),
+                ),
+              ),
+              SliverToBoxAdapter(
+                  child: DiscoverRankRow(ranks: provider.rankList)),
+            ],
+            if (provider.hasTopSongs) ...[
+              const SliverToBoxAdapter(
+                  child: DiscoverSectionHeader(title: '新歌速递')),
+              SliverToBoxAdapter(
+                  child: DiscoverSongRow(songs: provider.topSongs)),
+            ],
+            if (provider.hasTopAlbums) ...[
+              const SliverToBoxAdapter(
+                  child: DiscoverSectionHeader(title: '新碟上架')),
+              SliverToBoxAdapter(
+                  child: DiscoverAlbumRow(albums: provider.topAlbums)),
+            ],
+            if (provider.hasScenes) ...[
+              const SliverToBoxAdapter(
+                  child: DiscoverSectionHeader(
+                      title: '音乐陪伴每一刻', subtitle: '选一种心情，进入你的场景')),
+              SliverToBoxAdapter(
+                  child: DiscoverSceneRow(scenes: provider.sceneCategories)),
+            ],
+            if (provider.hasIp) ...[
+              const SliverToBoxAdapter(
+                  child: DiscoverSectionHeader(title: '编辑精选')),
+              SliverToBoxAdapter(child: DiscoverIpRow(ipList: provider.ipList)),
+            ],
+            if (provider.hasFm) ...[
+              SliverToBoxAdapter(
+                child: DiscoverSectionHeader(
+                  title: '电台推荐',
+                  onViewAll: () => Navigator.pushNamed(context, '/fm'),
+                ),
+              ),
+              SliverToBoxAdapter(child: DiscoverFmRow(fmList: provider.fmList)),
+            ],
+            const SliverToBoxAdapter(child: PlayerBottomPadding()),
           ],
-        ],
+        ),
       ),
     );
   }
 
-  void _showRankList(List rankList) {
-    showM3ModalBottomSheet(
+  void _showRankList(List<RankEntry> ranks) {
+    showAppBottomSheet(
       context: context,
-      builder: (_) {
-        // SafeArea 底部内边距不计入可用高度，否则内容溢出
-        final availableHeight = MediaQuery.of(context).size.height * 0.55
-            - MediaQuery.of(context).padding.bottom;
-        return SafeArea(
+      builder: (sheetContext) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(sheetContext).height * 0.65,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text('热门榜单',
-                    style: Theme.of(context).textTheme.titleMedium),
-              ),
-              const Divider(height: 1),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: availableHeight,
+              const AppPageHeader(title: '热门榜单'),
+              Expanded(
+                child: ListView.separated(
+                  padding: EdgeInsets.fromLTRB(
+                      AppThemeTokens.of(sheetContext).pagePadding,
+                      0,
+                      AppThemeTokens.of(sheetContext).pagePadding,
+                      24),
+                  itemCount: ranks.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (_, index) {
+                    final rank = ranks[index];
+                    return AppSurface(
+                      padding: const EdgeInsets.all(12),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        Navigator.pushNamed(context, '/rank/detail',
+                            arguments: {'id': rank.id, 'name': rank.name});
+                      },
+                      child: Row(
+                        children: [
+                          DiscoverArtwork(
+                              url: rank.coverUrl,
+                              size: 52,
+                              icon: Icons.leaderboard_rounded),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              rank.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style:
+                                  Theme.of(sheetContext).textTheme.titleMedium,
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_rounded, size: 20),
+                        ],
+                      ),
+                    );
+                  },
                 ),
-                child: ListView.builder(
-                scrollCacheExtent: const ScrollCacheExtent.pixels(200),
-                itemCount: rankList.length,
-                itemBuilder: (_, i) {
-                  final r = rankList[i];
-                  return ListTile(
-                    leading: ClipRRect(
-                      borderRadius: AppShape.sm,
-                      child: r.coverUrl != null
-                          ? CachedNetworkImage(
-                              imageUrl: r.coverUrl!,
-                              width: 48,
-                              height: 48,
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) => _rankPlaceholder(),
-                              errorWidget: (_, __, ___) => _rankPlaceholder(),
-                            )
-                          : _rankPlaceholder(),
-                    ),
-                    title: Text(r.name,
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(context, '/rank/detail',
-                          arguments: {'id': r.id, 'name': r.name});
-                    },
-                  );
-                },
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      );
-    },
-    );
-  }
-
-  Widget _rankPlaceholder() {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      width: 48,
-      height: 48,
-      color: cs.surfaceContainerHighest,
-      child: const Icon(Icons.music_note),
+      ),
     );
   }
 }

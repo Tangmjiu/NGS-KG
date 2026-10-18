@@ -1,5 +1,7 @@
+// SPDX-License-Identifier: MIT
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
+import '../theme/app_theme_tokens.dart';
+import '../ui/components/app_components.dart';
 import 'package:provider/provider.dart';
 import 'navidrome_config.dart';
 import 'navidrome_provider.dart';
@@ -35,9 +37,9 @@ class _NavidromeLoginScreenState extends State<NavidromeLoginScreen> {
     final pass = await config.getPassword();
     if (mounted) {
       setState(() {
-        if (url != null) _urlCtrl.text = url;
-        if (user != null) _userCtrl.text = user;
-        if (pass != null) _passCtrl.text = pass;
+        if (url != null && _urlCtrl.text.isEmpty) _urlCtrl.text = url;
+        if (user != null && _userCtrl.text.isEmpty) _userCtrl.text = user;
+        if (pass != null && _passCtrl.text.isEmpty) _passCtrl.text = pass;
       });
     }
   }
@@ -51,6 +53,7 @@ class _NavidromeLoginScreenState extends State<NavidromeLoginScreen> {
   }
 
   Future<void> _testConnection() async {
+    if (_testing || context.read<NavidromeProvider>().connecting) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() {
       _testing = true;
@@ -67,6 +70,8 @@ class _NavidromeLoginScreenState extends State<NavidromeLoginScreen> {
         _passCtrl.text,
       );
       ok = await service.ping();
+    } catch (_) {
+      ok = false;
     } finally {
       service.dispose();
     }
@@ -75,165 +80,212 @@ class _NavidromeLoginScreenState extends State<NavidromeLoginScreen> {
       setState(() {
         _testing = false;
         _testSuccess = ok;
-        _testResult = ok ? '连接成功 ✓' : '连接失败，请检查地址和认证信息';
+        _testResult = ok ? '服务器连接正常，可以开始连接' : '连接失败，请检查地址和账号信息';
       });
     }
   }
 
   Future<void> _connect() async {
+    final provider = context.read<NavidromeProvider>();
+    if (_testing || provider.connecting) return;
     if (!_formKey.currentState!.validate()) return;
-    final prov = context.read<NavidromeProvider>();
-    final ok = await prov.connect(
+    setState(() {
+      _testResult = null;
+      _testSuccess = null;
+    });
+    final ok = await provider.connect(
       _urlCtrl.text.trim(),
       _userCtrl.text.trim(),
       _passCtrl.text,
     );
-    if (ok && mounted) {
+    if (!mounted) return;
+    if (ok) {
       Navigator.pop(context);
+    } else {
+      setState(() {
+        _testSuccess = false;
+        _testResult = provider.error ?? '连接失败，请检查地址和账号信息';
+      });
     }
+  }
+
+  void _clearTestResult(String _) {
+    if (_testResult == null) return;
+    setState(() {
+      _testResult = null;
+      _testSuccess = null;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-
+    final tokens = AppThemeTokens.of(context);
+    final connecting =
+        context.select<NavidromeProvider, bool>((p) => p.connecting);
+    final busy = _testing || connecting;
     return Scaffold(
-      appBar: AppBar(title: const Text('连接 Navidrome')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '输入 Navidrome 服务器信息',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Navidrome 是一个开源的自托管音乐服务器，\n支持 Subsonic 协议。',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-              ),
-              const SizedBox(height: 24),
-
-              // Server URL
-              TextFormField(
-                controller: _urlCtrl,
-                decoration: const InputDecoration(
-                  labelText: '服务器地址',
-                  hintText: 'http://192.168.1.100:4533',
-                  prefixIcon: Icon(Icons.dns_outlined),
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.url,
-                autocorrect: false,
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return '请输入服务器地址';
-                  return NavidromeConfig.validateUrl(v.trim());
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Username
-              TextFormField(
-                controller: _userCtrl,
-                decoration: const InputDecoration(
-                  labelText: '用户名',
-                  prefixIcon: Icon(Icons.person_outline),
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return '请输入用户名';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Password
-              TextFormField(
-                controller: _passCtrl,
-                obscureText: _obscurePass,
-                decoration: InputDecoration(
-                  labelText: '密码',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                        _obscurePass ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () =>
-                        setState(() => _obscurePass = !_obscurePass),
+      body: SafeArea(
+        child: AppPageBody(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: ListView(
+                padding: EdgeInsets.all(tokens.pagePadding),
+                children: [
+                  const AppPageHeader(
+                    padding: EdgeInsets.zero,
+                    title: '连接音乐服务器',
+                    subtitle: '在这里聆听你的 Navidrome 音乐库',
+                    showBack: true,
                   ),
-                ),
-                validator: (v) {
-                  if (v == null || v.isEmpty) return '请输入密码';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-
-              // Test result
-              if (_testResult != null)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: _testSuccess == true
-                        ? Colors.green.withValues(alpha: 0.1)
-                        : Colors.red.withValues(alpha: 0.1),
-                    borderRadius: AppShape.sm,
-                    border: Border.all(
-                      color: _testSuccess == true ? Colors.green : Colors.red,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _testSuccess == true
-                            ? Icons.check_circle
-                            : Icons.error,
-                        color:
-                            _testSuccess == true ? Colors.green : Colors.red,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
+                  SizedBox(height: tokens.sectionSpacing),
+                  AppSurface(
+                    child: Row(children: [
+                      Icon(Icons.dns_outlined, size: 32, color: cs.primary),
+                      const SizedBox(width: 16),
                       Expanded(
-                        child: Text(
-                          _testResult!,
-                          style: TextStyle(
-                            color: _testSuccess == true
-                                ? Colors.green.shade800
-                                : Colors.red.shade800,
-                          ),
-                        ),
-                      ),
-                    ],
+                          child: Text(
+                        '填写服务器地址与账号，即可浏览私人音乐收藏。',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: cs.onSurfaceVariant),
+                      )),
+                    ]),
                   ),
-                ),
-
-              // Test button
-              OutlinedButton.icon(
-                onPressed: _testing ? null : _testConnection,
-                icon: _testing
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.wifi_find),
-                label: Text(_testing ? '测试中...' : '测试连接'),
+                  SizedBox(height: tokens.sectionSpacing),
+                  Form(
+                    key: _formKey,
+                    child: AutofillGroup(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextFormField(
+                            controller: _urlCtrl,
+                            enabled: !busy,
+                            decoration: const InputDecoration(
+                              labelText: '服务器地址',
+                              hintText: 'https://music.example.com',
+                              prefixIcon: Icon(Icons.link_rounded),
+                            ),
+                            keyboardType: TextInputType.url,
+                            textInputAction: TextInputAction.next,
+                            autocorrect: false,
+                            onChanged: _clearTestResult,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return '请输入服务器地址';
+                              }
+                              return NavidromeConfig.validateUrl(value.trim());
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          TextFormField(
+                            controller: _userCtrl,
+                            enabled: !busy,
+                            autofillHints: const [AutofillHints.username],
+                            textInputAction: TextInputAction.next,
+                            autocorrect: false,
+                            decoration: const InputDecoration(
+                              labelText: '用户名',
+                              prefixIcon: Icon(Icons.person_outline_rounded),
+                            ),
+                            onChanged: _clearTestResult,
+                            validator: (value) =>
+                                value == null || value.trim().isEmpty
+                                    ? '请输入用户名'
+                                    : null,
+                          ),
+                          const SizedBox(height: 20),
+                          TextFormField(
+                            controller: _passCtrl,
+                            enabled: !busy,
+                            obscureText: _obscurePass,
+                            autofillHints: const [AutofillHints.password],
+                            textInputAction: TextInputAction.done,
+                            autocorrect: false,
+                            enableSuggestions: false,
+                            decoration: InputDecoration(
+                              labelText: '密码',
+                              prefixIcon:
+                                  const Icon(Icons.lock_outline_rounded),
+                              suffixIcon: IconButton(
+                                tooltip: _obscurePass ? '显示密码' : '隐藏密码',
+                                icon: Icon(_obscurePass
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined),
+                                onPressed: busy
+                                    ? null
+                                    : () => setState(
+                                        () => _obscurePass = !_obscurePass),
+                              ),
+                            ),
+                            onChanged: _clearTestResult,
+                            onFieldSubmitted: (_) => _connect(),
+                            validator: (value) =>
+                                value == null || value.isEmpty ? '请输入密码' : null,
+                          ),
+                          const SizedBox(height: 24),
+                          if (_testResult != null) ...[
+                            AppSurface(
+                              color: _testSuccess == true
+                                  ? cs.secondaryContainer
+                                  : cs.errorContainer,
+                              padding: const EdgeInsets.all(16),
+                              child: Row(children: [
+                                Icon(
+                                    _testSuccess == true
+                                        ? Icons.check_circle_outline_rounded
+                                        : Icons.error_outline_rounded,
+                                    color: _testSuccess == true
+                                        ? cs.onSecondaryContainer
+                                        : cs.onErrorContainer),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                    child: Text(_testResult!,
+                                        style: TextStyle(
+                                          color: _testSuccess == true
+                                              ? cs.onSecondaryContainer
+                                              : cs.onErrorContainer,
+                                        ))),
+                              ]),
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                          FilledButton.icon(
+                            onPressed: busy ? null : _connect,
+                            icon: connecting
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.headphones_rounded),
+                            label: Text(connecting ? '正在连接' : '连接音乐库'),
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: busy ? null : _testConnection,
+                            icon: _testing
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.wifi_find_rounded),
+                            label: Text(_testing ? '正在测试' : '测试连接'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
               ),
-              const SizedBox(height: 12),
-
-              // Connect button
-              FilledButton.icon(
-                onPressed: _connect,
-                icon: const Icon(Icons.link),
-                label: const Text('连接'),
-              ),
-            ],
+            ),
           ),
         ),
       ),

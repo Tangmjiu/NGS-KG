@@ -4,7 +4,7 @@ import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../theme/theme_assets.dart';
-import '../utils/theme.dart';
+import '../ui/app_ui.dart';
 import '../services/music_service.dart';
 import '../services/api_exception.dart';
 
@@ -22,7 +22,7 @@ class PlaybackControls extends StatelessWidget {
             return Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                M3PressScale(
+                PressScale(
                   child: IconButton(
                     icon: Icon(_modeIcon(player.playMode), size: 24),
                     tooltip: '播放模式',
@@ -34,10 +34,12 @@ class PlaybackControls extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: isWide ? 16 : 8),
-                M3PressScale(
+                PressScale(
                   child: IconButton(
                     icon: Icon(
-                      player.isFmMode ? Icons.heart_broken_outlined : Icons.skip_previous_rounded,
+                      player.isFmMode
+                          ? Icons.heart_broken_outlined
+                          : Icons.skip_previous_rounded,
                       size: 36,
                     ),
                     tooltip: player.isFmMode ? '不喜欢' : '上一首',
@@ -45,12 +47,13 @@ class PlaybackControls extends StatelessWidget {
                     onPressed: player.playPrevious,
                     style: IconButton.styleFrom(
                       padding: const EdgeInsets.all(16),
-                      backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                      backgroundColor:
+                          cs.surfaceContainerHighest.withValues(alpha: 0.5),
                     ),
                   ),
                 ),
                 SizedBox(width: isWide ? 24 : 16),
-                M3PressScale(
+                PressScale(
                   scaleDown: 0.92, // 更强烈的按压下沉反馈
                   child: AnimatedContainer(
                     duration: AppMotion.dShort4,
@@ -59,7 +62,8 @@ class PlaybackControls extends StatelessWidget {
                     height: 88,
                     decoration: BoxDecoration(
                       color: cs.primaryContainer,
-                      borderRadius: BorderRadius.circular(player.isPlaying ? 28 : 44),
+                      borderRadius:
+                          BorderRadius.circular(player.isPlaying ? 28 : 44),
                       boxShadow: [
                         BoxShadow(
                           color: cs.primary.withValues(alpha: 0.2),
@@ -72,7 +76,8 @@ class PlaybackControls extends StatelessWidget {
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: player.togglePlayPause,
-                        borderRadius: BorderRadius.circular(player.isPlaying ? 28 : 44),
+                        borderRadius:
+                            BorderRadius.circular(player.isPlaying ? 28 : 44),
                         child: AnimatedSwitcher(
                           duration: AppMotion.dShort4,
                           switchInCurve: AppMotion.emphasizedDecelerate,
@@ -80,12 +85,15 @@ class PlaybackControls extends StatelessWidget {
                           transitionBuilder: (child, animation) {
                             return ScaleTransition(
                               scale: animation,
-                              child: FadeTransition(opacity: animation, child: child),
+                              child: FadeTransition(
+                                  opacity: animation, child: child),
                             );
                           },
                           child: Icon(
                             key: ValueKey(player.isPlaying),
-                            player.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                            player.isPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
                             size: 40,
                             color: cs.onPrimaryContainer,
                           ),
@@ -95,7 +103,7 @@ class PlaybackControls extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: isWide ? 24 : 16),
-                M3PressScale(
+                PressScale(
                   child: IconButton(
                     icon: const Icon(Icons.skip_next_rounded, size: 36),
                     tooltip: '下一首',
@@ -103,12 +111,13 @@ class PlaybackControls extends StatelessWidget {
                     onPressed: player.playNext,
                     style: IconButton.styleFrom(
                       padding: const EdgeInsets.all(16),
-                      backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                      backgroundColor:
+                          cs.surfaceContainerHighest.withValues(alpha: 0.5),
                     ),
                   ),
                 ),
                 SizedBox(width: isWide ? 16 : 8),
-                M3PressScale(
+                PressScale(
                   child: IconButton(
                     icon: const Icon(Icons.playlist_play_rounded, size: 24),
                     tooltip: '播放列表',
@@ -150,7 +159,7 @@ class PlaybackControls extends StatelessWidget {
 
   static void showPlaylistStatic(BuildContext context, PlayerProvider player) {
     final cs = Theme.of(context).colorScheme;
-    showM3ModalBottomSheet(
+    showAppBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(
@@ -193,7 +202,8 @@ class PlaybackControls extends StatelessWidget {
                                   if (player.savedQueueNames.isNotEmpty)
                                     ...player.savedQueueNames
                                         .where((n) =>
-                                            player.playlistOfSavedQueue(n)
+                                            player
+                                                .playlistOfSavedQueue(n)
                                                 ?.isNotEmpty ??
                                             false)
                                         .map((name) => DropdownMenuItem(
@@ -205,7 +215,8 @@ class PlaybackControls extends StatelessWidget {
                                   const DropdownMenuItem(
                                     value: '__save',
                                     child: Text('+ 保存当前队列',
-                                        style: TextStyle(color: Colors.white54)),
+                                        style:
+                                            TextStyle(color: Colors.white54)),
                                   ),
                                 ],
                                 onChanged: (v) {
@@ -327,7 +338,8 @@ class PlaybackControls extends StatelessWidget {
                                                 .textTheme
                                                 .bodySmall
                                                 ?.copyWith(
-                                                  color: i == player.currentIndex
+                                                  color: i ==
+                                                          player.currentIndex
                                                       ? cs.onPrimaryContainer
                                                       : cs.onSurfaceVariant,
                                                 ),
@@ -388,7 +400,8 @@ class PlaybackControls extends StatelessWidget {
                         if (idx >= 0) {
                           final offset = (idx * 72.0) - 100;
                           scrollCtrl.animateTo(
-                            offset.clamp(0, scrollCtrl.position.maxScrollExtent),
+                            offset.clamp(
+                                0, scrollCtrl.position.maxScrollExtent),
                             duration: const Duration(milliseconds: 300),
                             curve: Curves.easeInOut,
                           );
@@ -416,14 +429,15 @@ class PlaybackControls extends StatelessWidget {
   static void _showAddToPlaylist(BuildContext context, PlayerProvider player) {
     final song = player.currentSong;
     if (song == null) return;
-    showM3ModalBottomSheet(
+    showAppBottomSheet(
       context: context,
       builder: (_) => SafeArea(
         child: Consumer<PlaylistProvider>(
           builder: (_, pp, __) {
             final playlists = pp.userPlaylists;
             if (playlists.isEmpty) {
-              return emptyStateWidget(ThemeAssets.emptyPlaylist, Icons.playlist_add, '暂无歌单');
+              return emptyStateWidget(
+                  ThemeAssets.emptyPlaylist, Icons.playlist_add, '暂无歌单');
             }
             return Column(
               mainAxisSize: MainAxisSize.min,
@@ -482,7 +496,7 @@ class PlaybackControls extends StatelessWidget {
   }
 
   static void _confirmClear(BuildContext context, PlayerProvider player) {
-    showM3Dialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('确认清空'),
@@ -502,9 +516,10 @@ class PlaybackControls extends StatelessWidget {
     );
   }
 
-  static void _showSaveQueueDialog(BuildContext context, PlayerProvider player, void Function(void Function()) setSheetState) {
+  static void _showSaveQueueDialog(BuildContext context, PlayerProvider player,
+      void Function(void Function()) setSheetState) {
     final nameCtrl = TextEditingController();
-    showM3Dialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('保存队列'),
@@ -539,11 +554,12 @@ class PlaybackControls extends StatelessWidget {
     );
   }
 
-  static void _saveQueueAsPlaylist(BuildContext context, PlayerProvider player) {
+  static void _saveQueueAsPlaylist(
+      BuildContext context, PlayerProvider player) {
     final songs = player.playlist;
     if (songs.isEmpty) return;
     final nameCtrl = TextEditingController();
-    showM3Dialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('将队列存为歌单'),
@@ -582,11 +598,13 @@ class PlaybackControls extends StatelessWidget {
                     final trackData = (s.hash?.isNotEmpty ?? false)
                         ? '${s.name}|${s.hash}|${s.albumId}|${s.id}'
                         : s.name;
-                    await MusicService().addTracksToPlaylist(playlistId, trackData);
+                    await MusicService()
+                        .addTracksToPlaylist(playlistId, trackData);
                   }
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('已保存 ${songs.length} 首到歌单「$name」')),
+                      SnackBar(
+                          content: Text('已保存 ${songs.length} 首到歌单「$name」')),
                     );
                   }
                 } else if (context.mounted) {
@@ -596,8 +614,8 @@ class PlaybackControls extends StatelessWidget {
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text('保存失败：${friendlyError(e)}')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('保存失败：${friendlyError(e)}')));
                 }
               }
             },

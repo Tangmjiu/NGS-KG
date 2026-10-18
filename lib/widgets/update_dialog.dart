@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
+import '../ui/app_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/update_checker.dart';
 
 /// 发现新版本弹窗
 Future<void> showUpdateDialog(BuildContext context, ReleaseInfo release) {
-  return showM3Dialog(
+  return showAppDialog(
     context: context,
     barrierDismissible: false,
     builder: (ctx) => AlertDialog(
@@ -26,7 +26,8 @@ Future<void> showUpdateDialog(BuildContext context, ReleaseInfo release) {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.green.withValues(alpha: 0.15),
                     borderRadius: AppShape.sm,

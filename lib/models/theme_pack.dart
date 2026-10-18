@@ -1,74 +1,84 @@
+// SPDX-License-Identifier: MIT
 import 'package:flutter/material.dart';
 
-/// 动效配置
+import '../theme/app_theme_tokens.dart';
+import '../theme/theme_manifest_adapter.dart';
+
+Map<String, dynamic> _map(Object? value) => ThemeManifestAdapter.map(value);
+String? _string(Object? value) =>
+    value is String && value.isNotEmpty ? value : null;
+double _number(Object? value, double fallback, double min, double max) =>
+    value is num && value.isFinite
+        ? value.toDouble().clamp(min, max)
+        : fallback;
+
 @immutable
 class ThemeMotion {
   final double durationScale;
   final String curve;
-
-  const ThemeMotion({this.durationScale = 1.0, this.curve = 'emphasized'});
-
-  static const ThemeMotion defaults = ThemeMotion();
-
-  Curve get resolvedCurve {
-    return switch (curve) {
-      'standard' => Curves.easeInOut,
-      'linear' => Curves.linear,
-      _ => Curves.fastOutSlowIn, // 'emphasized' or fallback
-    };
-  }
-
-  Duration scale(Duration d) =>
-      Duration(milliseconds: (d.inMilliseconds * durationScale).round());
+  const ThemeMotion({this.durationScale = 1, this.curve = 'emphasized'});
+  static const defaults = ThemeMotion();
+  Curve get resolvedCurve => switch (curve) {
+        'standard' => const Cubic(0.2, 0, 0, 1),
+        'linear' => Curves.linear,
+        _ => Curves.easeInOutCubicEmphasized,
+      };
+  Duration scale(Duration duration) =>
+      Duration(milliseconds: (duration.inMilliseconds * durationScale).round());
+  factory ThemeMotion.fromJson(Map<String, dynamic> json) => ThemeMotion(
+        durationScale: _number(json['durationScale'], 1, 0.5, 2),
+        curve:
+            const ['standard', 'linear', 'emphasized'].contains(json['curve'])
+                ? json['curve'] as String
+                : 'emphasized',
+      );
+  Map<String, dynamic> toJson() =>
+      {'durationScale': durationScale, 'curve': curve};
 }
 
-/// 组件偏好
 @immutable
 class ThemeComponents {
   final double navigationBarElevation;
   final double cardElevation;
   final double dialogElevation;
-
-  const ThemeComponents({
-    this.navigationBarElevation = 0,
-    this.cardElevation = 0,
-    this.dialogElevation = 0,
-  });
-
-  static const ThemeComponents defaults = ThemeComponents();
+  const ThemeComponents(
+      {this.navigationBarElevation = 0,
+      this.cardElevation = 0,
+      this.dialogElevation = 0});
+  static const defaults = ThemeComponents();
+  factory ThemeComponents.fromJson(Map<String, dynamic> json) =>
+      ThemeComponents(
+        navigationBarElevation:
+            _number(json['navigationBarElevation'], 0, 0, 24),
+        cardElevation: _number(json['cardElevation'], 0, 0, 24),
+        dialogElevation: _number(json['dialogElevation'], 0, 0, 24),
+      );
+  Map<String, dynamic> toJson() => {
+        'navigationBarElevation': navigationBarElevation,
+        'cardElevation': cardElevation,
+        'dialogElevation': dialogElevation,
+      };
 }
 
-/// 字体权重文件映射
 @immutable
 class FontWeightFiles {
   final String regular;
   final String? medium;
   final String? bold;
-
-  const FontWeightFiles({
-    required this.regular,
-    this.medium,
-    this.bold,
-  });
-
-  // ── 序列化 ──
-
+  const FontWeightFiles({required this.regular, this.medium, this.bold});
   Map<String, dynamic> toJson() => {
-    'regular': regular,
-    'medium': medium,
-    'bold': bold,
-  };
-
+        'regular': regular,
+        'medium': medium,
+        'bold': bold,
+      };
   static FontWeightFiles fromJson(Map<String, dynamic> json) => FontWeightFiles(
-    regular: json['regular'] as String? ?? '',
-    medium: json['medium'] as String?,
-    bold: json['bold'] as String?,
-  );
+        regular: _string(json['regular']) ?? '',
+        medium: _string(json['medium']),
+        bold: _string(json['bold']),
+      );
 }
 
-/// 统一主题包模型
-///
-/// 所有主题（内置 + 导入 ZIP）统一用此模型表示。
+/// 安装后统一使用的主题模型；旧清单仅在解析边界做字段迁移。
 @immutable
 class ThemePack {
   final String id;
@@ -78,38 +88,23 @@ class ThemePack {
   final String? description;
   final bool isBuiltIn;
   final String? previewPath;
-
-  // ── 颜色（null = 不由包提供，走 fromSeed 自动生成） ──
   final ColorScheme? lightScheme;
   final ColorScheme? darkScheme;
-
-  // ── 字体 ──
   final String? fontFamily;
   final FontWeightFiles? fontWeightFiles;
-
-  // ── 形状覆盖 ──
   final Map<String, double>? shapes;
-
-  // ── 动效 ──
   final ThemeMotion motion;
-
-  // ── 组件偏好 ──
   final ThemeComponents components;
-
-  // ── 资源图 {key → 文件绝对路径} ──
   final Map<String, String>? assetFiles;
-
-  // ── 播放器壁纸 ──
   final String? playerBgPath;
-
-  // ── 歌词显示设置覆盖（来自主题包 JSON） ──
   final Map<String, dynamic>? lyricSettingsOverride;
+  final AppThemeTokens? tokens;
 
   const ThemePack({
     required this.id,
     required this.name,
     required this.author,
-    this.version = 1,
+    this.version = 3,
     this.description,
     this.isBuiltIn = false,
     this.previewPath,
@@ -123,259 +118,227 @@ class ThemePack {
     this.assetFiles,
     this.playerBgPath,
     this.lyricSettingsOverride,
+    this.tokens,
   });
 
-  /// 是否有完整 30 色色板
-  bool get hasFullColors => lightScheme != null;
+  bool get hasFullColors => lightScheme != null || darkScheme != null;
 
-  // ── 序列化 ──
-
-  /// 将主题包序列化为 JSON-compatible map。
-  Map<String, dynamic> toJson() {
-    Map<String, dynamic> componentsJson() => {
-      'navigationBarElevation': components.navigationBarElevation,
-      'cardElevation': components.cardElevation,
-      'dialogElevation': components.dialogElevation,
+  factory ThemePack.fromJson(Map<String, dynamic> source) {
+    final json = ThemeManifestAdapter.normalize(source);
+    final shapeMap = _map(json['shapes']);
+    final shapes = <String, double>{
+      for (final entry in shapeMap.entries)
+        if (entry.value is num && (entry.value as num).isFinite)
+          entry.key: _number(entry.value, 0, 0, 64),
     };
-
-    Map<String, double>? shapeJson(Map<String, double>? s) =>
-        s?.map((k, v) => MapEntry(k, v));
-
-    return {
-      'id': id,
-      'name': name,
-      'author': author,
-      'version': version,
-      'description': description,
-      'isBuiltIn': isBuiltIn,
-      'previewPath': previewPath,
-      'assetFiles': assetFiles,
-      'playerBgPath': playerBgPath,
-      'fontFamily': fontFamily,
-      'fontWeightFiles': fontWeightFiles?.toJson(),
-      'shapes': shapeJson(shapes),
-      'motion': {
-        'durationScale': motion.durationScale,
-        'curve': motion.curve,
-      },
-      'components': componentsJson(),
-      if (lightScheme != null)
-        'lightScheme': _serializeColorScheme(lightScheme!),
-      if (darkScheme != null)
-        'darkScheme': _serializeColorScheme(darkScheme!),
-      if (lyricSettingsOverride != null)
-        'lyricSettingsOverride': lyricSettingsOverride,
+    final assets = <String, String>{
+      for (final entry in _map(json['assetFiles']).entries)
+        if (_string(entry.value) != null) entry.key: entry.value as String,
     };
-  }
-
-  /// 从 JSON map 反序列化 ThemePack。
-  /// 用于启动时从磁盘加载已安装的主题。
-  factory ThemePack.fromJson(Map<String, dynamic> json) {
-    Map<String, double>? parseShapes(dynamic s) {
-      if (s == null) return null;
-      return (s as Map<String, dynamic>)
-          .map((k, v) => MapEntry(k, (v as num).toDouble()));
-    }
-
+    final lyrics = _map(json['lyricSettingsOverride']);
+    final fonts = _map(json['fontWeightFiles']);
     return ThemePack(
-      id: json['id'] as String? ?? '',
-      name: json['name'] as String? ?? '未命名主题',
-      author: json['author'] as String? ?? '未知作者',
-      version: json['version'] as int? ?? 1,
-      description: json['description'] as String?,
-      isBuiltIn: json['isBuiltIn'] as bool? ?? false,
-      previewPath: json['previewPath'] as String?,
-      assetFiles: (json['assetFiles'] as Map<String, dynamic>?)
-          ?.cast<String, String>(),
-      playerBgPath: json['playerBgPath'] as String?,
-      fontFamily: json['fontFamily'] as String?,
-      fontWeightFiles: json['fontWeightFiles'] != null
-          ? FontWeightFiles.fromJson(
-              json['fontWeightFiles'] as Map<String, dynamic>)
-          : null,
-      shapes: parseShapes(json['shapes']),
-      motion: json['motion'] != null
-          ? ThemeMotion(
-              durationScale:
-                  (json['motion']['durationScale'] as num?)?.toDouble() ?? 1.0,
-              curve: (json['motion']['curve'] as String?) ?? 'emphasized',
-            )
-          : ThemeMotion.defaults,
-      components: json['components'] != null
-          ? ThemeComponents(
-              navigationBarElevation: (json['components']
-                      ['navigationBarElevation'] as num?)
-                  ?.toDouble() ?? 0,
-              cardElevation:
-                  (json['components']['cardElevation'] as num?)?.toDouble() ??
-                      0,
-              dialogElevation:
-                  (json['components']['dialogElevation'] as num?)?.toDouble() ??
-                      0,
-            )
-          : ThemeComponents.defaults,
-      lightScheme: json['lightScheme'] != null
-          ? _parseColorScheme(
-              json['lightScheme'] as Map<String, dynamic>, Brightness.light)
-          : null,
-      darkScheme: json['darkScheme'] != null
-          ? _parseColorScheme(
-              json['darkScheme'] as Map<String, dynamic>, Brightness.dark)
-          : null,
-      lyricSettingsOverride: json['lyricSettingsOverride']
-          as Map<String, dynamic>?,
+      id: _string(json['id']) ?? '',
+      name: _string(json['name']) ?? '未命名主题',
+      author: _string(json['author']) ?? '未知作者',
+      version: json['version'] is int ? json['version'] as int : 1,
+      description: _string(json['description']),
+      isBuiltIn: json['isBuiltIn'] == true,
+      previewPath: _string(json['previewPath']),
+      lightScheme:
+          parseThemeColors(_map(json['lightScheme']), Brightness.light),
+      darkScheme: parseThemeColors(_map(json['darkScheme']), Brightness.dark),
+      fontFamily: _string(json['fontFamily']),
+      fontWeightFiles: fonts.isEmpty ? null : FontWeightFiles.fromJson(fonts),
+      shapes: shapes.isEmpty ? null : Map.unmodifiable(shapes),
+      motion: ThemeMotion.fromJson(_map(json['motion'])),
+      components: ThemeComponents.fromJson(_map(json['components'])),
+      assetFiles: assets.isEmpty ? null : Map.unmodifiable(assets),
+      playerBgPath: _string(json['playerBgPath']),
+      lyricSettingsOverride: lyrics.isEmpty
+          ? null
+          : Map.unmodifiable({
+              if (lyrics['fontSize'] is num)
+                'fontSize': _number(lyrics['fontSize'], 16, 12, 28),
+              if (lyrics['fontWeight'] is num)
+                'fontWeight': _number(lyrics['fontWeight'], 400, 100, 900),
+              if (lyrics['centerAlign'] is bool)
+                'centerAlign': lyrics['centerAlign'],
+              if (lyrics['blurEffect'] is bool)
+                'blurEffect': lyrics['blurEffect'],
+            }),
+      tokens: AppThemeTokens.fromJson(_map(json['design'])),
     );
   }
 
-  /// UI 覆盖能力清单
-  List<String> get featureTags {
-    final tags = <String>[];
-    if (hasFullColors) tags.add('完整色板');
-    final assetCount = assetFiles?.length ?? 0;
-    if (assetCount > 6) tags.add('占位图');
-    if (fontFamily != null) tags.add('自定义字体');
-    if (shapes != null) tags.add('自定义形状');
-    if (playerBgPath != null) tags.add('播放器壁纸');
-    if (assetFiles?.containsKey('hi_res_badge') == true) tags.add('Hi-Res 金标');
-    if (motion.durationScale != 1.0) tags.add('自定义动效');
-    return tags;
-  }
+  Map<String, dynamic> toJson() => {
+        'schemaVersion': 3,
+        'id': id,
+        'name': name,
+        'author': author,
+        'version': version,
+        'description': description,
+        'isBuiltIn': isBuiltIn,
+        'previewPath': previewPath,
+        'assetFiles': assetFiles,
+        'playerBgPath': playerBgPath,
+        'fontFamily': fontFamily,
+        'fontWeightFiles': fontWeightFiles?.toJson(),
+        'shapes': shapes,
+        'motion': motion.toJson(),
+        'components': components.toJson(),
+        'design': (tokens ?? AppThemeTokens.defaults).toJson(),
+        if (lightScheme != null)
+          'lightScheme': serializeThemeColors(lightScheme!),
+        if (darkScheme != null) 'darkScheme': serializeThemeColors(darkScheme!),
+        if (lyricSettingsOverride != null)
+          'lyricSettingsOverride': lyricSettingsOverride,
+      };
+
+  List<String> get featureTags => [
+        if (hasFullColors) '完整色板',
+        if ((assetFiles?.length ?? 0) > 6) '占位图',
+        if (fontFamily != null) '自定义字体',
+        if (shapes != null) '自定义形状',
+        if (playerBgPath != null) '播放器壁纸',
+        if (assetFiles?.containsKey('hi_res_badge') == true) 'Hi-Res 金标',
+        if (motion.durationScale != 1) '自定义动效',
+      ];
 }
 
-// ─────────────────────────────────────────────────────────────
-//  序列化
-// ─────────────────────────────────────────────────────────────
+Color? _parseColor(Object? value) {
+  if (value is! String) return null;
+  final hex = value.replaceFirst('#', '');
+  if (!RegExp(r'^(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$').hasMatch(hex)) {
+    return null;
+  }
+  final number = int.parse(hex, radix: 16);
+  return Color(hex.length == 6 ? 0xff000000 | number : number);
+}
 
-/// 将 ColorScheme 序列化为 {属性名 → '#RRGGBB'} 映射。
-Map<String, String> _serializeColorScheme(ColorScheme s) {
-  String colorHex(Color c) =>
-      '#${c.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+ColorScheme? parseThemeColors(
+    Map<String, dynamic> colors, Brightness brightness) {
+  if (colors.isEmpty) return null;
+  final base = ColorScheme.fromSeed(
+    seedColor: _parseColor(colors['primary']) ?? const Color(0xFF2CA1F4),
+    brightness: brightness,
+  );
+  return base.copyWith(
+    primary: _parseColor(colors['primary']),
+    onPrimary: _parseColor(colors['onPrimary']),
+    primaryContainer: _parseColor(colors['primaryContainer']),
+    onPrimaryContainer: _parseColor(colors['onPrimaryContainer']),
+    primaryFixed: _parseColor(colors['primaryFixed']),
+    primaryFixedDim: _parseColor(colors['primaryFixedDim']),
+    onPrimaryFixed: _parseColor(colors['onPrimaryFixed']),
+    onPrimaryFixedVariant: _parseColor(colors['onPrimaryFixedVariant']),
+    secondary: _parseColor(colors['secondary']),
+    onSecondary: _parseColor(colors['onSecondary']),
+    secondaryContainer: _parseColor(colors['secondaryContainer']),
+    onSecondaryContainer: _parseColor(colors['onSecondaryContainer']),
+    secondaryFixed: _parseColor(colors['secondaryFixed']),
+    secondaryFixedDim: _parseColor(colors['secondaryFixedDim']),
+    onSecondaryFixed: _parseColor(colors['onSecondaryFixed']),
+    onSecondaryFixedVariant: _parseColor(colors['onSecondaryFixedVariant']),
+    tertiary: _parseColor(colors['tertiary']),
+    onTertiary: _parseColor(colors['onTertiary']),
+    tertiaryContainer: _parseColor(colors['tertiaryContainer']),
+    onTertiaryContainer: _parseColor(colors['onTertiaryContainer']),
+    tertiaryFixed: _parseColor(colors['tertiaryFixed']),
+    tertiaryFixedDim: _parseColor(colors['tertiaryFixedDim']),
+    onTertiaryFixed: _parseColor(colors['onTertiaryFixed']),
+    onTertiaryFixedVariant: _parseColor(colors['onTertiaryFixedVariant']),
+    error: _parseColor(colors['error']),
+    onError: _parseColor(colors['onError']),
+    errorContainer: _parseColor(colors['errorContainer']),
+    onErrorContainer: _parseColor(colors['onErrorContainer']),
+    surface: _parseColor(colors['surface']),
+    surfaceDim: _parseColor(colors['surfaceDim']),
+    surfaceBright: _parseColor(colors['surfaceBright']),
+    surfaceContainerLowest: _parseColor(colors['surfaceContainerLowest']),
+    surfaceContainerLow: _parseColor(colors['surfaceContainerLow']),
+    surfaceContainer: _parseColor(colors['surfaceContainer']),
+    surfaceContainerHigh: _parseColor(colors['surfaceContainerHigh']),
+    surfaceContainerHighest: _parseColor(colors['surfaceContainerHighest']),
+    onSurface: _parseColor(colors['onSurface']),
+    onSurfaceVariant: _parseColor(colors['onSurfaceVariant']),
+    outline: _parseColor(colors['outline']),
+    outlineVariant: _parseColor(colors['outlineVariant']),
+    shadow: _parseColor(colors['shadow']),
+    scrim: _parseColor(colors['scrim']),
+    inverseSurface: _parseColor(colors['inverseSurface']),
+    onInverseSurface: _parseColor(colors['onInverseSurface']),
+    inversePrimary: _parseColor(colors['inversePrimary']),
+    surfaceTint: _parseColor(colors['surfaceTint']),
+  );
+}
+
+Map<String, String> serializeThemeColors(ColorScheme colors) {
+  String hex(Color color) {
+    final value =
+        color.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase();
+    return '#${value.startsWith('FF') ? value.substring(2) : value}';
+  }
+
   return {
-      'primary': colorHex(s.primary),
-      'onPrimary': colorHex(s.onPrimary),
-      'primaryContainer': colorHex(s.primaryContainer),
-      'onPrimaryContainer': colorHex(s.onPrimaryContainer),
-      'secondary': colorHex(s.secondary),
-      'onSecondary': colorHex(s.onSecondary),
-      'secondaryContainer': colorHex(s.secondaryContainer),
-      'onSecondaryContainer': colorHex(s.onSecondaryContainer),
-      'tertiary': colorHex(s.tertiary),
-      'onTertiary': colorHex(s.onTertiary),
-      'tertiaryContainer': colorHex(s.tertiaryContainer),
-      'onTertiaryContainer': colorHex(s.onTertiaryContainer),
-      'error': colorHex(s.error),
-      'onError': colorHex(s.onError),
-      'errorContainer': colorHex(s.errorContainer),
-      'onErrorContainer': colorHex(s.onErrorContainer),
-      'surface': colorHex(s.surface),
-      'surfaceDim': colorHex(s.surfaceDim),
-      'surfaceBright': colorHex(s.surfaceBright),
-      'surfaceContainerLowest': colorHex(s.surfaceContainerLowest),
-      'surfaceContainerLow': colorHex(s.surfaceContainerLow),
-      'surfaceContainer': colorHex(s.surfaceContainer),
-      'surfaceContainerHigh': colorHex(s.surfaceContainerHigh),
-      'surfaceContainerHighest': colorHex(s.surfaceContainerHighest),
-      'onSurface': colorHex(s.onSurface),
-      'onSurfaceVariant': colorHex(s.onSurfaceVariant),
-      'outline': colorHex(s.outline),
-      'outlineVariant': colorHex(s.outlineVariant),
-      'inverseSurface': colorHex(s.inverseSurface),
-      'inversePrimary': colorHex(s.inversePrimary),
+    'primary': hex(colors.primary),
+    'onPrimary': hex(colors.onPrimary),
+    'primaryContainer': hex(colors.primaryContainer),
+    'onPrimaryContainer': hex(colors.onPrimaryContainer),
+    'primaryFixed': hex(colors.primaryFixed),
+    'primaryFixedDim': hex(colors.primaryFixedDim),
+    'onPrimaryFixed': hex(colors.onPrimaryFixed),
+    'onPrimaryFixedVariant': hex(colors.onPrimaryFixedVariant),
+    'secondary': hex(colors.secondary),
+    'onSecondary': hex(colors.onSecondary),
+    'secondaryContainer': hex(colors.secondaryContainer),
+    'onSecondaryContainer': hex(colors.onSecondaryContainer),
+    'secondaryFixed': hex(colors.secondaryFixed),
+    'secondaryFixedDim': hex(colors.secondaryFixedDim),
+    'onSecondaryFixed': hex(colors.onSecondaryFixed),
+    'onSecondaryFixedVariant': hex(colors.onSecondaryFixedVariant),
+    'tertiary': hex(colors.tertiary),
+    'onTertiary': hex(colors.onTertiary),
+    'tertiaryContainer': hex(colors.tertiaryContainer),
+    'onTertiaryContainer': hex(colors.onTertiaryContainer),
+    'tertiaryFixed': hex(colors.tertiaryFixed),
+    'tertiaryFixedDim': hex(colors.tertiaryFixedDim),
+    'onTertiaryFixed': hex(colors.onTertiaryFixed),
+    'onTertiaryFixedVariant': hex(colors.onTertiaryFixedVariant),
+    'error': hex(colors.error),
+    'onError': hex(colors.onError),
+    'errorContainer': hex(colors.errorContainer),
+    'onErrorContainer': hex(colors.onErrorContainer),
+    'surface': hex(colors.surface),
+    'surfaceDim': hex(colors.surfaceDim),
+    'surfaceBright': hex(colors.surfaceBright),
+    'surfaceContainerLowest': hex(colors.surfaceContainerLowest),
+    'surfaceContainerLow': hex(colors.surfaceContainerLow),
+    'surfaceContainer': hex(colors.surfaceContainer),
+    'surfaceContainerHigh': hex(colors.surfaceContainerHigh),
+    'surfaceContainerHighest': hex(colors.surfaceContainerHighest),
+    'onSurface': hex(colors.onSurface),
+    'onSurfaceVariant': hex(colors.onSurfaceVariant),
+    'outline': hex(colors.outline),
+    'outlineVariant': hex(colors.outlineVariant),
+    'shadow': hex(colors.shadow),
+    'scrim': hex(colors.scrim),
+    'inverseSurface': hex(colors.inverseSurface),
+    'onInverseSurface': hex(colors.onInverseSurface),
+    'inversePrimary': hex(colors.inversePrimary),
+    'surfaceTint': hex(colors.surfaceTint),
   };
 }
-
-/// 从 {属性名 → '#RRGGBB'} 映射反序列化 ColorScheme。
-ColorScheme _parseColorScheme(Map<String, dynamic> data, Brightness brightness) {
-  Color c(String key, Color fallback) {
-    final v = data[key] as String?;
-    if (v == null || v.isEmpty) return fallback;
-    final h = v.replaceFirst('#', '');
-    final val = int.tryParse(h, radix: 16);
-    if (val == null) return fallback;
-    return Color(0xFF000000 | val);
-  }
-
-  if (brightness == Brightness.light) {
-    return ColorScheme.light(
-      primary: c('primary', const Color(0xFF2CA1F4)),
-      onPrimary: c('onPrimary', const Color(0xFFFFFFFF)),
-      primaryContainer: c('primaryContainer', const Color(0xFFD2E5FF)),
-      onPrimaryContainer: c('onPrimaryContainer', const Color(0xFF001D35)),
-      secondary: c('secondary', const Color(0xFF565F71)),
-      onSecondary: c('onSecondary', const Color(0xFFFFFFFF)),
-      secondaryContainer: c('secondaryContainer', const Color(0xFFDAE2F9)),
-      onSecondaryContainer: c('onSecondaryContainer', const Color(0xFF131C2B)),
-      tertiary: c('tertiary', const Color(0xFF6E5676)),
-      onTertiary: c('onTertiary', const Color(0xFFFFFFFF)),
-      tertiaryContainer: c('tertiaryContainer', const Color(0xFFF8D8FE)),
-      onTertiaryContainer: c('onTertiaryContainer', const Color(0xFF271430)),
-      error: c('error', const Color(0xFFBA1A1A)),
-      onError: c('onError', const Color(0xFFFFFFFF)),
-      errorContainer: c('errorContainer', const Color(0xFFFFDAD6)),
-      onErrorContainer: c('onErrorContainer', const Color(0xFF410002)),
-      surface: c('surface', const Color(0xFFFDF8FF)),
-      surfaceDim: c('surfaceDim', const Color(0xFFDED8E1)),
-      surfaceBright: c('surfaceBright', const Color(0xFFFDF8FF)),
-      surfaceContainerLowest: c('surfaceContainerLowest', const Color(0xFFFFFFFF)),
-      surfaceContainerLow: c('surfaceContainerLow', const Color(0xFFF7F2FB)),
-      surfaceContainer: c('surfaceContainer', const Color(0xFFF2ECF5)),
-      surfaceContainerHigh: c('surfaceContainerHigh', const Color(0xFFEBE6EF)),
-      surfaceContainerHighest: c('surfaceContainerHighest', const Color(0xFFE0DAE3)),
-      onSurface: c('onSurface', const Color(0xFF1C1B1F)),
-      onSurfaceVariant: c('onSurfaceVariant', const Color(0xFF49454F)),
-      outline: c('outline', const Color(0xFF7A7580)),
-      outlineVariant: c('outlineVariant', const Color(0xFFCAC4CD)),
-      inverseSurface: c('inverseSurface', const Color(0xFF313033)),
-      inversePrimary: c('inversePrimary', const Color(0xFFA9D0FF)),
-    );
-  } else {
-    return ColorScheme.dark(
-      primary: c('primary', const Color(0xFFAAC7FF)),
-      onPrimary: c('onPrimary', const Color(0xFF003258)),
-      primaryContainer: c('primaryContainer', const Color(0xFF00497D)),
-      onPrimaryContainer: c('onPrimaryContainer', const Color(0xFFD2E5FF)),
-      secondary: c('secondary', const Color(0xFFBEC6DC)),
-      onSecondary: c('onSecondary', const Color(0xFF283141)),
-      secondaryContainer: c('secondaryContainer', const Color(0xFF3E4759)),
-      onSecondaryContainer: c('onSecondaryContainer', const Color(0xFFDAE2F9)),
-      tertiary: c('tertiary', const Color(0xFFDBBDE2)),
-      onTertiary: c('onTertiary', const Color(0xFF3D2846)),
-      tertiaryContainer: c('tertiaryContainer', const Color(0xFF553F5D)),
-      onTertiaryContainer: c('onTertiaryContainer', const Color(0xFFF8D8FE)),
-      error: c('error', const Color(0xFFFFB4AB)),
-      onError: c('onError', const Color(0xFF690005)),
-      errorContainer: c('errorContainer', const Color(0xFF93000A)),
-      onErrorContainer: c('onErrorContainer', const Color(0xFFFFDAD6)),
-      surface: c('surface', const Color(0xFF141318)),
-      surfaceDim: c('surfaceDim', const Color(0xFF141318)),
-      surfaceBright: c('surfaceBright', const Color(0xFF3A383E)),
-      surfaceContainerLowest: c('surfaceContainerLowest', const Color(0xFF0E0E13)),
-      surfaceContainerLow: c('surfaceContainerLow', const Color(0xFF1C1B20)),
-      surfaceContainer: c('surfaceContainer', const Color(0xFF201F24)),
-      surfaceContainerHigh: c('surfaceContainerHigh', const Color(0xFF2B292F)),
-      surfaceContainerHighest: c('surfaceContainerHighest', const Color(0xFF36343A)),
-      onSurface: c('onSurface', const Color(0xFFE6E1E6)),
-      onSurfaceVariant: c('onSurfaceVariant', const Color(0xFFCAC4CD)),
-      outline: c('outline', const Color(0xFF948F99)),
-      outlineVariant: c('outlineVariant', const Color(0xFF49454F)),
-      inverseSurface: c('inverseSurface', const Color(0xFFE6E1E6)),
-      inversePrimary: c('inversePrimary', const Color(0xFF00619F)),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-//  内置主题包常量
-// ─────────────────────────────────────────────────────────────
 
 /// NGS 凪砂 — 默认主题
 const ThemePack ngsNagisa = ThemePack(
   id: 'ngs_nagisa',
   name: 'Ran Nagisa',
   author: 'mjiutang',
-  version: 1,
+  version: 3,
   isBuiltIn: true,
   description: 'Welcome to Garden of Eden',
+  tokens: AppThemeTokens.defaults,
   lightScheme: ColorScheme.light(
     primary: Color(0xFFFF6633),
     onPrimary: Color(0xFFFFFFFF),

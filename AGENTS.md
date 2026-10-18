@@ -13,10 +13,10 @@
 
 ## Entrypoints & architecture
 
-- **App entry**: `lib/main.dart` → `MultiProvider` wraps 8+ providers → `NGSKGApp` → `DesktopShell` (home).
-- **Desktop shell** (`lib/widgets/desktop_shell.dart`) owns the sidebar + nav; mobile screens nest inside it.
-  - On mobile, only `PlayerScreen` and `SettingsScreen` are pushed on top of the shell.
-  - On desktop, the shell renders charts, playlists, player inline — routes are used mainly for mobile.
+- **应用入口**：`lib/main.dart` → `MultiProvider` → `NGSKGApp` → `MaterialApp`。`AppMotionScope` 将系统减少动效偏好传给全局 UI；`lib/ui/shell/app_shell.dart` 承载页面导航器、背景、常驻播放器和启动提示。
+- **主导航**：`HomeScreen` 管理首页、发现、搜索、资料库。页面首次访问才加载；`AppTabView` 保留页面状态。可用宽度达到 600 时，`AppNavigation` 从底部导航切为侧边导航。
+- **UI 基础**：`lib/ui/foundation/` 保存布局和动效，`lib/ui/components/` 保存公共组件，`lib/ui/previews.dart` 提供独立组件预览。全屏播放器保留独立播放视觉。
+- **兼容入口**：资料库为 `LibraryScreen`，电台为 `RadioScreen`；旧 `/fm` 路由仍可用，私人 FM 位于发现页。
 - **Global nav key**: `lib/utils/navigation.dart` exports `navKey` — used by notification actions, dialogs, and anything that needs `BuildContext` outside the widget tree.
 - **Router**: `lib/routes/app_routes.dart` — named routes via `onGenerateRoute`. Not a router package.
 - **Layer stack**: `ApiClient` (Dio) → `BaseRepository` → `SongRepository` etc. → `MusicService` → `*Provider` → UI.
@@ -59,7 +59,9 @@
 
 ## Themes
 
-- Uses `flex_color_scheme` + `dynamic_color` (Android 12+ Material You).
+- `lib/theme/app_theme.dart` 是主题构建入口，使用 Material 3 和 `dynamic_color`（Android 12+ 系统配色）。
+- `theme_manifest_adapter.dart` 负责旧主题清单迁移；`theme_settings_store.dart` 读取旧偏好键并写入 `theme_settings_v3`。不要在 UI 中重复旧键/旧格式判断。
+- 主题资源以独立 revision 目录安装，提交清单后再清理旧资源；兼容要求及新格式见 `THEME.md`。
 - ZIP theme packages via `archive` — see `lib/theme/` and `THEME.md`.
 - Custom fonts: bundled HarmonyOS Sans (Regular 400, Medium 500, Bold 700, Light 300).
 - `ThemeAssets` in `lib/theme/theme_assets.dart` provides player background image path with `ImageFilter.blur`.
@@ -83,10 +85,11 @@
 
 ## Tests
 
-- **Model tests** (`test/models_test.dart`): Parse Song, SongUrl, Playlist, User from various JSON formats. Run with `flutter test --no-sound-null-safety` or just `flutter test`.
+- **Model tests** (`test/models_test.dart`): Parse Song, SongUrl, Playlist, User from various JSON formats. Run with `flutter test`.
 - **Lyrics tests** (`test/lyrics_test.dart`): LRC parser unit tests.
 - **Widget smoke test** (`test/widget_test.dart`): **SKIPPED** — requires full Provider setup not available in test env. Don't enable without providing mock services.
-- Test structure is simple: no mocks, no fixture files, no integration tests.
+- 页面测试使用假的业务服务，不访问在线 API；主题迁移测试使用临时目录和偏好存储。动效测试覆盖实际像素变化、隐藏/后台停帧、减少动效和可访问交互。
+- `flutter test --no-pub --concurrency=1` 可在资源受限环境串行验证。Widget 测试不等同于 Android 真机 GPU 性能测量。
 
 ## Commands
 

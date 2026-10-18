@@ -7,7 +7,7 @@ import '../screens/rank_detail_screen.dart';
 import '../screens/artist_list_screen.dart';
 import '../screens/artist_detail_screen.dart';
 import '../screens/comments_screen.dart';
-import '../screens/fm_screen.dart';
+import '../screens/radio_screen.dart';
 import '../screens/local_music_screen.dart';
 import '../screens/player_screen.dart';
 import '../screens/history_screen.dart';
@@ -39,6 +39,7 @@ class AppRoutes {
   static const String artistDetail = '/artist/detail';
   static const String comments = '/comments';
   static const String fm = '/fm';
+  static const String radio = '/radio';
   static const String localMusic = '/local/music';
   static const String player = '/player';
   static const String history = '/history';
@@ -111,7 +112,8 @@ class AppRoutes {
           ),
         );
       case fm:
-        return MaterialPageRoute(builder: (_) => const FmScreen());
+      case radio:
+        return MaterialPageRoute(builder: (_) => const RadioScreen());
       case localMusic:
         return MaterialPageRoute(builder: (_) => const LocalMusicScreen());
       case player:
@@ -168,25 +170,19 @@ class AppRoutes {
           ),
         );
       case AppRoutes.apiSettings:
-        return MaterialPageRoute(
-            builder: (_) => const ApiSettingsScreen());
+        return MaterialPageRoute(builder: (_) => const ApiSettingsScreen());
       case AppRoutes.themeSettings:
-        return MaterialPageRoute(
-            builder: (_) => const ThemeSettingsScreen());
+        return MaterialPageRoute(builder: (_) => const ThemeSettingsScreen());
       case AppRoutes.themeMarket:
-        return MaterialPageRoute(
-            builder: (_) => const ThemeMarketScreen());
+        return MaterialPageRoute(builder: (_) => const ThemeMarketScreen());
       case AppRoutes.audioEffects:
-        return MaterialPageRoute(
-            builder: (_) => const AudioEffectsScreen());
+        return MaterialPageRoute(builder: (_) => const AudioEffectsScreen());
       case AppRoutes.about:
         return MaterialPageRoute(builder: (_) => const AboutScreen());
       case AppRoutes.logViewer:
-        return MaterialPageRoute(
-            builder: (_) => const LogViewerScreen());
+        return MaterialPageRoute(builder: (_) => const LogViewerScreen());
       case AppRoutes.lyricSettings:
-        return MaterialPageRoute(
-            builder: (_) => const LyricSettingsScreen());
+        return MaterialPageRoute(builder: (_) => const LyricSettingsScreen());
       default:
         return _fallback();
     }

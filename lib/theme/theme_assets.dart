@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/theme_pack.dart';
@@ -35,9 +36,9 @@ class ThemeAssets {
   static String hiResBadge = 'assets/images/hi_res_badge.jpg';
 
   // ─── 空状态 / 失败插画（主题包可覆盖） ───
-  static String emptyPlaylist = _defEmptyPlaylist;  // 歌单/收藏为空
-  static String emptyContent = _defEmptyContent;   // 通用空数据（暂无歌曲/评论等）
-  static String loadFailed = _defLoadFailed;       // 加载失败
+  static String emptyPlaylist = _defEmptyPlaylist; // 歌单/收藏为空
+  static String emptyContent = _defEmptyContent; // 通用空数据（暂无歌曲/评论等）
+  static String loadFailed = _defLoadFailed; // 加载失败
 
   /// 是否有自定义主题资源生效
   static bool get hasCustomAssets =>
@@ -48,6 +49,17 @@ class ThemeAssets {
 
   /// 从 ThemePack 加载资源
   static void loadFromThemePack(ThemePack pack) {
+    resetToDefault();
+    playerBg = pack.playerBgPath ?? '';
+    if (pack.id == 'md3_default') {
+      sthiswrong = '';
+      codecrash = '';
+      loading = '';
+      ban = '';
+      emptyPlaylist = '';
+      emptyContent = '';
+      loadFailed = '';
+    }
     final files = pack.assetFiles;
     if (files == null) return;
 
@@ -57,11 +69,21 @@ class ThemeAssets {
     if (files.containsKey('ban')) ban = files['ban']!;
     if (files.containsKey('supportme')) supportMe = files['supportme']!;
     if (files.containsKey('icon')) icon = files['icon']!;
-    if (files.containsKey('album_placeholder')) albumPlaceholder = files['album_placeholder']!;
-    if (files.containsKey('playlist_placeholder')) playlistPlaceholder = files['playlist_placeholder']!;
-    if (files.containsKey('artist_placeholder')) artistPlaceholder = files['artist_placeholder']!;
-    if (files.containsKey('empty_playlist')) emptyPlaylist = files['empty_playlist']!;
-    if (files.containsKey('empty_content')) emptyContent = files['empty_content']!;
+    if (files.containsKey('album_placeholder')) {
+      albumPlaceholder = files['album_placeholder']!;
+    }
+    if (files.containsKey('playlist_placeholder')) {
+      playlistPlaceholder = files['playlist_placeholder']!;
+    }
+    if (files.containsKey('artist_placeholder')) {
+      artistPlaceholder = files['artist_placeholder']!;
+    }
+    if (files.containsKey('empty_playlist')) {
+      emptyPlaylist = files['empty_playlist']!;
+    }
+    if (files.containsKey('empty_content')) {
+      emptyContent = files['empty_content']!;
+    }
     if (files.containsKey('load_failed')) loadFailed = files['load_failed']!;
     if (files.containsKey('hi_res_badge')) hiResBadge = files['hi_res_badge']!;
 
@@ -87,19 +109,28 @@ class ThemeAssets {
   }
 }
 
+/// 同时支持内置资源和主题包解压后的文件路径。
+ImageProvider themeImageProvider(String assetPath) {
+  if (assetPath.startsWith('assets/')) return AssetImage(assetPath);
+  return FileImage(File(assetPath));
+}
+
 // ─── Helper 组件工厂 ───
 
 /// 专辑封面加载失败时的占位图
 Widget albumPlaceholderWidget({double size = 48, Color? color}) =>
-    _themedPlaceholder(ThemeAssets.albumPlaceholder, Icons.album, size: size, color: color);
+    _themedPlaceholder(ThemeAssets.albumPlaceholder, Icons.album,
+        size: size, color: color);
 
 /// 歌单封面加载失败时的占位图
 Widget playlistPlaceholderWidget({double size = 48, Color? color}) =>
-    _themedPlaceholder(ThemeAssets.playlistPlaceholder, Icons.playlist_play, size: size, color: color);
+    _themedPlaceholder(ThemeAssets.playlistPlaceholder, Icons.playlist_play,
+        size: size, color: color);
 
 /// 歌手头像加载失败时的占位图
 Widget artistPlaceholderWidget({double size = 48, Color? color}) =>
-    _themedPlaceholder(ThemeAssets.artistPlaceholder, Icons.person, size: size, color: color);
+    _themedPlaceholder(ThemeAssets.artistPlaceholder, Icons.person,
+        size: size, color: color);
 
 /// 通用占位图：有自定义路径则显示图片，否则回退到 icon
 Widget _themedPlaceholder(String assetPath, IconData fallbackIcon,
@@ -116,7 +147,8 @@ Widget _themedPlaceholder(String assetPath, IconData fallbackIcon,
 }
 
 /// 空状态组件：有主题图则显示图片，否则回退到 icon + 文字
-Widget emptyStateWidget(String assetPath, IconData fallbackIcon, String fallbackText,
+Widget emptyStateWidget(
+    String assetPath, IconData fallbackIcon, String fallbackText,
     {double iconSize = 80}) {
   if (assetPath.isNotEmpty) {
     return Padding(
@@ -133,7 +165,8 @@ Widget emptyStateWidget(String assetPath, IconData fallbackIcon, String fallback
     children: [
       Icon(fallbackIcon, size: iconSize, color: Colors.grey),
       const SizedBox(height: 16),
-      Text(fallbackText, style: TextStyle(fontSize: 14, color: Colors.grey)),
+      Text(fallbackText,
+          style: const TextStyle(fontSize: 14, color: Colors.grey)),
     ],
   );
 }
@@ -158,22 +191,18 @@ class ThemeImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pixelRatio = MediaQuery.devicePixelRatioOf(context);
-    int? cacheDimension(double? value) => value != null && value.isFinite && value > 0
-        ? (value * pixelRatio).ceil()
-        : null;
-    // 不能写成三目表达式：ImageProvider 的类型参数同时出现在返回位与参数位，
-    // 联合类型推断会退化成 Object 导致赋值失败。
-    ImageProvider provider;
-    if (assetPath.startsWith('assets/')) {
-      provider = AssetImage(assetPath);
-    } else {
-      provider = FileImage(File(assetPath));
-    }
+    int? cacheDimension(double? value) =>
+        value != null && value.isFinite && value > 0
+            ? (value * pixelRatio).ceil()
+            : null;
+    ImageProvider provider = themeImageProvider(assetPath);
     final cacheWidth = cacheDimension(width);
     final cacheHeight = cacheDimension(height);
     if (cacheWidth != null || cacheHeight != null) {
       provider = ResizeImage(provider,
-          width: cacheWidth, height: cacheHeight, policy: ResizeImagePolicy.fit);
+          width: cacheWidth,
+          height: cacheHeight,
+          policy: ResizeImagePolicy.fit);
     }
     final widget = Image(
       image: provider,

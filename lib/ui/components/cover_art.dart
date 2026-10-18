@@ -1,28 +1,32 @@
+// SPDX-License-Identifier: MIT
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import '../../theme/theme_assets.dart';
 
 /// A cover art widget that supports both `file://` URIs and network URLs.
 ///
 /// - `file://` URIs → rendered via `Image.file(File(...))`
 /// - `http://` / `https://` URLs → rendered via `CachedNetworkImage`
 /// - `null` or empty → placeholder container with a music note icon
-class LocalCoverArt extends StatelessWidget {
+class CoverArt extends StatelessWidget {
   final String? url;
   final double? size;
   final BoxFit fit;
   final double? borderRadius;
   final Uint8List? coverData;
+  final Widget? placeholder;
 
-  const LocalCoverArt({
+  const CoverArt({
     super.key,
     this.url,
     this.size,
     this.fit = BoxFit.cover,
     this.borderRadius,
     this.coverData,
+    this.placeholder,
   });
 
   @override
@@ -36,14 +40,15 @@ class LocalCoverArt extends StatelessWidget {
       height: imageSize,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(radius),
-        child: _buildContent(context, imageSize),
         key: effectiveKey,
+        child: _buildContent(context, imageSize),
       ),
     );
   }
 
   Widget _buildContent(BuildContext context, double imageSize) {
-    final cacheSize = (imageSize * MediaQuery.devicePixelRatioOf(context)).ceil();
+    final cacheSize =
+        (imageSize * MediaQuery.devicePixelRatioOf(context)).ceil();
     if (coverData != null && coverData!.isNotEmpty) {
       return Image(
         image: ResizeImage(
@@ -97,7 +102,8 @@ class LocalCoverArt extends StatelessWidget {
   }
 
   Widget _buildFileImage(File file, double imageSize, BuildContext context) {
-    final cacheSize = (imageSize * MediaQuery.devicePixelRatioOf(context)).ceil();
+    final cacheSize =
+        (imageSize * MediaQuery.devicePixelRatioOf(context)).ceil();
     return Image(
       image: ResizeImage(
         FileImage(file),
@@ -113,7 +119,8 @@ class LocalCoverArt extends StatelessWidget {
   }
 
   Widget _buildNetworkImage(BuildContext context, double imageSize) {
-    final cacheSize = (imageSize * MediaQuery.devicePixelRatioOf(context)).ceil();
+    final cacheSize =
+        (imageSize * MediaQuery.devicePixelRatioOf(context)).ceil();
     return CachedNetworkImage(
       imageUrl: url!,
       fit: fit,
@@ -132,11 +139,7 @@ class LocalCoverArt extends StatelessWidget {
       width: imageSize,
       height: imageSize,
       color: cs.surfaceContainerHighest,
-      child: Icon(
-        Icons.music_note,
-        color: cs.onSurfaceVariant,
-        size: imageSize * 0.45,
-      ),
+      child: placeholder ?? albumPlaceholderWidget(size: imageSize * 0.45),
     );
   }
 }

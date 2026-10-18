@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
+import '../ui/app_ui.dart';
 import 'package:provider/provider.dart';
 import '../providers/playlist_provider.dart';
 

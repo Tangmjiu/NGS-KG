@@ -1,6 +1,8 @@
-import 'dart:io' show File, Platform;
+// SPDX-License-Identifier: MIT
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
+import '../ui/app_ui.dart';
+import '../ui/components/cover_art.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -10,8 +12,7 @@ import '../providers/player_provider.dart';
 import '../navidrome/navidrome_provider.dart';
 import '../navidrome/navidrome_login_screen.dart';
 import '../navidrome/navidrome_screen.dart';
-import '../utils/logger.dart';
-import '../widgets/list_bottom_spacer.dart';
+import '../ui/components/player_bottom_padding.dart';
 
 class LocalMusicScreen extends StatefulWidget {
   const LocalMusicScreen({super.key});
@@ -70,6 +71,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
         }
       }
     }
+    if (!mounted) return;
     _permissionDenied = false;
     final localProv = context.read<LocalMusicProvider>();
     if (!localProv.scanned && !localProv.isScanning) {
@@ -79,23 +81,50 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('本地音乐'),
-        bottom: TabBar(
-          controller: _tabCtrl,
-          tabs: const [
-            Tab(text: '本地文件'),
-            Tab(text: 'Navidrome'),
-          ],
+      body: SafeArea(
+        bottom: false,
+        child: AppPageBody(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const AppPageHeader(
+                title: '本地与云端',
+                subtitle: '收藏在设备里，也连接你的私人音乐库',
+                showBack: true,
+              ),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: tokens.pagePadding),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(tokens.controlRadius),
+                  ),
+                  child: TabBar(
+                    controller: _tabCtrl,
+                    dividerColor: Colors.transparent,
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    indicator: BoxDecoration(
+                      color: cs.secondaryContainer,
+                      borderRadius: BorderRadius.circular(tokens.controlRadius),
+                    ),
+                    labelColor: cs.onSecondaryContainer,
+                    tabs: const [Tab(text: '本地文件'), Tab(text: 'Navidrome')],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabCtrl,
+                  children: [_buildLocalTab(), _buildNavidromeTab()],
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-      body: TabBarView(
-        controller: _tabCtrl,
-        children: [
-          _buildLocalTab(),
-          _buildNavidromeTab(),
-        ],
       ),
     );
   }
@@ -104,155 +133,148 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
 
   Widget _buildLocalTab() {
     if (_permissionDenied) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      return AppEmptyState(
+        icon: Icons.folder_off_outlined,
+        title: '允许访问音乐文件',
+        message: '授予音频访问权限后，即可扫描和播放设备中的音乐。',
+        action: Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            Icon(Icons.lock, size: 80, color: Theme.of(context).colorScheme.outline),
-            const SizedBox(height: 16),
-            const Text('需要存储权限才能扫描本地音乐'),
-            const SizedBox(height: 24),
-            FilledButton.tonal(
+            FilledButton(
               onPressed: () {
                 setState(() => _permissionDenied = false);
                 _initScan();
               },
-              child: const Text('重新请求权限'),
+              child: const Text('授予权限'),
             ),
-            const SizedBox(height: 8),
-            FilledButton.tonal(
-              onPressed: Platform.isAndroid ? openAppSettings : null,
-              child: const Text('去设置开启'),
-            ),
+            if (Platform.isAndroid)
+              const TextButton(
+                  onPressed: openAppSettings, child: const Text('打开应用设置')),
           ],
         ),
       );
     }
 
     return Consumer<LocalMusicProvider>(
-      builder: (context, prov, _) {
-        if (prov.isScanning && prov.songs.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (prov.songs.isEmpty && !prov.isScanning) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.music_note, size: 64,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant),
-                const SizedBox(height: 12),
-                Text(prov.status,
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                const SizedBox(height: 8),
-                Text('请添加包含音乐文件的文件夹',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                const SizedBox(height: 20),
-                FilledButton.tonal(
-                  onPressed: () => _pickDirectory(prov),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.create_new_folder_outlined, size: 18),
-                      SizedBox(width: 8),
-                      Text('选择音乐文件夹'),
-                    ],
+      builder: (context, prov, _) => Column(
+        children: [
+          _buildToolbar(prov),
+          _buildInnerTabBar(),
+          if (prov.isScanning) const LinearProgressIndicator(minHeight: 2),
+          Expanded(
+            child: prov.songs.isEmpty
+                ? _buildEmptyLibrary(prov)
+                : TabBarView(
+                    controller: _innerTabCtrl,
+                    // 仅计算当前分类，分组中的歌曲仍由列表逐项构建。
+                    children: List.generate(
+                        4,
+                        (index) => Builder(
+                              builder: (_) {
+                                if (index != _innerTabIndex) {
+                                  return const SizedBox.shrink();
+                                }
+                                return switch (index) {
+                                  0 => _buildAllSongsTab(prov),
+                                  1 => _buildGroupedTab(
+                                      prov: prov,
+                                      entries: prov.groupedByAlbum(),
+                                      tabIndex: index,
+                                      emptyIcon: Icons.album_outlined,
+                                      emptyLabel: '专辑',
+                                    ),
+                                  2 => _buildGroupedTab(
+                                      prov: prov,
+                                      entries: prov.groupedByArtist(),
+                                      tabIndex: index,
+                                      emptyIcon: Icons.person_outline_rounded,
+                                      emptyLabel: '歌手',
+                                    ),
+                                  _ => _buildGroupedTab(
+                                      prov: prov,
+                                      entries: prov.groupedByFolder(),
+                                      tabIndex: index,
+                                      emptyIcon: Icons.folder_outlined,
+                                      emptyLabel: '文件夹',
+                                    ),
+                                };
+                              },
+                            )),
                   ),
-                ),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  icon: const Icon(Icons.refresh, size: 16),
-                  onPressed: () => prov.refreshLibrary(),
-                  label: const Text('重新扫描默认位置'),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return Column(
-          children: [
-            _buildToolbar(prov),
-            _buildInnerTabBar(),
-            Expanded(
-              child: TabBarView(
-                controller: _innerTabCtrl,
-                // 不在构建 TabBarView 时提前计算所有分组。
-                children: List.generate(4, (index) => Builder(
-                  builder: (_) {
-                    if (index != _innerTabIndex) return const SizedBox.shrink();
-                    return switch (index) {
-                      0 => _buildAllSongsTab(prov),
-                      1 => _buildGroupedTab(
-                          prov: prov,
-                          entries: prov.groupedByAlbum(),
-                          tabIndex: index,
-                          emptyIcon: Icons.album,
-                          emptyLabel: '专辑',
-                        ),
-                      2 => _buildGroupedTab(
-                          prov: prov,
-                          entries: prov.groupedByArtist(),
-                          tabIndex: index,
-                          emptyIcon: Icons.person,
-                          emptyLabel: '歌手',
-                        ),
-                      _ => _buildGroupedTab(
-                          prov: prov,
-                          entries: prov.groupedByFolder(),
-                          tabIndex: index,
-                          emptyIcon: Icons.folder_outlined,
-                          emptyLabel: '文件夹',
-                        ),
-                    };
-                  },
-                )),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // ── Inner tab bar (全部歌曲 / 专辑 / 歌手 / 文件夹) ──
-
-  Widget _buildInnerTabBar() {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surface,
-      child: TabBar(
-        controller: _innerTabCtrl,
-        tabAlignment: TabAlignment.fill,
-        indicatorSize: TabBarIndicatorSize.label,
-        labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-        unselectedLabelStyle: Theme.of(context).textTheme.labelLarge,
-        tabs: const [
-          Tab(
-            text: '全部歌曲',
-            icon: Icon(Icons.music_note, size: 18),
-          ),
-          Tab(
-            text: '专辑',
-            icon: Icon(Icons.album, size: 18),
-          ),
-          Tab(
-            text: '歌手',
-            icon: Icon(Icons.person, size: 18),
-          ),
-          Tab(
-            text: '文件夹',
-            icon: Icon(Icons.folder, size: 18),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildEmptyLibrary(LocalMusicProvider prov) {
+    if (prov.isScanning) {
+      return const AppEmptyState(
+        icon: Icons.manage_search_rounded,
+        title: '正在寻找音乐',
+        message: '扫描完成后，歌曲会显示在这里。',
+      );
+    }
+    if (_searchCtrl.text.isNotEmpty) {
+      return AppEmptyState(
+        icon: Icons.search_off_rounded,
+        title: '未找到本地歌曲',
+        message: '试试其他歌曲、歌手或专辑名称。',
+        action: TextButton(
+          onPressed: () => _clearSearch(prov),
+          child: const Text('清空搜索'),
+        ),
+      );
+    }
+    return AppEmptyState(
+      icon: Icons.library_music_outlined,
+      title: '还没有本地音乐',
+      message: '添加音乐文件夹，让喜欢的声音随时相伴。',
+      action: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          FilledButton.icon(
+            onPressed: () => _pickDirectory(prov),
+            icon: const Icon(Icons.create_new_folder_outlined),
+            label: const Text('添加音乐文件夹'),
+          ),
+          TextButton(
+            onPressed: prov.refreshLibrary,
+            child: const Text('扫描默认位置'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _clearSearch(LocalMusicProvider prov) {
+    _searchCtrl.clear();
+    prov.search('');
+    setState(() {});
+  }
+
+  // ── Inner tab bar (全部歌曲 / 专辑 / 歌手 / 文件夹) ──
+
+  Widget _buildInnerTabBar() => Padding(
+        padding: EdgeInsets.symmetric(
+            horizontal: AppThemeTokens.of(context).pagePadding),
+        child: TabBar(
+          controller: _innerTabCtrl,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          dividerColor: Colors.transparent,
+          tabs: const [
+            Tab(text: '全部歌曲'),
+            Tab(text: '专辑'),
+            Tab(text: '歌手'),
+            Tab(text: '文件夹'),
+          ],
+        ),
+      );
 
   // ── "全部歌曲" tab — flat list with staggered animation ──
 
@@ -267,8 +289,11 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
       if (idx >= 0) {
         _lastScrolledHighlight = highlightPath;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || !_allSongsScrollCtrl.hasClients ||
-              prov.highlightedFilePath != highlightPath) return;
+          if (!mounted ||
+              !_allSongsScrollCtrl.hasClients ||
+              prov.highlightedFilePath != highlightPath) {
+            return;
+          }
           const itemHeight = 72.0;
           final offset = (idx * itemHeight)
               .clamp(0.0, _allSongsScrollCtrl.position.maxScrollExtent);
@@ -286,11 +311,11 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
       itemCount: songs.length + 1,
       itemBuilder: (_, i) {
         if (i == songs.length) {
-          return const ListBottomSpacer(isHome: false, showText: false);
+          return const PlayerBottomPadding(showLabel: false);
         }
         final song = songs[i];
         final isHighlighted = song.filePath == highlightPath;
-        return M3StaggeredFadeIn(
+        return StaggeredEntrance(
           index: i,
           child: _buildSongTile(song, prov, isHighlighted: isHighlighted),
         );
@@ -308,18 +333,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
     required String emptyLabel,
   }) {
     if (entries.isEmpty) {
-      final cs = Theme.of(context).colorScheme;
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(emptyIcon, size: 64, color: cs.onSurfaceVariant),
-            const SizedBox(height: 12),
-            Text('暂无$emptyLabel',
-                style: TextStyle(color: cs.onSurfaceVariant)),
-          ],
-        ),
-      );
+      return AppEmptyState(icon: emptyIcon, title: '暂无$emptyLabel');
     }
 
     final expanded = _expandedGroups.putIfAbsent(tabIndex, () => <String>{});
@@ -336,7 +350,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
       itemCount: rowCount + 1,
       itemBuilder: (_, i) {
         if (i == rowCount) {
-          return const ListBottomSpacer(isHome: false, showText: false);
+          return const PlayerBottomPadding(showLabel: false);
         }
         var low = 0;
         var high = starts.length - 1;
@@ -372,73 +386,48 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
     );
   }
 
-  Widget _buildGroupTile(LocalGroupEntry entry, {
+  Widget _buildGroupTile(
+    LocalGroupEntry entry, {
     required bool isExpanded,
     required VoidCallback onTap,
   }) {
-    final cs = Theme.of(context).colorScheme;
-    return Card(
+    final tokens = AppThemeTokens.of(context);
+    return Padding(
       key: ValueKey(entry.title),
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      color: cs.surfaceContainerLow,
-      elevation: 0,
-      shape: const RoundedRectangleBorder(borderRadius: AppShape.md),
-      child: ListTile(
-        shape: const RoundedRectangleBorder(borderRadius: AppShape.md),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: _buildCoverAvatar(entry.thumbnail, cs),
-        title: Text(
-          entry.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
+      padding:
+          EdgeInsets.symmetric(horizontal: tokens.pagePadding, vertical: 6),
+      child: AppSurface(
+        padding: EdgeInsets.zero,
+        child: ListTile(
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          leading: _buildCoverAvatar(entry.thumbnail),
+          title: Text(entry.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium),
+          subtitle: Text('${entry.count} 首歌曲'),
+          trailing: AnimatedRotation(
+            turns: isExpanded ? 0.5 : 0,
+            duration: const Duration(milliseconds: 200),
+            child: const Icon(Icons.expand_more_rounded),
+          ),
+          onTap: onTap,
         ),
-        subtitle: Text(
-          '${entry.count} 首歌曲',
-          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-        ),
-        trailing: AnimatedRotation(
-          turns: isExpanded ? 0.5 : 0,
-          duration: const Duration(milliseconds: 200),
-          child: const Icon(Icons.expand_more),
-        ),
-        onTap: onTap,
       ),
     );
   }
 
-  // ── Cover avatar: local files use MD3E music note fallback ──
-
-  Widget _buildCoverAvatar(String? coverUrl, ColorScheme cs) {
-    final hasCover = coverUrl != null && coverUrl.isNotEmpty;
-    ImageProvider? image;
-    if (hasCover) {
-      if (coverUrl.startsWith('file:') || coverUrl.startsWith('/')) {
-        final path = coverUrl.startsWith('file:')
-            ? Uri.parse(coverUrl).toFilePath()
-            : coverUrl;
-        image = FileImage(File(path));
-      } else {
-        image = NetworkImage(coverUrl);
-      }
-      final pixels = (40 * MediaQuery.devicePixelRatioOf(context)).ceil();
-      image = ResizeImage(image, width: pixels, height: pixels,
-          policy: ResizeImagePolicy.fit);
-    }
-    return CircleAvatar(
-      backgroundColor: cs.surfaceContainerHighest,
-      backgroundImage: image,
-      child: hasCover
-          ? null
-          : Icon(Icons.music_note_outlined, size: 22, color: cs.primary),
-    );
-  }
+  Widget _buildCoverAvatar(String? coverUrl) => CoverArt(
+        url: coverUrl,
+        size: 44,
+        borderRadius: AppThemeTokens.of(context).controlRadius,
+      );
 
   // ── Shared song list tile (used in both flat and grouped views) ──
 
-  Widget _buildSongTile(Song song, LocalMusicProvider prov, {bool isHighlighted = false}) {
+  Widget _buildSongTile(Song song, LocalMusicProvider prov,
+      {bool isHighlighted = false}) {
     return Selector<PlayerProvider, ({bool isCurrent, bool isPlaying})>(
       selector: (_, player) {
         // 本地 ID 可随 MediaStore 重扫变化，路径才是稳定身份。
@@ -458,8 +447,14 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                 )
               : null,
           child: ListTile(
-            leading: _buildCoverAvatar(song.albumCoverUrl, cs),
-            title: Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+            leading: CoverArt(
+              url: song.albumCoverUrl,
+              coverData: song.coverData,
+              size: 44,
+              borderRadius: AppThemeTokens.of(context).controlRadius,
+            ),
+            title:
+                Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis),
             subtitle: Text(
               '${song.artists.join(", ")}${song.albumName != null ? " · ${song.albumName}" : ""}',
               maxLines: 1,
@@ -474,6 +469,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                         color: cs.onSurfaceVariant, size: 20),
                     onPressed: () => _showSongMenu(song, prov),
                   ),
+            onLongPress: () => _showSongMenu(song, prov),
             onTap: () async {
               final player = context.read<PlayerProvider>();
               prov.clearHighlight();
@@ -523,7 +519,12 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
               // 歌曲信息
               Row(
                 children: [
-                  _buildCoverAvatar(song.albumCoverUrl, cs),
+                  CoverArt(
+                    url: song.albumCoverUrl,
+                    coverData: song.coverData,
+                    size: 44,
+                    borderRadius: AppThemeTokens.of(context).controlRadius,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -532,8 +533,10 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                         Text(song.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                fontWeight: FontWeight.w600)),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyLarge
+                                ?.copyWith(fontWeight: FontWeight.w600)),
                         if (song.artists.isNotEmpty)
                           Text(song.artists.join(', '),
                               maxLines: 1,
@@ -549,9 +552,11 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
               const Divider(),
               // 从列表移除
               ListTile(
-                leading: Icon(Icons.playlist_remove, color: cs.onSurfaceVariant),
+                leading:
+                    Icon(Icons.playlist_remove, color: cs.onSurfaceVariant),
                 title: const Text('从列表中移除'),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _showDeleteDialog(song, prov);
@@ -564,7 +569,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
     );
   }
 
-  /// M3E 风格删除确认弹窗
+  /// 移除歌曲前确认是否同时删除文件
   Future<void> _showDeleteDialog(Song song, LocalMusicProvider prov) async {
     final cs = Theme.of(context).colorScheme;
     bool deleteFile = false;
@@ -574,7 +579,8 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) {
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
             backgroundColor: cs.surfaceContainerHigh,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
@@ -596,16 +602,20 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                       ),
                       const SizedBox(width: 14),
                       Text('移除歌曲',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w600)),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w600)),
                     ],
                   ),
                   const SizedBox(height: 16),
                   // 歌曲名
                   Text(
                     song.name,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: cs.onSurface),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyLarge
+                        ?.copyWith(color: cs.onSurface),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -634,8 +644,8 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
                       checkColor: cs.onError,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16)),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -679,7 +689,8 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
           SnackBar(
             content: Text(ok ? '已删除文件' : '删除失败，请检查权限'),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -692,89 +703,79 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
 
   Widget _buildToolbar(LocalMusicProvider prov) {
     final cs = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
+    final tokens = AppThemeTokens.of(context);
+    return Padding(
+      padding:
+          EdgeInsets.symmetric(horizontal: tokens.pagePadding, vertical: 8),
+      child: Column(
         children: [
-          // Status text
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Text(prov.status,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant)),
-          ),
-          // Search field
-          Expanded(
-            child: TextField(
-              controller: _searchCtrl,
-              decoration: InputDecoration(
-                hintText: '搜索歌曲、歌手、专辑...',
-                isDense: true,
-                prefixIcon: Icon(Icons.search, size: 18, color: cs.onSurfaceVariant),
-                suffixIcon: _searchCtrl.text.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(Icons.close, size: 18, color: cs.onSurfaceVariant),
-                        onPressed: () {
-                          _searchCtrl.clear();
-                          prov.search('');
-                          setState(() {});
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: AppShape.sm,
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: cs.surfaceContainerHighest,
-                contentPadding:
-                    const EdgeInsets.symmetric(vertical: 0, horizontal: 8),
+          TextField(
+            controller: _searchCtrl,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: '搜索本地歌曲、歌手或专辑',
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: _searchCtrl.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: '清空搜索',
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => _clearSearch(prov),
+                    ),
+              filled: true,
+              fillColor: cs.surfaceContainerHigh,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(tokens.controlRadius),
+                borderSide: BorderSide.none,
               ),
-              onChanged: (v) {
-                prov.search(v);
-                setState(() {});
-              },
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(tokens.controlRadius),
+                borderSide: BorderSide.none,
+              ),
             ),
+            onChanged: (query) {
+              prov.search(query);
+              setState(() {});
+            },
           ),
-          const SizedBox(width: 8),
-          // Sort dropdown
-          PopupMenuButton<String>(
-            icon: Icon(Icons.sort, size: 20, color: cs.onSurfaceVariant),
-            tooltip: '排序',
-            onSelected: prov.sortBy,
-            itemBuilder: (_) => [
-              _sortItem('歌名', 'title', prov),
-              _sortItem('歌手', 'artist', prov),
-              _sortItem('专辑', 'album', prov),
-              _sortItem('时长', 'duration', prov),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                  child: Text(prov.status,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: cs.onSurfaceVariant))),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.sort_rounded),
+                tooltip: '排序',
+                onSelected: prov.sortBy,
+                itemBuilder: (_) => [
+                  _sortItem('歌名', 'title', prov),
+                  _sortItem('歌手', 'artist', prov),
+                  _sortItem('专辑', 'album', prov),
+                  _sortItem('时长', 'duration', prov),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.create_new_folder_outlined),
+                tooltip: '添加音乐文件夹',
+                onPressed: prov.isScanning ? null : () => _pickDirectory(prov),
+              ),
+              IconButton(
+                icon: const Icon(Icons.folder_outlined),
+                tooltip: '管理扫描文件夹',
+                onPressed: prov.isScanning ? null : () => _showDirManager(prov),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: '重新扫描',
+                onPressed: prov.isScanning ? null : prov.refreshLibrary,
+              ),
             ],
-          ),
-          // Add folder
-          IconButton(
-            icon: Icon(Icons.create_new_folder_outlined, size: 20,
-                color: cs.onSurfaceVariant),
-            tooltip: '添加音乐文件夹',
-            onPressed: prov.isScanning ? null : () => _pickDirectory(prov),
-          ),
-          // Manage folders
-          IconButton(
-            icon: Icon(Icons.folder_outlined, size: 20,
-                color: cs.onSurfaceVariant),
-            tooltip: '管理扫描文件夹',
-            onPressed: prov.isScanning ? null : () => _showDirManager(prov),
-          ),
-          // Refresh
-          IconButton(
-            icon: prov.isScanning
-                ? SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: cs.onSurfaceVariant))
-                : Icon(Icons.refresh, size: 20, color: cs.onSurfaceVariant),
-            tooltip: '重新扫描',
-            onPressed: prov.isScanning ? null : () => prov.refreshLibrary(),
           ),
         ],
       ),
@@ -784,9 +785,7 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
   PopupMenuItem<String> _sortItem(
       String label, String field, LocalMusicProvider prov) {
     final isSelected = prov.sortField == field;
-    final arrow = isSelected
-        ? (prov.sortAscending ? ' ↑' : ' ↓')
-        : '';
+    final arrow = isSelected ? (prov.sortAscending ? ' ↑' : ' ↓') : '';
     return PopupMenuItem(
       value: field,
       child: Text('$label$arrow',
@@ -816,27 +815,26 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
     if (!mounted) return;
     final cs = Theme.of(context).colorScheme;
 
-    showM3Dialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('扫描文件夹'),
         content: SizedBox(
           width: 400,
           child: dirs.isEmpty
-              ? Text('暂无自定义文件夹',
-                  style: TextStyle(color: cs.onSurfaceVariant))
+              ? Text('暂无自定义文件夹', style: TextStyle(color: cs.onSurfaceVariant))
               : ListView.builder(
                   shrinkWrap: true,
                   itemCount: dirs.length,
                   itemBuilder: (_, i) => ListTile(
                     dense: true,
-                    leading: Icon(Icons.folder, size: 20,
-                        color: cs.onSurfaceVariant),
+                    leading: Icon(Icons.folder,
+                        size: 20, color: cs.onSurfaceVariant),
                     title: Text(dirs[i],
                         style: Theme.of(context).textTheme.bodyMedium),
                     trailing: IconButton(
-                      icon: Icon(Icons.remove_circle_outline, size: 18,
-                          color: cs.error),
+                      icon: Icon(Icons.remove_circle_outline,
+                          size: 18, color: cs.error),
                       tooltip: '移除',
                       onPressed: () {
                         Navigator.pop(ctx);
@@ -872,50 +870,22 @@ class _LocalMusicScreenState extends State<LocalMusicScreen>
 
   // ── Navidrome tab ──
 
-  Widget _buildNavidromeTab() {
-    return Consumer<NavidromeProvider>(
-      builder: (context, navProv, _) {
-        if (navProv.connected) {
-          return const NavidromeScreen();
-        }
-        // 未连接时显示引导按钮，点按后以全屏路由打开登录页（自带 Scaffold+AppBar）
-        return Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.wifi_find,
-                  size: 64,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
-              const SizedBox(height: 12),
-              Text('未连接到 Navidrome 服务器',
-                  style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
-              const SizedBox(height: 8),
-              Text('Navidrome 是开源的自托管音乐服务器',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
-              const SizedBox(height: 20),
-              FilledButton.tonal(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const NavidromeLoginScreen()),
-                  );
-                },
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.link),
-                    SizedBox(width: 8),
-                    Text('连接服务器'),
-                  ],
+  Widget _buildNavidromeTab() => Consumer<NavidromeProvider>(
+        builder: (context, navidrome, _) => navidrome.connected
+            ? const NavidromeScreen()
+            : AppEmptyState(
+                icon: Icons.dns_outlined,
+                title: '连接私人音乐库',
+                message: '连接 Navidrome 服务器，在这里浏览和播放你的云端收藏。',
+                action: FilledButton.icon(
+                  icon: const Icon(Icons.link_rounded),
+                  label: const Text('连接服务器'),
+                  onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const NavidromeLoginScreen(),
+                      )),
                 ),
               ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+      );
 }

@@ -1,23 +1,28 @@
+// SPDX-License-Identifier: MIT
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
-import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
+
 import 'package:archive/archive.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/logger.dart';
+
 import '../models/theme_pack.dart';
+import '../utils/logger.dart';
 
-/// ZIP 主题导入引擎
-///
-/// 解析 manifest v2，返回 ThemePack。
-class ThemeLoader {
+/// 主题安装与磁盘资源存储。清单格式由 ThemePack 的适配边界统一解析。
+abstract final class ThemeLoader {
   static const _themesPrefsKey = 'imported_themes_v2';
+  static Future<void> _pendingMutation = Future.value();
 
-  // ─── 公开方法 ───
+  static Future<T> _mutate<T>(Future<T> Function() operation) {
+    final result = _pendingMutation.then((_) => operation());
+    _pendingMutation =
+        result.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+    return result;
+  }
 
-  /// 从文件选择器导入 ZIP 主题包
   static Future<ThemePack?> importFromPicker() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -26,458 +31,258 @@ class ThemeLoader {
         withData: true,
       );
       if (result == null || result.files.isEmpty) return null;
-
       final file = result.files.first;
-      final bytes = file.bytes;
-      if (bytes == null || bytes.isEmpty) return null;
-
-      return parseZipBytes(bytes!, file.name);
-    } catch (e, s) {
-      Log.e('ThemeLoader', 'import error', e, s);
+      final bytes = file.bytes ??
+          (file.path == null ? null : await File(file.path!).readAsBytes());
+      return bytes == null ? null : parseZipBytes(bytes, file.name);
+    } catch (error, stack) {
+      Log.e('ThemeLoader', 'Import failed', error, stack);
       return null;
     }
   }
 
-  /// 从字节数据解析 ZIP 主题包（公开给 MarketService 调用）
-  static Future<ThemePack?> parseZipBytes(List<int> bytes, String fileName) async {
-    final archive = ZipDecoder().decodeBytes(bytes);
-    if (archive.isEmpty) {
-      Log.w('ThemeLoader', 'empty zip: $fileName');
-      return null;
-    }
+  static Future<ThemePack?> parseZipBytes(List<int> bytes, String fileName,
+          {Directory? themesDirectory}) =>
+      _mutate(
+          () => _installZip(bytes, fileName, themesDirectory: themesDirectory));
 
-    // 查找 manifest.json
-    final manifestFile = archive.files.firstWhere(
-      (f) => f.name == 'manifest.json' && f.isFile,
-      orElse: () => _emptyFile(),
-    );
-    if (!manifestFile.isFile) {
-      Log.w('ThemeLoader', 'manifest.json not found in $fileName');
-      return null;
-    }
-
-    final manifestJson = jsonDecode(utf8.decode(manifestFile.content)) as Map<String, dynamic>;
-
-    final name = manifestJson['name'] as String? ?? '未命名主题';
-    final author = manifestJson['author'] as String? ?? '未知作者';
-    final version = manifestJson['version'] as int? ?? 1;
-    final description = manifestJson['description'] as String?;
-
-    // ── 解析颜色 ──
-    ColorScheme? lightScheme;
-    ColorScheme? darkScheme;
-    final colors = manifestJson['colors'] as Map<String, dynamic>?;
-    if (colors != null) {
-      lightScheme = _parseColorScheme(colors['light'] as Map<String, dynamic>?, Brightness.light);
-      darkScheme = _parseColorScheme(colors['dark'] as Map<String, dynamic>?, Brightness.dark);
-    }
-
-    // ── 解析字体 ──
-    String? fontFamily;
-    FontWeightFiles? fontWeightFiles;
-    final typography = manifestJson['typography'] as Map<String, dynamic>?;
-    if (typography != null) {
-      fontFamily = typography['family'] as String?;
-      final rawWeight = typography['weight'] as Map<String, dynamic>?;
-      if (rawWeight != null) {
-        final regular = rawWeight['regular'] as String?;
-        if (regular != null && regular.isNotEmpty) {
-          final medium = rawWeight['medium'] as String?;
-          final bold = rawWeight['bold'] as String?;
-          fontWeightFiles = FontWeightFiles(regular: regular, medium: medium, bold: bold);
-        }
-      }
-    }
-
-    // ── 解析形状 ──
-    Map<String, double>? shapes;
-    final rawShapes = manifestJson['shapes'] as Map<String, dynamic>?;
-    if (rawShapes != null) {
-      shapes = rawShapes.map((k, v) => MapEntry(k, (v as num).toDouble()));
-    }
-
-    // ── 提取资源文件 ──
-    final appDir = await _getThemeDir(_themeId(fileName));
-    final assetFiles = <String, String>{};
-
-    final rawAssets = manifestJson['assets'] as Map<String, dynamic>?;
-    if (rawAssets != null) {
-      const assetKeys = [
-        'sthiswrong', 'codecrash', 'loading', 'ban', 'supportme', 'icon',
-        'album_placeholder', 'playlist_placeholder', 'artist_placeholder',
-        'empty_playlist', 'empty_content', 'load_failed',
-        'hi_res_badge',
-      ];
-
-      for (final key in assetKeys) {
-        final zipPath = rawAssets[key] as String?;
-        if (zipPath == null || zipPath.isEmpty) continue;
-
-        final zipEntry = archive.files.firstWhere(
-          (f) => f.name == zipPath && f.isFile,
-          orElse: () => _emptyFile(),
-        );
-        if (!zipEntry.isFile) continue;
-
-        final ext = zipPath.contains('.') ? '.${zipPath.split('.').last}' : '.png';
-        final destName = '$key$ext';
-        final destPath = '${appDir.path}/$destName';
-        await File(destPath).writeAsBytes(zipEntry.content);
-        assetFiles[key] = destPath;
-      }
-    }
-
-    // ── 提取字体文件 ──
-    if (fontWeightFiles != null && fontFamily != null) {
-      final fontDir = Directory('${appDir.path}/fonts');
-      if (!await fontDir.exists()) {
-        await fontDir.create(recursive: true);
-      }
-      _extractFontFiles(archive, fontDir, fontWeightFiles!);
-      // Update fontWeightFiles with absolute paths for FontLoader
-      fontWeightFiles = FontWeightFiles(
-        regular: '${fontDir.path}/${fontWeightFiles!.regular.split('/').last}',
-        medium: fontWeightFiles!.medium != null
-            ? '${fontDir.path}/${fontWeightFiles!.medium!.split('/').last}'
-            : null,
-        bold: fontWeightFiles!.bold != null
-            ? '${fontDir.path}/${fontWeightFiles!.bold!.split('/').last}'
-            : null,
-      );
-    }
-
-    // ── 壁纸 ──
-    String? playerBgPath;
-    final wallpaper = manifestJson['wallpaper'] as Map<String, dynamic>?;
-    if (wallpaper != null) {
-      final bgPath = wallpaper['player'] as String?;
-      if (bgPath != null && bgPath.isNotEmpty) {
-        final zipEntry = archive.files.firstWhere(
-          (f) => f.name == bgPath && f.isFile,
-          orElse: () => _emptyFile(),
-        );
-        if (zipEntry.isFile) {
-          final ext = bgPath.contains('.') ? '.${bgPath.split('.').last}' : '.png';
-          final destPath = '${appDir.path}/player_bg$ext';
-          await File(destPath).writeAsBytes(zipEntry.content);
-          playerBgPath = destPath;
-        }
-      }
-    }
-
-    // ── 解析动效 ──
-    var motionConfig = ThemeMotion.defaults;
-    final rawMotion = manifestJson['motion'] as Map<String, dynamic>?;
-    if (rawMotion != null) {
-      final ds = rawMotion['durationScale'] as num?;
-      final curve = rawMotion['curve'] as String?;
-      motionConfig = ThemeMotion(
-        durationScale: ds?.toDouble() ?? 1.0,
-        curve: curve ?? 'emphasized',
-      );
-    }
-
-    // ── 解析组件偏好 ──
-    var componentsConfig = ThemeComponents.defaults;
-    final rawComponents = manifestJson['components'] as Map<String, dynamic>?;
-    if (rawComponents != null) {
-      final navBar = rawComponents['navigationBar'] as Map<String, dynamic>?;
-      final card = rawComponents['card'] as Map<String, dynamic>?;
-      final dialog = rawComponents['dialog'] as Map<String, dynamic>?;
-      componentsConfig = ThemeComponents(
-        navigationBarElevation: (navBar?['elevation'] as num?)?.toDouble() ?? 0,
-        cardElevation: (card?['elevation'] as num?)?.toDouble() ?? 0,
-        dialogElevation: (dialog?['elevation'] as num?)?.toDouble() ?? 0,
-      );
-    }
-
-    // ── 预览图 ──
-    String? previewPath;
-    final previewEntry = archive.files.firstWhere(
-      (f) => f.name == 'preview.png' && f.isFile,
-      orElse: () => _emptyFile(),
-    );
-    if (previewEntry.isFile) {
-      previewPath = '${appDir.path}/preview.png';
-      await File(previewPath).writeAsBytes(previewEntry.content);
-    }
-
-    final pack = ThemePack(
-      id: _themeId(fileName),
-      name: name,
-      author: author,
-      version: version,
-      description: description,
-      isBuiltIn: false,
-      previewPath: previewPath,
-      lightScheme: lightScheme,
-      darkScheme: darkScheme,
-      fontFamily: fontFamily,
-      fontWeightFiles: fontWeightFiles,
-      shapes: shapes,
-      motion: motionConfig,
-      components: componentsConfig,
-      assetFiles: assetFiles.isNotEmpty ? assetFiles : null,
-      playerBgPath: playerBgPath,
-    );
-
-    // ── 保存 manifest.json（路径用相对路径，重启后可移植） ──
+  static Future<ThemePack?> _installZip(List<int> bytes, String fileName,
+      {Directory? themesDirectory}) async {
+    Directory? revision;
+    File? pendingManifest;
+    SharedPreferences? prefs;
+    String? newInventoryId;
+    var committed = false;
     try {
-      final basePath = appDir.path;
-      String toRelative(String p) =>
-          p.startsWith(basePath) ? p.substring(basePath.length + 1) : p;
+      final archive = ZipDecoder().decodeBytes(bytes);
+      ArchiveFile? find(String name) {
+        for (final entry in archive.files) {
+          if (entry.isFile && entry.name == name) return entry;
+        }
+        return null;
+      }
 
-      final manifestMap = pack.toJson();
-      // 转换 assetFiles 为相对路径
-      if (manifestMap['assetFiles'] != null) {
-        final af = manifestMap['assetFiles'] as Map<String, dynamic>;
-        manifestMap['assetFiles'] = af.map((k, v) =>
-            MapEntry(k, toRelative(v as String)));
+      final manifest = find('manifest.json');
+      if (manifest == null) return null;
+      final source = jsonDecode(utf8.decode(manifest.content));
+      if (source is! Map<String, dynamic>) return null;
+      final version = source['version'] ?? 1;
+      if (version is! int || version < 1 || version > 3) return null;
+      final id = path
+          .basename(fileName.replaceAll('\\', '/'))
+          .replaceFirst(RegExp(r'\.zip$', caseSensitive: false), '');
+      if (!_validId(id) ||
+          const ['ngs_default', 'ngs_nagisa', 'md3_default'].contains(id)) {
+        return null;
       }
-      // 转换 previewPath
-      if (manifestMap['previewPath'] != null && (manifestMap['previewPath'] as String).isNotEmpty) {
-        manifestMap['previewPath'] = toRelative(manifestMap['previewPath'] as String);
+      final parsed =
+          ThemePack.fromJson({...source, 'id': id, 'isBuiltIn': false});
+      final directory = await _directory(id, themesDirectory: themesDirectory);
+      final revisions = Directory(path.join(directory.path, 'revisions'));
+      for (final destination in [directory.path, revisions.path]) {
+        if (await FileSystemEntity.type(destination, followLinks: false) ==
+            FileSystemEntityType.link) {
+          throw FileSystemException(
+              'Theme directory cannot be a link', destination);
+        }
       }
-      // 转换 playerBgPath
-      if (manifestMap['playerBgPath'] != null && (manifestMap['playerBgPath'] as String).isNotEmpty) {
-        manifestMap['playerBgPath'] = toRelative(manifestMap['playerBgPath'] as String);
+      await revisions.create(recursive: true);
+      final currentRevision = await revisions.createTemp('revision_');
+      revision = currentRevision;
+      final revisionName = path.basename(currentRevision.path);
+      final data = parsed.toJson();
+
+      Future<String?> extract(String? archivePath, String destination) async {
+        if (archivePath == null || archivePath.isEmpty) return null;
+        final entry = find(archivePath);
+        if (entry == null) return null;
+        final file = File(path.join(currentRevision.path, destination));
+        await file.parent.create(recursive: true);
+        await file.writeAsBytes(entry.content, flush: true);
+        return path.join('revisions', revisionName, destination);
       }
-      // 转换 fontWeightFiles 路径
-      if (manifestMap['fontWeightFiles'] != null) {
-        final fwf = manifestMap['fontWeightFiles'] as Map<String, dynamic>;
-        for (final k in ['regular', 'medium', 'bold']) {
-          if (fwf[k] != null && (fwf[k] as String).isNotEmpty) {
-            fwf[k] = toRelative(fwf[k] as String);
+
+      final assets = <String, String>{};
+      for (final entry in (parsed.assetFiles ?? <String, String>{}).entries) {
+        if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(entry.key)) continue;
+        final extension = path.extension(entry.value);
+        final relative =
+            await extract(entry.value, 'images/${entry.key}$extension');
+        if (relative != null) assets[entry.key] = relative;
+      }
+      data['assetFiles'] = assets;
+      data['previewPath'] = await extract('preview.png', 'preview.png');
+      final wallpaper = parsed.playerBgPath;
+      data['playerBgPath'] = await extract(
+          wallpaper, 'images/player_bg${path.extension(wallpaper ?? '.png')}');
+      final fonts = parsed.fontWeightFiles;
+      if (fonts != null) {
+        final files = <String, String>{};
+        for (final entry in fonts.toJson().entries) {
+          final sourcePath = entry.value as String?;
+          final relative = await extract(sourcePath,
+              'fonts/${entry.key}${path.extension(sourcePath ?? '.ttf')}');
+          if (relative != null) files[entry.key] = relative;
+        }
+        data['fontWeightFiles'] = files;
+      }
+      final installedPack = _resolvePack(data, id, directory);
+      final stagedManifest =
+          File(path.join(directory.path, '.$revisionName.json'));
+      pendingManifest = stagedManifest;
+      await stagedManifest.writeAsString(jsonEncode(data), flush: true);
+
+      // 清单是提交点；在此之前只写新目录，现用资源及清单保持完整。
+      final preferences = await SharedPreferences.getInstance();
+      prefs = preferences;
+      final installed =
+          preferences.getStringList(_themesPrefsKey) ?? <String>[];
+      if (!installed.contains(id)) {
+        newInventoryId = id;
+        if (!await preferences
+            .setStringList(_themesPrefsKey, [...installed, id])) {
+          throw StateError('Cannot record imported theme');
+        }
+      }
+      await stagedManifest.rename(path.join(directory.path, 'manifest.json'));
+      committed = true;
+      try {
+        await _cleanOldResources(directory, currentRevision);
+      } catch (error, stack) {
+        // 新主题已经提交，清理失败不回滚或删除有效的新资源。
+        Log.w('ThemeLoader', 'Cannot remove unused theme resources', error,
+            stack);
+      }
+      return installedPack;
+    } catch (error, stack) {
+      Log.e('ThemeLoader', 'Invalid theme archive: $fileName', error, stack);
+      return null;
+    } finally {
+      if (!committed) {
+        Future<void> rollback(Future<void> Function() action) async {
+          try {
+            await action();
+          } catch (error, stack) {
+            Log.w('ThemeLoader', 'Cannot clean incomplete theme installation',
+                error, stack);
           }
         }
+
+        await rollback(() async {
+          if (pendingManifest != null && await pendingManifest.exists()) {
+            await pendingManifest.delete();
+          }
+        });
+        await rollback(() async {
+          if (revision != null && await revision.exists()) {
+            await revision.delete(recursive: true);
+          }
+        });
+        await rollback(() async {
+          if (newInventoryId != null && prefs != null) {
+            final installed =
+                prefs.getStringList(_themesPrefsKey) ?? <String>[];
+            await prefs.setStringList(_themesPrefsKey,
+                installed.where((id) => id != newInventoryId).toList());
+          }
+        });
       }
-
-      final savedJson = jsonEncode(manifestMap);
-      await File('${basePath}/manifest.json').writeAsString(savedJson);
-    } catch (e, s) {
-      Log.w('ThemeLoader', 'Failed to save theme manifest', e, s);
     }
-
-    // 记录已导入
-    await _recordImported(_themeId(fileName));
-
-    return pack;
   }
 
-  // ─── 已导入主题管理 ───
+  static Future<void> _cleanOldResources(
+      Directory directory, Directory revision) async {
+    final revisionsPath = path.dirname(revision.path);
+    await for (final entry in directory.list(followLinks: false)) {
+      if (entry.path == path.join(directory.path, 'manifest.json')) continue;
+      if (entry.path == revisionsPath) {
+        await for (final previous
+            in Directory(revisionsPath).list(followLinks: false)) {
+          if (previous.path != revision.path) {
+            await previous.delete(recursive: true);
+          }
+        }
+      } else {
+        // 只清理此主题的安装目录，不追随旧绝对路径或目录符号链接。
+        await entry.delete(recursive: true);
+      }
+    }
+  }
 
   static Future<List<String>> getImportedThemeIds() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getStringList(_themesPrefsKey) ?? [];
   }
 
-  static Future<void> _recordImported(String id) async {
-    final prefs = await SharedPreferences.getInstance();
-    final list = prefs.getStringList(_themesPrefsKey) ?? [];
-    if (!list.contains(id)) {
-      list.add(id);
-      await prefs.setStringList(_themesPrefsKey, list);
-    }
-  }
-
-  static Future<void> deleteTheme(String id) async {
+  static Future<ThemePack?> loadPackFromDisk(String id,
+      {Directory? themesDirectory}) async {
     try {
-      final dir = await _getThemeDir(id);
-      if (await dir.exists()) {
-        await dir.delete(recursive: true);
-      }
-      final prefs = await SharedPreferences.getInstance();
-      final list = prefs.getStringList(_themesPrefsKey) ?? [];
-      list.remove(id);
-      await prefs.setStringList(_themesPrefsKey, list);
-    } catch (e, s) {
-      Log.e('ThemeLoader', 'deleteTheme error', e, s);
-    }
-  }
-
-  /// 从磁盘加载之前安装的主题包。
-  ///
-  /// 读取 [id] 对应目录下的 manifest.json（由 [parseZipBytes] 保存），
-  /// 反序列化为 ThemePack，并将 manifest 中的相对路径解析为绝对路径。
-  /// 如果 manifest 不存在或解析失败返回 null。
-  static Future<ThemePack?> loadPackFromDisk(String id) async {
-    try {
-      final dir = await _getThemeDir(id);
-      final manifestFile = File('${dir.path}/manifest.json');
-      if (!await manifestFile.exists()) return null;
-      final data = jsonDecode(await manifestFile.readAsString())
-          as Map<String, dynamic>;
-      final pack = ThemePack.fromJson(data);
-
-      // 解析相对路径 → 绝对路径
-      String resolve(String? p) =>
-          (p != null && p.isNotEmpty && !p.startsWith('/') && !p.contains(':\\'))
-              ? '${dir.path}/$p'
-              : (p ?? '');
-
-      final resolvedAssets = pack.assetFiles?.map((k, v) =>
-          MapEntry(k, resolve(v)));
-
-      FontWeightFiles? resolvedFonts;
-      if (pack.fontWeightFiles != null) {
-        resolvedFonts = FontWeightFiles(
-          regular: resolve(pack.fontWeightFiles!.regular),
-          medium: pack.fontWeightFiles!.medium != null
-              ? resolve(pack.fontWeightFiles!.medium)
-              : null,
-          bold: pack.fontWeightFiles!.bold != null
-              ? resolve(pack.fontWeightFiles!.bold)
-              : null,
-        );
-      }
-
-      return ThemePack(
-        id: pack.id,
-        name: pack.name,
-        author: pack.author,
-        version: pack.version,
-        description: pack.description,
-        isBuiltIn: pack.isBuiltIn,
-        previewPath: resolve(pack.previewPath).isNotEmpty
-            ? resolve(pack.previewPath)
-            : null,
-        lightScheme: pack.lightScheme,
-        darkScheme: pack.darkScheme,
-        fontFamily: pack.fontFamily,
-        fontWeightFiles: resolvedFonts,
-        shapes: pack.shapes,
-        motion: pack.motion,
-        components: pack.components,
-        assetFiles: resolvedAssets,
-        playerBgPath: resolve(pack.playerBgPath).isNotEmpty
-            ? resolve(pack.playerBgPath)
-            : null,
-      );
-    } catch (e, s) {
-      Log.e('ThemeLoader', 'Failed to load theme $id from disk', e, s);
+      if (!_validId(id)) return null;
+      final directory = await _directory(id, themesDirectory: themesDirectory);
+      final manifest = File(path.join(directory.path, 'manifest.json'));
+      if (!await manifest.exists()) return null;
+      final source = jsonDecode(await manifest.readAsString());
+      if (source is! Map<String, dynamic>) return null;
+      return _resolvePack(source, id, directory);
+    } catch (error, stack) {
+      Log.e('ThemeLoader', 'Cannot restore theme $id', error, stack);
       return null;
     }
   }
 
-  // ─── 内部工具 ───
-
-  static String _themeId(String fileName) {
-    return fileName.replaceAll(RegExp(r'\.zip$', caseSensitive: false), '');
-  }
-
-  static Future<Directory> _getThemeDir(String id) async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final dir = Directory('${appDir.path}/themes/$id');
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
-    return dir;
-  }
-
-  /// 提取字体文件到主题字体目录
-  static void _extractFontFiles(
-    Archive archive,
-    Directory fontDir,
-    FontWeightFiles weightFiles,
-  ) {
-    void _extractOne(String path) {
-      if (path.isEmpty) return;
-      final entry = archive.files.firstWhere(
-        (f) => f.name == path && f.isFile,
-        orElse: () => _emptyFile(),
-      );
-      if (!entry.isFile) return;
-      final name = path.split('/').last;
-      File('${fontDir.path}/$name').writeAsBytesSync(entry.content);
+  static ThemePack _resolvePack(
+      Map<String, dynamic> source, String id, Directory directory) {
+    final pack = ThemePack.fromJson({...source, 'id': id, 'isBuiltIn': false});
+    final data = pack.toJson();
+    String? resolve(String? value) {
+      if (value == null || value.isEmpty) return null;
+      if (value.startsWith('assets/') ||
+          path.isAbsolute(value) ||
+          RegExp(r'^[A-Za-z]:[\\/]').hasMatch(value)) {
+        return value;
+      }
+      final result = path.normalize(path.join(directory.path, value));
+      return path.isWithin(directory.path, result) ? result : null;
     }
 
-    _extractOne(weightFiles.regular);
-    if (weightFiles.medium != null) _extractOne(weightFiles.medium!);
-    if (weightFiles.bold != null) _extractOne(weightFiles.bold!);
+    data['assetFiles'] = {
+      for (final entry in (pack.assetFiles ?? <String, String>{}).entries)
+        if (resolve(entry.value) != null) entry.key: resolve(entry.value),
+    };
+    data['previewPath'] = resolve(pack.previewPath);
+    data['playerBgPath'] = resolve(pack.playerBgPath);
+    if (pack.fontWeightFiles != null) {
+      data['fontWeightFiles'] = pack.fontWeightFiles!
+          .toJson()
+          .map((key, value) => MapEntry(key, resolve(value as String?)));
+    }
+    return ThemePack.fromJson(data);
   }
 
-  /// 解析 manifest 中的 colorScheme map
-  static ColorScheme? _parseColorScheme(Map<String, dynamic>? data, Brightness brightness) {
-    if (data == null || data.isEmpty) return null;
+  static Future<void> deleteTheme(String id, {Directory? themesDirectory}) =>
+      _mutate(() async {
+        if (!_validId(id)) return;
+        final directory =
+            await _directory(id, themesDirectory: themesDirectory);
+        if (await directory.exists()) await directory.delete(recursive: true);
+        final prefs = await SharedPreferences.getInstance();
+        final installed = prefs.getStringList(_themesPrefsKey) ?? <String>[];
+        await prefs.setStringList(
+            _themesPrefsKey, installed.where((entry) => entry != id).toList());
+      });
 
-    Color c(String key, Color fallback) {
-      final v = data[key] as String?;
-      if (v == null || v.isEmpty) return fallback;
-      final h = v.replaceFirst('#', '');
-      final val = int.tryParse(h, radix: 16);
-      if (val == null) return fallback;
-      return Color(0xFF000000 | val);
-    }
+  static bool _validId(String id) =>
+      id.isNotEmpty &&
+      id != '.' &&
+      id != '..' &&
+      !id.contains('/') &&
+      !id.contains('\\');
 
-    if (brightness == Brightness.light) {
-      return ColorScheme.light(
-        primary: c('primary', const Color(0xFF2CA1F4)),
-        onPrimary: c('onPrimary', const Color(0xFFFFFFFF)),
-        primaryContainer: c('primaryContainer', const Color(0xFFD2E5FF)),
-        onPrimaryContainer: c('onPrimaryContainer', const Color(0xFF001D35)),
-        secondary: c('secondary', const Color(0xFF565F71)),
-        onSecondary: c('onSecondary', const Color(0xFFFFFFFF)),
-        secondaryContainer: c('secondaryContainer', const Color(0xFFDAE2F9)),
-        onSecondaryContainer: c('onSecondaryContainer', const Color(0xFF131C2B)),
-        tertiary: c('tertiary', const Color(0xFF6E5676)),
-        onTertiary: c('onTertiary', const Color(0xFFFFFFFF)),
-        tertiaryContainer: c('tertiaryContainer', const Color(0xFFF8D8FE)),
-        onTertiaryContainer: c('onTertiaryContainer', const Color(0xFF271430)),
-        error: c('error', const Color(0xFFBA1A1A)),
-        onError: c('onError', const Color(0xFFFFFFFF)),
-        errorContainer: c('errorContainer', const Color(0xFFFFDAD6)),
-        onErrorContainer: c('onErrorContainer', const Color(0xFF410002)),
-        surface: c('surface', const Color(0xFFFDF8FF)),
-        surfaceDim: c('surfaceDim', const Color(0xFFDED8E1)),
-        surfaceBright: c('surfaceBright', const Color(0xFFFDF8FF)),
-        surfaceContainerLowest: c('surfaceContainerLowest', const Color(0xFFFFFFFF)),
-        surfaceContainerLow: c('surfaceContainerLow', const Color(0xFFF7F2FB)),
-        surfaceContainer: c('surfaceContainer', const Color(0xFFF2ECF5)),
-        surfaceContainerHigh: c('surfaceContainerHigh', const Color(0xFFEBE6EF)),
-        surfaceContainerHighest: c('surfaceContainerHighest', const Color(0xFFE0DAE3)),
-        onSurface: c('onSurface', const Color(0xFF1C1B1F)),
-        onSurfaceVariant: c('onSurfaceVariant', const Color(0xFF49454F)),
-        outline: c('outline', const Color(0xFF7A7580)),
-        outlineVariant: c('outlineVariant', const Color(0xFFCAC4CD)),
-        inverseSurface: c('inverseSurface', const Color(0xFF313033)),
-        inversePrimary: c('inversePrimary', const Color(0xFFA9D0FF)),
-      );
-    } else {
-      return ColorScheme.dark(
-        primary: c('primary', const Color(0xFFAAC7FF)),
-        onPrimary: c('onPrimary', const Color(0xFF003258)),
-        primaryContainer: c('primaryContainer', const Color(0xFF00497D)),
-        onPrimaryContainer: c('onPrimaryContainer', const Color(0xFFD2E5FF)),
-        secondary: c('secondary', const Color(0xFFBEC6DC)),
-        onSecondary: c('onSecondary', const Color(0xFF283141)),
-        secondaryContainer: c('secondaryContainer', const Color(0xFF3E4759)),
-        onSecondaryContainer: c('onSecondaryContainer', const Color(0xFFDAE2F9)),
-        tertiary: c('tertiary', const Color(0xFFDBBDE2)),
-        onTertiary: c('onTertiary', const Color(0xFF3D2846)),
-        tertiaryContainer: c('tertiaryContainer', const Color(0xFF553F5D)),
-        onTertiaryContainer: c('onTertiaryContainer', const Color(0xFFF8D8FE)),
-        error: c('error', const Color(0xFFFFB4AB)),
-        onError: c('onError', const Color(0xFF690005)),
-        errorContainer: c('errorContainer', const Color(0xFF93000A)),
-        onErrorContainer: c('onErrorContainer', const Color(0xFFFFDAD6)),
-        surface: c('surface', const Color(0xFF141318)),
-        surfaceDim: c('surfaceDim', const Color(0xFF141318)),
-        surfaceBright: c('surfaceBright', const Color(0xFF3A383E)),
-        surfaceContainerLowest: c('surfaceContainerLowest', const Color(0xFF0E0E13)),
-        surfaceContainerLow: c('surfaceContainerLow', const Color(0xFF1C1B20)),
-        surfaceContainer: c('surfaceContainer', const Color(0xFF201F24)),
-        surfaceContainerHigh: c('surfaceContainerHigh', const Color(0xFF2B292F)),
-        surfaceContainerHighest: c('surfaceContainerHighest', const Color(0xFF36343A)),
-        onSurface: c('onSurface', const Color(0xFFE6E1E6)),
-        onSurfaceVariant: c('onSurfaceVariant', const Color(0xFFCAC4CD)),
-        outline: c('outline', const Color(0xFF948F99)),
-        outlineVariant: c('outlineVariant', const Color(0xFF49454F)),
-        inverseSurface: c('inverseSurface', const Color(0xFFE6E1E6)),
-        inversePrimary: c('inversePrimary', const Color(0xFF00619F)),
-      );
-    }
+  static Future<Directory> _directory(String id,
+      {Directory? themesDirectory}) async {
+    final root = themesDirectory ??
+        Directory(path.join(
+            (await getApplicationDocumentsDirectory()).path, 'themes'));
+    return Directory(path.join(root.path, id));
   }
-
-  static ArchiveFile _emptyFile() =>
-      ArchiveFile('__empty__', 0, Uint8List(0));
 }

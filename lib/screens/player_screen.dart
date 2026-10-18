@@ -3,7 +3,7 @@
 
 import 'package:flutter/foundation.dart' show listEquals, ValueListenable;
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
+import '../ui/app_ui.dart';
 import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:provider/provider.dart';
 
@@ -102,7 +102,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       lineGap: 24,
       translationLineGap: 4,
       lineTextAlign: ls.centerAlign ? TextAlign.center : TextAlign.left,
-      contentAlignment: ls.centerAlign ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      contentAlignment:
+          ls.centerAlign ? CrossAxisAlignment.center : CrossAxisAlignment.start,
       contentPadding: const EdgeInsets.symmetric(horizontal: 28),
       selectionAnchorPosition: 0.5,
       selectionAlignment: MainAxisAlignment.center,
@@ -126,9 +127,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       activeAutoResumeDuration: const Duration(milliseconds: 3000),
 
       // 上下渐隐范围：仅 blurEffect 开启时生效
-      fadeRange: ls.blurEffect
-          ? FadeRange(top: 0.15, bottom: 0.15)
-          : null,
+      fadeRange: ls.blurEffect ? FadeRange(top: 0.15, bottom: 0.15) : null,
     );
   }
 
@@ -189,7 +188,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   void _onDragUpdate(DragUpdateDetails details) {
     if (_dismissing) return;
-    _dragOffset.value = (_dragOffset.value + details.delta.dy).clamp(0.0, double.infinity);
+    _dragOffset.value =
+        (_dragOffset.value + details.delta.dy).clamp(0.0, double.infinity);
   }
 
   void _onDragEnd(DragEndDetails details) {
@@ -214,7 +214,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final isSelected = duration == Duration.zero
         ? false
         : (player.sleepTimerRemaining != null &&
-            (player.sleepTimerRemaining!.inMinutes - duration.inMinutes).abs() < 2);
+            (player.sleepTimerRemaining!.inMinutes - duration.inMinutes).abs() <
+                2);
 
     return ListTile(
       title: Text(label, style: const TextStyle(color: Colors.white)),
@@ -233,7 +234,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   void _showSleepTimerSheet() {
-    showM3ModalBottomSheet(
+    showAppBottomSheet(
       context: context,
       backgroundColor: _sheetColor,
       shape: _sheetShape,
@@ -248,12 +249,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text('定时关闭',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600)),
                   const SizedBox(height: 16),
-                  _sleepTimerOption(ctx, player, '15 分钟', const Duration(minutes: 15)),
-                  _sleepTimerOption(ctx, player, '30 分钟', const Duration(minutes: 30)),
-                  _sleepTimerOption(ctx, player, '45 分钟', const Duration(minutes: 45)),
-                  _sleepTimerOption(ctx, player, '60 分钟', const Duration(minutes: 60)),
+                  _sleepTimerOption(
+                      ctx, player, '15 分钟', const Duration(minutes: 15)),
+                  _sleepTimerOption(
+                      ctx, player, '30 分钟', const Duration(minutes: 30)),
+                  _sleepTimerOption(
+                      ctx, player, '45 分钟', const Duration(minutes: 45)),
+                  _sleepTimerOption(
+                      ctx, player, '60 分钟', const Duration(minutes: 60)),
                   if (player.sleepTimerRemaining != null)
                     _sleepTimerOption(ctx, player, '关闭定时', Duration.zero),
                 ],
@@ -266,7 +274,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   void _showLyricSettingsSheet() {
-    showM3ModalBottomSheet(
+    showAppBottomSheet(
       context: context,
       backgroundColor: _sheetColor,
       shape: _sheetShape,
@@ -277,8 +285,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-
-
   void _showArtistSelectionSheet(PlayerProvider player, Song song) {
     // KRM 数据已在 Provider 层通过 hash 校验，可直接信任
     final krmAuthors = player.currentSongAuthors;
@@ -287,12 +293,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
     // 兜底方案：使用分割出来的歌名歌手列表
     final List<Map<String, dynamic>> displayAuthors = hasKrm
         ? krmAuthors
-        : song.artists.map((name) => {
-              'name': name,
-              'id': song.artists.indexOf(name) == 0 ? song.artistId : null,
-            }).toList();
+        : song.artists
+            .map((name) => {
+                  'name': name,
+                  'id': song.artists.indexOf(name) == 0 ? song.artistId : null,
+                })
+            .toList();
 
-    showM3ModalBottomSheet(
+    showAppBottomSheet(
       context: context,
       backgroundColor: _sheetColor,
       shape: _sheetShape,
@@ -316,19 +324,24 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     final artistId = author['id'] as int?;
                     final hasDetailId = artistId != null && artistId > 0;
                     return ListTile(
-                      leading: const Icon(Icons.person, color: Colors.white70, size: 20),
-                      title: Text(artistName, style: const TextStyle(color: Colors.white)),
-                      trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                      leading: const Icon(Icons.person,
+                          color: Colors.white70, size: 20),
+                      title: Text(artistName,
+                          style: const TextStyle(color: Colors.white)),
+                      trailing: const Icon(Icons.chevron_right,
+                          color: Colors.white38, size: 20),
                       onTap: () {
                         Navigator.pop(ctx);
                         if (hasDetailId) {
-                          Navigator.pushNamed(context, '/artist/detail', arguments: {
-                            'id': artistId,
-                            'name': artistName,
-                          });
+                          Navigator.pushNamed(context, '/artist/detail',
+                              arguments: {
+                                'id': artistId,
+                                'name': artistName,
+                              });
                         } else {
                           // 搜索降级
-                          Navigator.pushNamed(context, '/search', arguments: artistName);
+                          Navigator.pushNamed(context, '/search',
+                              arguments: artistName);
                         }
                       },
                     );
@@ -344,7 +357,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   void _showMoreSheet() {
     const spds = [1.0, 0.5, 0.75, 1.25, 1.5, 2.0];
-    showM3ModalBottomSheet(
+    showAppBottomSheet(
       context: context,
       backgroundColor: _sheetColor,
       shape: _sheetShape,
@@ -361,21 +374,31 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   final albumId = p.currentSongAlbumId;
                   final albumName = song?.albumName ?? '';
                   // 查看专辑显示条件：有 albumId，或者有 albumName 且不等于 'Unknown' / '无'
-                  final hasAlbum = song != null && (albumId > 0 || (albumName.isNotEmpty && albumName != 'Unknown' && albumName != '无'));
-                  
+                  final hasAlbum = song != null &&
+                      (albumId > 0 ||
+                          (albumName.isNotEmpty &&
+                              albumName != 'Unknown' &&
+                              albumName != '无'));
+
                   // 歌手呈现：KRM 数据已在 Provider 层通过 hash 校验，可直接信任
                   final krmAuthors = p.currentSongAuthors;
                   final hasKrm = krmAuthors.isNotEmpty;
-                  final displayArtistsList = hasKrm ? krmAuthors.map((e) => e['name'] as String).toList() : (song?.artists ?? []);
-                  final hasArtists = song != null && displayArtistsList.isNotEmpty;
-                  final artistsDisplayString = hasKrm ? displayArtistsList.join(' / ') : (song?.artistDisplay ?? '');
+                  final displayArtistsList = hasKrm
+                      ? krmAuthors.map((e) => e['name'] as String).toList()
+                      : (song?.artists ?? []);
+                  final hasArtists =
+                      song != null && displayArtistsList.isNotEmpty;
+                  final artistsDisplayString = hasKrm
+                      ? displayArtistsList.join(' / ')
+                      : (song?.artistDisplay ?? '');
 
                   return Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // 倍速控制（改为独立上下两行排版，防文本被压缩）
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -384,26 +407,35 @@ class _PlayerScreenState extends State<PlayerScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(Icons.fast_forward, color: Colors.white70, size: 20),
+                                    const Icon(Icons.fast_forward,
+                                        color: Colors.white70, size: 20),
                                     const SizedBox(width: 12),
                                     Text('播放倍速',
-                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w500,
-                                        )),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w500,
+                                            )),
                                   ],
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withValues(alpha: 0.1),
                                     borderRadius: AppShape.xs,
                                   ),
-                                  child: Text('${p.currentSpeed.toStringAsFixed(2)}x',
-                                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                        color: Colors.white70,
-                                        fontWeight: FontWeight.bold,
-                                      )),
+                                  child: Text(
+                                      '${p.currentSpeed.toStringAsFixed(2)}x',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelSmall
+                                          ?.copyWith(
+                                            color: Colors.white70,
+                                            fontWeight: FontWeight.bold,
+                                          )),
                                 ),
                               ],
                             ),
@@ -419,22 +451,34 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                       borderRadius: AppShape.sm,
                                       onTap: () => p.setSpeed(s),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 14, vertical: 8),
                                         decoration: BoxDecoration(
                                           color: isSelected
-                                              ? Colors.white.withValues(alpha: 0.15)
-                                              : Colors.white.withValues(alpha: 0.03),
+                                              ? Colors.white
+                                                  .withValues(alpha: 0.15)
+                                              : Colors.white
+                                                  .withValues(alpha: 0.03),
                                           border: Border.all(
-                                            color: isSelected ? Colors.white30 : Colors.white10,
+                                            color: isSelected
+                                                ? Colors.white30
+                                                : Colors.white10,
                                             width: 1,
                                           ),
                                           borderRadius: AppShape.sm,
                                         ),
                                         child: Text('${s}x',
-                                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                              color: isSelected ? Colors.white : Colors.white38,
-                                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                                            )),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.copyWith(
+                                                  color: isSelected
+                                                      ? Colors.white
+                                                      : Colors.white38,
+                                                  fontWeight: isSelected
+                                                      ? FontWeight.w600
+                                                      : FontWeight.normal,
+                                                )),
                                       ),
                                     ),
                                   );
@@ -448,35 +492,44 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       // 查看专辑
                       if (hasAlbum)
                         ListTile(
-                          leading: const Icon(Icons.album, color: Colors.white70, size: 20),
+                          leading: const Icon(Icons.album,
+                              color: Colors.white70, size: 20),
                           title: const Text('查看专辑',
                               style: TextStyle(color: Colors.white)),
-                          trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                          trailing: const Icon(Icons.chevron_right,
+                              color: Colors.white38, size: 20),
                           onTap: () {
                             Navigator.pop(ctx);
                             if (albumId > 0) {
-                              Navigator.pushNamed(context, '/album/detail', arguments: {
-                                'id': albumId,
-                                'name': albumName,
-                              });
+                              Navigator.pushNamed(context, '/album/detail',
+                                  arguments: {
+                                    'id': albumId,
+                                    'name': albumName,
+                                  });
                             } else {
                               // 搜索降级
-                              Navigator.pushNamed(context, '/search', arguments: albumName);
+                              Navigator.pushNamed(context, '/search',
+                                  arguments: albumName);
                             }
                           },
                         ),
                       // 查看歌手
                       if (hasArtists)
                         ListTile(
-                          leading: const Icon(Icons.person, color: Colors.white70, size: 20),
+                          leading: const Icon(Icons.person,
+                              color: Colors.white70, size: 20),
                           title: Text(displayArtistsList.length > 1
                               ? '查看歌手 (共 ${displayArtistsList.length} 位)'
                               : '查看歌手'),
                           subtitle: Text(artistsDisplayString,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white30)),
-                          trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: Colors.white30)),
+                          trailing: const Icon(Icons.chevron_right,
+                              color: Colors.white38, size: 20),
                           onTap: () {
                             Navigator.pop(ctx);
                             if (displayArtistsList.length > 1) {
@@ -485,15 +538,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             } else {
                               // 单歌手逻辑
                               final artistName = displayArtistsList.first;
-                              final artistId = hasKrm ? krmAuthors.first['id'] as int? : song.artistId;
+                              final artistId = hasKrm
+                                  ? krmAuthors.first['id'] as int?
+                                  : song.artistId;
                               if (artistId != null && artistId > 0) {
-                                Navigator.pushNamed(context, '/artist/detail', arguments: {
-                                  'id': artistId,
-                                  'name': artistName,
-                                });
+                                Navigator.pushNamed(context, '/artist/detail',
+                                    arguments: {
+                                      'id': artistId,
+                                      'name': artistName,
+                                    });
                               } else {
                                 // 搜索降级
-                                Navigator.pushNamed(context, '/search', arguments: artistName);
+                                Navigator.pushNamed(context, '/search',
+                                    arguments: artistName);
                               }
                             }
                           },
@@ -502,10 +559,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         const Divider(color: Colors.white12, height: 1),
                       // 定时关闭
                       ListTile(
-                        leading: const Icon(Icons.timer_outlined, color: Colors.white70, size: 20),
+                        leading: const Icon(Icons.timer_outlined,
+                            color: Colors.white70, size: 20),
                         title: const Text('定时关闭',
                             style: TextStyle(color: Colors.white)),
-                        trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                        trailing: const Icon(Icons.chevron_right,
+                            color: Colors.white38, size: 20),
                         onTap: () {
                           Navigator.pop(ctx);
                           _showSleepTimerSheet();
@@ -514,16 +573,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       const Divider(color: Colors.white12, height: 1),
                       // 编码音质
                       ListTile(
-                        leading: const Icon(Icons.speed, color: Colors.white70, size: 20),
+                        leading: const Icon(Icons.speed,
+                            color: Colors.white70, size: 20),
                         title: const Text('编码音质',
                             style: TextStyle(color: Colors.white)),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(p.currentQualityLabel,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white38)),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: Colors.white38)),
                             const SizedBox(width: 4),
-                            const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                            const Icon(Icons.chevron_right,
+                                color: Colors.white38, size: 20),
                           ],
                         ),
                         onTap: () {
@@ -534,17 +598,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       const Divider(color: Colors.white12, height: 1),
                       // 音效
                       ListTile(
-                        leading: const Icon(Icons.spatial_audio, color: Colors.white70, size: 20),
+                        leading: const Icon(Icons.spatial_audio,
+                            color: Colors.white70, size: 20),
                         title: const Text('音效',
                             style: TextStyle(color: Colors.white)),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(p.effectLabel,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white38)),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: Colors.white38)),
                             const SizedBox(width: 4),
-                            const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
-                        ],),
+                            const Icon(Icons.chevron_right,
+                                color: Colors.white38, size: 20),
+                          ],
+                        ),
                         onTap: () {
                           Navigator.pop(ctx);
                           _showEffectSheet();
@@ -562,7 +632,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   void _showEffectSheet() {
-    showM3ModalBottomSheet(
+    showAppBottomSheet(
       context: context,
       backgroundColor: _sheetColor,
       shape: _sheetShape,
@@ -589,13 +659,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       currentEffect == 'none'
                           ? Icons.radio_button_checked
                           : Icons.radio_button_unchecked,
-                      color: currentEffect == 'none' ? Colors.white : Colors.white38,
+                      color: currentEffect == 'none'
+                          ? Colors.white
+                          : Colors.white38,
                       size: 20,
                     ),
-                    title: const Text('关闭',
-                        style: TextStyle(color: Colors.white)),
+                    title:
+                        const Text('关闭', style: TextStyle(color: Colors.white)),
                     subtitle: Text('不使用音效',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white38)),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Colors.white38)),
                     onTap: () {
                       p.setEffect('none');
                       Navigator.pop(ctx);
@@ -619,12 +694,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           style: TextStyle(
                             color: isSelected
                                 ? Colors.white
-                                : (isAvailable ? Colors.white60 : Colors.white24),
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                : (isAvailable
+                                    ? Colors.white60
+                                    : Colors.white24),
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
                           )),
                       subtitle: !isAvailable
                           ? Text('当前歌曲不支持',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white24))
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: Colors.white24))
                           : null,
                       enabled: isAvailable,
                       onTap: isAvailable
@@ -649,7 +731,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final selectedKey =
         Quality.levels[player.qualityLevel % Quality.levels.length];
     final availableQualities = player.getAvailableQualities();
-    showM3ModalBottomSheet(
+    showAppBottomSheet(
       context: context,
       backgroundColor: _sheetColor,
       shape: _sheetShape,
@@ -670,74 +752,94 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           fontWeight: FontWeight.w600)),
                   const SizedBox(height: 12),
                   ...Quality.levels.map((key) {
-                  final label = Quality.label(key);
-                  final isSelected = key == selectedKey;
-                  final isAvailable = p.isQualityAvailable(key);
-                  return ListTile(
-                    leading: Icon(
-                      isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                      color: isSelected
-                          ? Colors.white
-                          : (isAvailable ? Colors.white38 : Colors.white10),
-                      size: 20,
-                    ),
-                    title: Text(label,
-                        style: TextStyle(
-                          color: isSelected
-                              ? Colors.white
-                              : (isAvailable ? Colors.white60 : Colors.white24),
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                        )),
-                    subtitle: Row(
-                      children: [
-                        Text(
-                          _qualitySubtitle(key),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: isAvailable ? Colors.white38 : Colors.white10),
-                        ),
-                        if (!isAvailable) ...[
-                          const SizedBox(width: 8),
-                          Text('当前歌曲不支持',
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  color: Colors.white24)),
-                        ],
-                        if (isAvailable && !availableQualities.contains(key)) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.1),
-                              borderRadius: AppShape.xs,
-                            ),
-                            child: Text('降级可用',
-                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: Colors.white24)),
+                    final label = Quality.label(key);
+                    final isSelected = key == selectedKey;
+                    final isAvailable = p.isQualityAvailable(key);
+                    return ListTile(
+                      leading: Icon(
+                        isSelected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        color: isSelected
+                            ? Colors.white
+                            : (isAvailable ? Colors.white38 : Colors.white10),
+                        size: 20,
+                      ),
+                      title: Text(label,
+                          style: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : (isAvailable
+                                    ? Colors.white60
+                                    : Colors.white24),
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          )),
+                      subtitle: Row(
+                        children: [
+                          Text(
+                            _qualitySubtitle(key),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                    color: isAvailable
+                                        ? Colors.white38
+                                        : Colors.white10),
                           ),
+                          if (!isAvailable) ...[
+                            const SizedBox(width: 8),
+                            Text('当前歌曲不支持',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(color: Colors.white24)),
+                          ],
+                          if (isAvailable &&
+                              !availableQualities.contains(key)) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.1),
+                                borderRadius: AppShape.xs,
+                              ),
+                              child: Text('降级可用',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(color: Colors.white24)),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
+                      enabled: isAvailable,
+                      onTap: isAvailable
+                          ? () {
+                              p.setQuality(key);
+                              Navigator.pop(ctx);
+                            }
+                          : null,
+                    );
+                  }),
+                  if (availableQualities.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        '当前歌曲最高支持: ${Quality.label(availableQualities.last)}',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Colors.white24),
+                      ),
                     ),
-                    enabled: isAvailable,
-                    onTap: isAvailable
-                        ? () {
-                            p.setQuality(key);
-                            Navigator.pop(ctx);
-                          }
-                        : null,
-                  );
-                }),
-                if (availableQualities.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      '当前歌曲最高支持: ${Quality.label(availableQualities.last)}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white24),
-                    ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
           ),
         );
       },
@@ -775,14 +877,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
           children: [
             Icon(Icons.lyrics_outlined, size: 48, color: Colors.white54),
             SizedBox(height: 16),
-            Text('暂无歌词',
-                style: TextStyle(color: Colors.white54, fontSize: 16)),
+            Text('暂无歌词', style: TextStyle(color: Colors.white54, fontSize: 16)),
           ],
         ),
       );
     } else {
       lyricsContent = LyricView(
-        key: ValueKey('lyrics_${player.selectedLyricLang}_${song.hash ?? song.id}'),
+        key: ValueKey(
+            'lyrics_${player.selectedLyricLang}_${song.hash ?? song.id}'),
         controller: player.lyricController,
         style: _buildLyricStyle(),
       );
@@ -864,9 +966,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           height: 1.2)),
                   const SizedBox(width: 4),
                   Text(source,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Colors.white38,
-                          height: 1.2)),
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(color: Colors.white38, height: 1.2)),
                 ],
               ),
             ),
@@ -893,8 +996,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     Text(
                       player.showTranslation ? '翻译' : '歌词',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Colors.white54,
-                      ),
+                            color: Colors.white54,
+                          ),
                     ),
                     const SizedBox(width: 2),
                     Icon(
@@ -921,6 +1024,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Widget build(BuildContext context) {
     // 歌词设置以前依赖进度重建顺带刷新，现在显式订阅设置变化。
     context.select<ThemeProvider, Object>((p) => p.lyricSettings);
+    final showHiResBadge =
+        context.select<ThemeProvider, bool>((p) => p.showHiResBadge);
     // 背景经由 Consumer.child 传入，只在封面/取色变化或翻页时重建。
     // 播放进度走独立 ValueListenable，不再触发外层 Consumer。
     final background = Selector<PlayerProvider, (String?, Color?, List<Color>)>(
@@ -968,33 +1073,34 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 child: child,
               ),
               child: Stack(
-              children: [
-                // ── Dynamic background ──
-                background!,
+                children: [
+                  // ── Dynamic background ──
+                  background!,
 
-                // ── Content ──
-                SafeArea(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // ── Page header (shared, pinned at top) ──
-                      _buildPageHeader(player, song),
-                      Expanded(
-                        child: PageView(
-                          controller: _pageController,
-                          children: [
-                            // Page 0: Cover + controls
-                            _buildCoverPage(player, song),
-                            // Page 1: Immersive lyrics
-                            _buildLyricsPage(player, song),
-                          ],
+                  // ── Content ──
+                  SafeArea(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // ── Page header (shared, pinned at top) ──
+                        _buildPageHeader(player, song),
+                        Expanded(
+                          child: PageView(
+                            controller: _pageController,
+                            children: [
+                              // Page 0: Cover + controls
+                              _buildCoverPage(player, song,
+                                  showHiResBadge: showHiResBadge),
+                              // Page 1: Immersive lyrics
+                              _buildLyricsPage(player, song),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
             ),
           ),
         );
@@ -1009,8 +1115,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Widget _buildPageHeader(PlayerProvider player, Song song) {
     final krmAuthors = player.currentSongAuthors;
     final hasKrm = krmAuthors.isNotEmpty;
-    final displayArtistsList = hasKrm ? krmAuthors.map((e) => e['name'] as String).toList() : song.artists;
-    final artistsDisplayString = hasKrm ? displayArtistsList.join(' / ') : song.artistDisplay;
+    final displayArtistsList = hasKrm
+        ? krmAuthors.map((e) => e['name'] as String).toList()
+        : song.artists;
+    final artistsDisplayString =
+        hasKrm ? displayArtistsList.join(' / ') : song.artistDisplay;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
@@ -1034,14 +1143,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 _showArtistSelectionSheet(player, song);
               } else if (displayArtistsList.isNotEmpty) {
                 final artistName = displayArtistsList.first;
-                final artistId = hasKrm ? krmAuthors.first['id'] as int? : song.artistId;
+                final artistId =
+                    hasKrm ? krmAuthors.first['id'] as int? : song.artistId;
                 if (artistId != null && artistId > 0) {
                   Navigator.pushNamed(context, '/artist/detail', arguments: {
                     'id': artistId,
                     'name': artistName,
                   });
                 } else {
-                  Navigator.pushNamed(context, '/search', arguments: artistName);
+                  Navigator.pushNamed(context, '/search',
+                      arguments: artistName);
                 }
               }
             },
@@ -1062,18 +1173,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // ── Page 0: cover page ──
 
-  Widget _buildCoverPage(PlayerProvider player, Song song) {
+  Widget _buildCoverPage(PlayerProvider player, Song song,
+      {required bool showHiResBadge}) {
     // 从 privilege 取最高可用音质，无数据时 fallback 到当前选中
     final qualityOptions = player.qualityOptions;
-    final highestAvailable = qualityOptions.isNotEmpty
-        ? qualityOptions.last.value
-        : null;
-    final showKey = player.resolvedQuality ?? highestAvailable ??
+    final highestAvailable =
+        qualityOptions.isNotEmpty ? qualityOptions.last.value : null;
+    final showKey = player.resolvedQuality ??
+        highestAvailable ??
         Quality.levels[player.qualityLevel % Quality.levels.length];
     final qualityLabel = Quality.label(showKey);
-    // 仅在真实源解析完成（resolvedQuality != null）且为 FLAC、且设置开启了 HiRes 金标时才显示
-    final showHiRes = player.resolvedQuality == 'high' &&
-        context.select<ThemeProvider, bool>((tp) => tp.showHiResBadge);
+    // 仅在真实源解析为 Hi-Res 且用户开启金标时显示。
+    final showHiRes = player.resolvedQuality == 'high' && showHiResBadge;
     const speeds = [1.0, 0.5, 0.75, 1.25, 1.5, 2.0];
 
     return Column(
@@ -1093,10 +1204,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
         Text(
           qualityLabel,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-            color: Colors.white60,
-            letterSpacing: 1.2,
-          ),
+                fontWeight: FontWeight.w500,
+                color: Colors.white60,
+                letterSpacing: 1.2,
+              ),
         ),
 
         const SizedBox(height: 12),
@@ -1128,6 +1239,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
         // ↺ Play mode
         _IconBarItem(
           icon: _modeIcon(player.playMode),
+          label: '切换播放模式',
+          value: switch (player.playMode) {
+            PlayMode.sequential => '顺序播放',
+            PlayMode.shuffle => '随机播放',
+            PlayMode.repeatOne => '单曲循环',
+            PlayMode.radio => '电台播放',
+          },
           onTap: () {
             const modes = [
               PlayMode.sequential,
@@ -1146,6 +1264,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
             final liked = lp.likedIds.contains(song.id);
             return _IconBarItem(
               icon: liked ? Icons.favorite : Icons.favorite_border,
+              label: liked ? '取消喜欢' : '喜欢',
+              toggled: liked,
               iconColor: liked ? Colors.redAccent : null,
               onTap: () async {
                 final auth = context.read<AuthProvider>();
@@ -1171,13 +1291,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
         // ⎔ Audio effects
         _IconBarItem(
           icon: Icons.tune_rounded,
-          onTap: () =>
-              Navigator.pushNamed(context, '/settings/audio/effects'),
+          label: '音效设置',
+          onTap: () => Navigator.pushNamed(context, '/settings/audio/effects'),
         ),
 
         // ☰ Playlist queue
         _IconBarItem(
           icon: Icons.playlist_play,
+          label: '播放队列',
           onTap: () =>
               legacy.PlaybackControls.showPlaylistStatic(context, player),
         ),
@@ -1185,6 +1306,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         // ⋮ More — opens bottom sheet
         _IconBarItem(
           icon: Icons.more_horiz,
+          label: '更多选项',
           onTap: _showMoreSheet,
         ),
       ],
@@ -1203,29 +1325,48 @@ class _PlayerScreenState extends State<PlayerScreen> {
         return Icons.radio;
     }
   }
-
 }
 
 /// Icon + label item used in the bottom icon bar.
 class _IconBarItem extends StatelessWidget {
   final IconData icon;
+  final String label;
+  final String? value;
+  final bool? toggled;
   final VoidCallback? onTap;
   final Color? iconColor;
 
   const _IconBarItem({
     required this.icon,
+    required this.label,
+    this.value,
+    this.toggled,
     this.onTap,
     this.iconColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return Semantics(
+      button: true,
+      label: label,
+      value: value,
+      toggled: toggled,
+      enabled: onTap != null,
       onTap: onTap,
-      borderRadius: AppShape.sm,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Icon(icon, size: 22, color: iconColor ?? Colors.white60),
+      child: ExcludeSemantics(
+        child: Tooltip(
+          message: value == null ? label : '$label：$value',
+          child: InkWell(
+            excludeFromSemantics: true,
+            onTap: onTap,
+            borderRadius: AppShape.sm,
+            child: SizedBox.square(
+              dimension: 48,
+              child: Icon(icon, size: 22, color: iconColor ?? Colors.white60),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1247,8 +1388,9 @@ class _PlayerProgressBarState extends State<_PlayerProgressBar> {
 
   @override
   Widget build(BuildContext context) {
-    final progressListenable = context.select<PlayerProvider,
-        ValueListenable<PlaybackProgress>>((p) => p.playbackProgress);
+    final progressListenable =
+        context.select<PlayerProvider, ValueListenable<PlaybackProgress>>(
+            (p) => p.playbackProgress);
     return ValueListenableBuilder<PlaybackProgress>(
       valueListenable: progressListenable,
       builder: (context, state, _) {
@@ -1260,8 +1402,8 @@ class _PlayerProgressBarState extends State<_PlayerProgressBar> {
         return PlayerProgressBar(
           position: _isDragging
               ? Duration(
-                  milliseconds: (_dragValue * state.duration.inMilliseconds)
-                      .round(),
+                  milliseconds:
+                      (_dragValue * state.duration.inMilliseconds).round(),
                 )
               : state.position,
           duration: state.duration,
@@ -1274,8 +1416,8 @@ class _PlayerProgressBarState extends State<_PlayerProgressBar> {
           },
           onDragEnd: () async {
             await player.seek(Duration(
-              milliseconds: (_dragValue * state.duration.inMilliseconds)
-                  .round(),
+              milliseconds:
+                  (_dragValue * state.duration.inMilliseconds).round(),
             ));
             if (mounted) {
               setState(() => _isDragging = false);
@@ -1283,6 +1425,12 @@ class _PlayerProgressBarState extends State<_PlayerProgressBar> {
           },
           onSeek: (v) {
             setState(() => _dragValue = v);
+            // 读屏和键盘调整不会开始拖动，也需要真正更新播放位置。
+            if (!_isDragging) {
+              player.seek(Duration(
+                milliseconds: (v * state.duration.inMilliseconds).round(),
+              ));
+            }
             if (_isDragging && widget.pageOffset >= 0.5) {
               player.lyricController.setProgress(Duration(
                 milliseconds: (v * state.duration.inMilliseconds).round(),
@@ -1301,8 +1449,10 @@ class _PlayerControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Selector<PlayerProvider, ({bool isPlaying, bool isLoading})>(
-      selector: (_, p) => (isPlaying: p.isPlaying, isLoading: p.isLoading),
+    return Selector<PlayerProvider,
+        ({bool isPlaying, bool isLoading, bool isFm})>(
+      selector: (_, p) =>
+          (isPlaying: p.isPlaying, isLoading: p.isLoading, isFm: p.isFmMode),
       builder: (context, state, _) {
         final player = context.read<PlayerProvider>();
         return PlayerControlsBar(
@@ -1310,6 +1460,9 @@ class _PlayerControls extends StatelessWidget {
           isLoading: state.isLoading,
           onPlayPause: player.togglePlayPause,
           onPrevious: player.playPrevious,
+          previousLabel: state.isFm ? '不喜欢这首歌' : '上一首',
+          previousIcon:
+              state.isFm ? Icons.heart_broken_outlined : Icons.skip_previous,
           onNext: player.playNext,
         );
       },

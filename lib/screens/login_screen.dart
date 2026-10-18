@@ -1,7 +1,8 @@
+// SPDX-License-Identifier: MIT
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
+import '../ui/app_ui.dart';
 import 'package:provider/provider.dart';
 import '../utils/logger.dart';
 import '../providers/auth_provider.dart';
@@ -31,7 +32,6 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
     final tabBody = TabBarView(
       controller: _tabCtrl,
       children: const [
@@ -40,24 +40,39 @@ class _LoginScreenState extends State<LoginScreen>
       ],
     );
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('登录'),
-        bottom: TabBar(
-          controller: _tabCtrl,
-          tabs: const [
-            Tab(text: '手机'),
-            Tab(text: '二维码'),
-          ],
+      body: SafeArea(
+        child: AppPageBody(
+          child: Column(
+            children: [
+              const AppPageHeader(
+                title: '登录',
+                subtitle: '同步你的收藏，继续熟悉的旋律',
+                showBack: true,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: AppSurface(
+                  padding: const EdgeInsets.all(4),
+                  child: TabBar(
+                    controller: _tabCtrl,
+                    dividerColor: Colors.transparent,
+                    tabs: const [Tab(text: '手机'), Tab(text: '二维码')],
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: tabBody,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      body: isWide
-          ? Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
-                child: tabBody,
-              ),
-            )
-          : tabBody,
     );
   }
 }
@@ -154,9 +169,11 @@ class _PasswordLoginState extends State<_PasswordLogin> {
               labelText: '密码',
               prefixIcon: const Icon(Icons.lock),
               suffixIcon: IconButton(
-                icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                icon: Icon(
+                    _obscurePassword ? Icons.visibility_off : Icons.visibility),
                 tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
-                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
               ),
               border: OutlineInputBorder(
                 borderRadius: AppShape.sm,
@@ -186,12 +203,14 @@ class _PasswordLoginState extends State<_PasswordLogin> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.warning, color: Theme.of(context).colorScheme.error, size: 20),
+                  Icon(Icons.warning,
+                      color: Theme.of(context).colorScheme.error, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       _errorMsg!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      style:
+                          TextStyle(color: Theme.of(context).colorScheme.error),
                     ),
                   ),
                 ],
@@ -217,7 +236,8 @@ class _PasswordLoginState extends State<_PasswordLogin> {
           const SizedBox(height: 16),
           Text(
             '提示：密码登录可能需要验证码验证，建议使用手机验证码登录',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
         ],
@@ -258,7 +278,9 @@ class _PhoneLoginState extends State<_PhoneLogin> {
     setState(() => _sendingCode = true);
     try {
       await context.read<AuthProvider>().sendCaptcha(phone);
-    } catch (e, s) { Log.e('login_screen', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('login_screen', 'error', e, s);
+    }
     setState(() => _sendingCode = false);
     _startCountdown();
   }
@@ -342,8 +364,7 @@ class _PhoneLoginState extends State<_PhoneLogin> {
               SizedBox(
                 height: 48,
                 child: FilledButton.tonal(
-                  onPressed:
-                      _sendingCode || _countdown > 0 ? null : _sendCode,
+                  onPressed: _sendingCode || _countdown > 0 ? null : _sendCode,
                   child: _sendingCode
                       ? const SizedBox(
                           width: 16,
@@ -425,7 +446,10 @@ class _QrLoginState extends State<_QrLogin> {
       final keyData = await auth.getQrKey();
       final key = keyData['qrcode'] as String?;
       if (key == null || key.isEmpty) {
-        setState(() { _isLoading = false; _statusText = '获取二维码失败，请重试'; });
+        setState(() {
+          _isLoading = false;
+          _statusText = '获取二维码失败，请重试';
+        });
         return;
       }
       _qrKey = key;
@@ -442,7 +466,11 @@ class _QrLoginState extends State<_QrLogin> {
         _startPolling();
       }
     } catch (e) {
-      if (mounted) setState(() { _isLoading = false; _statusText = '获取二维码失败，请重试'; });
+      if (mounted)
+        setState(() {
+          _isLoading = false;
+          _statusText = '获取二维码失败，请重试';
+        });
     }
   }
 
@@ -471,26 +499,32 @@ class _QrLoginState extends State<_QrLogin> {
 
         // 0 = 过期 → 停止轮询
         if (code == 0) _pollTimer?.cancel();
-      } catch (e, s) { Log.e('login_screen', 'qr poll error', e, s); }
+      } catch (e, s) {
+        Log.e('login_screen', 'qr poll error', e, s);
+      }
     });
   }
 
   Widget _buildQrImage() {
     final b64 = _base64Img;
     if (b64 == null || b64.isEmpty) {
-      return Icon(Icons.qr_code, size: 100, color: Theme.of(context).colorScheme.onSurface);
+      return Icon(Icons.qr_code,
+          size: 100, color: Theme.of(context).colorScheme.onSurface);
     }
     // base64 格式: data:image/png;base64,xxxx
     try {
       final data = b64.contains(',') ? b64.split(',')[1] : b64;
       return Image.memory(
         base64Decode(data),
-        width: 176, height: 176, fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => Icon(Icons.qr_code, size: 100,
-            color: Theme.of(context).colorScheme.onSurface),
+        width: 176,
+        height: 176,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => Icon(Icons.qr_code,
+            size: 100, color: Theme.of(context).colorScheme.onSurface),
       );
     } catch (_) {
-      return Icon(Icons.qr_code, size: 100, color: Theme.of(context).colorScheme.onSurface);
+      return Icon(Icons.qr_code,
+          size: 100, color: Theme.of(context).colorScheme.onSurface);
     }
   }
 
@@ -511,14 +545,17 @@ class _QrLoginState extends State<_QrLogin> {
               const CircularProgressIndicator()
             else ...[
               Container(
-                width: 200, height: 200,
+                width: 200,
+                height: 200,
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surface,
                   borderRadius: AppShape.md,
                 ),
                 padding: const EdgeInsets.all(12),
-                child: _base64Img != null ? _buildQrImage()
-                    : Icon(Icons.qr_code, size: 100,
+                child: _base64Img != null
+                    ? _buildQrImage()
+                    : Icon(Icons.qr_code,
+                        size: 100,
                         color: Theme.of(context).colorScheme.onSurface),
               ),
               const SizedBox(height: 20),

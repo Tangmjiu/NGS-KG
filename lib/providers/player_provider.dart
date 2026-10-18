@@ -63,6 +63,10 @@ class PlayerProvider extends ChangeNotifier
   int _savedQueuesVersion = 0;
   int get savedQueuesVersion => _savedQueuesVersion;
 
+  /// 播放意图的版本；播放、暂停、停止、切歌或替换队列都会使旧意图失效。
+  /// 异步请求发出前保存此值，完成后仅在版本未变时接管播放。
+  int get playbackIntentVersion => _playbackGeneration;
+
   final ValueNotifier<PlaybackProgress> _playbackProgress = ValueNotifier((
     position: Duration.zero,
     duration: Duration.zero,
@@ -75,7 +79,7 @@ class PlayerProvider extends ChangeNotifier
     }
   }
 
-  /// 手动切歌/替换队列使冷启动恢复和旧补队列请求失效。
+  /// 新的播放指令使冷启动恢复、旧推荐和补队列请求失效。
   void _invalidatePendingPlayback() {
     _playbackGeneration++;
     _loadMoreRequestId++;
@@ -88,6 +92,7 @@ class PlayerProvider extends ChangeNotifier
 
   bool _isPlaying = false;
   bool _isLoading = false;
+
   /// 系统 STOP 后不再推送通知（否则又会把刚撤下的通知顶回来），
   /// 用户重新播放时解除。
   bool _notificationSuppressed = false;
@@ -122,22 +127,26 @@ class PlayerProvider extends ChangeNotifier
     if (_currentKrmAudio == null) return [];
     final list = _currentKrmAudio!['authors'] as List<dynamic>?;
     if (list == null) return [];
-    return list.map((e) {
-      if (e is Map) {
-        final base = e['base'] as Map?;
-        return {
-          'id': SongMapper.safeInt(base?['author_id']),
-          'name': base?['author_name'] as String? ?? '',
-        };
-      }
-      return <String, dynamic>{};
-    }).where((e) => e['name'] != null && (e['name'] as String).isNotEmpty).toList();
+    return list
+        .map((e) {
+          if (e is Map) {
+            final base = e['base'] as Map?;
+            return {
+              'id': SongMapper.safeInt(base?['author_id']),
+              'name': base?['author_name'] as String? ?? '',
+            };
+          }
+          return <String, dynamic>{};
+        })
+        .where((e) => e['name'] != null && (e['name'] as String).isNotEmpty)
+        .toList();
   }
 
   int get currentSongAlbumId {
     if (_currentKrmAudio != null) {
       final albumInfo = _currentKrmAudio!['album_info'] as Map?;
-      final aid = SongMapper.safeInt(albumInfo?['album_id'] ?? _currentKrmAudio!['base']?['album_id']);
+      final aid = SongMapper.safeInt(
+          albumInfo?['album_id'] ?? _currentKrmAudio!['base']?['album_id']);
       if (aid != null && aid > 0) return aid;
     }
     return currentSong?.albumId ?? 0;
@@ -240,6 +249,7 @@ class PlayerProvider extends ChangeNotifier
       notifyListeners();
     }
   }
+
   bool get isFmMode => _queue.type == QueueType.fm;
   Duration get position => _position;
   Duration get duration => _duration;
@@ -273,7 +283,11 @@ class PlayerProvider extends ChangeNotifier
     if (p == null) {
       _cachedPaletteColors = null;
       if (_backgroundColor != null) {
-        return [_backgroundColor!, _backgroundColor!.withValues(alpha: 0.7), _backgroundColor!.withValues(alpha: 0.5)];
+        return [
+          _backgroundColor!,
+          _backgroundColor!.withValues(alpha: 0.7),
+          _backgroundColor!.withValues(alpha: 0.5)
+        ];
       }
       return const [Color(0xFF121212), Color(0xFF1DB954), Color(0xFF2A2D28)];
     }
@@ -320,11 +334,10 @@ class PlayerProvider extends ChangeNotifier
       final src = colors.isEmpty ? const Color(0xFF121212) : colors.last;
       final hsl = HSLColor.fromColor(src);
       // Alternate lighter/darker so each new colour is perceptibly different.
-      final double delta = ((colors.length % 2) == 0 ? 0.18 : -0.18) * colors.length;
+      final double delta =
+          ((colors.length % 2) == 0 ? 0.18 : -0.18) * colors.length;
       colors.add(
-        hsl
-            .withLightness((hsl.lightness + delta).clamp(0.05, 0.95))
-            .toColor(),
+        hsl.withLightness((hsl.lightness + delta).clamp(0.05, 0.95)).toColor(),
       );
     }
 
@@ -501,7 +514,8 @@ class PlayerProvider extends ChangeNotifier
       if (song == null) return;
       final queue = _queue.playlist;
       // 只保存最多 200 首，但窗口必须包含当前歌曲，否则第 201 首以后恢复错歌。
-      final queueStart = (_queue.currentIndex - 199).clamp(0, queue.length).toInt();
+      final queueStart =
+          (_queue.currentIndex - 199).clamp(0, queue.length).toInt();
       final queueLimit = queue.skip(queueStart).take(200);
       final state = {
         'songId': song.id,
@@ -534,7 +548,8 @@ class PlayerProvider extends ChangeNotifier
         'albumId': s.albumId,
         'filePath': s.filePath ?? '',
         'isLocal': s.isLocal,
-        if (withLyrics && (s.isLocal || s.hash == null)) 'lyrics': s.lyrics ?? '',
+        if (withLyrics && (s.isLocal || s.hash == null))
+          'lyrics': s.lyrics ?? '',
       };
 
   /// 从 SharedPreferences 恢复播放状态。
@@ -622,9 +637,10 @@ class PlayerProvider extends ChangeNotifier
         id: m['id'] as int,
         name: m['name'] as String? ?? '',
         artists: (m['artist'] as String? ?? '').split(' / '),
-        albumCoverUrl: (m['cover'] is String && (m['cover'] as String).isNotEmpty)
-            ? m['cover'] as String
-            : null,
+        albumCoverUrl:
+            (m['cover'] is String && (m['cover'] as String).isNotEmpty)
+                ? m['cover'] as String
+                : null,
         albumId: (m['albumId'] as num?)?.toInt() ?? 0,
         hash: (m['hash'] is String && (m['hash'] as String).isNotEmpty)
             ? m['hash'] as String
@@ -654,13 +670,15 @@ class PlayerProvider extends ChangeNotifier
   }
 
   /// 应用恢复的歌曲列表和状态。
-  void _applyRestoredState(List<Song> restoreSongs, int savedIndex, Map<String, dynamic> state) {
+  void _applyRestoredState(
+      List<Song> restoreSongs, int savedIndex, Map<String, dynamic> state) {
     if (_disposed || restoreSongs.isEmpty) return;
     final validIndex = savedIndex.clamp(0, restoreSongs.length - 1).toInt();
     _queue.setPlaylist(restoreSongs, startIndex: validIndex);
     _qualityLevel = (state['quality'] as num?)?.toInt() ?? 0;
     _engine.qualityLevel = _qualityLevel;
-    _position = Duration(milliseconds: (state['positionMs'] as num?)?.toInt() ?? 0);
+    _position =
+        Duration(milliseconds: (state['positionMs'] as num?)?.toInt() ?? 0);
     // 播放器尚未加载音源：记下进度，首次点播放时从这里开始
     _engine.startPosition = _position;
     final savedDurationMs = (state['durationMs'] as num?)?.toInt() ?? 0;
@@ -697,7 +715,8 @@ class PlayerProvider extends ChangeNotifier
     final s = song ?? _queue.currentSong;
     if (s == null) return;
     _applyQualityFromSettings();
-    _engine.play(s, version: version ?? _engine.currentVersion, effectKey: _effectKey);
+    _engine.play(s,
+        version: version ?? _engine.currentVersion, effectKey: _effectKey);
   }
 
   void _onComplete() {
@@ -713,7 +732,8 @@ class PlayerProvider extends ChangeNotifier
     // FM 模式：上报歌曲播放完成反馈（完整播完）
     if (_queue.type == QueueType.fm) {
       _fmPlaybackUpdateCallback?.call(current, playtime: current.duration);
-      debugPrint('[FM] _onComplete: idx=${_queue.currentIndex}/${_queue.playlist.length}'
+      debugPrint(
+          '[FM] _onComplete: idx=${_queue.currentIndex}/${_queue.playlist.length}'
           ' hasEndProvider=${_queue.playlistEndProvider != null}'
           ' song=${current.name}');
     }
@@ -763,7 +783,7 @@ class PlayerProvider extends ChangeNotifier
     _lyricController.loadLyricModel(LyricModel(lines: []));
     _climaxMs = null;
     _isPlaying = true;
-    
+
     final nextSong = _queue.currentSong;
     if (nextSong != null) {
       loadLyricsForSong(nextSong);
@@ -782,7 +802,9 @@ class PlayerProvider extends ChangeNotifier
     }
     final requestId = ++_loadMoreRequestId;
     final generation = _playbackGeneration;
-    bool stale() => _disposed || requestId != _loadMoreRequestId ||
+    bool stale() =>
+        _disposed ||
+        requestId != _loadMoreRequestId ||
         generation != _playbackGeneration;
     _queue.setLoadingMore(true);
     _isLoading = true;
@@ -881,7 +903,8 @@ class PlayerProvider extends ChangeNotifier
     notifyListeners();
     final version = _engine.currentVersion;
     await _engine.play(current, version: version, effectKey: _effectKey);
-    if (_disposed || generation != _playbackGeneration ||
+    if (_disposed ||
+        generation != _playbackGeneration ||
         version != _engine.currentVersion) return;
     _updateNotification();
     // 异步查询高潮时间（不阻塞播放，失败静默）
@@ -927,7 +950,8 @@ class PlayerProvider extends ChangeNotifier
     if (hash == null || hash.isEmpty) return;
     final version = _engine.currentVersion;
     final ms = await _musicService.getSongClimax(hash);
-    if (_disposed || version != _engine.currentVersion ||
+    if (_disposed ||
+        version != _engine.currentVersion ||
         !identical(song, currentSong)) return;
     _climaxMs = ms;
     notifyListeners();
@@ -1208,13 +1232,15 @@ class PlayerProvider extends ChangeNotifier
   Future<void> _persistQueueNames() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keySavedQueueNames, jsonEncode({
-        for (final e in _savedQueues.entries)
-          e.key: e.value
-              .take(500)
-              .map((s) => _songToJson(s, withLyrics: false))
-              .toList(),
-      }));
+      await prefs.setString(
+          _keySavedQueueNames,
+          jsonEncode({
+            for (final e in _savedQueues.entries)
+              e.key: e.value
+                  .take(500)
+                  .map((s) => _songToJson(s, withLyrics: false))
+                  .toList(),
+          }));
     } catch (_) {}
   }
 
@@ -1323,8 +1349,8 @@ class PlayerProvider extends ChangeNotifier
     if (_isPlaying || _isPlayerScreenVisible) {
       final song = _queue.currentSong;
       if (song != null && song.hash != null && song.hash!.isNotEmpty) {
-        await _engine.switchQuality(song,
-            Quality.levels[_qualityLevel % Quality.levels.length],
+        await _engine.switchQuality(
+            song, Quality.levels[_qualityLevel % Quality.levels.length],
             effectKey: _effectKey);
       }
     }
@@ -1352,7 +1378,8 @@ class PlayerProvider extends ChangeNotifier
       final provider = song.coverImageProvider;
       final palette = await PaletteExtractor.instance
           .extractFromProvider(provider, song.albumCoverUrl!);
-      if (_disposed || version != _engine.currentVersion ||
+      if (_disposed ||
+          version != _engine.currentVersion ||
           !identical(song, currentSong)) return;
       _cachedPaletteColors = null;
       _palette = palette;
@@ -1371,7 +1398,9 @@ class PlayerProvider extends ChangeNotifier
     final version = _engine.currentVersion;
     try {
       final data = await _musicService.getKrmAudio(songId);
-      if (_disposed || data == null || version != _engine.currentVersion ||
+      if (_disposed ||
+          data == null ||
+          version != _engine.currentVersion ||
           !identical(song, currentSong)) return;
 
       // ── hash 校验：确认 /krm/audio 返回的确实是同一首歌 ──
@@ -1381,8 +1410,10 @@ class PlayerProvider extends ChangeNotifier
       if (krmHash != null &&
           song.hash != null &&
           krmHash.toUpperCase() != song.hash!.toUpperCase()) {
-        Log.w('KRM', 'hash 不匹配，丢弃 KRM 数据: '
-            'song.hash=${song.hash}, krm.hash=$krmHash');
+        Log.w(
+            'KRM',
+            'hash 不匹配，丢弃 KRM 数据: '
+                'song.hash=${song.hash}, krm.hash=$krmHash');
         return;
       }
 
@@ -1450,7 +1481,9 @@ class PlayerProvider extends ChangeNotifier
   Future<void> _loadLyrics(String hash, int requestId,
       {String? songName}) async {
     bool stale() =>
-        _disposed || requestId != _lyricRequestId || hash != _queue.currentSong?.hash;
+        _disposed ||
+        requestId != _lyricRequestId ||
+        hash != _queue.currentSong?.hash;
     try {
       final searchRes =
           await _musicService.searchLyricByHash(hash, keywords: songName);
@@ -1479,9 +1512,8 @@ class PlayerProvider extends ChangeNotifier
                 );
                 final krcLang = KrcLanguage.fromJson(langJson);
                 for (final c in krcLang.content) {
-                  langMap[c.language] = c.lyricContent
-                      .map((words) => words.join())
-                      .toList();
+                  langMap[c.language] =
+                      c.lyricContent.map((words) => words.join()).toList();
                 }
               } catch (e, s) {
                 Log.e('player_provider', 'krc lang parse error', e, s);

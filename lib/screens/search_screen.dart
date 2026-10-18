@@ -1,6 +1,7 @@
+// SPDX-License-Identifier: MIT
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
+import '../ui/app_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/rank_entry.dart';
@@ -10,15 +11,16 @@ import '../providers/player_provider.dart';
 import '../services/api_client.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
-import '../widgets/song_tile.dart';
-import '../widgets/list_bottom_spacer.dart';
+import '../ui/components/song_tile.dart';
+import '../ui/components/player_bottom_padding.dart';
 import '../theme/theme_assets.dart';
 import '../constants/banned_words.dart';
 
 class SearchScreen extends StatefulWidget {
   final MusicService? musicService;
+  final bool embedded;
 
-  const SearchScreen({super.key, this.musicService});
+  const SearchScreen({super.key, this.musicService, this.embedded = false});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -103,17 +105,22 @@ class _SearchScreenState extends State<SearchScreen>
       final raw = await _musicService.getHotSearch();
       if (mounted) {
         setState(() => _hotSearch = raw
-            .map((e) => _HotItem(e['keyword'] as String? ?? '', e['reason'] as String? ?? ''))
+            .map((e) => _HotItem(
+                e['keyword'] as String? ?? '', e['reason'] as String? ?? ''))
             .toList());
       }
-    } catch (e, s) { Log.e('search_screen', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('search_screen', 'error', e, s);
+    }
   }
 
   Future<void> _loadRanks() async {
     try {
       final ranks = await _musicService.getRankList();
       if (mounted) setState(() => _ranks = ranks);
-    } catch (e, s) { Log.e('search_screen', 'error', e, s); }
+    } catch (e, s) {
+      Log.e('search_screen', 'error', e, s);
+    }
     if (mounted) setState(() => _isLoadingRanks = false);
   }
 
@@ -137,10 +144,16 @@ class _SearchScreenState extends State<SearchScreen>
     _debounce = Timer(const Duration(milliseconds: 400), () async {
       try {
         final suggestions = await _musicService.getSearchSuggest(keyword);
-        if (!mounted || requestId != _suggestRequestId ||
-            _searchCtrl.text != keyword || _showResult) return;
+        if (!mounted ||
+            requestId != _suggestRequestId ||
+            _searchCtrl.text != keyword ||
+            _showResult) {
+          return;
+        }
         setState(() => _suggestions = suggestions);
-      } catch (e, s) { Log.e('search_screen', 'error', e, s); }
+      } catch (e, s) {
+        Log.e('search_screen', 'error', e, s);
+      }
     });
   }
 
@@ -163,13 +176,17 @@ class _SearchScreenState extends State<SearchScreen>
     });
     if (banned) return;
 
-    bool isCurrentRequest() => mounted && requestId == _searchRequestId &&
-        tabIndex == _tabController.index && keyword == _currentKeyword;
+    bool isCurrentRequest() =>
+        mounted &&
+        requestId == _searchRequestId &&
+        tabIndex == _tabController.index &&
+        keyword == _currentKeyword;
 
     try {
       switch (tabIndex) {
         case 0:
-          final songs = await _musicService.search(keyword, type: _types[tabIndex]);
+          final songs =
+              await _musicService.search(keyword, type: _types[tabIndex]);
           if (!isCurrentRequest()) return;
           setState(() => _songs = songs);
           break;
@@ -203,100 +220,86 @@ class _SearchScreenState extends State<SearchScreen>
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
-    final searchBg = Color.alphaBlend(
-      cs.onSurface.withValues(alpha: isDark ? 0.08 : 0.05),
-      cs.surface,
-    );
-
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        scrolledUnderElevation: 0,
-        title: Container(
-          height: 40,
-          decoration: BoxDecoration(
-            color: searchBg,
-            borderRadius: AppShape.full,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tokens = AppThemeTokens.of(context);
+    final content = SafeArea(
+      bottom: false,
+      top: !widget.embedded,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: tokens.contentMaxWidth),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(
-                Icons.search,
-                size: 20,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _searchCtrl,
-                  focusNode: _focusNode,
-                  autofocus: false,
-                  textAlignVertical: TextAlignVertical.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontSize: 14,
-                      ),
-                  decoration: InputDecoration(
-                    hintText: '搜索歌曲、歌单、歌手...',
-                    hintStyle: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                      fontSize: 14,
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                    tokens.pagePadding, 16, tokens.pagePadding, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppPageHeader(
+                      padding: EdgeInsets.zero,
+                      title: '搜索',
+                      subtitle: '找到此刻想听的音乐',
+                      showBack: !widget.embedded && Navigator.canPop(context),
                     ),
-                    border: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    errorBorder: InputBorder.none,
-                    disabledBorder: InputBorder.none,
-                    isCollapsed: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  onChanged: _onSearchChanged,
-                  onSubmitted: _doSearch,
+                    const SizedBox(height: 24),
+                    TextField(
+                      controller: _searchCtrl,
+                      focusNode: _focusNode,
+                      textInputAction: TextInputAction.search,
+                      decoration: InputDecoration(
+                        hintText: '歌曲、歌手、专辑或歌单',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: _searchCtrl.text.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: '清空搜索',
+                                icon: const Icon(Icons.close_rounded),
+                                onPressed: () {
+                                  _searchCtrl.clear();
+                                  _onSearchChanged('');
+                                  _focusNode.requestFocus();
+                                },
+                              ),
+                        filled: true,
+                        fillColor: cs.surfaceContainerHigh,
+                        border: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(tokens.controlRadius),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(tokens.controlRadius),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      onChanged: _onSearchChanged,
+                      onSubmitted: _doSearch,
+                    ),
+                  ],
                 ),
               ),
-              if (_searchCtrl.text.isNotEmpty)
+              if (_showResult)
                 Padding(
-                  padding: const EdgeInsets.only(left: 4),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(100),
-                    onTap: () {
-                      _searchCtrl.clear();
-                      _onSearchChanged('');
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(6),
-                      child: Icon(
-                        Icons.clear,
-                        size: 18,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
+                  padding: EdgeInsets.symmetric(horizontal: tokens.pagePadding),
+                  child: TabBar(
+                    controller: _tabController,
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    dividerColor: Colors.transparent,
+                    tabs: _tabs.map((tab) => Tab(text: tab)).toList(),
                   ),
                 ),
+              Expanded(child: _buildBody()),
             ],
           ),
         ),
-        bottom: _showResult
-            ? TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                tabs: _tabs.map((t) => Tab(text: t)).toList(),
-              )
-            : null,
       ),
-      body: MediaQuery.of(context).size.width >= 880
-          ? Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: _buildBody(),
-              ),
-            )
-          : _buildBody(),
     );
+    return widget.embedded ? content : Scaffold(body: content);
   }
 
   Widget _buildBody() {
@@ -345,9 +348,9 @@ class _SearchScreenState extends State<SearchScreen>
     if (_suggestions.isNotEmpty) {
       return ListView.builder(
         itemCount: _suggestions.length,
-        itemBuilder: (_, i) => M3StaggeredFadeIn(
+        itemBuilder: (_, i) => StaggeredEntrance(
           index: i,
-          child: M3PressScale(
+          child: PressScale(
             child: ListTile(
               leading: const Icon(Icons.search, size: 20),
               title: Text(_suggestions[i]),
@@ -361,137 +364,158 @@ class _SearchScreenState extends State<SearchScreen>
       );
     }
 
+    final tokens = AppThemeTokens.of(context);
+    final cs = Theme.of(context).colorScheme;
     return RefreshIndicator(
       onRefresh: () async {
         await Future.wait([_loadHotSearch(), _loadRanks()]);
       },
-      child: ListView(
-        children: [
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
           if (!_isLoadingRanks && _ranks.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text('排行榜',
-                  style: Theme.of(context).textTheme.titleLarge),
-            ),
-            SizedBox(
-              height: 100,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                itemCount: _ranks.length,
-                itemBuilder: (_, i) {
-                  final rank = _ranks[i];
-                  final name = rank.name;
-                  final img = rank.coverUrl ?? rank.bannerUrl ?? '';
-                  return M3StaggeredFadeIn(
-                    index: i,
-                    child: M3PressScale(
-                      child: GestureDetector(
-                        onTap: () {
-                          if (rank.id > 0) {
-                            Navigator.pushNamed(context, '/rank/detail',
-                                arguments: {'id': rank.id, 'name': name});
-                          }
-                        },
-                        child: Container(
-                      width: 80,
-                      margin: const EdgeInsets.only(right: 8),
-                      child: Column(
-                        children: [
-                          ClipRRect(
-                            borderRadius: AppShape.sm,
-                            child: img.isNotEmpty
-                                ? CachedNetworkImage(
-                                    imageUrl: img.replaceAll('{size}', '240'),
-                                    width: 72, height: 72,
-                                    fit: BoxFit.cover,
-                                    errorWidget: (_, __, ___) => Container(
-                                      width: 72, height: 72,
-                                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                      child: const Icon(Icons.music_note),
-                                    ),
-                                  )
-                                : Container(
-                                    width: 72, height: 72,
-                                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                    child: const Icon(Icons.music_note),
-                                  ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style:                   Theme.of(context).textTheme.labelSmall),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                  tokens.pagePadding, 8, tokens.pagePadding, 16),
+              sliver: const SliverToBoxAdapter(
+                child:
+                    AppSectionHeader(padding: EdgeInsets.zero, title: '音乐榜单'),
               ),
             ),
-          ],
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text('热搜榜',
-                style: Theme.of(context).textTheme.titleLarge),
-          ),
-          ...List.generate(_hotSearch.length, (i) {
-            final item = _hotSearch[i];
-            return M3StaggeredFadeIn(
-              index: i,
-              child: M3PressScale(
-                child: ListTile(
-                  leading: SizedBox(
-                    width: 28,
-                    child: Text('${i + 1}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: i < 3
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.outline,
-                        )),
-                  ),
-                  title: Text(item.text),
-                  subtitle: item.reason.isNotEmpty && item.reason != item.text
-                      ? Text(item.reason,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant))
-                      : null,
-                  onTap: () {
-                    _searchCtrl.text = item.text;
-                    _doSearch(item.text);
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 190,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.symmetric(horizontal: tokens.pagePadding),
+                  itemCount: _ranks.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (_, index) {
+                    final rank = _ranks[index];
+                    final cover = rank.coverUrl ?? rank.bannerUrl ?? '';
+                    return SizedBox(
+                      width: 144,
+                      child: Material(
+                        color: cs.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(tokens.cardRadius),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: rank.id <= 0
+                              ? null
+                              : () => Navigator.pushNamed(
+                                    context,
+                                    '/rank/detail',
+                                    arguments: {
+                                      'id': rank.id,
+                                      'name': rank.name
+                                    },
+                                  ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (cover.isNotEmpty)
+                                CachedNetworkImage(
+                                  imageUrl: cover.replaceAll('{size}', '480'),
+                                  width: 144,
+                                  height: 136,
+                                  memCacheWidth: 288,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (_, __, ___) =>
+                                      _rankPlaceholder(cs),
+                                )
+                              else
+                                _rankPlaceholder(cs),
+                              Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Text(rank.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style:
+                                        Theme.of(context).textTheme.titleSmall),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
                   },
                 ),
               ),
-            );
-          }),
+            ),
+          ],
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(tokens.pagePadding,
+                tokens.sectionSpacing, tokens.pagePadding, 12),
+            sliver: const SliverToBoxAdapter(
+              child: AppSectionHeader(padding: EdgeInsets.zero, title: '大家都在搜'),
+            ),
+          ),
+          if (_hotSearch.isEmpty)
+            SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: tokens.pagePadding),
+              sliver: SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Text('输入关键词，发现更多音乐',
+                      style: TextStyle(color: cs.onSurfaceVariant)),
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: tokens.pagePadding),
+              sliver: SliverList.builder(
+                itemCount: _hotSearch.length,
+                itemBuilder: (_, index) {
+                  final item = _hotSearch[index];
+                  return ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    leading: SizedBox(
+                      width: 32,
+                      child: Text('${index + 1}'.padLeft(2, '0'),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: index < 3
+                                        ? cs.primary
+                                        : cs.onSurfaceVariant,
+                                  )),
+                    ),
+                    title: Text(item.text),
+                    subtitle: item.reason.isNotEmpty && item.reason != item.text
+                        ? Text(item.reason,
+                            maxLines: 1, overflow: TextOverflow.ellipsis)
+                        : null,
+                    trailing: const Icon(Icons.north_west_rounded, size: 18),
+                    onTap: () {
+                      _searchCtrl.text = item.text;
+                      _doSearch(item.text);
+                    },
+                  );
+                },
+              ),
+            ),
+          const SliverToBoxAdapter(
+            child: PlayerBottomPadding(),
+          ),
         ],
       ),
     );
   }
 
-  /// 空结果占位图（sthiswrong.png + 文字）
-  Widget _emptyResult(String message) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ThemeImage(
-            assetPath: ThemeAssets.sthiswrong,
-            width: 100,
-            height: 100,
-          ),
-          const SizedBox(height: 12),
-          Text(message,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  )),
-        ],
-      ),
-    );
-  }
+  Widget _rankPlaceholder(ColorScheme cs) => Container(
+        width: 144,
+        height: 136,
+        color: cs.primaryContainer,
+        child: Icon(Icons.trending_up_rounded,
+            size: 40, color: cs.onPrimaryContainer),
+      );
+
+  Widget _emptyResult(String message) => AppEmptyState(
+        icon: Icons.search_off_rounded,
+        title: message,
+        message: '试试其他关键词，或者切换搜索分类。',
+      );
 
   Widget _buildSongsTab() {
     if (_songs.isEmpty) {
@@ -501,15 +525,14 @@ class _SearchScreenState extends State<SearchScreen>
       itemCount: _songs.length + 1,
       itemBuilder: (_, i) {
         if (i == _songs.length) {
-          return const ListBottomSpacer(isHome: false, showText: false);
+          return const PlayerBottomPadding();
         }
-        return M3StaggeredFadeIn(
+        return StaggeredEntrance(
           index: i,
           child: SongTile(
             song: _songs[i],
-            onTap: (s) => context
-                .read<PlayerProvider>()
-                .playSong(s, playlist: _songs),
+            onTap: (s) =>
+                context.read<PlayerProvider>().playSong(s, playlist: _songs),
           ),
         );
       },
@@ -524,38 +547,44 @@ class _SearchScreenState extends State<SearchScreen>
       itemCount: _playlists.length + 1,
       itemBuilder: (_, i) {
         if (i == _playlists.length) {
-          return const ListBottomSpacer(isHome: false, showText: false);
+          return const PlayerBottomPadding();
         }
         final p = _playlists[i];
         final name = p['specialname'] as String? ?? p['name'] as String? ?? '';
         final img = p['imgurl'] as String? ?? p['img'] as String? ?? '';
         final count = p['songcount'] as int? ?? 0;
-        return M3StaggeredFadeIn(
+        return StaggeredEntrance(
           index: i,
-          child: M3PressScale(
+          child: PressScale(
             child: ListTile(
               leading: img.isNotEmpty
                   ? ClipRRect(
                       borderRadius: AppShape.xs,
-                      child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
-                          width: 48, height: 48, fit: BoxFit.cover),
+                      child: CachedNetworkImage(
+                          imageUrl: img.replaceAll('{size}', '240'),
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover),
                     )
                   : Container(
-                      width: 48, height: 48,
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      width: 48,
+                      height: 48,
+                      color:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
                       child: const Icon(Icons.queue_music),
                     ),
               title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text('$count首歌'),
               onTap: () {
-                final gcId = p['global_collection_id'] as String?
-                    ?? p['globalCollectionId'] as String?
-                    ?? p['parent_global_collection_id'] as String?
-                    ?? p['gid'] as String?
-                    ?? (() {
+                final gcId = p['global_collection_id'] as String? ??
+                    p['globalCollectionId'] as String? ??
+                    p['parent_global_collection_id'] as String? ??
+                    p['gid'] as String? ??
+                    (() {
                       final listId = p['id'] ?? p['specialid'];
-                      final userId = p['list_create_userid'] ?? p['userid']
-                          ?? ApiClient.userId;
+                      final userId = p['list_create_userid'] ??
+                          p['userid'] ??
+                          ApiClient.userId;
                       if (listId != null && userId != null) {
                         return 'collection_3_${userId}_${listId}_0';
                       }
@@ -581,34 +610,47 @@ class _SearchScreenState extends State<SearchScreen>
       itemCount: _albums.length + 1,
       itemBuilder: (_, i) {
         if (i == _albums.length) {
-          return const ListBottomSpacer(isHome: false, showText: false);
+          return const PlayerBottomPadding();
         }
         final a = _albums[i];
         final name = a['albumname'] as String? ?? '';
         final img = a['imgurl'] as String? ?? a['img'] as String? ?? '';
-        final artist = a['singer'] as String? ?? a['singername'] as String? ?? a['artist'] as String? ?? '';
-        return M3StaggeredFadeIn(
+        final artist = a['singer'] as String? ??
+            a['singername'] as String? ??
+            a['artist'] as String? ??
+            '';
+        return StaggeredEntrance(
           index: i,
-          child: M3PressScale(
+          child: PressScale(
             child: ListTile(
               leading: img.isNotEmpty
                   ? ClipRRect(
                       borderRadius: AppShape.xs,
-                      child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
-                          width: 48, height: 48, fit: BoxFit.cover),
+                      child: CachedNetworkImage(
+                          imageUrl: img.replaceAll('{size}', '240'),
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover),
                     )
                   : Container(
-                      width: 48, height: 48,
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      width: 48,
+                      height: 48,
+                      color:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
                       child: const Icon(Icons.album),
                     ),
               title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle:
+                  Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
               onTap: () {
                 final id = a['albumid'];
-                final albumId = id is int ? id : (id is String ? int.tryParse(id) : null) ?? a['id'] as int?;
+                final albumId = id is int
+                    ? id
+                    : (id is String ? int.tryParse(id) : null) ??
+                        a['id'] as int?;
                 if (albumId != null) {
-                  Navigator.pushNamed(context, '/album/detail', arguments: {'id': albumId});
+                  Navigator.pushNamed(context, '/album/detail',
+                      arguments: {'id': albumId});
                 }
               },
             ),
@@ -626,34 +668,49 @@ class _SearchScreenState extends State<SearchScreen>
       itemCount: _artists.length + 1,
       itemBuilder: (_, i) {
         if (i == _artists.length) {
-          return const ListBottomSpacer(isHome: false, showText: false);
+          return const PlayerBottomPadding();
         }
         final a = _artists[i];
-        final name = a['AuthorName'] as String? ?? a['singername'] as String? ?? a['name'] as String? ?? '';
-        final img = a['Avatar'] as String? ?? a['imgurl'] as String? ?? a['img'] as String? ?? '';
-        return M3StaggeredFadeIn(
+        final name = a['AuthorName'] as String? ??
+            a['singername'] as String? ??
+            a['name'] as String? ??
+            '';
+        final img = a['Avatar'] as String? ??
+            a['imgurl'] as String? ??
+            a['img'] as String? ??
+            '';
+        return StaggeredEntrance(
           index: i,
-          child: M3PressScale(
+          child: PressScale(
             child: ListTile(
               leading: img.isNotEmpty
                   ? ClipRRect(
                       borderRadius: AppShape.xl,
-                      child: CachedNetworkImage(imageUrl: img.replaceAll('{size}', '240'),
-                          width: 48, height: 48, fit: BoxFit.cover),
+                      child: CachedNetworkImage(
+                          imageUrl: img.replaceAll('{size}', '240'),
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover),
                     )
                   : Container(
-                      width: 48, height: 48,
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.person),
                     ),
               title: Text(name),
               onTap: () {
-                final id = a['AuthorId'] as int? ?? a['singermid'] as int? ?? a['id'] as int?;
+                final id = a['AuthorId'] as int? ??
+                    a['singermid'] as int? ??
+                    a['id'] as int?;
                 if (id != null) {
-                  Navigator.pushNamed(context, '/artist/detail', arguments: {'id': id});
+                  Navigator.pushNamed(context, '/artist/detail',
+                      arguments: {'id': id});
                 }
               },
             ),
@@ -707,17 +764,23 @@ class _SearchScreenState extends State<SearchScreen>
       itemCount: _lyrics.length + 1,
       itemBuilder: (_, i) {
         if (i == _lyrics.length) {
-          return const ListBottomSpacer(isHome: false, showText: false);
+          return const PlayerBottomPadding();
         }
         final l = _lyrics[i];
-        final songName = l['SongName'] as String? ?? l['songname'] as String? ?? '';
-        final artist = l['SingerName'] as String? ?? l['singername'] as String? ?? '';
-        final content = l['Lyric'] as String? ?? l['lyric'] as String? ?? l['content'] as String? ?? '';
-        return M3StaggeredFadeIn(
+        final songName =
+            l['SongName'] as String? ?? l['songname'] as String? ?? '';
+        final artist =
+            l['SingerName'] as String? ?? l['singername'] as String? ?? '';
+        final content = l['Lyric'] as String? ??
+            l['lyric'] as String? ??
+            l['content'] as String? ??
+            '';
+        return StaggeredEntrance(
           index: i,
-          child: M3PressScale(
+          child: PressScale(
             child: ListTile(
-              title: Text(songName, maxLines: 1, overflow: TextOverflow.ellipsis),
+              title:
+                  Text(songName, maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -725,7 +788,9 @@ class _SearchScreenState extends State<SearchScreen>
                   Text(content,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant)),
                 ],
               ),
               isThreeLine: true,

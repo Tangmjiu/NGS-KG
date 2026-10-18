@@ -1,80 +1,24 @@
+// SPDX-License-Identifier: MIT
 import 'package:flutter/material.dart';
-import '../../../utils/theme.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import '../../../models/scene_category.dart';
 
-/// 场景音乐 — 横向滚动图标卡片
+import '../../../models/scene_category.dart';
+import 'discover_media_rail.dart';
+
 class DiscoverSceneRow extends StatelessWidget {
   final List<SceneCategory> scenes;
 
   const DiscoverSceneRow({super.key, required this.scenes});
 
   @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return SizedBox(
-      height: 100,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: scenes.length,
-        itemBuilder: (_, i) {
-          final scene = scenes[i];
-          return M3PressScale(
-            child: GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/fm'),
-            child: Container(
-              width: 80,
-              margin: const EdgeInsets.only(right: 12),
-              child: Column(
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: cs.primaryContainer.withValues(alpha: 0.4),
-                      borderRadius: AppShape.lg,
-                    ),
-                    child: scene.iconUrl != null
-                        ? ClipRRect(
-                            borderRadius: AppShape.lg,
-                            child: CachedNetworkImage(
-                              imageUrl: scene.iconUrl!,
-                              width: 64,
-                              height: 64,
-                              memCacheWidth: 128,
-                              memCacheHeight: 128,
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) => Container(
-                                width: 64,
-                                height: 64,
-                                color: cs.primaryContainer
-                                    .withValues(alpha: 0.4),
-                              ),
-                              errorWidget: (_, __, ___) => Icon(
-                                Icons.explore,
-                                color: cs.primary,
-                                size: 28,
-                              ),
-                            ),
-                          )
-                        : Icon(Icons.explore, color: cs.primary, size: 28),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    scene.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onSurface),
-                  ),
-                ],
-              ),
-            ),
-            ),
-          );
-        },
-      ),
-    );
-  }
+  Widget build(BuildContext context) => DiscoverMediaRail(
+        compact: true,
+        items: scenes
+            .map((scene) => DiscoverMediaItem(
+                  title: scene.name,
+                  imageUrl: scene.iconUrl,
+                  icon: Icons.explore_rounded,
+                  onTap: () => Navigator.pushNamed(context, '/fm'),
+                ))
+            .toList(growable: false),
+      );
 }

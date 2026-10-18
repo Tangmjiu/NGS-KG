@@ -1,61 +1,224 @@
+// SPDX-License-Identifier: MIT
 import 'dart:io';
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
+import 'package:dynamic_color/dynamic_color.dart';
+import '../ui/app_ui.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/theme_pack.dart';
-import '../theme/theme_assets.dart';
 import '../routes/app_routes.dart';
 
-class ThemeSettingsScreen extends StatelessWidget {
+class ThemeSettingsScreen extends StatefulWidget {
   const ThemeSettingsScreen({super.key});
 
   @override
+  State<ThemeSettingsScreen> createState() => _ThemeSettingsScreenState();
+}
+
+class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
+  Brightness? _previewBrightness;
+
+  @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
-    final cs = Theme.of(context).colorScheme;
+    final tokens = AppThemeTokens.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('主题')),
-      body: Consumer<ThemeProvider>(
-        builder: (_, tp, __) => ListView(
-          children: [
-            const SizedBox(height: 8),
-            // ── 水平主题包卡片列表 ──
-            _PackCarousel(tp: tp),
-            const Divider(height: 24),
-            // ── 当前主题详情 ──
-            _PackDetail(tp: tp),
-            const Divider(height: 24),
-            // ── 强调色 ──
-            _AccentSection(tp: tp),
-            const Divider(height: 8),
-            // ── Monet ──
-            _MonetSection(tp: tp),
-            const Divider(height: 8),
-            // ── 主题模式 ──
-            _ThemeModeSection(tp: tp),
-            const Divider(height: 8),
-            // ── Hi-Res 金标 ──
-            SwitchListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              secondary: const Icon(Icons.verified_outlined),
-              title: const Text('显示 Hi-Res 金标'),
-              subtitle: const Text('播放无损音质时在专辑封面上显示'),
-              value: tp.showHiResBadge,
-              onChanged: (v) => tp.setShowHiResBadge(v),
+      body: SafeArea(
+        bottom: false,
+        child: AppPageBody(
+          child: Consumer<ThemeProvider>(
+            builder: (context, theme, _) => ListView(
+              padding: EdgeInsets.fromLTRB(
+                  tokens.pagePadding,
+                  16,
+                  tokens.pagePadding,
+                  40 + MediaQuery.paddingOf(context).bottom),
+              children: [
+                const AppPageHeader(
+                  padding: EdgeInsets.zero,
+                  title: '主题与外观',
+                  subtitle: '找到属于你的音乐色彩',
+                  showBack: true,
+                ),
+                SizedBox(height: tokens.sectionSpacing),
+                const AppSectionHeader(
+                    padding: EdgeInsets.zero,
+                    title: '样式预览',
+                    subtitle: '配色、字体和组件随设置实时更新'),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final option in [
+                      (Brightness.light, '浅色预览', Icons.light_mode_outlined),
+                      (Brightness.dark, '深色预览', Icons.dark_mode_outlined),
+                    ])
+                      ChoiceChip(
+                        avatar: Icon(option.$3, size: 18),
+                        label: Text(option.$2),
+                        selected: (_previewBrightness ??
+                                Theme.of(context).brightness) ==
+                            option.$1,
+                        onSelected: (_) =>
+                            setState(() => _previewBrightness = option.$1),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                DynamicColorBuilder(builder: (light, dark) {
+                  final brightness =
+                      _previewBrightness ?? Theme.of(context).brightness;
+                  final previewTheme = brightness == Brightness.light
+                      ? theme.buildLightTheme(context, dynamicScheme: light)
+                      : theme.buildDarkTheme(context, dynamicScheme: dark);
+                  return Theme(
+                      data: previewTheme, child: const _ThemePreview());
+                }),
+                SizedBox(height: tokens.sectionSpacing),
+                const AppSectionHeader(
+                    padding: EdgeInsets.zero,
+                    title: '明暗模式',
+                    subtitle: '选择应用的显示方式'),
+                const SizedBox(height: 12),
+                AppSurface(child: _ThemeModeSection(tp: theme)),
+                SizedBox(height: tokens.sectionSpacing),
+                AppSectionHeader(
+                  padding: EdgeInsets.zero,
+                  title: '主题包',
+                  subtitle: '颜色、字体与个性资源',
+                  actionLabel: '主题市场',
+                  onAction: () =>
+                      Navigator.pushNamed(context, AppRoutes.themeMarket),
+                ),
+                const SizedBox(height: 16),
+                _PackCarousel(tp: theme),
+                const SizedBox(height: 16),
+                AppSurface(child: _PackDetail(tp: theme)),
+                SizedBox(height: tokens.sectionSpacing),
+                const AppSectionHeader(padding: EdgeInsets.zero, title: '主题色彩'),
+                const SizedBox(height: 12),
+                AppSurface(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _AccentSection(tp: theme),
+                      const Divider(height: 32),
+                      _MonetSection(tp: theme),
+                    ],
+                  ),
+                ),
+                SizedBox(height: tokens.sectionSpacing),
+                const AppSectionHeader(
+                    padding: EdgeInsets.zero, title: '播放器显示'),
+                const SizedBox(height: 12),
+                AppSurface(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(children: [
+                    SwitchListTile(
+                      secondary: const Icon(Icons.verified_outlined),
+                      title: const Text('显示 Hi-Res 金标'),
+                      subtitle: const Text('播放无损音质时显示封面标识'),
+                      value: theme.showHiResBadge,
+                      onChanged: theme.setShowHiResBadge,
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.lyrics_outlined),
+                      title: const Text('歌词设置'),
+                      subtitle: const Text('字体、间距与显示效果'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.lyricSettings),
+                    ),
+                  ]),
+                ),
+              ],
             ),
-            const Divider(height: 8),
-            // ── 歌词设置 ──
-            ListTile(
-              leading: const Icon(Icons.lyrics_outlined),
-              title: const Text('歌词设置'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.pushNamed(context, AppRoutes.lyricSettings),
-            ),
-            const SizedBox(height: 24),
-          ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _ThemePreview extends StatefulWidget {
+  const _ThemePreview();
+
+  @override
+  State<_ThemePreview> createState() => _ThemePreviewState();
+}
+
+class _ThemePreviewState extends State<_ThemePreview> {
+  bool _collected = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tokens = AppThemeTokens.of(context);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(tokens.cardRadius),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            Expanded(
+                child: Text('音乐，让日常不同', style: theme.textTheme.titleLarge)),
+            Icon(Icons.headphones_rounded, color: cs.primary),
+          ]),
+          const SizedBox(height: 6),
+          Text('一张歌单，一段好时光',
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: cs.onSurfaceVariant)),
+          const SizedBox(height: 20),
+          Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer,
+                    borderRadius: BorderRadius.circular(tokens.controlRadius),
+                  ),
+                  child: Icon(Icons.album_outlined,
+                      color: cs.onPrimaryContainer, size: 32),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                    child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('聆听日常', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text('为喜欢的声音留一个位置',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: cs.onSurfaceVariant)),
+                  ],
+                )),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.icon(
+              onPressed: () => setState(() => _collected = !_collected),
+              icon: Icon(_collected
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded),
+              label: Text(_collected ? '已收藏 · 预览' : '收藏 · 预览'),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -72,10 +235,10 @@ class _PackCarousel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 210,
+      height: 184 + MediaQuery.textScalerOf(context).scale(56),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: EdgeInsets.zero,
         itemCount: tp.packs.length + 1, // +1 for the "import" card
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (_, i) {
@@ -94,13 +257,14 @@ class _PackCarousel extends StatelessWidget {
   }
 
   void _confirmDelete(BuildContext context, ThemeProvider tp, ThemePack pack) {
-    showM3Dialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('删除「${pack.name}」'),
         content: const Text('此操作不可撤销。'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () {
               tp.deletePack(pack.id);
@@ -114,7 +278,7 @@ class _PackCarousel extends StatelessWidget {
   }
 }
 
-class _PackCard extends StatefulWidget {
+class _PackCard extends StatelessWidget {
   final ThemePack pack;
   final bool isSelected;
   final VoidCallback onTap;
@@ -128,83 +292,78 @@ class _PackCard extends StatefulWidget {
   });
 
   @override
-  State<_PackCard> createState() => _PackCardState();
-}
-
-class _PackCardState extends State<_PackCard> {
-  bool _pressed = false;
-
-  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      onLongPress: widget.onLongPress,
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.95 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: SizedBox(
-          width: 135,
-          child: Column(
-            children: [
-              // ── Preview / Icon ──
-              Container(
-                width: 135,
-                height: 135,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: AppShape.lg,
-                  border: Border.all(
-                    color: widget.isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.outlineVariant,
-                    width: widget.isSelected ? 2.5 : 1,
-                  ),
-                ),
-                child: _buildPreview(context),
-              ),
-              const SizedBox(height: 8),
-              // ── Name ──
-              Text(
-                widget.pack.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w400,
-                  color: widget.isSelected
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              // ── Author ──
-              Text(
-                widget.pack.author,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              // ── Current badge ──
-              if (widget.isSelected)
-                Container(
-                  margin: const EdgeInsets.only(top: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    borderRadius: AppShape.sm,
-                  ),
-                  child: Text(
-                    '当前',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onPrimary,
-                      fontWeight: FontWeight.w600,
+    final cs = Theme.of(context).colorScheme;
+    final radius = AppThemeTokens.of(context).controlRadius;
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: '主题包 ${pack.name}',
+      child: SizedBox(
+        width: 156,
+        child: Material(
+          color: isSelected ? cs.secondaryContainer : cs.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(radius),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    height: 116,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(radius / 2),
+                          child: _buildPreview(context),
+                        ),
+                        if (onLongPress != null)
+                          Positioned(
+                            top: 0,
+                            right: 0,
+                            child: IconButton.filledTonal(
+                              tooltip: '删除 ${pack.name}',
+                              icon: const Icon(Icons.delete_outline_rounded,
+                                  size: 18),
+                              onPressed: onLongPress,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                ),
-            ],
+                  const SizedBox(height: 12),
+                  Text(pack.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 4),
+                  Text(pack.author,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: cs.onSurfaceVariant)),
+                  const SizedBox(height: 8),
+                  if (isSelected)
+                    Row(children: [
+                      Icon(Icons.check_circle_rounded,
+                          size: 16, color: cs.primary),
+                      const SizedBox(width: 6),
+                      Text('正在使用',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(color: cs.primary)),
+                    ]),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -212,33 +371,61 @@ class _PackCardState extends State<_PackCard> {
   }
 
   Widget _buildPreview(BuildContext context) {
-    // 内置包 → 用软件默认 icon
-    if (widget.pack.isBuiltIn) {
-      return Padding(
-        padding: const EdgeInsets.all(24),
-        child: Image.asset(ThemeAssets.icon, fit: BoxFit.contain),
+    if (!pack.isBuiltIn && pack.previewPath != null) {
+      return Image.file(
+        File(pack.previewPath!),
+        fit: BoxFit.cover,
+        cacheWidth: 264,
+        errorBuilder: (_, __, ___) => _palettePreview(context),
       );
     }
-
-    // 导入包有 preview → 显示
-    if (widget.pack.previewPath != null) {
-      return ClipRRect(
-        borderRadius: AppShape.lg,
-        child: Image.file(
-          File(widget.pack.previewPath!),
-          width: 135,
-          height: 135,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _fallbackIcon(),
-        ),
-      );
-    }
-
-    return _fallbackIcon();
+    return _palettePreview(context);
   }
 
-  Widget _fallbackIcon() {
-    return const Icon(Icons.archive_outlined, size: 48, color: Colors.grey);
+  Widget _palettePreview(BuildContext context) {
+    final colors = pack.lightScheme ?? Theme.of(context).colorScheme;
+    return ColoredBox(
+      color: colors.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+                height: 8,
+                width: 56,
+                decoration: BoxDecoration(
+                    color: colors.onSurface,
+                    borderRadius: BorderRadius.circular(4))),
+            const SizedBox(height: 12),
+            Expanded(
+              child: Row(children: [
+                Expanded(
+                    child: Container(
+                        decoration: BoxDecoration(
+                  color: colors.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ))),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: Container(
+                        decoration: BoxDecoration(
+                  color: colors.tertiaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ))),
+              ]),
+            ),
+            const SizedBox(height: 10),
+            Container(
+                height: 10,
+                width: 36,
+                decoration: BoxDecoration(
+                    color: colors.primary,
+                    borderRadius: BorderRadius.circular(5))),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -249,46 +436,31 @@ class _ImportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () async {
-        final ok = await tp.importTheme();
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(ok ? '主题包导入成功' : '导入失败或已取消')),
-          );
-        }
-      },
-      child: SizedBox(
-        width: 135,
+    final cs = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 156,
+      child: AppSurface(
+        onTap: () async {
+          final ok = await tp.importTheme();
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(ok ? '主题包导入成功' : '导入失败或已取消'),
+            ));
+          }
+        },
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 135,
-              height: 135,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: AppShape.lg,
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                  style: BorderStyle.solid,
-                  width: 1,
-                ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.add_rounded, size: 40, color: Theme.of(context).colorScheme.outline),
-                  const SizedBox(height: 4),
-                  Text('导入主题',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.outline)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text('导入 .zip',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-            Text('主题包',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            Icon(Icons.add_circle_outline_rounded, size: 36, color: cs.primary),
+            const SizedBox(height: 16),
+            Text('导入主题', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 6),
+            Text('选择 ZIP 主题包',
+                textAlign: TextAlign.center,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: cs.onSurfaceVariant)),
           ],
         ),
       ),
@@ -311,46 +483,67 @@ class _PackDetail extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(pack.name, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 2),
           Text(pack.author,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: cs.onSurfaceVariant)),
           if (pack.description != null) ...[
             const SizedBox(height: 4),
             Text(pack.description!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: cs.onSurfaceVariant)),
           ],
           const SizedBox(height: 12),
           // 覆盖清单
           if (tags.isNotEmpty) ...[
-            Text('覆盖内容', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: cs.primary)),
+            Text('覆盖内容',
+                style: Theme.of(context)
+                    .textTheme
+                    .labelLarge
+                    ?.copyWith(color: cs.primary)),
             const SizedBox(height: 6),
             Wrap(
               spacing: 8,
               runSpacing: 6,
-              children: tags.map((tag) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: cs.primaryContainer,
-                  borderRadius: AppShape.sm,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.check, size: 14, color: cs.onPrimaryContainer),
-                    const SizedBox(width: 4),
-                    Text(tag, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onPrimaryContainer)),
-                  ],
-                ),
-              )).toList(),
+              children: tags
+                  .map((tag) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer,
+                          borderRadius: AppShape.sm,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check,
+                                size: 14, color: cs.onPrimaryContainer),
+                            const SizedBox(width: 4),
+                            Text(tag,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: cs.onPrimaryContainer)),
+                          ],
+                        ),
+                      ))
+                  .toList(),
             ),
           ] else ...[
             Text('无自定义覆盖，使用默认值',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: cs.onSurfaceVariant)),
           ],
         ],
       ),
@@ -371,29 +564,31 @@ class _AccentSection extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
             children: [
-              Text('强调色', style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w600, color: cs.primary)),
-              const Spacer(),
+              Text('强调色', style: Theme.of(context).textTheme.titleMedium),
               if (tp.hasAccentOverride)
                 TextButton.icon(
-                  icon: const Icon(Icons.clear, size: 16),
-                  label: const Text('清除覆盖'),
+                  icon: const Icon(Icons.restart_alt_rounded, size: 18),
+                  label: const Text('恢复主题配色'),
                   onPressed: tp.clearAccentOverride,
                 ),
             ],
           ),
           const SizedBox(height: 4),
           Text(
-            tp.hasAccentOverride
-                ? '当前覆盖: ${tp.accentLabel}'
-                : '使用主题包内置颜色',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            tp.hasAccentOverride ? '当前覆盖: ${tp.accentLabel}' : '使用主题包内置颜色',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: cs.onSurfaceVariant),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -407,9 +602,11 @@ class _AccentSection extends StatelessWidget {
                     onTap: () => tp.setAccent(preset.key),
                   )),
               _ColorDot(
-                color: tp.accentKey == 'custom' ? tp.customColor : Colors.grey,
+                color: tp.accentKey == 'custom'
+                    ? tp.customColor
+                    : cs.outlineVariant,
                 selected: tp.accentKey == 'custom',
-                label: '取色',
+                label: '自定义',
                 icon: Icons.colorize,
                 onTap: () => _showColorPicker(context, tp),
               ),
@@ -422,7 +619,7 @@ class _AccentSection extends StatelessWidget {
 
   void _showColorPicker(BuildContext context, ThemeProvider tp) {
     Color picked = tp.customColor;
-    showM3Dialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('自定义取色'),
@@ -436,7 +633,8 @@ class _AccentSection extends StatelessWidget {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () {
               tp.setCustomColor(picked);
@@ -461,12 +659,12 @@ class _MonetSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.zero,
       child: SwitchListTile(
         contentPadding: EdgeInsets.zero,
         secondary: const Icon(Icons.wallpaper),
-        title: const Text('Material You'),
-        subtitle: const Text('跟随壁纸颜色自动适配（Android 12+）'),
+        title: const Text('跟随壁纸配色'),
+        subtitle: const Text('使用系统动态主题色（Android 12+）'),
         value: tp.useMonet,
         onChanged: (v) => tp.setUseMonet(v),
       ),
@@ -483,42 +681,23 @@ class _ThemeModeSection extends StatelessWidget {
   const _ThemeModeSection({required this.tp});
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => Wrap(
+        spacing: 8,
+        runSpacing: 8,
         children: [
-          Text('主题模式', style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: Theme.of(context).colorScheme.primary,
-          )),
-          const SizedBox(height: 4),
-          RadioListTile<ThemeMode>(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('跟随系统'),
-            value: ThemeMode.system,
-            groupValue: tp.themeMode,
-            onChanged: (v) => tp.setThemeMode(v ?? ThemeMode.system),
-          ),
-          RadioListTile<ThemeMode>(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('浅色模式'),
-            value: ThemeMode.light,
-            groupValue: tp.themeMode,
-            onChanged: (v) => tp.setThemeMode(v ?? ThemeMode.system),
-          ),
-          RadioListTile<ThemeMode>(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('深色模式'),
-            value: ThemeMode.dark,
-            groupValue: tp.themeMode,
-            onChanged: (v) => tp.setThemeMode(v ?? ThemeMode.system),
-          ),
+          for (final option in [
+            (ThemeMode.system, '跟随系统', Icons.brightness_auto_outlined),
+            (ThemeMode.light, '浅色', Icons.light_mode_outlined),
+            (ThemeMode.dark, '深色', Icons.dark_mode_outlined),
+          ])
+            ChoiceChip(
+              avatar: Icon(option.$3, size: 18),
+              label: Text(option.$2),
+              selected: tp.themeMode == option.$1,
+              onSelected: (_) => tp.setThemeMode(option.$1),
+            ),
         ],
-      ),
-    );
-  }
+      );
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -542,39 +721,49 @@ class _ColorDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: selected
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.outlineVariant,
-                width: selected ? 3 : 1,
+    final cs = Theme.of(context).colorScheme;
+    final onColor =
+        ThemeData.estimateBrightnessForColor(color) == Brightness.dark
+            ? Colors.white
+            : Colors.black;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label主题色',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected ? cs.onSurface : cs.outlineVariant,
+                    width: selected ? 3 : 1,
+                  ),
+                ),
+                child: icon != null || selected
+                    ? Icon(icon ?? Icons.check_rounded,
+                        color: onColor, size: 22)
+                    : null,
               ),
-              boxShadow: selected
-                  ? [BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 8)]
-                  : null,
-            ),
-            child:
-                icon != null ? Icon(icon, color: Colors.white, size: 20) : null,
+              const SizedBox(height: 6),
+              Text(label,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: selected ? cs.primary : cs.onSurfaceVariant,
+                        fontWeight:
+                            selected ? FontWeight.w600 : FontWeight.normal,
+                      )),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: selected
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-              )),
-        ],
+        ),
       ),
     );
   }

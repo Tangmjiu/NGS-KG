@@ -1,17 +1,18 @@
+// SPDX-License-Identifier: MIT
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/logger.dart';
-import '../models/theme_pack.dart';
+
 import '../models/lyric_settings.dart';
-import '../theme/theme_loader.dart';
-import '../theme/theme_assets.dart';
+import '../models/theme_pack.dart';
 import '../services/market_service.dart';
-import '../utils/theme.dart';
+import '../theme/app_theme.dart';
+import '../theme/theme_assets.dart';
+import '../theme/theme_loader.dart';
+import '../theme/theme_settings_store.dart';
+import '../utils/logger.dart';
 
 /// 预设主题色定义
 class ThemePreset {
@@ -30,481 +31,290 @@ class ThemePreset {
 
 /// 预设色列表（8 种）
 const List<ThemePreset> kThemePresets = [
-  ThemePreset(key: 'kugou', label: '酷狗蓝', lightPrimary: Color(0xFF2CA1F4), darkPrimary: Color(0xFF5BB8F8)),
-  ThemePreset(key: 'nagisa', label: '凪砂红', lightPrimary: Color(0xFFFF6633), darkPrimary: Color(0xFFFF8866)),
-  ThemePreset(key: 'spotify', label: 'Spotify绿', lightPrimary: Color(0xFF1DB954), darkPrimary: Color(0xFF4CD47A)),
-  ThemePreset(key: 'purple', label: '优雅紫', lightPrimary: Color(0xFF9C27B0), darkPrimary: Color(0xFFCE93D8)),
-  ThemePreset(key: 'orange', label: '暖阳橙', lightPrimary: Color(0xFFFF9800), darkPrimary: Color(0xFFFFB74D)),
-  ThemePreset(key: 'pink', label: '樱花粉', lightPrimary: Color(0xFFE91E63), darkPrimary: Color(0xFFF06292)),
-  ThemePreset(key: 'cyan', label: '薄荷青', lightPrimary: Color(0xFF00BCD4), darkPrimary: Color(0xFF4DD0E1)),
-  ThemePreset(key: 'amber', label: '琥珀金', lightPrimary: Color(0xFFFFC107), darkPrimary: Color(0xFFFFD54F)),
+  ThemePreset(
+      key: 'kugou',
+      label: '酷狗蓝',
+      lightPrimary: Color(0xFF2CA1F4),
+      darkPrimary: Color(0xFF5BB8F8)),
+  ThemePreset(
+      key: 'nagisa',
+      label: '凪砂红',
+      lightPrimary: Color(0xFFFF6633),
+      darkPrimary: Color(0xFFFF8866)),
+  ThemePreset(
+      key: 'spotify',
+      label: '森林绿',
+      lightPrimary: Color(0xFF1DB954),
+      darkPrimary: Color(0xFF4CD47A)),
+  ThemePreset(
+      key: 'purple',
+      label: '优雅紫',
+      lightPrimary: Color(0xFF9C27B0),
+      darkPrimary: Color(0xFFCE93D8)),
+  ThemePreset(
+      key: 'orange',
+      label: '暖阳橙',
+      lightPrimary: Color(0xFFFF9800),
+      darkPrimary: Color(0xFFFFB74D)),
+  ThemePreset(
+      key: 'pink',
+      label: '樱花粉',
+      lightPrimary: Color(0xFFE91E63),
+      darkPrimary: Color(0xFFF06292)),
+  ThemePreset(
+      key: 'cyan',
+      label: '薄荷青',
+      lightPrimary: Color(0xFF00BCD4),
+      darkPrimary: Color(0xFF4DD0E1)),
+  ThemePreset(
+      key: 'amber',
+      label: '琥珀金',
+      lightPrimary: Color(0xFFFFC107),
+      darkPrimary: Color(0xFFFFD54F)),
 ];
 
-/// 主题状态管理
-///
-/// 管理多主题包列表、选中状态、强调色覆盖、Monet 动态取色。
+/// 负责主题选择与解析；持久化及历史格式迁移由独立存储层完成。
 class ThemeProvider extends ChangeNotifier {
-  // ─── SharedPreferences keys ───
-  static const _keyThemeMode = 'theme_mode';
-  static const _keyAccent = 'theme_accent';
-  static const _keyCustomColor = 'theme_custom_color';
-  static const _keyUseMonet = 'theme_use_monet';
-  static const _keySelectedPack = 'theme_selected_pack';
-  static const _keyLaunchCount = 'theme_launch_count';
-  static const _keyFirstLaunchDate = 'theme_first_launch_date';
-  static const _keySupportDismissed = 'theme_support_dismissed';
-  static const _keyFlowLight = 'theme_flow_light';
-  static const _keyShowHiResBadge = 'theme_show_hi_res';
-  static const _keyLyricSettings = 'theme_lyric_settings';
+  ThemeProvider({
+    ThemeSettingsStore? settingsStore,
+    Future<void> Function(String)? deleteTheme,
+    Future<void> Function(String)? uninstallMarketTheme,
+  })  : _store = settingsStore ?? ThemeSettingsStore(),
+        _deleteTheme = deleteTheme ?? ThemeLoader.deleteTheme,
+        _uninstallMarketTheme =
+            uninstallMarketTheme ?? MarketService.uninstallTheme;
 
+  final ThemeSettingsStore _store;
+  final Future<void> Function(String) _deleteTheme;
+  final Future<void> Function(String) _uninstallMarketTheme;
+  ThemeSettings _settings = const ThemeSettings();
+  final List<ThemePack> _packs = [ngsNagisa, md3Default];
+  Future<void> _pendingSave = Future.value();
+  final Set<String> _loadedFonts = {};
+  int _activation = 0;
+  bool _disposed = false;
+  bool _hasValidBg = false;
   static const int supportPopupDays = 14;
   static const int supportPopupMaxLaunches = 10;
 
-  // ─── State ───
-  ThemeMode _themeMode = ThemeMode.system;
-  String _accentKey = '';
-  Color _customColor = const Color(0xFF2CA1F4);
-  bool _useMonet = false;
-  bool _flowLightEnabled = false;
-  bool _showHiResBadge = true;
-  LyricSettings _lyricSettings = LyricSettings.defaults;
-
-  final List<ThemePack> _packs = [ngsNagisa, md3Default];
-  String _selectedPackId = 'ngs_nagisa';
-  bool _hasValidBg = false;
-  int _packAssetsGeneration = 0;
-
-  int _launchCount = 0;
-  int _firstLaunchDate = 0;
-  bool _supportDismissed = false;
-
-  // ─── 支持弹窗 ───
-  bool get shouldShowSupportPopup {
-    if (_supportDismissed) return false;
-    if (_launchCount > supportPopupMaxLaunches) return false;
-    if (_firstLaunchDate > 0) {
-      final elapsed = DateTime.now().millisecondsSinceEpoch - _firstLaunchDate;
-      if (elapsed > supportPopupDays * 24 * 60 * 60 * 1000) return false;
-    }
-    return _launchCount <= supportPopupMaxLaunches;
-  }
-
-  // ─── Getters ───
-  ThemeMode get themeMode => _themeMode;
-  String get accentKey => _accentKey;
-  Color get customColor => _customColor;
-  bool get useMonet => _useMonet;
-  bool get flowLightEnabled => _flowLightEnabled;
-  bool get showHiResBadge => _showHiResBadge;
-  LyricSettings get lyricSettings => _lyricSettings;
-
-  /// 应用主题包的歌词设置默认值（用户未手动修改时）
-  void _applyPackLyricSettings() {
-    final pack = currentPack;
-    if (pack.lyricSettingsOverride != null) {
-      _lyricSettings = LyricSettings.fromJson(pack.lyricSettingsOverride!);
-    }
-  }
-
-  /// 更新歌词显示设置并持久化
-  Future<void> setLyricSettings(LyricSettings settings) async {
-    _lyricSettings = settings;
-    notifyListeners();
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyLyricSettings, jsonEncode(settings.toJson()));
-    } catch (e, s) {
-      Log.e('ThemeProvider', 'persist lyricSettings error', e, s);
-    }
-  }
-
+  ThemeMode get themeMode => _settings.mode;
+  String get accentKey => _settings.accentKey;
+  Color get customColor => _settings.customColor;
+  bool get useMonet => _settings.useMonet;
+  bool get flowLightEnabled => _settings.flowLight;
+  bool get showHiResBadge => _settings.showHiResBadge;
+  String get selectedPackId => _settings.selectedPackId;
   List<ThemePack> get packs => List.unmodifiable(_packs);
-  String get selectedPackId => _selectedPackId;
-
-  /// 当前选中的主题包
-  ThemePack get currentPack {
-    return _packs.firstWhere(
-      (p) => p.id == _selectedPackId,
-      orElse: () => ngsNagisa,
-    );
-  }
-
-  /// 当前有效强调色（预设色或自定义色）
-  Color get effectiveColor {
-    if (_accentKey == 'custom') return _customColor;
-    final preset = kThemePresets.where((p) => p.key == _accentKey);
-    return preset.isNotEmpty ? preset.first.lightPrimary : _customColor;
-  }
-
-  /// 当前强调色显示名称
-  String get accentLabel {
-    if (_accentKey == 'custom') return '自定义';
-    final preset = kThemePresets.where((p) => p.key == _accentKey);
-    return preset.isNotEmpty ? preset.first.label : '无覆盖';
-  }
-
-  /// 是否有强调色覆盖（空 key 表示无覆盖，用主题包的颜色）
-  bool get hasAccentOverride => _accentKey.isNotEmpty;
-
-  // ─── 初始化 ───
+  ThemePack get currentPack => _packs
+      .firstWhere((pack) => pack.id == selectedPackId, orElse: () => ngsNagisa);
+  bool get hasAccentOverride => accentKey.isNotEmpty;
+  Color get effectiveColor => accentKey == 'custom'
+      ? customColor
+      : kThemePresets
+              .where((preset) => preset.key == accentKey)
+              .firstOrNull
+              ?.lightPrimary ??
+          customColor;
+  String get accentLabel => accentKey == 'custom'
+      ? '自定义'
+      : kThemePresets
+              .where((preset) => preset.key == accentKey)
+              .firstOrNull
+              ?.label ??
+          '无覆盖';
+  LyricSettings get lyricSettings =>
+      _settings.lyricOverride ??
+      LyricSettings.fromJson({
+        ...LyricSettings.defaults.toJson(),
+        ...?currentPack.lyricSettingsOverride,
+      });
+  bool get shouldShowSupportPopup =>
+      !_settings.supportDismissed &&
+      _settings.launchCount <= supportPopupMaxLaunches &&
+      (_settings.firstLaunchDate == 0 ||
+          DateTime.now().millisecondsSinceEpoch - _settings.firstLaunchDate <=
+              supportPopupDays * Duration.millisecondsPerDay);
 
   Future<void> init() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-
-      final modeIdx = prefs.getInt(_keyThemeMode);
-      if (modeIdx != null) {
-        _themeMode = ThemeMode.values[modeIdx.clamp(0, ThemeMode.values.length - 1)];
+      _settings = await _store.load();
+      for (final id in await ThemeLoader.getImportedThemeIds()) {
+        if (_packs.any((pack) => pack.id == id)) continue;
+        final pack = await ThemeLoader.loadPackFromDisk(id);
+        if (pack != null) _packs.add(pack);
       }
-
-      _accentKey = prefs.getString(_keyAccent) ?? '';
-
-      final customColorInt = prefs.getInt(_keyCustomColor);
-      if (customColorInt != null) {
-        _customColor = Color(customColorInt);
-      }
-
-      _useMonet = prefs.getBool(_keyUseMonet) ?? false;
-      _selectedPackId = prefs.getString(_keySelectedPack) ?? 'ngs_nagisa';
-      _flowLightEnabled = prefs.getBool(_keyFlowLight) ?? false;
-      if (prefs.containsKey(_keyShowHiResBadge)) {
-        _showHiResBadge = prefs.getBool(_keyShowHiResBadge) ?? false;
-      } else {
-        // 判断是否为升级用户：在没有 _keyShowHiResBadge 的情况下，如果存在其他 theme 相关的配置，说明是升级用户
-        final hasThemeKeys = prefs.getKeys().any((k) => k.startsWith('theme_') && k != _keyShowHiResBadge);
-        if (hasThemeKeys) {
-          _showHiResBadge = true; // 升级过来的，保留开启设置
-        } else {
-          _showHiResBadge = false; // 全新安装，默认关闭
-        }
-      }
-
-      // ─── 歌词显示设置 ───
-      final lsStr = prefs.getString(_keyLyricSettings);
-      if (lsStr != null && lsStr.isNotEmpty) {
-        try {
-          final lsJson = jsonDecode(lsStr) as Map<String, dynamic>;
-          _lyricSettings = LyricSettings.fromJson(lsJson);
-        } catch (_) {}
-      }
-      // 应用主题包覆盖（可能来自加载的已安装包）
-      _applyPackLyricSettings();
-
-      // ─── 从磁盘加载已安装的主题包 ───
-      final installedIds = await ThemeLoader.getImportedThemeIds();
-      for (final id in installedIds) {
-        if (_packs.any((p) => p.id == id)) continue;
-        try {
-          final pack = await ThemeLoader.loadPackFromDisk(id);
-          if (pack != null) {
-            _packs.add(pack);
-          } else {
-            await ThemeLoader.deleteTheme(id);
-            try { await MarketService.uninstallTheme(id); } catch (_) {}
-          }
-        } catch (e, s) {
-          Log.e('ThemeProvider', 'Failed to load theme $id from disk', e, s);
-          await ThemeLoader.deleteTheme(id);
-          try { await MarketService.uninstallTheme(id); } catch (_) {}
-        }
-      }
-
-      // ─── 同步市场安装记录：清理被孤立的市场记录 ───
-      try {
-        final marketIds = await MarketService.getInstalledIds();
-        final remaining = _packs.map((p) => p.id).toSet();
-        for (final id in marketIds) {
-          if (!remaining.contains(id)) {
-            await MarketService.uninstallTheme(id);
-          }
-        }
-      } catch (_) {}
-
-      // 确保选中包存在于列表中（可能在加载已安装主题后变更）
-      if (!_packs.any((p) => p.id == _selectedPackId)) {
-        _selectedPackId = 'ngs_nagisa';
-      }
-
-      // 应用当前主题包的资源路径到 ThemeAssets
-      await _applyPackAssets();
-
-      // ─── 加载自定义字体 ───
-      unawaited(_loadFontsForPack(currentPack));
-
-      // ─── 启动计数 & 支持弹窗 ───
-      _launchCount = prefs.getInt(_keyLaunchCount) ?? 0;
-      _launchCount++;
-      await prefs.setInt(_keyLaunchCount, _launchCount);
-
-      _firstLaunchDate = prefs.getInt(_keyFirstLaunchDate) ?? 0;
-      if (_firstLaunchDate == 0) {
-        _firstLaunchDate = DateTime.now().millisecondsSinceEpoch;
-        await prefs.setInt(_keyFirstLaunchDate, _firstLaunchDate);
-      }
-
-      _supportDismissed = prefs.getBool(_keySupportDismissed) ?? false;
-
-      notifyListeners();
-    } catch (e, s) {
-      Log.e('ThemeProvider', 'init error', e, s);
+      // 读取失败时保留磁盘主题及选中 ID，避免一次存储故障抹掉用户选择。
+      _settings = _settings.copyWith(
+        launchCount: _settings.launchCount + 1,
+        firstLaunchDate: _settings.firstLaunchDate == 0
+            ? DateTime.now().millisecondsSinceEpoch
+            : _settings.firstLaunchDate,
+      );
+      await _activate();
+      await _persist();
+    } catch (error, stack) {
+      Log.e('ThemeProvider', 'Theme initialization failed', error, stack);
     }
   }
 
-  // ─── 主题包管理 ───
+  Future<void> _persist() {
+    final snapshot = _settings;
+    return _pendingSave = _pendingSave
+        .then((_) => _store.save(snapshot))
+        .catchError((Object error, StackTrace stack) {
+      Log.e('ThemeProvider', 'Cannot save theme settings', error, stack);
+    });
+  }
 
-  /// 切换到指定主题包
-  Future<void> selectPack(String packId) async {
-    if (_selectedPackId == packId) return;
-    if (!_packs.any((p) => p.id == packId)) return;
-    _selectedPackId = packId;
+  void _notify() {
+    if (!_disposed) notifyListeners();
+  }
+
+  Future<void> _update(ThemeSettings settings) {
+    _settings = settings;
+    _notify();
+    return _persist();
+  }
+
+  Future<void> _activate() async {
+    final generation = ++_activation;
     final pack = currentPack;
-    await _applyPackAssets();
-    if (_selectedPackId != packId) return;
-    await _loadFontsForPack(pack);
-    if (_selectedPackId != packId) return;
-    notifyListeners();
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (_selectedPackId != packId) return;
-      await prefs.setString(_keySelectedPack, packId);
-    } catch (e, s) {
-      Log.e('ThemeProvider', 'persist selectedPack error', e, s);
+    ThemeAssets.loadFromThemePack(pack);
+    _hasValidBg = false;
+    final wallpaper = pack.playerBgPath;
+    bool exists = false;
+    if (wallpaper != null && wallpaper.isNotEmpty) {
+      exists =
+          wallpaper.startsWith('assets/') || await File(wallpaper).exists();
+    }
+    await _loadFonts(pack);
+    if (generation != _activation || _disposed) return;
+    _hasValidBg = exists;
+    _notify();
+  }
+
+  Future<void> _loadFonts(ThemePack pack) async {
+    final family = pack.fontFamily;
+    final weights = pack.fontWeightFiles;
+    if (family == null || weights == null) return;
+    for (final filename in weights.toJson().values.whereType<String>()) {
+      try {
+        final file = File(filename);
+        if (!await file.exists()) continue;
+        final modified = (await file.lastModified()).microsecondsSinceEpoch;
+        final key = '$family:$filename:$modified';
+        if (_loadedFonts.contains(key)) continue;
+        await ui.loadFontFromList(await file.readAsBytes(), fontFamily: family);
+        _loadedFonts.add(key);
+      } catch (error, stack) {
+        Log.e('ThemeProvider', 'Cannot load theme font', error, stack);
+      }
     }
   }
 
-  /// 从 ZIP 导入主题包
+  Future<void> selectPack(String packId) async {
+    if (selectedPackId == packId || !_packs.any((pack) => pack.id == packId)) {
+      return;
+    }
+    _settings = _settings.copyWith(selectedPackId: packId);
+    final saved = _persist();
+    await _activate();
+    await saved;
+  }
+
   Future<bool> importTheme() async {
     final pack = await ThemeLoader.importFromPicker();
     if (pack == null) return false;
-    _packs.add(pack);
-    _selectedPackId = pack.id;
-    await _applyPackAssets();
-    notifyListeners();
+    _replacePack(pack);
+    _settings = _settings.copyWith(selectedPackId: pack.id);
+    await _activate();
+    await _persist();
     return true;
   }
 
-  /// 添加已下载的主题包（市场安装用，不自动选中）
+  void _replacePack(ThemePack pack) {
+    final index = _packs.indexWhere((existing) => existing.id == pack.id);
+    if (index < 0) {
+      _packs.add(pack);
+    } else if (!_packs[index].isBuiltIn) {
+      _packs[index] = pack;
+    }
+  }
+
   void addMarketPack(ThemePack pack) {
-    _packs.add(pack);
-    notifyListeners();
+    _replacePack(pack);
+    if (selectedPackId == pack.id) {
+      unawaited(_activate());
+    } else {
+      _notify();
+    }
   }
 
-  /// 删除导入的主题包
   Future<void> deletePack(String packId) async {
-    final pack = _packs.firstWhere(
-      (p) => p.id == packId,
-      orElse: () => ngsNagisa,
-    );
-    if (pack.isBuiltIn) return; // 不能删内置包
-    await ThemeLoader.deleteTheme(packId);
-    // 同步清除市场安装记录，防止市场页面仍显示"已安装"
+    final pack = _packs.where((pack) => pack.id == packId).firstOrNull;
+    if (pack == null || pack.isBuiltIn) return;
+    await _deleteTheme(packId);
     try {
-      await MarketService.uninstallTheme(packId);
-    } catch (_) {}
-    _packs.removeWhere((p) => p.id == packId);
-    if (_selectedPackId == packId) {
-      _selectedPackId = 'ngs_nagisa';
-      await _applyPackAssets();
+      await _uninstallMarketTheme(packId);
+    } catch (error, stack) {
+      Log.w('ThemeProvider', 'Cannot clear theme market record', error, stack);
     }
-    notifyListeners();
-  }
-
-  /// 把当前主题包的资源加载到 ThemeAssets
-  Future<void> _applyPackAssets() async {
-    final pack = currentPack;
-    final generation = ++_packAssetsGeneration;
-    _hasValidBg = false;
-    if (pack.assetFiles != null && pack.assetFiles!.isNotEmpty) {
-      ThemeAssets.loadFromThemePack(pack);
+    _packs.removeWhere((pack) => pack.id == packId);
+    if (selectedPackId == packId) {
+      _settings = _settings.copyWith(selectedPackId: ngsNagisa.id);
+      await _activate();
+      await _persist();
     } else {
-      ThemeAssets.resetToDefault();
-      // playerBg 不依赖 assetFiles，reset 后需重新应用
-      if (pack.playerBgPath != null) {
-        ThemeAssets.playerBg = pack.playerBgPath!;
-      }
-    }
-    final path = pack.playerBgPath;
-    if (path == null || path.isEmpty) return;
-    var exists = false;
-    try {
-      exists = await File(path).exists();
-    } catch (_) {}
-    if (generation == _packAssetsGeneration) _hasValidBg = exists;
-  }
-
-  /// 加载主题包的自定义字体
-  Future<void> _loadFontsForPack(ThemePack pack) async {
-    final weightFiles = pack.fontWeightFiles;
-    final family = pack.fontFamily;
-    if (weightFiles == null || family == null) return;
-
-    Future<void> _loadWeight(String path) async {
-      if (path.isEmpty) return;
-      final file = File(path);
-      if (!file.existsSync()) return;
-      final bytes = await file.readAsBytes();
-      await ui.loadFontFromList(Uint8List.fromList(bytes), fontFamily: family);
-    }
-
-    try {
-      await Future.wait([
-        _loadWeight(weightFiles.regular),
-        if (weightFiles.medium != null) _loadWeight(weightFiles.medium!),
-        if (weightFiles.bold != null) _loadWeight(weightFiles.bold!),
-      ]);
-      Log.i('ThemeProvider', 'Font "$family" loaded');
-    } catch (e, s) {
-      Log.e('ThemeProvider', 'Failed to load font "$family"', e, s);
+      _notify();
     }
   }
 
-  Future<void> dismissSupportPopup() async {
-    _supportDismissed = true;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_keySupportDismissed, true);
-    } catch (e, s) {
-      Log.e('ThemeProvider', 'dismissSupport error', e, s);
-    }
-  }
+  Future<void> setThemeMode(ThemeMode mode) =>
+      _update(_settings.copyWith(mode: mode));
+  Future<void> setAccent(String key) =>
+      _update(_settings.copyWith(accentKey: key, useMonet: false));
+  Future<void> clearAccentOverride() => setAccent('');
+  Future<void> setCustomColor(Color color) => _update(_settings.copyWith(
+      accentKey: 'custom', customColor: color, useMonet: false));
+  Future<void> setUseMonet(bool value) => _update(
+      _settings.copyWith(useMonet: value, accentKey: value ? accentKey : ''));
+  Future<void> setFlowLightEnabled(bool value) =>
+      _update(_settings.copyWith(flowLight: value));
+  Future<void> setShowHiResBadge(bool value) =>
+      _update(_settings.copyWith(showHiResBadge: value));
+  Future<void> setLyricSettings(LyricSettings settings) =>
+      _update(_settings.copyWith(lyricOverride: settings));
+  Future<void> dismissSupportPopup() =>
+      _update(_settings.copyWith(supportDismissed: true));
 
-  // ─── Setters ───
-
-  Future<void> setThemeMode(ThemeMode mode) async {
-    _themeMode = mode;
-    notifyListeners();
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_keyThemeMode, mode.index);
-    } catch (e, s) {
-      Log.e('ThemeProvider', 'persist themeMode error', e, s);
-    }
-  }
-
-  /// 设置强调色覆盖（空 key = 清除覆盖）
-  Future<void> setAccent(String key) async {
-    _accentKey = key;
-    _useMonet = false;
-    notifyListeners();
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyAccent, key);
-      await prefs.setBool(_keyUseMonet, false);
-    } catch (e, s) {
-      Log.e('ThemeProvider', 'persist accent error', e, s);
-    }
-  }
-
-  /// 清除强调色覆盖，恢复主题包内置颜色
-  Future<void> clearAccentOverride() async {
-    _accentKey = '';
-    _useMonet = false;
-    notifyListeners();
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyAccent, '');
-      await prefs.setBool(_keyUseMonet, false);
-    } catch (e, s) {
-      Log.e('ThemeProvider', 'persist clearAccent error', e, s);
-    }
-  }
-
-  Future<void> setCustomColor(Color color) async {
-    _accentKey = 'custom';
-    _customColor = color;
-    _useMonet = false;
-    notifyListeners();
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyAccent, 'custom');
-      await prefs.setInt(_keyCustomColor, color.toARGB32());
-      await prefs.setBool(_keyUseMonet, false);
-    } catch (e, s) {
-      Log.e('ThemeProvider', 'persist customColor error', e, s);
-    }
-  }
-
-  Future<void> setUseMonet(bool v) async {
-    _useMonet = v;
-    if (!v) {
-      _accentKey = '';
-    }
-    notifyListeners();
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_keyUseMonet, v);
-      if (!v) await prefs.setString(_keyAccent, '');
-    } catch (e, s) {
-      Log.e('ThemeProvider', 'persist monet error', e, s);
-    }
-  }
-
-  Future<void> setFlowLightEnabled(bool v) async {
-    _flowLightEnabled = v;
-    notifyListeners();
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_keyFlowLight, v);
-    } catch (e, s) {
-      Log.e('ThemeProvider', 'persist flowLight error', e, s);
-    }
-  }
-
-  /// 设置是否显示 Hi-Res 金标
-  Future<void> setShowHiResBadge(bool v) async {
-    _showHiResBadge = v;
-    notifyListeners();
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_keyShowHiResBadge, v);
-    } catch (e, s) {
-      Log.e('ThemeProvider', 'persist showHiResBadge error', e, s);
-    }
-  }
-
-  // ─── 构建 ThemeData ───
-
-  /// 解析当前有效 ColorScheme
-  ColorScheme _resolveScheme(Brightness brightness, {ColorScheme? dynamicScheme}) {
-    // 1. Monet 优先
-    if (_useMonet) {
-      if (dynamicScheme != null) return dynamicScheme;
+  ColorScheme _scheme(Brightness brightness, ColorScheme? dynamicScheme) {
+    if (useMonet && dynamicScheme != null) return dynamicScheme;
+    if (useMonet || hasAccentOverride) {
       return ColorScheme.fromSeed(
-        seedColor: const Color(0xFF2CA1F4),
+        seedColor: useMonet ? const Color(0xFF2CA1F4) : effectiveColor,
         brightness: brightness,
       );
     }
-
-    // 2. 强调色覆盖
-    if (hasAccentOverride) {
-      return ColorScheme.fromSeed(
-        seedColor: effectiveColor,
-        brightness: brightness,
-      );
-    }
-
-    // 3. 主题包内置色板
-    final pack = currentPack;
-    if (brightness == Brightness.light) {
-      if (pack.lightScheme != null) return pack.lightScheme!;
-    } else {
-      if (pack.darkScheme != null) return pack.darkScheme!;
-    }
-
-    // 4. 默认回退
-    return ColorScheme.fromSeed(
-      seedColor: const Color(0xFF2CA1F4),
-      brightness: brightness,
-    );
+    return (brightness == Brightness.light
+            ? currentPack.lightScheme
+            : currentPack.darkScheme) ??
+        ColorScheme.fromSeed(
+            seedColor: const Color(0xFF2CA1F4), brightness: brightness);
   }
 
-  ThemeData buildLightTheme(BuildContext context, {ColorScheme? dynamicScheme}) {
-    final scheme = _resolveScheme(Brightness.light, dynamicScheme: dynamicScheme);
-    return buildThemeData(scheme, currentPack, hasGlobalBg: _hasValidBg);
-  }
+  ThemeData buildLightTheme(BuildContext context,
+          {ColorScheme? dynamicScheme}) =>
+      AppTheme.build(_scheme(Brightness.light, dynamicScheme), currentPack,
+          hasGlobalBg: _hasValidBg);
+  ThemeData buildDarkTheme(BuildContext context,
+          {ColorScheme? dynamicScheme}) =>
+      AppTheme.build(_scheme(Brightness.dark, dynamicScheme), currentPack,
+          hasGlobalBg: _hasValidBg);
 
-  ThemeData buildDarkTheme(BuildContext context, {ColorScheme? dynamicScheme}) {
-    final scheme = _resolveScheme(Brightness.dark, dynamicScheme: dynamicScheme);
-    return buildThemeData(scheme, currentPack, hasGlobalBg: _hasValidBg);
+  @override
+  void dispose() {
+    _disposed = true;
+    _activation++;
+    super.dispose();
   }
 }

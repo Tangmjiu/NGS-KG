@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
+import '../ui/app_ui.dart';
 import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/audio_settings_provider.dart';
@@ -14,65 +14,65 @@ class AudioQualityScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('音质设置')),
-      body: Consumer<AudioSettingsProvider>(
+      body: SafeArea(
+          child: AppPageBody(
+              child: Consumer<AudioSettingsProvider>(
         builder: (_, settings, __) => ListView(
+          padding: EdgeInsets.fromLTRB(
+              20, 0, 20, 24 + MediaQuery.paddingOf(context).bottom),
           children: [
-            const _SectionHeader('网络音质'),
-            _QualityTile(
-              icon: Icons.wifi,
-              label: 'WiFi 网络',
-              value: settings.wifiQuality,
-              onSelected: (key) => settings.setWifiQuality(key),
-            ),
-            _QualityTile(
-              icon: Icons.signal_cellular_alt,
-              label: '蜂窝网络',
-              value: settings.cellularQuality,
-              onSelected: (key) => settings.setCellularQuality(key),
-            ),
-            _QualityTile(
-              icon: Icons.download,
-              label: '下载音质',
-              value: settings.downloadQuality,
-              onSelected: (key) => settings.setDownloadQuality(key),
-            ),
-            const Divider(),
-            const _SectionHeader('智能控制'),
-            SwitchListTile(
-              secondary: const Icon(Icons.auto_awesome),
-              title: const Text('智能模式'),
-              subtitle: const Text('WiFi 自动最高音质，蜂窝按设定'),
-              value: settings.smartMode,
-              onChanged: (v) => settings.setSmartMode(v),
-            ),
-            SwitchListTile(
-              secondary: const Icon(Icons.history),
-              title: const Text('提交听歌历史'),
-              subtitle: const Text('关闭后不会向服务器上报播放记录'),
-              value: settings.uploadHistory,
-              onChanged: (v) => settings.setUploadHistory(v),
-            ),
+            const AppPageHeader(
+                padding: EdgeInsets.fromLTRB(0, 20, 0, 24),
+                title: '音质设置',
+                subtitle: '为不同的收听场景选择合适音质',
+                showBack: true),
+            const AppSectionHeader(
+                padding: EdgeInsets.only(bottom: 12), title: '网络音质'),
+            AppSurface(
+                padding: EdgeInsets.zero,
+                child: Column(children: [
+                  _QualityTile(
+                    icon: Icons.wifi,
+                    label: 'WiFi 网络',
+                    value: settings.wifiQuality,
+                    onSelected: (key) => settings.setWifiQuality(key),
+                  ),
+                  _QualityTile(
+                    icon: Icons.signal_cellular_alt,
+                    label: '蜂窝网络',
+                    value: settings.cellularQuality,
+                    onSelected: (key) => settings.setCellularQuality(key),
+                  ),
+                  _QualityTile(
+                    icon: Icons.download,
+                    label: '下载音质',
+                    value: settings.downloadQuality,
+                    onSelected: (key) => settings.setDownloadQuality(key),
+                  ),
+                ])),
+            const AppSectionHeader(
+                padding: EdgeInsets.only(top: 28, bottom: 12), title: '智能控制'),
+            AppSurface(
+                padding: EdgeInsets.zero,
+                child: Column(children: [
+                  SwitchListTile(
+                    secondary: const Icon(Icons.auto_awesome),
+                    title: const Text('智能模式'),
+                    subtitle: const Text('WiFi 自动最高音质，蜂窝按设定'),
+                    value: settings.smartMode,
+                    onChanged: (v) => settings.setSmartMode(v),
+                  ),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.history),
+                    title: const Text('提交听歌历史'),
+                    subtitle: const Text('关闭后不会向服务器上报播放记录'),
+                    value: settings.uploadHistory,
+                    onChanged: (v) => settings.setUploadHistory(v),
+                  ),
+                ])),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  const _SectionHeader(this.title);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-      child: Text(title,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.primary,
-              )),
+      ))),
     );
   }
 }
@@ -99,7 +99,7 @@ class _QualityTile extends StatelessWidget {
       subtitle: Text(display,
           style: TextStyle(color: Theme.of(context).colorScheme.primary)),
       trailing: const Icon(Icons.chevron_right),
-      onTap: () => showM3ModalBottomSheet(
+      onTap: () => showAppBottomSheet(
         context: context,
         builder: (ctx) => SafeArea(
           child: SingleChildScrollView(

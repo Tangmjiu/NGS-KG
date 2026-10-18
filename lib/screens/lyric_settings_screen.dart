@@ -1,32 +1,42 @@
+// SPDX-License-Identifier: MIT
 import 'package:flutter/material.dart';
+
+import '../ui/app_ui.dart';
+import '../ui/components/player_bottom_padding.dart';
 import '../widgets/lyric_settings_panel.dart';
 
-/// 歌词显示设置独立页面（从主题设置进入）。
-///
-/// 面板本身是为深色播放页设计的（白色文字），因此这里用深色主题包住整页，
-/// 而不是只写死一个黑色背景——AppBar、返回键、Switch 等控件也随之协调，
-/// 不会在浅色主题下出现"黑底 + 浅色控件"的割裂效果。
+/// 独立设置页沿用应用主题；播放器面板保持自己的颜色与布局。
 class LyricSettingsScreen extends StatelessWidget {
   const LyricSettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final base = Theme.of(context);
-    final dark = ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: base.colorScheme.primary,
-        brightness: Brightness.dark,
-      ),
-      fontFamily: base.textTheme.bodyMedium?.fontFamily,
-      pageTransitionsTheme: base.pageTransitionsTheme,
-    );
-    return Theme(
-      data: dark,
-      child: Scaffold(
-        appBar: AppBar(title: const Text('歌词设置')),
-        body: const LyricSettingsPanel(),
+    final tokens = AppThemeTokens.of(context);
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: AppPageBody(
+          child: ListView(
+            padding: EdgeInsets.symmetric(horizontal: tokens.pagePadding),
+            children: const [
+              AppPageHeader(
+                padding: EdgeInsets.fromLTRB(0, 20, 0, 24),
+                title: '歌词设置',
+                subtitle: '让每一句歌词都清晰舒适',
+                showBack: true,
+              ),
+              AppSectionHeader(
+                padding: EdgeInsets.only(bottom: 12),
+                title: '歌词显示',
+              ),
+              AppSurface(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: LyricSettingsPanel(usePlayerStyle: false),
+              ),
+              PlayerBottomPadding(),
+            ],
+          ),
+        ),
       ),
     );
   }

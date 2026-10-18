@@ -15,10 +15,10 @@ import 'package:ngskg_plus/providers/local_music_provider.dart';
 import 'package:ngskg_plus/providers/player_provider.dart';
 import 'package:ngskg_plus/providers/playlist_provider.dart';
 import 'package:ngskg_plus/screens/local_music_screen.dart';
-import 'package:ngskg_plus/screens/profile_screen.dart';
+import 'package:ngskg_plus/screens/library_screen.dart';
 import 'package:ngskg_plus/screens/search_screen.dart';
 import 'package:ngskg_plus/services/music_service.dart';
-import 'package:ngskg_plus/widgets/playlist_card.dart';
+import 'package:ngskg_plus/ui/components/playlist_card.dart';
 import 'package:provider/provider.dart';
 
 class _Player extends ChangeNotifier implements PlayerProvider {
@@ -57,7 +57,8 @@ class _Request {
 
   void complete(String label) {
     if (type == 'song') {
-      songs.complete([Song(id: label.hashCode, name: label, artists: const [])]);
+      songs
+          .complete([Song(id: label.hashCode, name: label, artists: const [])]);
     } else {
       maps.complete([
         {
@@ -125,13 +126,15 @@ class _MusicService implements MusicService {
 }
 
 class _LocalMusic extends ChangeNotifier implements LocalMusicProvider {
-  final List<Song> _songs = List.generate(5000, (index) => Song(
-        id: index,
-        name: '本地歌曲$index',
-        artists: const ['歌手'],
-        albumName: '测试专辑',
-        filePath: '/music/$index.mp3',
-      ));
+  final List<Song> _songs = List.generate(
+      5000,
+      (index) => Song(
+            id: index,
+            name: '本地歌曲$index',
+            artists: const ['歌手'],
+            albumName: '测试专辑',
+            filePath: '/music/$index.mp3',
+          ));
   final List<int> groupCalls = [0, 0, 0];
   int statusReads = 0;
 
@@ -146,6 +149,7 @@ class _LocalMusic extends ChangeNotifier implements LocalMusicProvider {
     statusReads++;
     return '';
   }
+
   @override
   String get sortField => 'title';
   @override
@@ -188,11 +192,13 @@ class _Auth extends ChangeNotifier implements AuthProvider {
 }
 
 class _Playlists extends ChangeNotifier implements PlaylistProvider {
-  final List<Playlist> _playlists = List.generate(1000, (index) => Playlist(
-        id: index + 10,
-        name: '歌单$index',
-        createUserId: index < 500 ? 1 : 2,
-      ));
+  final List<Playlist> _playlists = List.generate(
+      1000,
+      (index) => Playlist(
+            id: index + 10,
+            name: '歌单$index',
+            createUserId: index < 500 ? 1 : 2,
+          ));
   @override
   bool get isLoading => false;
   @override
@@ -219,7 +225,8 @@ Future<void> _selectTab(WidgetTester tester, String label) async {
 Widget _searchApp(_MusicService music) => MultiProvider(
       providers: [
         ChangeNotifierProvider<PlayerProvider>(create: (_) => _Player()),
-        ChangeNotifierProvider<LikedSongsProvider>(create: (_) => _LikedSongs()),
+        ChangeNotifierProvider<LikedSongsProvider>(
+            create: (_) => _LikedSongs()),
       ],
       child: MaterialApp(home: SearchScreen(musicService: music)),
     );
@@ -322,7 +329,10 @@ void main() {
     }
     expect(local.groupCalls, calls);
     expect(local.statusReads, statusReads);
-    player.song = Song(id: -999, name: '重扫后歌曲', artists: const [],
+    player.song = Song(
+        id: -999,
+        name: '重扫后歌曲',
+        artists: const [],
         filePath: local.songs.first.filePath);
     player.playing = true;
     player.notifyListeners();
@@ -343,17 +353,21 @@ void main() {
       providers: [
         ChangeNotifierProvider<AuthProvider>(create: (_) => _Auth()),
         ChangeNotifierProvider<PlaylistProvider>(create: (_) => _Playlists()),
-        ChangeNotifierProvider<LocalMusicProvider>(create: (_) => _LocalMusic()),
-        ChangeNotifierProvider<LikedSongsProvider>(create: (_) => _LikedSongs()),
+        ChangeNotifierProvider<LocalMusicProvider>(
+            create: (_) => _LocalMusic()),
+        ChangeNotifierProvider<LikedSongsProvider>(
+            create: (_) => _LikedSongs()),
         ChangeNotifierProvider<PlayerProvider>(create: (_) => _Player()),
       ],
-      child: MaterialApp(home: Scaffold(body: ProfileScreen(musicService: _MusicService()))),
+      child: MaterialApp(
+          home: Scaffold(body: LibraryScreen(musicService: _MusicService()))),
     ));
     await tester.pumpAndSettle();
     final scroll = find.byType(CustomScrollView);
     await tester.drag(scroll, const Offset(0, -1000));
     await tester.pumpAndSettle();
-    expect(find.byType(PlaylistCard).evaluate().length, inExclusiveRange(0, 30));
+    expect(
+        find.byType(PlaylistCard).evaluate().length, inExclusiveRange(0, 30));
     expect(find.text('歌单999'), findsNothing);
     expect(tester.takeException(), isNull);
   });

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 import 'dart:async';
+import 'dart:ui' show PlatformDispatcher;
 import 'dart:io';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:audio_service/audio_service.dart';
@@ -17,12 +17,12 @@ import 'screens/settings_screen.dart';
 import 'utils/logger.dart';
 import 'services/api_client.dart';
 import 'providers/theme_provider.dart';
-import 'widgets/app_shell.dart';
+import 'ui/shell/app_shell.dart';
+import 'ui/foundation/app_motion_scope.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'services/device_service.dart';
 import 'services/music_service.dart';
 import 'services/auth_service.dart';
-import 'services/notification_service.dart';
 import 'services/api_config.dart';
 import 'services/audio_handler.dart';
 import 'services/cache_service.dart';
@@ -81,14 +81,12 @@ Future<void> main() async {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.error_outline,
-                        size: 18, color: Colors.white38),
+                    Icon(Icons.error_outline, size: 18, color: Colors.white38),
                     SizedBox(width: 6),
                     Flexible(
                       child: Text(
                         '轻微渲染闪过',
-                        style: TextStyle(
-                            color: Colors.white38, fontSize: 11),
+                        style: TextStyle(color: Colors.white38, fontSize: 11),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -110,10 +108,8 @@ Future<void> main() async {
                   ThemeAssets.codecrash,
                   width: 80,
                   height: 80,
-                  errorBuilder: (_, __, ___) => const Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: Colors.white38),
+                  errorBuilder: (_, __, ___) => const Icon(Icons.error_outline,
+                      size: 64, color: Colors.white38),
                 ),
                 const SizedBox(height: 16),
                 const Text(
@@ -126,8 +122,7 @@ Future<void> main() async {
                   child: Text(
                     details.exceptionAsString(),
                     textAlign: TextAlign.center,
-                    style:
-                        const TextStyle(color: Colors.white38, fontSize: 12),
+                    style: const TextStyle(color: Colors.white38, fontSize: 12),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -190,7 +185,8 @@ Future<void> main() async {
   final authService = AuthService();
   final audioSettings = AudioSettingsProvider();
   final audioSettingsReady = audioSettings.init();
-  final themeProvider = ThemeProvider()..init();
+  final themeProvider = ThemeProvider();
+  await themeProvider.init();
   final likedSongs = LikedSongsProvider(musicService);
   final authProvider = AuthProvider(authService, likedSongs: likedSongs);
   unawaited(authProvider.ready.then((_) {
@@ -209,12 +205,14 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: audioSettings),
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider.value(value: authProvider),
-        ChangeNotifierProvider(create: (_) => PlayerProvider(musicService,
-            audioHandler: audioHandler,
-            audioSettings: audioSettings,
-            likedSongs: likedSongs,
-            ready: playbackReady,
-        )),
+        ChangeNotifierProvider(
+            create: (_) => PlayerProvider(
+                  musicService,
+                  audioHandler: audioHandler,
+                  audioSettings: audioSettings,
+                  likedSongs: likedSongs,
+                  ready: playbackReady,
+                )),
         ChangeNotifierProvider(create: (_) => PlaylistProvider(musicService)),
         ChangeNotifierProvider.value(value: likedSongs),
         ChangeNotifierProvider(create: (_) => DiscoverProvider(musicService)),
@@ -251,9 +249,6 @@ Future<void> main() async {
       (route) => route.settings.name == AppRoutes.home,
     );
   });
-
-
-
 }
 
 Future<void> _initRemoteConfigAndDevice() async {
@@ -298,11 +293,11 @@ void _notifAction(String action) {
       final song = player.currentSong;
       if (song != null) {
         ctx.read<LikedSongsProvider>().toggle(SongInfo(
-          id: song.id,
-          name: song.name,
-          hash: song.hash ?? '',
-          albumId: song.albumId,
-        ));
+              id: song.id,
+              name: song.name,
+              hash: song.hash ?? '',
+              albumId: song.albumId,
+            ));
       }
     case 'switch_mode':
       final modes = [PlayMode.sequential, PlayMode.shuffle, PlayMode.repeatOne];
@@ -334,8 +329,10 @@ class NGSKGApp extends StatelessWidget {
           navigatorKey: navKey,
           title: 'NGS-KG+',
           debugShowCheckedModeBanner: false,
-          theme: themeProvider.buildLightTheme(context, dynamicScheme: lightDynamic),
-          darkTheme: themeProvider.buildDarkTheme(context, dynamicScheme: darkDynamic),
+          theme: themeProvider.buildLightTheme(context,
+              dynamicScheme: lightDynamic),
+          darkTheme:
+              themeProvider.buildDarkTheme(context, dynamicScheme: darkDynamic),
           themeMode: themeProvider.themeMode,
           initialRoute: AppRoutes.home,
           navigatorObservers: [AppRouteObserver.instance],
@@ -347,35 +344,10 @@ class NGSKGApp extends StatelessWidget {
             }
             return AppRoutes.generateRoute(settings);
           },
-          builder: (context, child) {
-            return Stack(
-              children: [
-                // ── 全局主题背景（首�?发现/搜索等页面共用） ──
-                if (ThemeAssets.playerBg.isNotEmpty)
-                  Positioned.fill(
-                    // 独立图层：上层页面重绘时不会连带重新模糊整屏背景
-                    child: RepaintBoundary(
-                      child: ImageFiltered(
-                        // 降低 sigma 以减少低端机 GPU 负载（视觉差异小）
-                        imageFilter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                        child: Image.file(
-                          File(ThemeAssets.playerBg),
-                          fit: BoxFit.cover,
-                          // 背景会被模糊，按 720px 宽解码足够，避免原图（可能 4K）常驻显存
-                          cacheWidth: 720,
-                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                        ),
-                      ),
-                    ),
-                  ),
-                // AppShell 自适应外壳：桌面全宽壳 / 移动 MiniPlayer + overlays
-                AppShell(child: child),
-              ],
-            );
-          },
+          builder: (context, child) =>
+              AppMotionScope(child: AppShell(child: child)),
         );
       },
     );
   }
 }
-

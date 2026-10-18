@@ -5,11 +5,11 @@ import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
 import '../models/song.dart';
 import '../theme/theme_assets.dart';
-import '../utils/theme.dart';
+import '../ui/app_ui.dart';
 import 'hi_res_badge.dart';
 
 /// Enhanced album cover art widget with glassmorphism shadow,
-/// expressive MD3E scaling (shrinks when paused), and M3PressScale.
+/// expressive MD3E scaling (shrinks when paused), and PressScale.
 class PlayerCoverArt extends StatelessWidget {
   final Song song;
   final double scrollOffset; // 0.0 = fully visible, 1.0 = lyrics page
@@ -39,7 +39,7 @@ class PlayerCoverArt extends StatelessWidget {
             opacity: (1.0 - scrollOffset * 2.0).clamp(0.0, 1.0),
             child: Transform.scale(
               scale: 1.0 - scrollOffset * 0.2, // 歌词滚动时的额外缩小
-              child: M3PressScale(
+              child: PressScale(
                 scaleDown: 0.95, // 用户手动按压封面的阻尼
                 child: Hero(
                   tag: 'album_art_${song.hash ?? song.id}',
@@ -63,39 +63,43 @@ class PlayerCoverArt extends StatelessWidget {
                                 image: true,
                                 label: '${song.name} 专辑封面',
                                 child: Builder(
-                                        builder: (_) {
-                                          final url = song.albumCoverUrl;
-                                          if (url == null || url.isEmpty) {
-                                            return _fallback(baseSize);
-                                          }
-                                          // 本地文件：file:// URI 或裸路径
-                                          if (url.startsWith('file:') || url.startsWith('/')) {
-                                            final path = url.startsWith('file:')
-                                                ? Uri.parse(url).toFilePath()
-                                                : url;
-                                            final file = File(path);
-                                            if (file.existsSync()) {
-                                              return Image.file(
-                                                file,
-                                                width: baseSize,
-                                                height: baseSize,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (_, __, ___) => _fallback(baseSize),
-                                              );
-                                            }
-                                            return _fallback(baseSize);
-                                          }
-                                          // 网络 URL → 使用缓存加载
-                                          return CachedNetworkImage(
-                                            imageUrl: url,
-                                            width: baseSize,
-                                            height: baseSize,
-                                            fit: BoxFit.cover,
-                                            placeholder: (_, __) => _fallback(baseSize),
-                                            errorWidget: (_, __, ___) => _fallback(baseSize),
-                                          );
-                                        },
-                                      ),
+                                  builder: (_) {
+                                    final url = song.albumCoverUrl;
+                                    if (url == null || url.isEmpty) {
+                                      return _fallback(baseSize);
+                                    }
+                                    // 本地文件：file:// URI 或裸路径
+                                    if (url.startsWith('file:') ||
+                                        url.startsWith('/')) {
+                                      final path = url.startsWith('file:')
+                                          ? Uri.parse(url).toFilePath()
+                                          : url;
+                                      final file = File(path);
+                                      if (file.existsSync()) {
+                                        return Image.file(
+                                          file,
+                                          width: baseSize,
+                                          height: baseSize,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                              _fallback(baseSize),
+                                        );
+                                      }
+                                      return _fallback(baseSize);
+                                    }
+                                    // 网络 URL → 使用缓存加载
+                                    return CachedNetworkImage(
+                                      imageUrl: url,
+                                      width: baseSize,
+                                      height: baseSize,
+                                      fit: BoxFit.cover,
+                                      placeholder: (_, __) =>
+                                          _fallback(baseSize),
+                                      errorWidget: (_, __, ___) =>
+                                          _fallback(baseSize),
+                                    );
+                                  },
+                                ),
                               ),
                             ),
                             if (showHiRes)

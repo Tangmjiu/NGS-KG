@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ngskg_plus/theme/theme_assets.dart';
 import 'package:ngskg_plus/utils/palette_extractor.dart';
-import 'package:ngskg_plus/widgets/local_cover_art.dart';
+import 'package:ngskg_plus/ui/components/cover_art.dart';
 
 Future<Uint8List> _rectanglePng() async {
   final recorder = ui.PictureRecorder();
@@ -16,7 +16,8 @@ Future<Uint8List> _rectanglePng() async {
   canvas.drawRect(const Rect.fromLTWH(0, 0, 800, 400),
       Paint()..color = const Color(0xFF3366CC));
   final picture = recorder.endRecording();
-  final image = await picture.toImage(800, 400).timeout(const Duration(seconds: 10));
+  final image =
+      await picture.toImage(800, 400).timeout(const Duration(seconds: 10));
   try {
     final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
     return bytes!.buffer.asUint8List();
@@ -69,7 +70,7 @@ void main() {
 
   testWidgets('内存封面按显示像素降采样且保留矩形比例', (tester) async {
     final bytes = (await tester.runAsync(_rectanglePng))!;
-    await tester.pumpWidget(_app(LocalCoverArt(size: 48, coverData: bytes)));
+    await tester.pumpWidget(_app(CoverArt(size: 48, coverData: bytes)));
     final image = tester.widget<Image>(find.byType(Image));
     final resized = image.image as ResizeImage;
     expect(resized.width, 144);
@@ -83,11 +84,12 @@ void main() {
   testWidgets('文件封面和主题图降采样时不拉伸矩形图片', (tester) async {
     final bytes = (await tester.runAsync(_rectanglePng))!;
     final file = (await tester.runAsync(() async {
-      final directory = await Directory.systemTemp.createTemp('ngskg-image-test-');
+      final directory =
+          await Directory.systemTemp.createTemp('ngskg-image-test-');
       return File('${directory.path}/cover.png').writeAsBytes(bytes);
     }))!;
     try {
-      await tester.pumpWidget(_app(LocalCoverArt(size: 48, url: file.path)));
+      await tester.pumpWidget(_app(CoverArt(size: 48, url: file.path)));
       var image = tester.widget<Image>(find.byType(Image));
       var resized = image.image as ResizeImage;
       expect(resized.policy, ResizeImagePolicy.fit);
@@ -126,12 +128,15 @@ void main() {
       expect(identical(first, second), isTrue);
       final palette = await first.timeout(const Duration(seconds: 15));
       expect(identical(await second, palette), isTrue);
-      expect(identical(await extractor.extractFromProvider(provider, 'cover'),
-          palette), isTrue);
+      expect(
+          identical(
+              await extractor.extractFromProvider(provider, 'cover'), palette),
+          isTrue);
       expect(identical(palette, PaletteExtractor.fallbackPalette), isFalse);
 
       extractor.clearCache();
-      final refreshed = await extractor.extractFromProvider(provider, 'cover')
+      final refreshed = await extractor
+          .extractFromProvider(provider, 'cover')
           .timeout(const Duration(seconds: 15));
       expect(identical(refreshed, palette), isFalse);
       expect(refreshed.dominant, palette.dominant);

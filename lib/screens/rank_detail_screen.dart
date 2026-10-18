@@ -1,10 +1,14 @@
+// SPDX-License-Identifier: MIT
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
-import '../widgets/song_tile.dart';
+import '../ui/components/song_tile.dart';
+import '../ui/components/player_bottom_padding.dart';
+import '../ui/app_ui.dart';
+import '../ui/components/collection_header.dart';
 
 class RankDetailScreen extends StatefulWidget {
   final int rankId;
@@ -20,6 +24,7 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
   final MusicService _musicService = MusicService();
   List<Song>? _songs;
   bool _isLoading = true;
+  bool _loadFailed = false;
   int _total = 0;
 
   @override
@@ -29,6 +34,10 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
   }
 
   Future<void> _load() async {
+    setState(() {
+      _loadFailed = false;
+      _isLoading = _songs == null || _songs!.isEmpty;
+    });
     try {
       final songs = await _musicService.getRankAudios(widget.rankId);
       if (mounted) {
@@ -38,72 +47,94 @@ class _RankDetailScreenState extends State<RankDetailScreen> {
           _isLoading = false;
         });
       }
-    } catch (e, s) { Log.e('rank_detail_screen', 'error', e, s);
-      if (mounted) setState(() => _isLoading = false);
+    } catch (e, s) {
+      Log.e('rank_detail_screen', 'error', e, s);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _loadFailed = true;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 880;
-    final bodyContent = _isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : _songs == null || _songs!.isEmpty
-            ? const Center(child: Text('暂无歌曲'))
-            : ListView.builder(
-                padding: const EdgeInsets.only(top: 8),
-                itemCount: _songs!.length,
-                itemBuilder: (_, i) {
-                  final song = _songs![i];
-                  return Row(
-                    children: [
-                      SizedBox(
-                        width: 40,
-                        child: Center(
-                          child: Text('${i + 1}',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: i < 3
-                                    ? Theme.of(context).colorScheme.primary
-                                    : Theme.of(context).colorScheme.outline,
-                              )),
-                        ),
-                      ),
-                      Expanded(
-                        child: SongTile(
-                          song: song,
-                          onTap: (s) => context
-                              .read<PlayerProvider>()
-                              .playSong(s, playlist: _songs),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              );
+    final songs = _songs ?? <Song>[];
+    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.rankName ?? '排行榜'),
-        bottom: _songs != null
-            ? PreferredSize(
-                preferredSize: const Size.fromHeight(24),
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text('共 $_total 首',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                ),
-              )
-            : null,
-      ),
-      body: isWide
-          ? Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: bodyContent,
-              ),
-            )
-          : bodyContent,
+      appBar: AppBar(title: const Text('排行榜')),
+      body: AppPageBody(
+          child: RefreshIndicator(
+        onRefresh: _load,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+                child: CollectionHeader(
+              title: widget.rankName ?? '排行榜',
+              kind: '排行榜',
+              subtitle: '共 $_total 首歌曲',
+              coverUrl: songs.firstOrNull?.albumCoverUrl,
+              fallbackIcon: Icons.equalizer_rounded,
+              actions: [
+                FilledButton.icon(
+                  onPressed: songs.isEmpty
+                      ? null
+                      : () => context
+                          .read<PlayerProvider>()
+                          .playSong(songs.first, playlist: songs),
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text('播放全部'),
+                )
+              ],
+            )),
+            if (_isLoading)
+              const SliverToBoxAdapter(
+                  child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Center(child: AppLoadingIndicator())))
+            else if (songs.isEmpty)
+              SliverToBoxAdapter(
+                  child: AppEmptyState(
+                icon: _loadFailed
+                    ? Icons.cloud_off_rounded
+                    : Icons.equalizer_rounded,
+                title: _loadFailed ? '榜单暂时无法加载' : '榜单暂无歌曲',
+                action: _loadFailed
+                    ? FilledButton.tonalIcon(
+                        onPressed: _load,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('重试'))
+                    : null,
+              ))
+            else
+              SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                      (context, index) => Row(children: [
+                            SizedBox(
+                                width: 44,
+                                child: Text('${index + 1}',
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(
+                                            color: index < 3
+                                                ? theme.colorScheme.primary
+                                                : theme.colorScheme
+                                                    .onSurfaceVariant))),
+                            Expanded(
+                                child: SongTile(
+                                    song: songs[index],
+                                    onTap: (song) => context
+                                        .read<PlayerProvider>()
+                                        .playSong(song, playlist: songs))),
+                          ]),
+                      childCount: songs.length)),
+            const SliverToBoxAdapter(
+                child: PlayerBottomPadding(showLabel: false)),
+          ],
+        ),
+      )),
     );
   }
 }

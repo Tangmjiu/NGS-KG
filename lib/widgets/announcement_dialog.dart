@@ -3,12 +3,12 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/announcement.dart';
 import '../services/announcement_service.dart';
-import '../utils/theme.dart';
+import '../ui/app_ui.dart';
 
 /// 显示公告弹窗
 Future<void> showAnnouncementDialog(
     BuildContext context, Announcement announcement) {
-  return showM3Dialog(
+  return showAppDialog(
     context: context,
     barrierDismissible: announcement.dismissible,
     builder: (ctx) => _AnnouncementDialogWidget(announcement: announcement),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
+import '../ui/app_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/theme_assets.dart';
 
@@ -8,7 +8,7 @@ import '../theme/theme_assets.dart';
 /// 返回 true 表示用户选择了"不再显示"。
 Future<bool> showSupportMeDialog(BuildContext context,
     {bool autoPopup = false}) async {
-  final result = await showM3Dialog<bool>(
+  final result = await showAppDialog<bool>(
     context: context,
     builder: (ctx) => _SupportMeDialog(autoPopup: autoPopup),
   );
@@ -61,8 +61,7 @@ class _SupportMeDialogState extends State<_SupportMeDialog> {
                 ),
                 const SizedBox(width: 4),
                 GestureDetector(
-                  onTap: () =>
-                      setState(() => _dontShowAgain = !_dontShowAgain),
+                  onTap: () => setState(() => _dontShowAgain = !_dontShowAgain),
                   child: Text('不再显示',
                       style: Theme.of(context).textTheme.bodyMedium),
                 ),

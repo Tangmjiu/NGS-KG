@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
+import '../ui/app_ui.dart';
 
 /// 发现页通用横向滚动卡片区块
 ///
@@ -39,21 +39,20 @@ class HorizontalCardSection extends StatelessWidget {
       children: [
         // ── Section header ──
         Padding(
-          padding: padding ??
-              const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          padding: padding ?? const EdgeInsets.fromLTRB(20, 20, 20, 12),
           child: Row(
             children: [
               Text(
                 title,
-                style: tt.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
+                style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
               const Spacer(),
               if (onViewAll != null)
                 TextButton(
                   onPressed: onViewAll,
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     minimumSize: const Size(0, 28),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
@@ -80,7 +79,7 @@ class HorizontalCardSection extends StatelessWidget {
               padding: EdgeInsets.only(right: index < itemCount - 1 ? gap : 0),
               child: SizedBox(
                 width: cardWidth,
-                child: M3StaggeredFadeIn(
+                child: StaggeredEntrance(
                   index: index,
                   child: itemBuilder(context, index),
                 ),

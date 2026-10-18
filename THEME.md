@@ -1,468 +1,143 @@
-# 主题包制作指南
+# 主题制作与兼容指南
 
-NGS-KG+ 支持通过 ZIP 文件导入自定义主题包，可替换全套配色、字体、形状和图片资源。
+NGS-KG+ 使用统一的 Material 3 主题引擎。颜色、字体、页面留白、组件圆角、图片和歌词设置均来自主题模型；浅色、深色与系统动态取色共用同一套组件规则。
 
-## 主题市场
+默认主题「Ran Nagisa」保留橙红配色和角色插画，并使用新版 MD3E 组件与统一设计参数。已经安装的用户继续使用原先选中的主题、强调色和动态取色设置。「Ran Nagisa」与「MD3 全局」仍保留各自的 ID 和配色行为。
 
-v2.0.0 起内置主题市场。App 内 **设置 → 主题市场** 可浏览、下载、应用社区主题。
+## ZIP 格式 v3
 
-市场注册表托管在 [Tangmjiu/ngs-kg-themes](https://github.com/Tangmjiu/ngs-kg-themes)：
-- 主题包 ZIP 文件直接存放在 `themes/<id>/` 目录中
-- 注册表 `registry.json` 索引所有可用主题
-- 提交主题 → Fork 该仓库 → 添加主题目录和注册表条目 → Pull Request
-
-## 内置主题包
-
-软件内置两个主题包，不可删除：
-
-| 名称 | 说明 |
-|------|------|
-| **NGS 凪砂**（默认） | 完整 30 色硬编码色板 + 角色状态图 |
-| **MD3 全局** | 纯 Material Design 3 规范，无自定义图片，适合偏好原生 MD3 风格的用户 |
-
-## 文件结构
-
-一个完整的主题包是一个 `.zip` 文件，内部结构如下：
-
-```
+```text
 my_theme.zip
-├── manifest.json              # 主题配置（必填）
-├── preview.png                # 主题预览封面（可选，显示在列表卡片上）
-├── fonts/
-│   ├── NotoSansSC-Regular.ttf # 常规字重（可选）
-│   ├── NotoSansSC-Medium.ttf  # 中等字重（可选）
-│   └── NotoSansSC-Bold.ttf    # 粗体字重（可选）
-└── images/
-    ├── sthiswrong.png          # 搜索无结果/请求失败提示图
-    ├── codecrash.png           # 渲染崩溃提示图
-    ├── loading.png             # 加载中提示图
-    ├── ban.png                 # 搜索屏蔽关键词提示图
-    ├── supportme.png           # 支持作者弹窗图
-    ├── icon.png                # 应用桌面图标（需重启应用生效）
-    ├── album_placeholder.png   # 专辑封面加载失败占位图
-    ├── playlist_placeholder.png# 歌单封面加载失败占位图
-    ├── artist_placeholder.png  # 歌手头像加载失败占位图
-    ├── player_bg.png           # 播放器无封面时的背景壁纸
-    ├── empty_playlist.png      # 歌单/收藏为空插画（可选）
-    ├── empty_content.png       # 通用空数据插画（可选）
-    └── load_failed.png         # 加载失败插画（可选）
-```
-
-> `images/` 内所有文件均为可选，缺失的项使用默认资源。
-> 图片格式支持 `.png` 和 `.jpg`，推荐尺寸 480×480px。
-
----
-
-## manifest.json 完整字段说明
-
-### 基本信息
-
-```json
-{
-  "name": "凪砂主题",
-  "author": "mjiutang",
-  "version": 2,
-  "description": "以凪砂角色色系为灵感的完整主题"
-}
-```
-
-| 字段 | 必填 | 说明 |
-|------|:----:|------|
-| `name` | ✅ | 主题包显示名称 |
-| `author` | ✅ | 作者名 |
-| `version` | ✅ | 固定为 `2`（当前格式版本号） |
-| `description` | ❌ | 主题描述文案，显示在详情区域 |
-
----
-
-### 颜色 — `colors`
-
-可分别定义浅色/深色模式的完整 **ColorScheme**（15 个色值）。每个颜色项均为**可选**，缺失的颜色自动回退到 flex 自动生成。
-
-```json
-{
-  "colors": {
-    "light": {
-      "primary":              "#FF6633",
-      "onPrimary":            "#FFFFFF",
-      "primaryContainer":     "#FFDBC9",
-      "onPrimaryContainer":   "#361400",
-      "secondary":            "#A85A3A",
-      "onSecondary":          "#FFFFFF",
-      "secondaryContainer":   "#FFDBC9",
-      "onSecondaryContainer": "#3A1500",
-      "tertiary":             "#8B4E6B",
-      "onTertiary":           "#FFFFFF",
-      "tertiaryContainer":    "#FFD8E5",
-      "onTertiaryContainer":  "#390A27",
-      "error":                "#BA1A1A",
-      "onError":              "#FFFFFF",
-      "errorContainer":       "#FFDAD6",
-      "onErrorContainer":     "#410002",
-      "surface":              "#FFF8F6",
-      "surfaceDim":           "#E8D6D0",
-      "surfaceBright":        "#FFF8F6",
-      "surfaceContainerLowest":  "#FFFFFF",
-      "surfaceContainerLow":  "#FFF1EC",
-      "surfaceContainer":     "#F6E3DC",
-      "surfaceContainerHigh": "#EFDCD6",
-      "surfaceContainerHighest":"#E3D1CA",
-      "onSurface":            "#231A17",
-      "onSurfaceVariant":     "#53443E",
-      "outline":              "#85736C",
-      "outlineVariant":       "#D8C2BA",
-      "inverseSurface":       "#392E2B",
-      "inversePrimary":       "#FFB59A"
-    },
-    "dark": {
-      "primary":              "#FFB59A",
-      "onPrimary":            "#552500",
-      "primaryContainer":     "#7A3600",
-      "onPrimaryContainer":   "#FFDBC9",
-      "secondary":            "#FFB59A",
-      "onSecondary":          "#552500",
-      "secondaryContainer":   "#7A3600",
-      "onSecondaryContainer": "#FFDBC9",
-      "tertiary":             "#FFB0CA",
-      "onTertiary":           "#55213E",
-      "tertiaryContainer":    "#6F3755",
-      "onTertiaryContainer":  "#FFD8E5",
-      "error":                "#FFB4AB",
-      "onError":              "#690005",
-      "errorContainer":       "#93000A",
-      "onErrorContainer":     "#FFDAD6",
-      "surface":              "#1A110F",
-      "surfaceDim":           "#1A110F",
-      "surfaceBright":        "#423734",
-      "surfaceContainerLowest":  "#140C0A",
-      "surfaceContainerLow":  "#231A17",
-      "surfaceContainer":     "#271E1B",
-      "surfaceContainerHigh": "#322825",
-      "surfaceContainerHighest":"#3E332F",
-      "onSurface":            "#F0DFD9",
-      "onSurfaceVariant":     "#D8C2BA",
-      "outline":              "#A08D85",
-      "outlineVariant":       "#53443E",
-      "inverseSurface":       "#F0DFD9",
-      "inversePrimary":       "#FF6633"
-    }
-  }
-}
-```
-
-颜色使用 **6 位十六进制** 格式（`#RRGGBB`），不含 alpha 通道。
-
----
-
-### 字体 — `typography`
-
-```json
-{
-  "typography": {
-    "family": "NotoSansSC",
-    "weight": {
-      "regular": "fonts/NotoSansSC-Regular.ttf",
-      "medium":  "fonts/NotoSansSC-Medium.ttf",
-      "bold":    "fonts/NotoSansSC-Bold.ttf"
-    }
-  }
-}
-```
-
-| 字段 | 必填 | 说明 |
-|------|:----:|------|
-| `family` | ✅ | 字体家族名称 |
-| `weight.regular` | ✅ | 常规字重 .ttf 文件路径 |
-| `weight.medium` | ❌ | 中等字重 .ttf 文件路径 |
-| `weight.bold` | ❌ | 粗体字重 .ttf 文件路径 |
-
-不提供此字段 → 使用系统默认字体。
-
----
-
-### 形状 — `shapes`
-
-覆盖 MD3 5 级形状 token，每项**可选**，缺失的使用全局默认值。
-
-```json
-{
-  "shapes": {
-    "xs": 4,
-    "sm": 8,
-    "md": 12,
-    "lg": 16,
-    "xl": 28
-  }
-}
-```
-
-| 字段 | 默认值 | 适用组件 |
-|------|--------|----------|
-| `xs` | 4 | Chips、Snackbars |
-| `sm` | 8 | 输入框、菜单、按钮 |
-| `md` | 12 | 卡片、Dialog |
-| `lg` | 16 | FAB、导航抽屉 |
-| `xl` | 28 | Bottom Sheet |
-
----
-
-### 图片资源 — `assets`
-
-定义 ZIP 内图片文件到各 UI 位置的映射。每项**可选**。
-
-```json
-{
-  "assets": {
-    "sthiswrong":    "images/sthiswrong.png",
-    "codecrash":     "images/codecrash.png",
-    "loading":       "images/loading.png",
-    "ban":           "images/ban.png",
-    "supportme":     "images/supportme.png",
-    "icon":          "images/icon.png",
-    "album_placeholder":    "images/album_placeholder.png",
-    "playlist_placeholder": "images/playlist_placeholder.png",
-    "artist_placeholder":   "images/artist_placeholder.png",
-    "empty_playlist":       "images/empty_playlist.png",
-    "empty_content":        "images/empty_content.png",
-    "load_failed":          "images/load_failed.png"
-  }
-}
-```
-
-| Key | 默认图片 | 显示场景 |
-|-----|----------|----------|
-| `sthiswrong` | `assets/images/sthiswrong.png` | 搜索无结果、API 请求失败弹窗 |
-| `codecrash` | `assets/images/codecrash.png` | Flutter 渲染崩溃页面 |
-| `loading` | `assets/images/loading.png` | 加载中状态 |
-| `ban` | `assets/images/ban.png` | 搜索屏蔽关键词提示 |
-| `supportme` | `assets/images/supportme.png` | 支持作者弹窗 |
-| `icon` | `assets/images/icon.png` | 应用桌面图标（需重启） |
-| `album_placeholder` | 无（回退到系统图标） | 专辑封面加载失败 |
-| `playlist_placeholder` | 无（回退到系统图标） | 歌单封面加载失败 |
-| `artist_placeholder` | 无（回退到系统图标） | 歌手头像加载失败 |
-| `empty_playlist` | 无（回退到图标+文字） | 歌单、收藏列表为空 |
-| `empty_content` | 无（回退到图标+文字） | 通用空数据（暂无歌曲/评论/动态/日志等） |
-| `load_failed` | 无（回退到图标+文字） | 加载失败提示 |
-
----
-
-### 壁纸 — `wallpaper`
-
-```json
-{
-  "wallpaper": {
-    "player": "images/player_bg.png"
-  }
-}
-```
-
-播放器无专辑封面时的默认背景，会以高斯模糊方式渲染。未提供则回退到专辑封面模糊或纯色。
-
----
-
-### 动效偏好 — `motion`
-
-```json
-{
-  "motion": {
-    "durationScale": 1.0,
-    "curve": "emphasized"
-  }
-}
-```
-
-| 字段 | 可选值 | 说明 |
-|------|--------|------|
-| `durationScale` | `0.5` ~ `2.0` | 动画速度倍率，`1.0`=默认 |
-| `curve` | `emphasized` / `standard` / `linear` | 动画曲线 |
-
----
-
-### 组件偏好 — `components`
-
-```json
-{
-  "components": {
-    "navigationBar": {
-      "elevation": 0,
-      "indicatorStyle": "compact"
-    },
-    "card": {
-      "elevation": 0,
-      "style": "filled"
-    },
-    "dialog": {
-      "style": "filled"
-    }
-  }
-}
-```
-
----
-
-### 歌词显示设置 — `lyricSettings`
-
-覆盖歌词视图的默认显示参数。每项**可选**，缺失的使用用户当前设置（或默认值）。
-
-```json
-{
-  "lyricSettings": {
-    "fontSize": 16,
-    "centerAlign": false,
-    "fontWeight": 400,
-    "blurEffect": false
-  }
-}
-```
-
-| 字段 | 类型 | 默认值 | 说明 |
-|------|:----:|:------:|------|
-| `fontSize` | `number` | `16` | 歌词字体大小（逻辑像素），范围 12–28 |
-| `centerAlign` | `bool` | `false` | 是否居中对齐歌词文本 |
-| `fontWeight` | `number` | `400` | 歌词字重，100=细体 / 400=常规 / 700=粗体 |
-| `blurEffect` | `bool` | `false` | 是否启用歌词视图模糊效果 |
-
-用户可在 **播放器 ⋮ 菜单 → 歌词设置** 或 **设置 → 主题 → 歌词设置** 中手动调节这些参数，手动修改后会覆盖主题包提供的默认值。
-
----
-
-## 强调色覆盖
-
-导入主题包后，你仍可以在设置页中**修改强调色**：
-- 若设置了强调色 → 主题包的颜色被覆盖，但图片/字体/形状不变
-- 若清除了强调色 → 使用主题包内置的完整色板
-
----
-
-## 完整示例
-
-### 最小主题包（只改颜色）
-
-```
-minimal_theme.zip
-└── manifest.json
-```
-
-```json
-{
-  "name": "极简红",
-  "author": "Example",
-  "version": 2,
-  "colors": {
-    "light": { "primary": "#E53935", "onPrimary": "#FFFFFF" },
-    "dark":  { "primary": "#EF5350", "onPrimary": "#FFFFFF" }
-  }
-}
-```
-
-未指定的颜色由 flex 自动推导，未指定的图片用默认资源。
-
-### 完整主题包
-
-```
-full_theme.zip
 ├── manifest.json
 ├── preview.png
 ├── fonts/
-│   └── NotoSansSC-Regular.ttf
+│   ├── Regular.ttf
+│   └── Bold.ttf
 └── images/
-    ├── sthiswrong.png
-    ├── codecrash.png
-    ├── loading.png
-    ├── ban.png
-    ├── supportme.png
-    ├── icon.png
-    ├── album_placeholder.png
-    ├── playlist_placeholder.png
-    ├── artist_placeholder.png
-    └── player_bg.png
+    ├── cover.png
+    └── player.png
 ```
 
----
-
-## MD3 合规提醒
-
-以下内容主题包**不可以**修改：
-- 导航栏图标（`Icons.home` / `Icons.explore` / `Icons.person`）
-- 搜索图标（`Icons.search`）
-- MD3 组件结构（NavigationBar / TabBar / Dialog / BottomSheet 的行为模式）
-
-以下内容主题包**可以**自由定义：
-- 所有 ColorScheme 颜色（30 个色值）
-- 字体（任意 .ttf）
-- 形状圆角（5 级 Shape token）
-- 主题装饰图片（10 张）
-- 播放器背景壁纸
-- 动效曲线/速度
-- 组件微调（elevation、indicator style 等）
-
----
-
-## 如何导入
-
-### 从主题市场安装（推荐）
-
-App 内进入 **设置 → 主题市场** → 浏览主题 → 点击 **安装** → 安装完成后可选择立即应用。
-
-### 从 ZIP 文件导入
-
-1. 准备 `.zip` 文件
-2. App 内进入 **设置 → 主题设置**
-3. 在主题包列表最右侧点击 **「导入」卡片**
-4. 选择 ZIP 文件即可
-5. 导入成功后，在列表中点击即可应用
-
-### 管理
-
-- 删除已导入的主题包：长按卡片 → 删除。内置主题包不可删除。
-- 从市场安装的主题可在 **主题市场** 中再次安装更新。
-
----
-
-## 提交主题到市场
-
-主题市场注册表托管在独立的 GitHub 仓库 [Tangmjiu/ngs-kg-themes](https://github.com/Tangmjiu/ngs-kg-themes)。
-
-### 提交流程
-
-1. Fork [ngs-kg-themes](https://github.com/Tangmjiu/ngs-kg-themes)
-2. 在 `themes/` 下创建你的主题目录 `themes/<your-theme-id>/`
-3. 放入 `manifest.json`（按本文档字段填写）和 `preview.png`（270×270px 预览图）
-4. 将主题文件打包为 ZIP：`themes/<your-theme-id>/<your-theme-id>.zip`
-5. 编辑 `registry.json`，在 `themes` 数组中添加你的条目
-6. 创建 Pull Request，等待审核合并
-
-### 示例参考
-
-[Jekyll](https://github.com/Tangmjiu/ngs-kg-themes/tree/main/themes/jekyll) 是一个完整的示例主题包：
-
-```
-themes/jekyll/
-├── manifest.json       # 完整 30 色 Light/Dark 色板，无自定义图片
-├── preview.png         # 270×270 预览图（左 Light 右 Dark）
-└── jekyll.zip          # 打包后的主题文件
-```
-
-对应的 `registry.json` 条目：
+`manifest.json` 必须位于 ZIP 根目录。其余文件可选；所有路径均相对 ZIP 根目录。主题 ID 沿用 ZIP 文件名去除 `.zip`，相同 ID 的导入会更新原主题。内置主题 ID 不能被 ZIP 覆盖。
 
 ```json
 {
-  "id": "jekyll",
-  "name": "Jekyll",
-  "author": "mjiutang",
-  "version": 2,
-  "description": "Light 暖琥珀 · Dark 冷靛蓝 — 展示 30 色系统能力",
-  "preview_url": "https://raw.githubusercontent.com/Tangmjiu/ngs-kg-themes/main/themes/jekyll/preview.png",
-  "download_url": "https://raw.githubusercontent.com/Tangmjiu/ngs-kg-themes/main/themes/jekyll/jekyll.zip",
-  "tags": ["demo", "light", "dark"],
-  "file_size_bytes": 7287,
-  "min_app_version": "2.0.0"
+  "version": 3,
+  "name": "林间",
+  "author": "主题作者",
+  "description": "柔和的绿色与清晰的内容层次",
+  "colors": {
+    "light": {
+      "primary": "#216A53",
+      "surface": "#F5F9F6",
+      "surfaceContainerLow": "#EDF4EE",
+      "secondaryContainer": "#EAE3F5"
+    },
+    "dark": {
+      "primary": "#A4D6BB",
+      "surface": "#101C17",
+      "surfaceContainerLow": "#18251D",
+      "secondaryContainer": "#494058"
+    }
+  },
+  "design": {
+    "pagePadding": 20,
+    "sectionSpacing": 28,
+    "cardRadius": 24,
+    "controlRadius": 16,
+    "contentMaxWidth": 1120
+  },
+  "typography": {
+    "family": "MyFont",
+    "weight": {
+      "regular": "fonts/Regular.ttf",
+      "bold": "fonts/Bold.ttf"
+    }
+  },
+  "assets": {
+    "album_placeholder": "images/cover.png"
+  },
+  "wallpaper": {
+    "player": "images/player.png"
+  },
+  "lyricSettings": {
+    "fontSize": 20,
+    "fontWeight": 600,
+    "centerAlign": false,
+    "blurEffect": false
+  },
+  "motion": {
+    "durationScale": 1.0,
+    "curve": "emphasized"
+  },
+  "components": {
+    "navigationBar": { "elevation": 0 },
+    "card": { "elevation": 0 },
+    "dialog": { "elevation": 0 }
+  }
 }
 ```
 
-### 提交 PR 时的注意事项
+## 配色
 
-- 预览图建议 270×270px，能清晰展示主题风格
-- ZIP 内只包含 `manifest.json` + 图片资源，不要嵌套多余的目录层
-- `file_size_bytes` 填写 ZIP 文件的实际字节数
-- 如果主题只改色板（无图片/字体），可以放一个极小（甚至空 assets）的 ZIP
+`colors.light` 和 `colors.dark` 可分别提供 Flutter `ColorScheme` 的颜色角色，包括：
+
+- 主色、次色、第三色及其 `on*`、`*Container`、`*Fixed` 角色。
+- `surface`、`surfaceDim`、`surfaceBright`、五级 `surfaceContainer*` 与对应文字颜色。
+- 错误色、描边色、反色、阴影、遮罩与 `surfaceTint`。
+
+已提供的颜色逐项保留；缺失项根据该模式的 `primary` 自动生成。支持 `#RRGGBB`，v3 还支持 `#AARRGGBB`。无效色值回退到生成色。不要使用接近背景的文字颜色，以免内容难以阅读。
+
+有效配色优先级为：系统动态取色、用户强调色、主题自带色板、默认种子色。用户调整强调色时，字体、图片、圆角和歌词配置仍继续生效。
+
+## 设计参数
+
+v3 的 `design` 定义页面和组件共用的尺寸，单位为逻辑像素。
+
+| 字段 | 默认值 | 有效范围 | 用途 |
+|---|---:|---:|---|
+| `pagePadding` | 20 | 8–48 | 页面左右留白 |
+| `sectionSpacing` | 28 | 8–64 | 内容分区间距 |
+| `cardRadius` | 24 | 0–48 | 卡片与对话框圆角 |
+| `controlRadius` | 16 | 0–32 | 输入框、按钮和导航指示器圆角 |
+| `contentMaxWidth` | 1120 | 600–1920 | 宽屏内容最大宽度 |
+
+越界数值会限制到有效范围；错误类型或非有限数值使用默认值。深浅模式切换时尺寸支持插值，不要求页面单独维护主题状态。
+
+旧 `shapes` 的 `xs`、`sm`、`md`、`lg`、`xl` 仍可使用。`lg` 会迁移为 `cardRadius`，`md` 会迁移为 `controlRadius`；其余尺寸保留给对应组件。两者同时存在时，显式 `design` 字段优先。
+
+## 字体、图片与歌词
+
+`typography.family` 指定字体名称；`weight.regular`、`weight.medium`、`weight.bold` 指向字体文件。未指定字体时使用内置 HarmonyOS Sans。字体在应用主题前完成加载，安装记录使用相对路径，启动后恢复为应用目录下的实际文件位置。
+
+支持的图片资源键包括：
+
+| 键 | 用途 |
+|---|---|
+| `sthiswrong`、`codecrash`、`loading`、`ban` | 错误、加载及屏蔽状态图片 |
+| `supportme`、`icon` | 支持页面与图标展示资源 |
+| `album_placeholder`、`playlist_placeholder`、`artist_placeholder` | 封面和头像占位图 |
+| `empty_playlist`、`empty_content`、`load_failed` | 空状态与加载失败图片 |
+| `hi_res_badge` | Hi-Res 标识 |
+
+`wallpaper.player` 为播放器壁纸，保留封面、壁纸与动态流光的现有显示功能。`icon` 是应用内资源，不会通过主题 ZIP 修改 Android 已安装应用的启动器图标。
+
+歌词参数支持 `fontSize`（12–28）、`fontWeight`（100–900）、`centerAlign`、`blurEffect`。主题仅提供默认值；用户手动调整过的歌词设置始终优先，切换主题或重新启动不会被覆盖。
+
+## 动效与组件
+
+`motion.durationScale` 支持 0.5–2.0；`motion.curve` 支持 `emphasized`、`standard`、`linear`。组件 `elevation` 支持 0–24。主题不能替换导航语义、播放器交互方式或组件结构。
+
+## 旧主题与设置迁移
+
+v1、v2 ZIP 无需重新制作即可导入；省略版本的旧包按 v1 解析。历史磁盘 JSON 中的 `lightScheme`、`darkScheme`、`fontWeightFiles`、`assetFiles`、`playerBgPath`、`lyricSettingsOverride` 均由专门适配层读取，安装目录和已有主题 ID 保持兼容。
+
+磁盘记录使用 `schemaVersion: 3`，并保留主题原 `version` 信息。既有 `theme_*` 偏好在首次启动时读取，转换为 `theme_settings_v3` 的完整设置快照。原设置不会因主题引擎升级而重置，主题文件临时不可读时也不会自动删除。
+
+此前新增的 `ngs_default` 仅在读取设置时兼容映射为 `ngs_nagisa`，其余设置保持不变。「MD3 全局」和导入主题的选择不受影响。
+
+## 安装与管理
+
+在设置中的主题页导入 ZIP，或从主题市场安装。主题页提供当前设置下的浅色与深色预览。导入成功后会应用并保存选中状态；删除当前导入主题后回到「Ran Nagisa」。内置主题不可删除。
+
+社区主题注册表：[NGS-KG+ 主题仓库](https://github.com/Tangmjiu/ngs-kg-themes)。提交时附上主题 ZIP、预览图和注册表信息，主题包格式版本使用 `3`。

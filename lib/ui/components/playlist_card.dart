@@ -1,10 +1,11 @@
+// SPDX-License-Identifier: MIT
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import '../models/playlist.dart';
-import '../providers/playlist_provider.dart';
-import '../theme/theme_assets.dart';
-import '../utils/theme.dart';
+import 'cover_art.dart';
+import '../../models/playlist.dart';
+import '../../providers/playlist_provider.dart';
+import '../../theme/theme_assets.dart';
+import '../app_ui.dart';
 
 class PlaylistCard extends StatelessWidget {
   final Playlist playlist;
@@ -15,18 +16,19 @@ class PlaylistCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final radius = BorderRadius.circular(AppThemeTokens.of(context).cardRadius);
     return Semantics(
       button: true,
-      child: M3PressScale(
+      child: PressScale(
         scaleDown: 0.95,
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 6),
           decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-            borderRadius: AppShape.lg,
+            color: cs.surfaceContainerLow,
+            borderRadius: radius,
           ),
           child: InkWell(
-            borderRadius: AppShape.lg,
+            borderRadius: radius,
             onTap: () {
               Navigator.pushNamed(context, '/playlist/detail', arguments: {
                 'gcId': playlist.globalCollectionId ??
@@ -35,7 +37,7 @@ class PlaylistCard extends StatelessWidget {
               });
             },
             onLongPress: () {
-              showM3ModalBottomSheet(
+              showAppBottomSheet(
                 context: context,
                 builder: (_) => SafeArea(
                   child: Column(
@@ -46,7 +48,7 @@ class PlaylistCard extends StatelessWidget {
                         title: Text('删除歌单', style: TextStyle(color: cs.error)),
                         onTap: () {
                           Navigator.pop(context);
-                          showM3Dialog(
+                          showAppDialog(
                             context: context,
                             builder: (ctx) => AlertDialog(
                               title: const Text('确认删除'),
@@ -63,7 +65,8 @@ class PlaylistCard extends StatelessWidget {
                                         .deletePlaylist(playlist.id);
                                     if (context.mounted) {
                                       Navigator.pop(context);
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         SnackBar(
                                             content: Text(ok ? '已删除' : '删除失败')),
                                       );
@@ -86,32 +89,11 @@ class PlaylistCard extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               child: Row(
                 children: [
-                  ClipRRect(
-                    borderRadius: AppShape.md,
-                    child: playlist.coverUrl != null
-                        ? CachedNetworkImage(
-                            imageUrl: playlist.coverUrl!,
-                            width: 68,
-                            height: 68,
-                            memCacheWidth: (68 * MediaQuery.devicePixelRatioOf(context)).ceil(),
-                            fit: BoxFit.cover,
-                            placeholder: (_, __) => ExcludeSemantics(
-                              child: Container(
-                                  color: cs.surfaceContainerHighest,
-                                  width: 68,
-                                  height: 68),
-                            ),
-                            errorWidget: (_, __, ___) => ExcludeSemantics(
-                                child: playlistPlaceholderWidget(size: 44)),
-                          )
-                        : ExcludeSemantics(
-                            child: Container(
-                              color: cs.surfaceContainerHighest,
-                              width: 68,
-                              height: 68,
-                              child: playlistPlaceholderWidget(size: 44),
-                            ),
-                          ),
+                  CoverArt(
+                    url: playlist.coverUrl,
+                    size: 72,
+                    borderRadius: 18,
+                    placeholder: playlistPlaceholderWidget(size: 36),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -125,17 +107,20 @@ class PlaylistCard extends StatelessWidget {
                                 ?.copyWith(fontWeight: FontWeight.w600)),
                         const SizedBox(height: 6),
                         Text('${playlist.trackCount} 首',
-                            style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                            style: tt.bodyMedium
+                                ?.copyWith(color: cs.onSurfaceVariant)),
                       ],
                     ),
                   ),
-                  Icon(Icons.arrow_forward_ios_rounded, color: cs.onSurfaceVariant.withValues(alpha: 0.5), size: 16),
+                  Icon(Icons.chevron_right_rounded,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      size: 16),
                 ],
               ),
             ),
           ),
         ),
       ),
-     );
-   }
+    );
+  }
 }

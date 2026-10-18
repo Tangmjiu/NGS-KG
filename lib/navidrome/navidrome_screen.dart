@@ -1,15 +1,17 @@
+// SPDX-License-Identifier: MIT
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
+import '../theme/app_theme_tokens.dart';
+import '../ui/components/app_components.dart';
+import '../ui/components/app_empty_state.dart';
 import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
-import '../widgets/local_cover_art.dart';
+import '../ui/components/cover_art.dart';
 import 'navidrome_provider.dart';
 import 'navidrome_models.dart';
-import '../widgets/list_bottom_spacer.dart';
+import '../ui/components/player_bottom_padding.dart';
 
-/// A 3-level browse screen for Navidrome music:
-/// artists → albums → songs, with search and breadcrumb navigation.
+/// 私人音乐库的歌手、专辑、歌曲三级浏览与搜索。
 class NavidromeScreen extends StatefulWidget {
   const NavidromeScreen({super.key});
 
@@ -28,46 +30,62 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Consumer<NavidromeProvider>(
-      builder: (context, prov, _) {
-        return Column(
-          children: [
-            // Search bar
-            _buildSearchBar(prov),
-            // Breadcrumb
-            if (!_isSearching) _buildBreadcrumb(prov),
-            // Loading indicator
-            if (prov.isLoading)
-              const Expanded(
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_isSearching)
-              Expanded(child: _buildSearchResults(prov))
-            else
-              Expanded(child: _buildCurrentLevel(prov)),
-          ],
-        );
-      },
-    );
-  }
-
-  // ── Search Bar ──
+  Widget build(BuildContext context) => AppPageBody(
+        child: Consumer<NavidromeProvider>(
+          builder: (context, prov, _) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildSearchBar(prov),
+              if (!_isSearching) _buildBreadcrumb(prov),
+              if (prov.error != null)
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: AppThemeTokens.of(context).pagePadding),
+                  child: AppSurface(
+                    color: Theme.of(context).colorScheme.errorContainer,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(children: [
+                      Expanded(
+                          child: Text(prov.error!,
+                              style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onErrorContainer))),
+                      TextButton(
+                          onPressed: () => _retryBrowse(prov),
+                          child: const Text('重试')),
+                    ]),
+                  ),
+                ),
+              Expanded(
+                child: prov.isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _isSearching
+                        ? _buildSearchResults(prov)
+                        : _buildCurrentLevel(prov),
+              ),
+            ],
+          ),
+        ),
+      );
 
   Widget _buildSearchBar(NavidromeProvider prov) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+    final tokens = AppThemeTokens.of(context);
+    return Padding(
+      padding:
+          EdgeInsets.fromLTRB(tokens.pagePadding, 8, tokens.pagePadding, 12),
       child: TextField(
         controller: _searchCtrl,
+        textInputAction: TextInputAction.search,
         decoration: InputDecoration(
-          hintText: '搜索 Navidrome 音乐...',
-          prefixIcon:
-              Icon(Icons.search, size: 20, color: cs.onSurfaceVariant),
+          hintText: '搜索私人音乐库',
+          prefixIcon: const Icon(Icons.search_rounded),
           suffixIcon: _isSearching
               ? IconButton(
-                  icon:
-                      Icon(Icons.close, size: 18, color: cs.onSurfaceVariant),
+                  tooltip: '清空搜索',
+                  icon: const Icon(Icons.close_rounded),
                   onPressed: () {
                     _searchCtrl.clear();
                     setState(() => _isSearching = false);
@@ -76,22 +94,21 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
                 )
               : null,
           border: OutlineInputBorder(
-            borderRadius: AppShape.sm,
+            borderRadius: BorderRadius.circular(tokens.controlRadius),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(tokens.controlRadius),
             borderSide: BorderSide.none,
           ),
           filled: true,
-          fillColor: cs.surfaceContainerHighest,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
-          isDense: true,
+          fillColor: cs.surfaceContainerHigh,
         ),
-        style: Theme.of(context).textTheme.bodySmall,
-        onChanged: (q) {
-          if (q.isNotEmpty) {
-            setState(() => _isSearching = true);
-            prov.search(q);
+        onChanged: (query) {
+          setState(() => _isSearching = query.trim().isNotEmpty);
+          if (_isSearching) {
+            prov.search(query);
           } else {
-            setState(() => _isSearching = false);
             prov.clearSearch();
           }
         },
@@ -99,61 +116,91 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
     );
   }
 
-  // ── Breadcrumb ──
-
   Widget _buildBreadcrumb(NavidromeProvider prov) {
-    final cs = Theme.of(context).colorScheme;
-    final items = <Widget>[];
-
-    items.add(
-      _breadcrumbItem(
-        '歌手',
-        prov.currentLevel == BrowseLevel.artists,
-        prov.currentLevel != BrowseLevel.artists ? () => prov.goBack() : null,
+    final tokens = AppThemeTokens.of(context);
+    return Padding(
+      padding:
+          EdgeInsets.fromLTRB(tokens.pagePadding, 0, tokens.pagePadding, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: [
+                _breadcrumbItem(
+                  '全部歌手',
+                  prov.currentLevel == BrowseLevel.artists,
+                  prov.currentLevel == BrowseLevel.artists
+                      ? null
+                      : () {
+                          if (prov.currentLevel == BrowseLevel.songs) {
+                            prov.goBack();
+                          }
+                          if (prov.currentLevel == BrowseLevel.albums) {
+                            prov.goBack();
+                          }
+                        },
+                ),
+                if (prov.currentLevel != BrowseLevel.artists &&
+                    prov.selectedArtistName != null) ...[
+                  const Icon(Icons.chevron_right_rounded, size: 18),
+                  _breadcrumbItem(
+                    prov.selectedArtistName!,
+                    prov.currentLevel == BrowseLevel.albums,
+                    prov.currentLevel == BrowseLevel.songs ? prov.goBack : null,
+                  ),
+                ],
+                if (prov.currentLevel == BrowseLevel.songs &&
+                    prov.selectedAlbumName != null) ...[
+                  const Icon(Icons.chevron_right_rounded, size: 18),
+                  _breadcrumbItem(prov.selectedAlbumName!, true, null),
+                ],
+              ]),
+            ),
+          ),
+          IconButton(
+            tooltip: '刷新音乐库',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: prov.isLoading
+                ? null
+                : () {
+                    if (prov.currentLevel == BrowseLevel.songs) prov.goBack();
+                    if (prov.currentLevel == BrowseLevel.albums) prov.goBack();
+                    prov.loadArtists();
+                  },
+          ),
+        ],
       ),
-    );
-
-    if (prov.selectedArtistName != null) {
-      items.add(Text(' / ', style: TextStyle(color: cs.onSurfaceVariant)));
-      items.add(
-        _breadcrumbItem(
-          prov.selectedArtistName!,
-          prov.currentLevel == BrowseLevel.albums,
-          prov.currentLevel == BrowseLevel.songs
-              ? () => prov.goBack()
-              : null,
-        ),
-      );
-    }
-
-    if (prov.selectedAlbumName != null &&
-        prov.currentLevel == BrowseLevel.songs) {
-      items.add(Text(' / ', style: TextStyle(color: cs.onSurfaceVariant)));
-      items.add(_breadcrumbItem(prov.selectedAlbumName!, true, null));
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(children: items),
     );
   }
 
-  Widget _breadcrumbItem(
-      String label, bool isActive, VoidCallback? onTap) {
+  Widget _breadcrumbItem(String label, bool isActive, VoidCallback? onTap) {
     final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-          color: isActive ? cs.primary : cs.onSurface,
-          decoration: onTap != null ? TextDecoration.underline : null,
-          decorationColor: cs.onSurfaceVariant,
-        ),
+    return TextButton(
+      onPressed: onTap,
+      style: TextButton.styleFrom(
+        foregroundColor: cs.onSurfaceVariant,
+        disabledForegroundColor: isActive ? cs.primary : cs.onSurfaceVariant,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       ),
+      child: Text(label,
+          style: TextStyle(
+            fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+          )),
     );
+  }
+
+  void _retryBrowse(NavidromeProvider prov) {
+    if (_isSearching) {
+      prov.search(_searchCtrl.text);
+    } else if (prov.selectedAlbumId != null && prov.selectedAlbumName != null) {
+      prov.selectAlbum(prov.selectedAlbumId!, prov.selectedAlbumName!);
+    } else if (prov.selectedArtistId != null &&
+        prov.selectedArtistName != null) {
+      prov.selectArtist(prov.selectedArtistId!, prov.selectedArtistName!);
+    } else {
+      prov.loadArtists();
+    }
   }
 
   // ── Current level routing ──
@@ -173,30 +220,20 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
 
   Widget _buildArtistList(NavidromeProvider prov) {
     if (prov.artists.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.people_outline,
-                size: 48,
-                color: Theme.of(context).colorScheme.onSurfaceVariant),
-            const SizedBox(height: 8),
-            Text(
-              '暂无歌手',
-              style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
-          ],
-        ),
+      return const AppEmptyState(
+        icon: Icons.people_outline_rounded,
+        title: '音乐库还没有歌手',
+        message: '同步音乐到服务器后，即可在这里浏览。',
       );
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: EdgeInsets.symmetric(
+          horizontal: AppThemeTokens.of(context).pagePadding),
       itemCount: prov.artists.length + 1,
       itemBuilder: (_, i) {
         if (i == prov.artists.length) {
-          return const ListBottomSpacer(isHome: false, showText: false);
+          return const PlayerBottomPadding(showLabel: false);
         }
         final artist = prov.artists[i];
         return _ArtistTile(
@@ -212,43 +249,42 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
 
   Widget _buildAlbumGrid(NavidromeProvider prov) {
     if (prov.albums.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.album_outlined,
-                size: 48,
-                color: Theme.of(context).colorScheme.onSurfaceVariant),
-            const SizedBox(height: 8),
-            Text(
-              '暂无专辑',
-              style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
-          ],
-        ),
+      return const AppEmptyState(
+        icon: Icons.album_outlined,
+        title: '这位歌手还没有专辑',
+        message: '可以返回歌手列表，继续寻找想听的音乐。',
       );
     }
 
     return Selector<PlayerProvider, bool>(
       selector: (_, player) =>
           player.currentSong != null && !player.isPlayerScreenVisible,
-      builder: (_, showMini, __) => GridView.builder(
-        padding: EdgeInsets.only(
-            left: 8, right: 8, top: 8, bottom: showMini ? 92.0 : 24.0),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.85,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-        ),
-        itemCount: prov.albums.length,
-        itemBuilder: (_, i) => _AlbumCard(
-          album: prov.albums[i],
-          onTap: () =>
-              prov.selectAlbum(prov.albums[i].id, prov.albums[i].name),
-          getCoverUrl: (id) => prov.getCoverArtUrl(id),
-        ),
+      builder: (context, showMini, _) => LayoutBuilder(
+        builder: (context, constraints) {
+          final inset = AppThemeTokens.of(context).pagePadding;
+          final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+          final available = constraints.maxWidth - 2 * inset;
+          final columns = textScale > 1.6 || available < 260
+              ? 1
+              : (available / 180).floor().clamp(2, 5).toInt();
+          final cardWidth = (available - (columns - 1) * 16) / columns;
+          return GridView.builder(
+            padding: EdgeInsets.fromLTRB(inset, 8, inset, showMini ? 104 : 32),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              mainAxisExtent: cardWidth + 76 * textScale,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+            ),
+            itemCount: prov.albums.length,
+            itemBuilder: (_, index) => _AlbumCard(
+              album: prov.albums[index],
+              onTap: () => prov.selectAlbum(
+                  prov.albums[index].id, prov.albums[index].name),
+              getCoverUrl: prov.getCoverArtUrl,
+            ),
+          );
+        },
       ),
     );
   }
@@ -258,21 +294,10 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
   Widget _buildSongList(NavidromeProvider prov) {
     final songs = prov.playbackSongs;
     if (songs.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.music_off,
-                size: 48,
-                color: Theme.of(context).colorScheme.onSurfaceVariant),
-            const SizedBox(height: 8),
-            Text(
-              '暂无歌曲',
-              style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
-          ],
-        ),
+      return const AppEmptyState(
+        icon: Icons.music_note_outlined,
+        title: '专辑中暂无歌曲',
+        message: '可以返回专辑列表，继续浏览音乐库。',
       );
     }
     return _buildSongListView(songs);
@@ -291,19 +316,20 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
     final cs = Theme.of(context).colorScheme;
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.symmetric(
+          horizontal: AppThemeTokens.of(context).pagePadding, vertical: 4),
       itemCount: songs.length + 1,
       itemBuilder: (_, i) {
         if (i == songs.length) {
-          return const ListBottomSpacer(isHome: false, showText: false);
+          return const PlayerBottomPadding(showLabel: false);
         }
         final song = songs[i];
         final isCurrent = song.id == currentSongId;
         return ListTile(
-          leading: LocalCoverArt(
+          leading: CoverArt(
             url: song.albumCoverUrl,
-            size: 40,
-            borderRadius: 4,
+            size: 48,
+            borderRadius: AppThemeTokens.of(context).controlRadius,
           ),
           title: Text(
             song.name,
@@ -318,7 +344,10 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
             song.artistDisplay,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: cs.onSurfaceVariant),
           ),
           trailing: isCurrent
               ? Icon(Icons.volume_up, size: 18, color: cs.primary)
@@ -338,21 +367,10 @@ class _NavidromeScreenState extends State<NavidromeScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (prov.searchResults.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.search_off,
-                size: 48,
-                color: Theme.of(context).colorScheme.onSurfaceVariant),
-            const SizedBox(height: 8),
-            Text(
-              '未找到匹配结果',
-              style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
-          ],
-        ),
+      return const AppEmptyState(
+        icon: Icons.search_off_rounded,
+        title: '未找到匹配的歌曲',
+        message: '试试其他歌曲或歌手名称。',
       );
     }
     final songs = prov.searchPlaybackSongs;
@@ -377,19 +395,20 @@ class _ArtistTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return ListTile(
-      leading: LocalCoverArt(
+      leading: CoverArt(
         url: getCoverUrl(artist.coverArt),
         size: 48,
         borderRadius: 24,
       ),
-      title: Text(artist.name,
-          maxLines: 1, overflow: TextOverflow.ellipsis),
+      title: Text(artist.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         '${artist.albumCount} 张专辑 · ${artist.songCount} 首歌曲',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        style: Theme.of(context)
+            .textTheme
+            .bodySmall
+            ?.copyWith(color: cs.onSurfaceVariant),
       ),
-      trailing:
-          Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
+      trailing: Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
       onTap: onTap,
     );
   }
@@ -413,6 +432,10 @@ class _AlbumCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     return Card(
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+          borderRadius:
+              BorderRadius.circular(AppThemeTokens.of(context).cardRadius)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -421,23 +444,23 @@ class _AlbumCard extends StatelessWidget {
           children: [
             AspectRatio(
               aspectRatio: 1,
-              child: LocalCoverArt(
-                url: getCoverUrl(album.coverArt),
-                size: null, // fill available
-                fit: BoxFit.cover,
-                borderRadius: 0,
-              ),
+              child: LayoutBuilder(
+                  builder: (context, constraints) => CoverArt(
+                        url: getCoverUrl(album.coverArt),
+                        size: constraints.maxWidth,
+                        fit: BoxFit.cover,
+                        borderRadius: 0,
+                      )),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
               child: Text(album.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: tt.bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w500)),
+                  style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: Row(
                 children: [
                   if (album.year > 0)

@@ -1,5 +1,8 @@
+// SPDX-License-Identifier: MIT
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
+import '../ui/app_ui.dart';
+import '../ui/components/collection_header.dart';
+import '../services/api_exception.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/song.dart';
@@ -7,14 +10,15 @@ import '../models/album.dart';
 import '../providers/player_provider.dart';
 import '../services/music_service.dart';
 import '../utils/logger.dart';
-import '../widgets/song_tile.dart';
-import '../widgets/list_bottom_spacer.dart';
+import '../ui/components/song_tile.dart';
+import '../ui/components/player_bottom_padding.dart';
 
 class ArtistDetailScreen extends StatefulWidget {
   final int artistId;
   final String? artistName;
 
-  const ArtistDetailScreen({super.key, required this.artistId, this.artistName});
+  const ArtistDetailScreen(
+      {super.key, required this.artistId, this.artistName});
 
   @override
   State<ArtistDetailScreen> createState() => _ArtistDetailScreenState();
@@ -32,6 +36,8 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
   // MV: List<Map<String, dynamic>> _videos = [];
   bool _isLoading = true;
   bool _isFollowing = false;
+  bool _followBusy = false;
+  bool _loadFailed = false;
 
   @override
   void initState() {
@@ -47,6 +53,10 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
   }
 
   Future<void> _load() async {
+    setState(() {
+      _loadFailed = false;
+      _isLoading = _songs.isEmpty && _albums.isEmpty && _detail == null;
+    });
     try {
       final results = await Future.wait([
         _musicService.getArtistDetail(widget.artistId),
@@ -65,11 +75,18 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
       }
     } catch (e, s) {
       Log.e('artist_detail_screen', 'load error', e, s);
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _loadFailed = true;
+        });
+      }
     }
   }
 
   Future<void> _toggleFollow() async {
+    if (_followBusy) return;
+    setState(() => _followBusy = true);
     try {
       if (_isFollowing) {
         await _musicService.unfollowArtist(widget.artistId);
@@ -79,6 +96,12 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
       if (mounted) setState(() => _isFollowing = !_isFollowing);
     } catch (e, s) {
       Log.e('artist_detail_screen', 'follow error', e, s);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('关注操作失败：${friendlyError(e)}')));
+      }
+    } finally {
+      if (mounted) setState(() => _followBusy = false);
     }
   }
 
@@ -104,247 +127,170 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
+    final theme = Theme.of(context);
+    final tabHeight =
+        (MediaQuery.textScalerOf(context).scale(14) + 28).clamp(52.0, 88.0);
     return Scaffold(
+      appBar: AppBar(title: const Text('歌手')),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : NestedScrollView(
-              headerSliverBuilder: (_, __) => [
-                SliverAppBar(
-                  expandedHeight: 240,
-                  pinned: true,
-                  flexibleSpace: FlexibleSpaceBar(
-                    background: _buildHeaderBackground(cs, tt),
-                  ),
-                  actions: [
-                    M3BounceFeedback(
-                      trigger: _isFollowing,
-                      child: IconButton(
-                        icon: Icon(
-                          _isFollowing ? Icons.favorite : Icons.favorite_border,
-                          color: _isFollowing ? cs.error : null,
-                        ),
-                        tooltip: _isFollowing ? '取消关注' : '关注',
-                        onPressed: _toggleFollow,
+          ? const Center(child: AppLoadingIndicator())
+          : AppPageBody(
+              child: RefreshIndicator(
+              onRefresh: _load,
+              child: NestedScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                headerSliverBuilder: (_, __) => [
+                  SliverToBoxAdapter(
+                      child: CollectionHeader(
+                    title: _artistName,
+                    kind: '歌手',
+                    coverUrl: _avatarUrl,
+                    fallbackIcon: Icons.person_rounded,
+                    subtitle: '${_songs.length} 首单曲 · ${_albums.length} 张专辑',
+                    actions: [
+                      FilledButton.icon(
+                        onPressed: _songs.isEmpty
+                            ? null
+                            : () => context
+                                .read<PlayerProvider>()
+                                .playSong(_songs.first, playlist: _songs),
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        label: const Text('播放全部'),
                       ),
-                    ),
-                  ],
-                  bottom: TabBar(
-                    controller: _tabCtrl,
-                    tabs: [
-                      const Tab(text: '单曲'),
-                      const Tab(text: '专辑'),
-                      // MV: Tab(text: 'MV (${_videos.length})'),
+                      OutlinedButton.icon(
+                        onPressed: _followBusy ? null : _toggleFollow,
+                        icon: Icon(_isFollowing
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded),
+                        label: Text(_isFollowing ? '已关注' : '关注'),
+                      ),
                     ],
-                  ),
-                ),
-              ],
-              body: TabBarView(
-                controller: _tabCtrl,
-                children: [
-                  _buildSongsTab(cs, tt),
-                  _buildAlbumsTab(cs, tt),
-                  // MV: _buildVideosTab(cs, tt),
+                  )),
+                  SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _ArtistTabs(
+                        height: tabHeight,
+                        child: TabBar(controller: _tabCtrl, tabs: [
+                          Tab(text: '单曲', height: tabHeight),
+                          Tab(text: '专辑', height: tabHeight),
+                        ]),
+                      )),
                 ],
+                body: TabBarView(controller: _tabCtrl, children: [
+                  _buildSongsTab(),
+                  _buildAlbumsTab(theme),
+                ]),
               ),
-            ),
+            )),
     );
   }
 
-  Widget _buildHeaderBackground(ColorScheme cs, TextTheme tt) {
-    final avatar = _avatarUrl;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (avatar != null)
-          CachedNetworkImage(
-            imageUrl: avatar.replaceAll('{size}', '500'),
-            fit: BoxFit.cover,
-            errorWidget: (_, __, ___) =>
-                Container(color: cs.surfaceContainerHighest),
-          )
-        else
-          Container(color: cs.surfaceContainerHighest),
-        // 渐变遮罩
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.transparent,
-                Colors.black.withValues(alpha: 0.7),
-              ],
-            ),
-          ),
-        ),
-        // 头像 + 名称 + 统计
-        Positioned(
-          left: 16,
-          bottom: 56,
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: AppShape.sm,
-                child: avatar != null
-                    ? CachedNetworkImage(
-                        imageUrl: avatar.replaceAll('{size}', '240'),
-                        width: 72,
-                        height: 72,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => Container(
-                          width: 72,
-                          height: 72,
-                          color: cs.surfaceContainerHighest,
-                          child: const Icon(Icons.person, size: 36),
-                        ),
-                      )
-                    : Container(
-                        width: 72,
-                        height: 72,
-                        color: cs.surfaceContainerHighest,
-                        child: const Icon(Icons.person, size: 36),
-                      ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_artistName,
-                      style: tt.titleLarge?.copyWith(color: Colors.white)),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${_songs.length} 首单曲 · ${_albums.length} 张专辑',
-                    style: tt.bodySmall?.copyWith(color: Colors.white70),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ─── 单曲 Tab ───
-
-  Widget _buildSongsTab(ColorScheme cs, TextTheme tt) {
+  Widget _buildSongsTab() {
     if (_songs.isEmpty) {
-      return const Center(child: Text('暂无歌曲'));
+      return AppEmptyState(
+        icon: _loadFailed ? Icons.cloud_off_rounded : Icons.music_note_rounded,
+        title: _loadFailed ? '歌手内容暂时无法加载' : '暂无单曲',
+        action: _loadFailed
+            ? FilledButton.tonalIcon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('重试'))
+            : null,
+      );
     }
-    return Column(
-      children: [
-        // 播放全部
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: Row(
-            children: [
-              Text('${_songs.length} 首单曲',
-                  style: tt.bodySmall
-                      ?.copyWith(color: cs.onSurfaceVariant)),
-              const Spacer(),
-              M3PressScale(
-                child: FilledButton.tonalIcon(
-                  onPressed: () => context
-                      .read<PlayerProvider>()
-                      .playSong(_songs.first, playlist: _songs),
-                  icon: const Icon(Icons.play_arrow, size: 18),
-                  label: const Text('播放全部'),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: _songs.length + 1,
-            itemBuilder: (_, i) {
-              if (i == _songs.length) {
-                return const ListBottomSpacer(isHome: false, showText: false);
-              }
-              return M3StaggeredFadeIn(
-                index: i,
-                child: SongTile(
-                  song: _songs[i],
-                  onTap: (s) => context
-                      .read<PlayerProvider>()
-                      .playSong(s, playlist: _songs),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
+    return ListView.builder(
+      key: const PageStorageKey('artist-songs'),
+      physics: const AlwaysScrollableScrollPhysics(),
+      itemCount: _songs.length + 1,
+      itemBuilder: (_, index) => index == _songs.length
+          ? const PlayerBottomPadding(showLabel: false)
+          : SongTile(
+              song: _songs[index],
+              onTap: (song) => context
+                  .read<PlayerProvider>()
+                  .playSong(song, playlist: _songs)),
     );
   }
 
-  // ─── 专辑 Tab ───
-
-  Widget _buildAlbumsTab(ColorScheme cs, TextTheme tt) {
+  Widget _buildAlbumsTab(ThemeData theme) {
     if (_albums.isEmpty) {
-      return const Center(child: Text('暂无专辑'));
+      return const AppEmptyState(icon: Icons.album_rounded, title: '暂无专辑');
     }
-    return GridView.builder(
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.85,
-      ),
-      itemCount: _albums.length,
-      itemBuilder: (_, i) {
-        final album = _albums[i];
-        return M3StaggeredFadeIn(
-          index: i,
-          child: M3PressScale(
-            child: GestureDetector(
-              onTap: () {
-                if (album.id > 0) {
-                  Navigator.pushNamed(context, '/album/detail',
-                      arguments: {'id': album.id, 'name': album.name});
-                }
-              },
-              child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: AppShape.sm,
-                  child: album.coverUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: album.coverUrl!,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) => Container(
-                            color: cs.surfaceContainerHighest,
-                            child: const Icon(Icons.album),
-                          ),
-                        )
-                      : Container(
-                          color: cs.surfaceContainerHighest,
-                          child: const Icon(Icons.album)),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(album.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: tt.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                if (album.songCount != null && album.songCount! > 0)
-                  Text('${album.songCount} 首',
-                      style: tt.labelSmall
-                          ?.copyWith(color: cs.onSurfaceVariant)),
-              ],
-            ),
-          ),
+    final tokens = AppThemeTokens.of(context);
+    return LayoutBuilder(builder: (context, constraints) {
+      final columns = ((constraints.maxWidth - tokens.pagePadding * 2) / 170)
+          .floor()
+          .clamp(1, 5);
+      final tileWidth =
+          (constraints.maxWidth - tokens.pagePadding * 2 - (columns - 1) * 16) /
+              columns;
+      final textScaler = MediaQuery.textScalerOf(context);
+      final tileHeight = tileWidth +
+          textScaler.scale(14) * 2.8 +
+          textScaler.scale(12) * 1.4 +
+          20;
+      return GridView.builder(
+        key: const PageStorageKey('artist-albums'),
+        padding: EdgeInsets.fromLTRB(tokens.pagePadding, 20, tokens.pagePadding,
+            AppChrome.miniPlayerExtent(context) + 32),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          mainAxisSpacing: 20,
+          crossAxisSpacing: 16,
+          mainAxisExtent: tileHeight,
         ),
+        itemCount: _albums.length,
+        itemBuilder: (context, index) {
+          final album = _albums[index];
+          return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(tokens.cardRadius),
+                onTap: album.id <= 0
+                    ? null
+                    : () => Navigator.pushNamed(context, '/album/detail',
+                        arguments: {'id': album.id, 'name': album.name}),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AspectRatio(
+                          aspectRatio: 1,
+                          child: ClipRRect(
+                            borderRadius:
+                                BorderRadius.circular(tokens.cardRadius),
+                            child: album.coverUrl?.isNotEmpty == true
+                                ? CachedNetworkImage(
+                                    imageUrl: album.coverUrl!
+                                        .replaceAll('{size}', '480'),
+                                    memCacheWidth: 480,
+                                    fit: BoxFit.cover,
+                                    errorWidget: (_, __, ___) =>
+                                        _albumPlaceholder(theme),
+                                  )
+                                : _albumPlaceholder(theme),
+                          )),
+                      const SizedBox(height: 10),
+                      Text(album.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall),
+                      if (album.songCount != null && album.songCount! > 0) ...[
+                        const SizedBox(height: 4),
+                        Text('${album.songCount} 首',
+                            style: theme.textTheme.bodySmall),
+                      ],
+                    ]),
+              ));
+        },
       );
-    },
-  );
+    });
   }
+
+  Widget _albumPlaceholder(ThemeData theme) => ColoredBox(
+        color: theme.colorScheme.surfaceContainerHighest,
+        child: Icon(Icons.album_rounded,
+            size: 40, color: theme.colorScheme.onSurfaceVariant),
+      );
 
   // ─── MV Tab ───
 
@@ -419,4 +365,21 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen>
   // MV:     },
   // MV:   );
   // MV: }
+}
+
+class _ArtistTabs extends SliverPersistentHeaderDelegate {
+  final double height;
+  final Widget child;
+  const _ArtistTabs({required this.height, required this.child});
+  @override
+  double get minExtent => height;
+  @override
+  double get maxExtent => height;
+  @override
+  Widget build(
+          BuildContext context, double shrinkOffset, bool overlapsContent) =>
+      ColoredBox(color: Theme.of(context).colorScheme.surface, child: child);
+  @override
+  bool shouldRebuild(covariant _ArtistTabs oldDelegate) =>
+      height != oldDelegate.height || child != oldDelegate.child;
 }

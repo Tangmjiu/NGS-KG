@@ -1,11 +1,13 @@
+// SPDX-License-Identifier: MIT
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/theme_market_listing.dart';
 import '../models/theme_pack.dart';
 import '../theme/theme_loader.dart';
-import '../services/cache_service.dart';
+import 'cache_service.dart';
 import '../utils/logger.dart';
 
 /// 主题市场服务
@@ -92,11 +94,22 @@ class MarketService {
 
   /// 安装下载的 ZIP 字节 → 返回 ThemePack（null = 失败）
   static Future<ThemePack?> installTheme(
-      Uint8List bytes, String fileName) async {
+    Uint8List bytes,
+    String fileName, {
+    Directory? themesDirectory,
+    Future<void> Function(String)? recordInstalled,
+  }) async {
     try {
-      final pack = await ThemeLoader.parseZipBytes(bytes, fileName);
+      final pack = await ThemeLoader.parseZipBytes(bytes, fileName,
+          themesDirectory: themesDirectory);
       if (pack == null) return null;
-      await _recordInstalled(pack.id);
+      try {
+        await (recordInstalled ?? _recordInstalled)(pack.id);
+      } catch (error, stack) {
+        // 主题资源已经提交，市场记录失败不能阻止界面更新到新资源路径。
+        Log.w('MarketService', 'Cannot record installed market theme', error,
+            stack);
+      }
       return pack;
     } catch (e, s) {
       Log.e('MarketService', 'installTheme failed', e, s);
@@ -123,7 +136,9 @@ class MarketService {
     final list = prefs.getStringList(_installedPrefsKey) ?? [];
     if (!list.contains(id)) {
       list.add(id);
-      await prefs.setStringList(_installedPrefsKey, list);
+      if (!await prefs.setStringList(_installedPrefsKey, list)) {
+        throw StateError('Cannot persist installed market theme');
+      }
     }
   }
 
