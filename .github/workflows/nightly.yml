@@ -23,8 +23,8 @@ jobs:
         with:
           ref: android
 
-      # 版本 = pubspec 基线的后一个修订号 + 构建时刻，
-      # 例如 pubspec 1.5.3-preview 会产出 v1.5.4-nightly-2026-10-04-0130。
+      # Nightly 版本与 GitHub Actions 的运行编号保持一致，便于从 APK
+      # 的版本名和 versionCode 反查对应构建。
       - name: Compute nightly version
         id: version
         shell: bash
@@ -34,7 +34,7 @@ jobs:
           rest=${base#*.}
           minor=${rest%%.*}
           patch=${rest#*.}
-          name="${major}.${minor}.$((patch + 1))-nightly-$(TZ=Asia/Shanghai date +'%Y-%m-%d-%H%M')"
+          name="${major}.${minor}.$((patch + 1))-nightly.${GITHUB_RUN_NUMBER}"
           echo "name=${name}" >> "$GITHUB_OUTPUT"
           echo "Nightly version: v${name}"
 

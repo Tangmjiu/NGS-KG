@@ -4,20 +4,6 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
-// ─── 版本号（从 pubspec.yaml 解析，避免 flutterVersionCode CI 不兼容） ───
-def pubspecFile = file('../../pubspec.yaml')
-def flutterVersionName = '1.0.0'
-def flutterVersionCode = '1'
-if (pubspecFile.exists()) {
-    def matcher = (pubspecFile.text =~ /(?m)^version:\s*(\S+)/)
-    if (matcher.find()) {
-        def v = matcher.group(1)
-        def parts = v.split('\\+')
-        flutterVersionName = parts[0]
-        if (parts.length > 1) flutterVersionCode = parts[1]
-    }
-}
-
 // 签名配置
 def keystorePropertiesFile = rootProject.file("key.properties")
 def keystoreProperties = new Properties()
@@ -44,8 +30,10 @@ android {
         applicationId "com.mjiutang.ngskg"
         minSdkVersion flutter.minSdkVersion
         targetSdk 36
-        versionCode flutterVersionCode.toInteger()
-        versionName flutterVersionName
+        // Flutter 在构建前会把 pubspec 或 --build-name/--build-number
+        // 写入 local.properties；直接使用插件值才能让 Nightly 编号进入 APK。
+        versionCode flutter.versionCode
+        versionName flutter.versionName
     }
 
     signingConfigs {
