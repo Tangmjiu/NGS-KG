@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # 校验产出的 APK：包名、SDK 版本、原生架构、签名，以及 release 不可调试。
 # 用法: verify_apk.sh <apk 路径> [期望的 ABI]
-set -euo pipefail
+# 注意：不可用 pipefail —— 提取字段时的 `grep | head` 会因 head 提前关闭管道
+# 触发 SIGPIPE，在 pipefail 下会让赋值语句返回非 0 并直接终止脚本。
+set -eu
 
 apk="${1:?用法: verify_apk.sh <apk> [expected-abi]}"
 expected_abi="${2:-}"
@@ -24,22 +26,22 @@ apksigner="$build_tools/apksigner"
 [ -x "$aapt2" ] || fail "缺少 aapt2: $aapt2"
 [ -x "$apksigner" ] || fail "缺少 apksigner: $apksigner"
 
+echo "build-tools: $build_tools"
 badging="$("$aapt2" dump badging "$apk")"
 
-package="$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" <<<"$badging" | head -1)"
-[ "$package" = "com.mjiutang.ngskg.wear" ] || fail "包名不符，期望 com.mjiutang.ngskg.wear，实际 '${package}'"
-
-# aapt2 在不同 AGP 版本里对冒号后的空格、引号处理不一致，
-# 这里只抓字段名后面的第一串数字，不假设具体排版。
-extract_sdk() {
-  local label="$1"
-  grep -E "^${label}" <<<"$badging" | head -1 | grep -oE '[0-9]+' | head -1
+# 3. 包名与版本
+extract() {
+  # $1 = 正则，$2 = 文本；只输出匹配中的第一段数字/字符串
+  grep -oE "$1" <<<"$2" | head -1 || true
 }
 
-version_code="$(grep -oE "versionCode='?[0-9]+" <<<"$badging" | head -1 | grep -oE '[0-9]+' | head -1)"
-version_name="$(grep -oE "versionName='[^']*'" <<<"$badging" | head -1 | sed "s/versionName='//;s/'$//")"
-min_sdk="$(extract_sdk 'sdkVersion')"
-target_sdk="$(extract_sdk 'targetSdkVersion')"
+package="$(extract "name='[^']+'" "$(grep '^package:' <<<"$badging")" | sed "s/name='//;s/'$//")"
+[ "$package" = "com.mjiutang.ngskg.wear" ] || fail "包名不符，期望 com.mjiutang.ngskg.wear，实际 '${package}'"
+
+version_code="$(extract "versionCode='[0-9]+'" "$badging" | grep -oE '[0-9]+' || true)"
+version_name="$(extract "versionName='[^']*'" "$badging" | sed "s/versionName='//;s/'$//")"
+min_sdk="$(extract "sdkVersion:'[0-9]+'" "$badging" | grep -oE '[0-9]+' || true)"
+target_sdk="$(extract "targetSdkVersion:'[0-9]+'" "$badging" | grep -oE '[0-9]+' || true)"
 
 if [ -z "$min_sdk" ] || [ -z "$target_sdk" ] || [ -z "$version_code" ]; then
   echo "::group::aapt2 badging 原始输出（诊断用）"
@@ -50,8 +52,8 @@ fi
 [ "$min_sdk" = "26" ] || fail "minSdk 应为 26，实际 '${min_sdk}'"
 [ "$target_sdk" = "36" ] || fail "targetSdk 应为 36，实际 '${target_sdk}'"
 
-# 3. 原生架构
-native_line="$(sed -n "s/^native-code: \(.*\)/\1/p" <<<"$badging" | head -1)"
+# 4. 原生架构
+native_line="$(grep '^native-code:' <<<"$badging" | head -1 || true)"
 [ -n "$native_line" ] || fail "APK 内没有原生库（native-code 为空）"
 native_abis="$(tr -d "'" <<<"$native_line")"
 for abi in arm64-v8a armeabi-v7a; do
@@ -63,7 +65,7 @@ if [ -n "$expected_abi" ] && [[ "$native_abis" != *"$expected_abi"* ]]; then
   fail "期望包含 ${expected_abi}，实际只有 ${native_abis}"
 fi
 
-# 4. release 不能带可调试标记
+# 5. release 不能带可调试标记
 is_debug_apk=0
 if grep -q '^application-debuggable' <<<"$badging"; then is_debug_apk=1; fi
 case "$apk" in
@@ -72,9 +74,9 @@ case "$apk" in
     ;;
 esac
 
-# 5. 签名信息
+# 6. 签名信息
 certs="$("$apksigner" verify --print-certs "$apk" 2>&1)" || fail "APK 签名校验失败：${certs}"
-signer="$(sed -n 's/^Signer #1 certificate DN: //p' <<<"$certs" | head -1)"
+signer="$(extract 'Signer #1 certificate DN: .*' "$certs" | sed 's/Signer #1 certificate DN: //')"
 [ -n "$signer" ] || fail "APK 未签名或读不到签名者"
 case "$apk" in
   *-release.apk)
@@ -84,8 +86,8 @@ case "$apk" in
     ;;
 esac
 
-# 6. 权限快照（供审阅，不在此处判定）
-permissions="$(sed -n "s/^uses-permission: name='\([^']*\)'.*/\1/p" <<<"$badging" | sort | tr '\n' ' ')"
+# 7. 权限快照（供审阅）
+permissions="$(grep '^uses-permission:' <<<"$badging" | sed -n "s/.*name='\([^']*\)'.*/\1/p" | sort | tr '\n' ' ')"
 
 info_dir="$(dirname "$(dirname "$apk")")"
 mkdir -p "$info_dir"
