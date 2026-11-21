@@ -29,11 +29,23 @@ badging="$("$aapt2" dump badging "$apk")"
 package="$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" <<<"$badging" | head -1)"
 [ "$package" = "com.mjiutang.ngskg.wear" ] || fail "包名不符，期望 com.mjiutang.ngskg.wear，实际 '${package}'"
 
-version_code="$(sed -n "s/^package:.*versionCode='\([0-9]*\)'.*/\1/p" <<<"$badging" | head -1)"
-version_name="$(sed -n "s/^package:.*versionName='\([^']*\)'.*/\1/p" <<<"$badging" | head -1)"
-min_sdk="$(sed -n "s/^sdkVersion:'\([0-9]*\)'.*/\1/p" <<<"$badging" | head -1)"
-target_sdk="$(sed -n "s/^targetSdkVersion:'\([0-9]*\)'.*/\1/p" <<<"$badging" | head -1)"
+# aapt2 在不同 AGP 版本里对冒号后的空格、引号处理不一致，
+# 这里只抓字段名后面的第一串数字，不假设具体排版。
+extract_sdk() {
+  local label="$1"
+  grep -E "^${label}" <<<"$badging" | head -1 | grep -oE '[0-9]+' | head -1
+}
 
+version_code="$(grep -oE "versionCode='?[0-9]+" <<<"$badging" | head -1 | grep -oE '[0-9]+' | head -1)"
+version_name="$(grep -oE "versionName='[^']*'" <<<"$badging" | head -1 | sed "s/versionName='//;s/'$//")"
+min_sdk="$(extract_sdk 'sdkVersion')"
+target_sdk="$(extract_sdk 'targetSdkVersion')"
+
+if [ -z "$min_sdk" ] || [ -z "$target_sdk" ] || [ -z "$version_code" ]; then
+  echo "::group::aapt2 badging 原始输出（诊断用）"
+  echo "$badging"
+  echo "::endgroup::"
+fi
 [ -n "$version_code" ] || fail "读不到 versionCode"
 [ "$min_sdk" = "26" ] || fail "minSdk 应为 26，实际 '${min_sdk}'"
 [ "$target_sdk" = "36" ] || fail "targetSdk 应为 36，实际 '${target_sdk}'"

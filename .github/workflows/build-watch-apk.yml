@@ -119,15 +119,9 @@ jobs:
           retention-days: 14
 
   release:
-    name: Release APK (${{ matrix.abi }})
+    name: Release APK
     needs: test
     if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release)
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { abi: arm64-v8a, platform: android-arm64 }
-          - { abi: armeabi-v7a, platform: android-arm }
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -166,18 +160,18 @@ jobs:
       - name: Use public build mirrors
         run: bash tool/ci/use_public_mirrors.sh
 
-      - name: Build release
-        run: flutter build apk --release --split-per-abi --target-platform ${{ matrix.platform }}
+      - name: Build release fat APK (arm64 + armv7)
+        run: flutter build apk --release --target-platform android-arm64,android-arm
 
       - name: Verify signed APK
-        run: bash tool/ci/verify_apk.sh "build/app/outputs/flutter-apk/app-${{ matrix.abi }}-release.apk"
+        run: bash tool/ci/verify_apk.sh build/app/outputs/flutter-apk/app-release.apk arm64-v8a
 
       - name: Upload APK
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ngskg-watch-release-${{ matrix.abi }}
+          name: ngskg-watch-release-fat
           path: |
-            build/app/outputs/flutter-apk/app-${{ matrix.abi }}-release.apk
+            build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/apk-info.txt
           if-no-files-found: error
           retention-days: 14
