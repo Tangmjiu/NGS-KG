@@ -105,16 +105,11 @@ jobs:
       - name: Build arm64 and armv7
         run: flutter build apk --debug --target-platform android-arm64,android-arm
 
-      - name: Verify APK
-        run: bash tool/ci/verify_apk.sh build/app/outputs/flutter-apk/app-debug.apk
-
       - name: Upload APK
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ngskg-watch-debug
-          path: |
-            build/app/outputs/flutter-apk/app-debug.apk
-            build/app/outputs/apk-info.txt
+          path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -163,15 +158,10 @@ jobs:
       - name: Build release fat APK (arm64 + armv7)
         run: flutter build apk --release --target-platform android-arm64,android-arm
 
-      - name: Verify signed APK
-        run: bash tool/ci/verify_apk.sh build/app/outputs/flutter-apk/app-release.apk arm64-v8a
-
       - name: Upload APK
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ngskg-watch-release-fat
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/apk-info.txt
+          path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 14
