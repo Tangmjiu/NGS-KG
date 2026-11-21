@@ -78,6 +78,9 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+        with:
+          # 旧版默认的 `tools` 包已从 SDK 仓库移除，装它会让 sdkmanager 退出 1
+          packages: platform-tools
 
       - name: Set up Flutter
         uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
@@ -139,6 +142,9 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+        with:
+          # 旧版默认的 `tools` 包已从 SDK 仓库移除，装它会让 sdkmanager 退出 1
+          packages: platform-tools
 
       - name: Set up Flutter
         uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
