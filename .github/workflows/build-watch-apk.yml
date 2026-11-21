@@ -1,92 +1,177 @@
-name: Build Watch APK (Debug + Release)
+name: Watch CI
 
 on:
-  workflow_dispatch:
   push:
     branches: [watch]
   pull_request:
     branches: [watch]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: '测试通过后构建 release APK'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: watch-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.44.0'
+  JAVA_VERSION: '17'
+  ANDROID_COMPILE_SDK: '36'
 
 jobs:
-  build:
+  test:
+    name: Analyze and test
     runs-on: ubuntu-latest
-
+    timeout-minutes: 25
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - name: Set up Flutter
+        uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
         with:
-          flutter-version: '3.44.0'
-          channel: 'stable'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+          cache-key: flutter-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock') }}
 
-      - name: Install Android SDK
-        uses: android-actions/setup-android@v2
+      - name: Install locked dependencies
+        run: flutter pub get --enforce-lockfile
 
-      - name: Install SDK 36
-        run: |
-          yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" 2>/dev/null || true
-          sdkmanager --list_installed 2>/dev/null | grep "platforms"
+      - name: Analyze
+        run: flutter analyze --no-pub --fatal-infos
 
-      # ═══════════════════════════════════════════════════════════
-      #  Caches
-      # ═══════════════════════════════════════════════════════════
+      - name: Run tests
+        run: flutter test --no-pub --coverage --reporter expanded
 
-      - name: Cache pub dependencies
-        uses: actions/cache@v4
+      - name: Check dependency manifest
+        run: dart run tool/check_dependencies.dart
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          path: ~/.pub-cache
-          key: pubcache-${{ hashFiles('pubspec.lock') }}
-          restore-keys: pubcache-
+          name: coverage
+          path: coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 14
 
-      - name: Cache Gradle wrapper
-        uses: actions/cache@v4
-        with:
-          path: ~/.gradle/wrapper
-          key: gradle-wrapper-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties') }}
+  debug:
+    name: Debug APK
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Cache Gradle caches
-        uses: actions/cache@v4
+      - name: Set up Java
+        uses: actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287 # v5.3.0
         with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+          cache-key: flutter-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock') }}
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-${{ env.ANDROID_COMPILE_SDK }}" "build-tools;${{ env.ANDROID_COMPILE_SDK }}.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      - name: Install locked dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: Use public build mirrors
+        run: bash tool/ci/use_public_mirrors.sh
+
+      - name: Build arm64 and armv7
+        run: flutter build apk --debug --target-platform android-arm64,android-arm
+
+      - name: Verify APK
+        run: bash tool/ci/verify_apk.sh build/app/outputs/flutter-apk/app-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ngskg-watch-debug
           path: |
-            ~/.gradle/caches
-            ~/.gradle/configuration-cache
-          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties', 'pubspec.lock') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+            build/app/outputs/flutter-apk/app-debug.apk
+            build/app/outputs/apk-info.txt
+          if-no-files-found: error
+          retention-days: 14
 
-      - name: Create assets directories
-        run: |
-          mkdir -p assets/images
-          mkdir -p assets/icons
+  release:
+    name: Release APK (${{ matrix.abi }})
+    needs: test
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { abi: arm64-v8a, platform: android-arm64 }
+          - { abi: armeabi-v7a, platform: android-arm }
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Get dependencies
-        run: flutter pub get
-
-      # ═══ CI network config: replace China mirrors with global ones ═══
-      - name: Use global Gradle/Maven mirrors for CI
-        run: |
-          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
-          sed -i '/maven.*aliyun/d' android/settings.gradle android/build.gradle
-
-      # ── Build watch debug APK (arm64 + armv7 fat) ──
-      - name: Build watch debug APK (arm64 + armv7)
-        run: flutter build apk --debug --target-platform android-arm64,android-arm --android-skip-build-dependency-validation
-
-      # ── Build watch release APK (arm64 + armv7 fat) ──
-      - name: Build watch release APK (arm64 + armv7)
-        run: flutter build apk --release --target-platform android-arm64,android-arm
-
-      # ── Upload artifacts ──
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+      - name: Set up Java
+        uses: actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287 # v5.3.0
         with:
-          name: NGS-KG-watch-debug-fat
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
 
-      - name: Upload release APK
-        uses: actions/upload-artifact@v4
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
         with:
-          name: NGS-KG-watch-release-fat
-          path: build/app/outputs/flutter-apk/app-release.apk
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+          cache-key: flutter-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock') }}
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-${{ env.ANDROID_COMPILE_SDK }}" "build-tools;${{ env.ANDROID_COMPILE_SDK }}.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      - name: Install locked dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: Use public build mirrors
+        run: bash tool/ci/use_public_mirrors.sh
+
+      - name: Build release
+        run: flutter build apk --release --split-per-abi --target-platform ${{ matrix.platform }}
+
+      - name: Verify signed APK
+        run: bash tool/ci/verify_apk.sh "build/app/outputs/flutter-apk/app-${{ matrix.abi }}-release.apk"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ngskg-watch-release-${{ matrix.abi }}
+          path: |
+            build/app/outputs/flutter-apk/app-${{ matrix.abi }}-release.apk
+            build/app/outputs/apk-info.txt
+          if-no-files-found: error
+          retention-days: 14

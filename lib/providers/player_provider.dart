@@ -42,8 +42,6 @@ class FmQueueSnapshot {
 
 class PlayerProvider extends ChangeNotifier
     with SleepTimerMixin, KeepScreenOnMixin {
-  bool _disposed = false;
-
   final MusicService _musicService;
   final AudioSettingsProvider? _audioSettings;
   final LikedSongsProvider? _likedSongs;
@@ -66,7 +64,7 @@ class PlayerProvider extends ChangeNotifier
   Map<int, List<String>> _lyricLangMap = {};
   List<KrcLyricLineModel>? _krcLines;
   int _selectedLyricLang = 0;
-  bool _showTranslation = true;
+  final bool _showTranslation = true;
   Color? _backgroundColor;
 
   // ─── 歌曲高潮标记 ───
@@ -243,9 +241,7 @@ class PlayerProvider extends ChangeNotifier
   }
 
   PlayerProvider(this._musicService,
-      {AudioSettingsProvider? audioSettings, LikedSongsProvider? likedSongs})
-      : _audioSettings = audioSettings,
-        _likedSongs = likedSongs {
+      {this._audioSettings, this._likedSongs}) {
     _engine = AudioEngine(_musicService);
     _queue = PlaylistQueue();
 
@@ -1229,7 +1225,6 @@ class PlayerProvider extends ChangeNotifier
 
   @override
   void dispose() {
-    _disposed = true;
     _engine.position.removeListener(_onPositionChanged);
     _engine.duration.removeListener(_onDurationChanged);
     _engine.isLoading.removeListener(_onLoadingChanged);

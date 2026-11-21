@@ -78,8 +78,8 @@ class LocalMusicService {
     for (final s in raw) {
       final title = s.title;
       final data = s.data;
-      if (title == null || title.isEmpty) continue;
-      if (data == null || data.isEmpty) continue;
+      if (title.isEmpty) continue;
+      if (data.isEmpty) continue;
       // 用户自定义目录模式下，跳过不在指定目录的文件
       if (hasCustomDirs && !customDirs.any((d) => data.startsWith(d))) continue;
 
@@ -103,7 +103,7 @@ class LocalMusicService {
         album: s.album,
         filePath: data,
         mediaStoreId: s.id,
-        size: s.size ?? 0,
+        size: s.size,
         duration: (s.duration ?? 0) ~/ 1000,
         codec: codec,
         bitrate: _estimateBitrate(codec),
@@ -169,16 +169,21 @@ class LocalMusicService {
 
           final meta = await MetadataReader.read(entry);
           if (meta != null) {
-            if (meta.title != null && meta.title!.isNotEmpty)
+            if (meta.title != null && meta.title!.isNotEmpty) {
               title = meta.title!;
-            if (meta.artist != null && meta.artist!.isNotEmpty)
+            }
+            if (meta.artist != null && meta.artist!.isNotEmpty) {
               artist = meta.artist!;
-            if (meta.album != null && meta.album!.isNotEmpty)
+            }
+            if (meta.album != null && meta.album!.isNotEmpty) {
               album = meta.album!;
-            if (meta.durationMs > 0)
+            }
+            if (meta.durationMs > 0) {
               duration = (meta.durationMs / 1000).round();
-            if (meta.bitrate != null && meta.bitrate! > 0)
+            }
+            if (meta.bitrate != null && meta.bitrate! > 0) {
               bitrate = meta.bitrate!;
+            }
             if (meta.albumArt != null && meta.albumArt!.isNotEmpty) {
               coverCachePath = await _cacheAlbumArt(entry.path, meta.albumArt!);
             }

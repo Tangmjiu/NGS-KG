@@ -12,9 +12,9 @@ import 'package:provider/provider.dart';
 import 'package:wear_plus/wear_plus.dart';
 import 'package:wearable_rotary/wearable_rotary.dart';
 
-import '../../../constants/quality.dart';
-import '../../../models/song.dart';
-import '../../../providers/player_provider.dart';
+import '../../constants/quality.dart';
+import '../../models/song.dart';
+import '../../providers/player_provider.dart';
 import '../utils/format.dart';
 import '../utils/watch_layout.dart';
 import '../utils/watch_motion.dart';

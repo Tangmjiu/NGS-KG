@@ -57,11 +57,11 @@ Future<void> main() async {
   // 精简版异常渲染页面（适合小屏）
   ErrorWidget.builder = (details) {
     debugPrint('WATCH_RENDER_ERROR: ${details.exceptionAsString()}');
-    return Material(
-      color: const Color(0xFF1E1E1E),
+    return const Material(
+      color: Color(0xFF1E1E1E),
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           child: Icon(
             Icons.error_outline_rounded,
             size: 28,

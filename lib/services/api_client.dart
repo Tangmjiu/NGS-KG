@@ -196,8 +196,9 @@ class _ErrorDialogInterceptor extends Interceptor {
       // 详细信息包含请求路径 + 原始响应
       final detailBuf = StringBuffer('请求路径: $requestPath');
       if (rawErrorCode != null) detailBuf.writeln('\n原始错误码: $rawErrorCode');
-      if (rawMsg != null && rawMsg != message)
+      if (rawMsg != null && rawMsg != message) {
         detailBuf.writeln('\n原始消息: $rawMsg');
+      }
       detail = detailBuf.toString();
 
       // 日志 — 输出原始响应体便于调试
@@ -368,8 +369,9 @@ class ApiClient {
     } on DioException catch (e) {
       if (e.response?.statusCode == 200) {
         final data = e.response?.data;
-        if (data is Map)
+        if (data is Map) {
           _checkNeedLogin(data, requestPath: _buildRequestUrl(path, params));
+        }
         return e.response!;
       }
       if (_isNetworkError(e)) throw NetworkErrorException.fromDio(e);

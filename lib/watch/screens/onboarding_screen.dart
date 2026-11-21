@@ -185,7 +185,7 @@ class _CrownPageState extends State<_CrownPage>
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text('旋转表冠 随心掌控', style: theme.textTheme.bodySmall),
+                  Text('转动表冠', style: theme.textTheme.bodySmall),
                   SizedBox(height: layout.diameter * 0.06),
                   // 表冠动画：外圈滚动刻度
                   AnimatedBuilder(
@@ -213,7 +213,7 @@ class _CrownPageState extends State<_CrownPage>
                   ),
                   SizedBox(height: layout.diameter * 0.06),
                   Text(
-                    '转动表冠滚动列表\n播放页旋转调音量',
+                    '首页翻页，歌单里滚动\n播放时调音量',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurface.withValues(alpha: 0.7),
                       height: 1.5,
@@ -277,10 +277,9 @@ class _GesturePage extends StatelessWidget {
     final cs = theme.colorScheme;
 
     final gestures = [
-      (Icons.swipe_rounded, '左右滑动', '切换主视图 / 播放页切歌'),
-      (Icons.swipe_up_rounded, '底缘上滑', '调出快捷操作面板'),
-      (Icons.touch_app_rounded, '双击屏幕', '播放 / 暂停'),
-      (Icons.smart_button_rounded, '点击分区', '所有功能均可点按完成'),
+      (Icons.swipe_rounded, '左右滑', '在首页切换栏目'),
+      (Icons.swipe_up_rounded, '向上快滑', '在首页打开快捷面板'),
+      (Icons.touch_app_rounded, '双击播放页', '播放或暂停'),
     ];
 
     return Padding(

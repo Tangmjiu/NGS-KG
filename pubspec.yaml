@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 1.5.3-preview-watch-hotfix1+25
 
 environment:
-  sdk: ^3.0.0
+  sdk: ^3.12.0
 
 dependencies:
   flutter:
@@ -25,24 +25,12 @@ dependencies:
   # UI
   cached_network_image: ^3.3.1
   palette_generator: ^0.3.3
-  # Theme
-  flex_color_scheme: ^8.0.2
-  flutter_colorpicker: ^1.1.0
-  archive: ^4.0.0
-  # Video
-  # MV: video_player: ^2.9.2
-  # MV: chewie: ^1.8.5
   # Audio
   wakelock_plus: ^1.2.10
   # Utils
   shared_preferences: ^2.2.2
-  url_launcher: ^6.2.2
-  file_picker: ^8.0.0
   crypto: ^3.0.3
   package_info_plus: ^8.0.0
-  flutter_svg: ^2.0.10+1
-  permission_handler: ^11.3.1
-  connectivity_plus: ^6.1.4
   flutter_local_notifications: ^18.0.1
   # Lyrics
   ym_lyric: ^0.0.4
@@ -52,11 +40,6 @@ dependencies:
   # Wear OS
   wear_plus: ^1.2.5
   wearable_rotary: ^2.0.0
-  wear_os_scrollbar: ^0.2.1
-
-  # Animation (MD3 motion)
-  flutter_animate: ^4.5.0
-  animations: ^2.0.11
 
 dev_dependencies:
   flutter_test:

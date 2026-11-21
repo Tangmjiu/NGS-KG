@@ -42,3 +42,12 @@ APIDOCS/
 
 # Linux build artifacts
 linux/flutter/
+
+# 测试与本地生成物
+coverage/
+test/.test_coverage.dart
+
+# Flutter 生成的平台插件链接（每次 pub get 重建，不应入库）
+windows/flutter/ephemeral/
+linux/flutter/ephemeral/
+macos/Flutter/ephemeral/

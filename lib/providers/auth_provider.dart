@@ -12,7 +12,7 @@ import 'liked_songs_provider.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService;
-  LikedSongsProvider? _likedSongs;
+  final LikedSongsProvider? _likedSongs;
   final Completer<void> _readyCompleter = Completer<void>();
 
   User? _user;
@@ -26,8 +26,7 @@ class AuthProvider extends ChangeNotifier {
   /// 等待 _loadSavedUser() 完成后再执行依赖认证的初始化逻辑
   Future<void> get ready => _readyCompleter.future;
 
-  AuthProvider(this._authService, {LikedSongsProvider? likedSongs})
-      : _likedSongs = likedSongs {
+  AuthProvider(this._authService, {this._likedSongs}) {
     _loadSavedUser();
   }
 

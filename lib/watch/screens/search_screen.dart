@@ -9,9 +9,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../models/song.dart';
-import '../../../providers/player_provider.dart';
-import '../../../services/music_service.dart';
+import '../../models/song.dart';
+import '../../providers/player_provider.dart';
+import '../../services/music_service.dart';
 import '../utils/watch_layout.dart';
 import '../utils/watch_motion.dart';
 import '../widgets/watch_scroll_list.dart';

@@ -103,13 +103,21 @@ void main() {
     });
 
     test('isLocal returns true when filePath is set', () {
-      final online = Song(id: 1, name: 'Test', artists: []);
+      const online = Song(id: 1, name: 'Test', artists: []);
       expect(online.isLocal, false);
 
-      final local = Song(id: 1, name: 'Test', artists: [], filePath: '/path/to/file.mp3');
+      const local = Song(
+          id: 1,
+          name: 'Test',
+          artists: [],
+          filePath: '/path/to/file.mp3');
       expect(local.isLocal, true);
 
-      final cloud = Song(id: 1, name: 'Test', artists: [], filePath: 'http://example.com/song.mp3');
+      const cloud = Song(
+          id: 1,
+          name: 'Test',
+          artists: [],
+          filePath: 'http://example.com/song.mp3');
       expect(cloud.isLocal, true);
     });
 
@@ -239,18 +247,22 @@ void main() {
     });
 
     test('vipLevelDisplay returns correct strings', () {
-      final normal = User(isVip: 0);
+      const normal = User(isVip: 0);
       expect(normal.vipLevelDisplay, '普通用户');
 
-      final musicPack = User(isVip: 1, vipType: 1);
+      const musicPack = User(isVip: 1, vipType: 1);
       expect(musicPack.vipLevelDisplay, '付费音乐包');
 
-      final deluxe = User(isVip: 1, vipType: 6);
+      const deluxe = User(isVip: 1, vipType: 6);
       expect(deluxe.vipLevelDisplay, '豪华VIP');
     });
 
     test('toJson serializes correctly', () {
-      final user = User(userId: 1001, nickname: 'Test', avatarUrl: 'http://a.jpg', token: 'tok');
+      const user = User(
+          userId: 1001,
+          nickname: 'Test',
+          avatarUrl: 'http://a.jpg',
+          token: 'tok');
       final json = user.toJson();
       expect(json['userId'], 1001);
       expect(json['nickname'], 'Test');

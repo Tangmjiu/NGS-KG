@@ -6,9 +6,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../providers/auth_provider.dart';
-import '../../../providers/liked_songs_provider.dart';
-import '../../../providers/player_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/liked_songs_provider.dart';
+import '../../providers/player_provider.dart';
 import '../widgets/watch_scaffold.dart';
 import '../widgets/watch_scroll_list.dart';
 import '../widgets/watch_song_tile.dart';

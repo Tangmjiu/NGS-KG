@@ -54,7 +54,7 @@ class SongMapper {
         }
       }
       rawName ??= '';
-      final parts = rawName!.split(' - ');
+      final parts = rawName.split(' - ');
 
       // ── 封面：优先扁平字段，回退到 album_info / trans_param ──
       var cover = json['cover'] as String? ??
@@ -145,7 +145,7 @@ class SongMapper {
         albumId = tryInt(base['album_id']);
       }
       int? artistId = tryInt(json['author_id']);
-      if ((artistId == null || artistId == 0) && base != null) {
+      if (artistId == 0 && base != null) {
         artistId = tryInt(base['author_id']);
       }
 

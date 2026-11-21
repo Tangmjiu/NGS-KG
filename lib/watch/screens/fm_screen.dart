@@ -8,11 +8,11 @@ import 'dart:math' as math;
 
 import 'package:provider/provider.dart';
 
-import '../../../models/song.dart';
-import '../../../models/song_mapper.dart';
-import '../../../providers/player_provider.dart';
-import '../../../services/music_service.dart';
-import '../../../utils/logger.dart';
+import '../../models/song.dart';
+import '../../models/song_mapper.dart';
+import '../../providers/player_provider.dart';
+import '../../services/music_service.dart';
+import '../../utils/logger.dart';
 import '../utils/watch_layout.dart';
 import '../utils/watch_motion.dart';
 import '../widgets/faded_album_art.dart';

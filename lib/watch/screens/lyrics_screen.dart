@@ -1,26 +1,20 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
-//
-// 手表歌词屏 — 滚动歌词 + 翻译开关 + 点击行跳转进度 + 表冠滚动
 
+import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter_lyric/core/lyric_model.dart' show LyricLine;
 import 'package:provider/provider.dart';
 import 'package:wearable_rotary/wearable_rotary.dart';
 
-import '../../../providers/player_provider.dart';
-import '../utils/watch_layout.dart';
-import '../widgets/round_safe_area.dart';
+import '../../providers/player_provider.dart';
+import '../widgets/watch_player_primitives.dart';
 import '../widgets/watch_scaffold.dart';
 
-/// 手表端歌词屏幕。
-///
-/// - 逐行精确测量 + 焦点行锚定滚动
-/// - 翻译开关（右上角图标）
-/// - 点击歌词行跳转播放进度
-/// - 表冠滚动
 class WatchLyricsScreen extends StatefulWidget {
   const WatchLyricsScreen({super.key});
 
@@ -28,279 +22,241 @@ class WatchLyricsScreen extends StatefulWidget {
   State<WatchLyricsScreen> createState() => _WatchLyricsScreenState();
 }
 
-class _WatchLyricsScreenState extends State<WatchLyricsScreen> {
-  final _scrollController = RotaryScrollController();
-  List<LyricLine> _lines = const [];
-  int _lastActive = -1;
+class _WatchLyricsScreenState extends State<WatchLyricsScreen>
+    with SingleTickerProviderStateMixin {
+  final _scroll = ScrollController(keepScrollOffset: false);
+  late final AnimationController _spring;
+  late final StreamSubscription<RotaryEvent> _rotary;
+  bool _following = true;
   bool _showTranslation = true;
+  int _active = -1;
+  double _viewport = 0;
+  List<LyricLine>? _lines;
+  Object? _measurementKey;
+  List<double> _edges = const [0];
 
-  List<double> _offsets = const [];
-  List<double> _heights = const [];
-  List<LyricLine>? _measuredLines;
-  double _measuredWidth = -1;
-
-  static const _lineGap = 6.0;
+  @override
+  void initState() {
+    super.initState();
+    _spring = AnimationController.unbounded(vsync: this)
+      ..addListener(() => _jumpTo(_spring.value));
+    _rotary = rotaryEvents.listen((event) {
+      if (!mounted ||
+          ModalRoute.of(context)?.isCurrent != true ||
+          !_scroll.hasClients) {
+        return;
+      }
+      _browse();
+      final step = _scroll.position.viewportDimension * 0.3;
+      _jumpTo(_scroll.offset +
+          (event.direction == RotaryDirection.clockwise ? step : -step));
+    });
+  }
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _rotary.cancel();
+    _spring.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
-  void _ensureMeasured(List<LyricLine> lines, double width) {
-    if (identical(lines, _measuredLines) && width == _measuredWidth) return;
-    _measuredLines = lines;
-    _measuredWidth = width;
-
-    final direction = Directionality.maybeOf(context) ?? TextDirection.ltr;
-    final scaler = MediaQuery.textScalerOf(context);
-    final offsets = <double>[];
-    final heights = <double>[];
-    var y = 0.0;
-    for (final line in lines) {
-      offsets.add(y);
-      var h = 0.0;
-      for (final style in [_lineStyle(false), _lineStyle(true)]) {
-        final painter = TextPainter(
-          text: TextSpan(text: line.text, style: style),
-          textDirection: direction,
-          textScaler: scaler,
-          maxLines: 2,
-        )..layout(maxWidth: width);
-        h = math.max(h, painter.height);
-        painter.dispose();
-      }
-      if (_showTranslation &&
-          line.translation != null &&
-          line.translation!.isNotEmpty) {
-        final painter = TextPainter(
-          text: TextSpan(text: line.translation, style: _translationStyle),
-          textDirection: direction,
-          textScaler: scaler,
-          maxLines: 1,
-        )..layout(maxWidth: width);
-        h += 2 + painter.height;
-        painter.dispose();
-      }
-      heights.add(h);
-      y += h + _lineGap;
-    }
-    _offsets = offsets;
-    _heights = heights;
+  void _jumpTo(double offset) {
+    if (!_scroll.hasClients) return;
+    final pos = _scroll.position;
+    final target = offset.clamp(pos.minScrollExtent, pos.maxScrollExtent);
+    if (target != pos.pixels) _scroll.jumpTo(target.toDouble());
   }
 
-  TextStyle _lineStyle(bool active) => TextStyle(
-        fontSize: active ? 14 : 12,
-        fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-        height: 1.5,
-      );
+  void _browse() {
+    _spring.stop();
+    if (_following) setState(() => _following = false);
+  }
 
-  TextStyle get _translationStyle => const TextStyle(fontSize: 10, height: 1.3);
+  void _follow() {
+    setState(() => _following = true);
+    _centerAfterLayout();
+  }
 
-  void _scrollToActive(int index, {bool animate = true}) {
-    if (!_scrollController.hasClients || index < 0 || index >= _offsets.length)
-      return;
-    final viewport = _scrollController.position.viewportDimension;
-    final target = _offsets[index] + _heights[index] / 2 - viewport * 0.5;
-    final clamped =
-        target.clamp(0.0, _scrollController.position.maxScrollExtent);
-    if (animate) {
-      _scrollController.animateTo(clamped,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic);
-    } else {
-      _scrollController.jumpTo(clamped);
-    }
+  void _centerAfterLayout({bool immediately = false}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_following || !_scroll.hasClients || _active < 0 ||
+          _active + 1 >= _edges.length) {
+        return;
+      }
+      final height = _edges[_active + 1] - _edges[_active];
+      // 两端各留半屏。超长行优先露出开头，再由用户向下阅读。
+      final target = _edges[_active] + math.min(height, _viewport) / 2;
+      final velocity = _spring.isAnimating ? _spring.velocity : 0.0;
+      _spring.stop();
+      if (immediately || MediaQuery.disableAnimationsOf(context)) {
+        _jumpTo(target);
+      } else {
+        _spring.animateWith(SpringSimulation(
+          watchPlayerSpring, _scroll.offset, target, velocity,
+        ));
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final layout = WatchLayout.of(context);
-    final cs = Theme.of(context).colorScheme;
-    final textWidth = layout.diameter - layout.listHorizontal * 2 - 24;
-
+    final player = context.select((PlayerProvider p) => p.lyricController);
     return WatchScaffold(
       showTime: false,
-      body: Consumer<PlayerProvider>(
-        builder: (context, player, _) {
-          final model = player.lyricController.lyricNotifier.value;
-          final lines = model?.lines ?? const <LyricLine>[];
-          final activeIdx = player.lyricController.activeIndexNotifiter.value;
-
-          if (lines.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.lyrics_rounded,
-                      size: 32, color: cs.onSurface.withValues(alpha: 0.3)),
-                  const SizedBox(height: 8),
-                  Text('暂无歌词',
-                      style: TextStyle(
-                        color: cs.onSurface.withValues(alpha: 0.5),
-                        fontSize: 12,
-                      )),
-                ],
-              ),
-            );
-          }
-
-          return Stack(
-            children: [
-              _buildLyricsList(lines, activeIdx, textWidth, layout, player),
-              // 翻译开关（右上角）
-              Positioned(
-                top: 2,
-                right: 6,
-                child: _TranslationToggle(
-                  show: _showTranslation,
-                  onToggle: () {
-                    setState(() {
-                      _showTranslation = !_showTranslation;
-                      _measuredLines = null; // 强制重新测量
-                    });
-                  },
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildLyricsList(
-    List<LyricLine> lines,
-    int activeIdx,
-    double textWidth,
-    WatchLayout layout,
-    PlayerProvider player,
-  ) {
-    _ensureMeasured(lines, textWidth);
-
-    // 每次 rebuild 都对齐焦点行到屏幕正中，彻底消除漂移
-    if (_lines != lines) {
-      _lines = lines;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _scrollToActive(activeIdx, animate: false);
-      });
-    } else if (_lastActive != activeIdx) {
-      _lastActive = activeIdx;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _scrollToActive(activeIdx);
-      });
-    } else {
-      // 焦点行没变但可能因 rebuild 导致偏移，强制对齐
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _scrollToActive(activeIdx, animate: false);
-      });
-    }
-
-    final cs = Theme.of(context).colorScheme;
-
-    return ShaderMask(
-      blendMode: BlendMode.dstIn,
-      shaderCallback: (bounds) => const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Color(0x00FFFFFF),
-          Color(0xFFFFFFFF),
-          Color(0xFFFFFFFF),
-          Color(0x00FFFFFF),
-        ],
-        stops: [0.0, 0.12, 0.88, 1.0],
-      ).createShader(bounds),
-      child: ListView.builder(
-        controller: _scrollController,
-        physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics()),
-        padding: EdgeInsets.fromLTRB(
-          layout.listHorizontal,
-          0,
-          layout.listHorizontal,
-          layout.bottomInset + 16,
-        ),
-        itemCount: lines.length,
-        itemBuilder: (context, index) {
-          final line = lines[index];
-          final isActive = index == activeIdx;
-          return GestureDetector(
-            onTap: () {
-              player.seek(line.start);
-              player.lyricController.setProgress(line.start);
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: _lineGap / 2),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 200),
-                    style: _lineStyle(isActive).copyWith(
-                      color: isActive
-                          ? cs.primary
-                          : cs.onSurface.withValues(alpha: 0.55),
+      body: WatchPlayerInsets(
+        child: ValueListenableBuilder(
+          valueListenable: player.lyricNotifier,
+          builder: (context, model, _) {
+            final lines = model?.lines ?? const <LyricLine>[];
+            if (lines.isEmpty) {
+              _spring.stop();
+              _lines = null;
+              return const Center(child: Text('暂无歌词'));
+            }
+            if (!identical(lines, _lines)) {
+              _spring.stop();
+              _lines = lines;
+              _following = true;
+              _measurementKey = null;
+            }
+            return Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (!_following)
+                      IconButton(
+                        tooltip: '回到当前歌词',
+                        icon: const Icon(Icons.my_location_rounded, size: 18),
+                        onPressed: _follow,
+                      ),
+                    IconButton(
+                      tooltip: _showTranslation ? '隐藏译文' : '显示译文',
+                      isSelected: _showTranslation,
+                      icon: const Icon(Icons.translate_rounded, size: 18),
+                      selectedIcon: Icon(Icons.translate_rounded, size: 18,
+                          color: Theme.of(context).colorScheme.primary),
+                      onPressed: () => setState(() {
+                        _showTranslation = !_showTranslation;
+                      }),
                     ),
-                    child: Text(
-                      line.text,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                  ],
+                ),
+                Expanded(
+                  child: ValueListenableBuilder<int>(
+                    valueListenable: player.activeIndexNotifiter,
+                    builder: (context, index, _) => LayoutBuilder(
+                      builder: (context, box) => _list(context, lines, index, box),
                     ),
                   ),
-                  if (isActive &&
-                      _showTranslation &&
-                      line.translation != null &&
-                      line.translation!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        line.translation!,
-                        style: _translationStyle.copyWith(
-                          color: cs.onSurface.withValues(alpha: 0.45),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
-}
 
-/// 翻译开关按钮（右上角浮动）
-class _TranslationToggle extends StatelessWidget {
-  final bool show;
-  final VoidCallback onToggle;
+  Widget _list(BuildContext context, List<LyricLine> lines, int active,
+      BoxConstraints box) {
+    final colors = Theme.of(context).colorScheme;
+    final base = Theme.of(context).textTheme.bodyMedium ?? const TextStyle();
+    final primary = base.copyWith(fontSize: box.maxWidth < 140 ? 15 : 17,
+        height: 1.3, fontWeight: FontWeight.w600);
+    final secondary = base.copyWith(fontSize: 12, height: 1.3);
+    final scaler = MediaQuery.textScalerOf(context);
+    final locale = Localizations.maybeLocaleOf(context);
+    final direction = Directionality.of(context);
+    final key = (box.maxWidth, scaler, locale, direction, primary, secondary,
+        _showTranslation);
+    final changed = _measurementKey != key;
 
-  const _TranslationToggle({required this.show, required this.onToggle});
+    // 测量与渲染共用宽度、字体和缩放，焦点切换只变颜色，不改变行高。
+    if (changed) {
+      double measure(String text, TextStyle style) {
+        final painter = TextPainter(
+          text: TextSpan(text: text, style: style),
+          textDirection: direction, locale: locale, textScaler: scaler,
+          textAlign: TextAlign.center,
+        )..layout(maxWidth: box.maxWidth);
+        final height = painter.height;
+        painter.dispose();
+        return height;
+      }
 
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Semantics(
-      button: true,
-      label: show ? '关闭翻译' : '开启翻译',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onToggle,
-          customBorder: const CircleBorder(),
-          child: Padding(
-            padding: const EdgeInsets.all(6),
-            child: Icon(
-              show ? Icons.translate_rounded : Icons.translate_outlined,
-              size: 16,
-              color: cs.onSurface.withValues(alpha: 0.5),
-            ),
-          ),
+      final edges = <double>[0];
+      for (final line in lines) {
+        var height = measure(line.text, primary) + 12;
+        if (_showTranslation && line.translation?.isNotEmpty == true) {
+          height += 3 + measure(line.translation!, secondary);
+        }
+        edges.add(edges.last + height);
+      }
+      _edges = edges;
+      _measurementKey = key;
+    }
+    if (changed || _active != active || _viewport != box.maxHeight) {
+      _active = active;
+      _viewport = box.maxHeight;
+      if (_following) _centerAfterLayout(immediately: changed);
+    }
+
+    Widget paragraph(String value, TextStyle style) => RichText(
+      text: TextSpan(text: value, style: style),
+      textDirection: direction, locale: locale, textScaler: scaler,
+      textAlign: TextAlign.center,
+    );
+    return Listener(
+      onPointerDown: (_) => _spring.stop(),
+      onPointerSignal: (event) {
+        if (event is PointerScrollEvent) _browse();
+      },
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (event) {
+          if (event is ScrollStartNotification && event.dragDetails != null ||
+              event is ScrollUpdateNotification && event.dragDetails != null) {
+            _browse();
+          }
+          return false;
+        },
+        child: ListView.builder(
+          controller: _scroll,
+          padding: EdgeInsets.symmetric(vertical: box.maxHeight / 2),
+          itemCount: lines.length,
+          itemExtentBuilder: (i, _) => i < lines.length ? _edges[i + 1] - _edges[i] : null,
+          itemBuilder: (context, i) {
+            final line = lines[i];
+            final focused = i == active;
+            return Semantics(
+              selected: focused,
+              button: true,
+              child: InkWell(
+                onTap: () {
+                  final player = context.read<PlayerProvider>();
+                  player.seek(line.start);
+                  player.lyricController.setProgress(line.start);
+                  _follow();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      paragraph(line.text, primary.copyWith(color: focused
+                          ? colors.primary : colors.onSurfaceVariant)),
+                      if (_showTranslation && line.translation?.isNotEmpty == true) ...[
+                        const SizedBox(height: 3),
+                        paragraph(line.translation!, secondary.copyWith(color: focused
+                            ? colors.onSurface : colors.onSurfaceVariant)),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

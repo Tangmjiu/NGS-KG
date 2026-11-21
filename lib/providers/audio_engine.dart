@@ -137,7 +137,7 @@ class AudioEngine {
 
   /// 获取当前音质 key（用于 refresh 等场景）
   String _currentQualityKey() {
-    final keys = Song.qualityKeys;
+    const keys = Song.qualityKeys;
     return keys[qualityLevel % keys.length];
   }
 
@@ -151,7 +151,7 @@ class AudioEngine {
 
     // 本地歌曲不需要特权查询
     if (song.isLocal && hash == null) {
-      return [_Candidate(quality: '128', hash: '', label: '标准')];
+      return const [_Candidate(quality: '128', hash: '', label: '标准')];
     }
 
     // 尝试从 privilege 获取
@@ -599,26 +599,6 @@ class AudioEngine {
         _player.setVolume(vol);
       }
     });
-  }
-
-  /// 上报播放历史，重试最多 3 次，指数退避
-  Future<void> _uploadHistoryWithRetry(int songId,
-      {int? duration, int retries = 3}) async {
-    for (int attempt = 0; attempt < retries; attempt++) {
-      try {
-        await _musicService.uploadPlayHistory(songId, duration: duration);
-        return; // 成功
-      } catch (e, s) {
-        Log.w('audio_engine',
-            'uploadPlayHistory failed (attempt ${attempt + 1}/$retries): $e');
-        if (attempt < retries - 1) {
-          // 指数退避：1s, 2s, 4s
-          await Future.delayed(Duration(seconds: 1 << attempt));
-        } else {
-          Log.e('audio_engine', 'uploadPlayHistory exhausted retries', e, s);
-        }
-      }
-    }
   }
 
   /// 未登录时弹出登录提醒；返回 true 表示已显示登录弹窗

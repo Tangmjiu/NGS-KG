@@ -156,10 +156,15 @@ class Log {
     final line = '$ts $level [$tag] $message';
 
     // Console — goes to Android logcat in both debug & release
+    // ignore: avoid_print
     print(line);
-    if (error != null) print('  CAUSE: $error');
+    if (error != null) {
+      // ignore: avoid_print
+      print('  CAUSE: $error');
+    }
     if (stack != null) {
       final compressed = stack.toString().split('\n').take(6).join('\n');
+      // ignore: avoid_print
       print('  STACK: $compressed');
     }
 
