@@ -1,237 +1,202 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
-//
-// 手表设置页 — 账号 / 音质 / 关于，M3E 胶囊列表
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../providers/auth_provider.dart';
+import '../../constants/quality.dart';
 import '../../providers/audio_settings_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/audio_cache_service.dart';
-import '../utils/watch_layout.dart';
 import '../widgets/round_list_tile.dart';
-import '../widgets/watch_scaffold.dart';
+import 'audio_output_screen.dart';
 import 'log_export_screen.dart';
 import 'login_screen.dart';
 
-/// 手表版设置。
-class WatchSettingsScreen extends StatelessWidget {
+class WatchSettingsScreen extends StatefulWidget {
   const WatchSettingsScreen({super.key});
-
   @override
-  Widget build(BuildContext context) {
-    final layout = WatchLayout.of(context);
-    return WatchScaffold(
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(
-          layout.listHorizontal,
-          4,
-          layout.listHorizontal,
-          layout.bottomInset + 16,
-        ),
-        children: const [
-          _LoginSection(),
-          _AudioSection(),
-          _CacheSection(),
-          _AboutSection(),
-        ],
-      ),
-    );
-  }
+  State<WatchSettingsScreen> createState() => _WatchSettingsScreenState();
 }
 
-class _LoginSection extends StatelessWidget {
-  const _LoginSection();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Consumer<AuthProvider>(
-      builder: (context, auth, _) {
-        if (auth.isLoggedIn && auth.user != null) {
-          final user = auth.user!;
-          final isVip =
-              user.isVipActive || (user.vipType != null && user.vipType! > 0);
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              ClipOval(
-                child: SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: (user.avatarUrl != null && user.avatarUrl!.isNotEmpty)
-                      ? CachedNetworkImage(
-                          imageUrl: user.avatarUrl!,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) => Container(
-                            color: theme.colorScheme.surfaceContainerHighest,
-                          ),
-                          errorWidget: (_, __, ___) => Icon(
-                            Icons.person_rounded,
-                            size: 28,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        )
-                      : Icon(
-                          Icons.person_rounded,
-                          size: 28,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                user.nickname ?? '用户',
-                style: theme.textTheme.titleSmall
-                    ?.copyWith(fontWeight: FontWeight.w600),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                isVip ? 'VIP' : '普通用户',
-                style: TextStyle(
-                  fontSize: 11,
-                  color:
-                      isVip ? Colors.amber : theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 10),
-              RoundListTile(
-                title: '退出登录',
-                leading: Icon(Icons.logout_rounded,
-                    color: theme.colorScheme.error, size: 20),
-                onTap: () => auth.logout(),
-              ),
-            ],
-          );
-        }
-        return RoundListTile(
-          title: '登录账号',
-          subtitle: '登录后可使用收藏等功能',
-          leading: Icon(Icons.login_rounded, color: theme.colorScheme.primary),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const WatchLoginScreen()),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _AudioSection extends StatelessWidget {
-  const _AudioSection();
-
-  static const _qualities = ['128', '320', 'high', 'flac'];
-
-  static String _label(String q) => switch (q) {
-        '128' => '标准',
-        '320' => '高品',
-        'high' => '无损',
-        'flac' => 'Hi-Res',
-        _ => q,
-      };
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<AudioSettingsProvider>(
-      builder: (context, settings, _) {
-        return RoundListTile(
-          title: 'WiFi 音质',
-          subtitle: _label(settings.wifiQuality),
-          leading: const Icon(Icons.graphic_eq_rounded),
-          onTap: () {
-            final idx = _qualities.indexOf(settings.wifiQuality);
-            final next = _qualities[(idx + 1) % _qualities.length];
-            settings.setWifiQuality(next);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('WiFi 音质：${_label(next)}'),
-                duration: const Duration(seconds: 1),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _CacheSection extends StatefulWidget {
-  const _CacheSection();
-
-  @override
-  State<_CacheSection> createState() => _CacheSectionState();
-}
-
-class _CacheSectionState extends State<_CacheSection> {
-  String _sizeText = '...';
+class _WatchSettingsScreenState extends State<WatchSettingsScreen> {
+  String _cache = '正在读取…';
+  bool _clearing = false;
+  int _revision = 0;
 
   @override
   void initState() {
     super.initState();
-    _refreshSize();
+    _readCache();
   }
 
-  Future<void> _refreshSize() async {
-    final size = await AudioCacheService.instance.getCacheSizeFormatted();
-    if (mounted) setState(() => _sizeText = size);
+  Future<void> _readCache() async {
+    final revision = ++_revision;
+    try {
+      final value = await AudioCacheService.instance.getCacheSizeFormatted();
+      if (mounted && revision == _revision) setState(() => _cache = value);
+    } catch (_) {
+      if (mounted && revision == _revision) setState(() => _cache = '大小未知');
+    }
+  }
+
+  Future<void> _clear() async {
+    if (_clearing) return;
+    final ok = await _confirm(context, '清除音频缓存？', '缓存的音频将从手表移除。');
+    if (!mounted || !ok || ModalRoute.of(context)?.isCurrent != true) return;
+    setState(() => _clearing = true);
+    try {
+      await AudioCacheService.instance.clearCache();
+      if (mounted) await _readCache();
+    } catch (_) {
+      if (mounted) setState(() => _cache = '清除失败，请重试');
+    } finally {
+      if (mounted) setState(() => _clearing = false);
+    }
+  }
+
+  void _open(Widget screen) {
+    if (ModalRoute.of(context)?.isCurrent != true) return;
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(builder: (_) => screen),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return RoundListTile(
-      title: '清除音频缓存',
-      subtitle: '当前缓存: $_sizeText',
-      leading: Icon(Icons.cleaning_services_rounded,
-          color: theme.colorScheme.primary, size: 20),
-      onTap: () async {
-        final messenger = ScaffoldMessenger.of(context);
-        await AudioCacheService.instance.clearCache();
-        _refreshSize();
-        if (!mounted) return;
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('缓存已清除'),
-            duration: Duration(seconds: 1),
+    final auth = context.watch<AuthProvider>();
+    final user = auth.user;
+    final quality = context.watch<AudioSettingsProvider>().wifiQuality;
+    final avatar = user?.avatarUrl;
+    return WatchFlowPage(
+      title: '设置',
+      children: [
+        if (auth.isLoggedIn && user != null) ...[
+          RoundListTile(
+            title: user.nickname?.isNotEmpty == true ? user.nickname! : '酷狗账号',
+            subtitle: user.isVipActive ? 'VIP 会员' : '已登录',
+            leading: avatar == null || avatar.isEmpty
+                ? const Icon(Icons.account_circle_outlined)
+                : ClipOval(
+                    child: CachedNetworkImage(
+                      imageUrl: avatar,
+                      width: 28,
+                      height: 28,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) =>
+                          const Icon(Icons.person_outline_rounded),
+                    ),
+                  ),
           ),
-        );
-      },
+          RoundListTile(
+            title: '退出登录',
+            leading: const Icon(Icons.logout_rounded),
+            onTap: () => confirmWatchLogout(context),
+          ),
+        ] else
+          RoundListTile(
+            title: '登录账号',
+            leading: const Icon(Icons.account_circle_outlined),
+            onTap: () => _open(const WatchLoginScreen()),
+          ),
+        RoundListTile(
+          title: 'Wi-Fi 音质',
+          subtitle: Quality.label(quality),
+          leading: const Icon(Icons.graphic_eq_rounded),
+          onTap: () => _open(const WatchWifiQualityScreen()),
+        ),
+        RoundListTile(
+          title: '音频输出',
+          leading: const Icon(Icons.headphones_rounded),
+          onTap: () => _open(const WatchAudioOutputScreen()),
+        ),
+        RoundListTile(
+          title: '清除音频缓存',
+          subtitle: _clearing ? '正在清除…' : _cache,
+          leading: const Icon(Icons.cleaning_services_outlined),
+          onTap: _clearing ? null : _clear,
+        ),
+        RoundListTile(
+          title: '导出日志',
+          leading: const Icon(Icons.description_outlined),
+          onTap: () => _open(const WatchLogExportScreen()),
+        ),
+      ],
     );
   }
 }
 
-class _AboutSection extends StatelessWidget {
-  const _AboutSection();
+Future<bool> _confirm(BuildContext context, String title, String reason) async {
+  if (ModalRoute.of(context)?.isCurrent != true) return false;
+  return await showDialog<bool>(
+        context: context,
+        useSafeArea: false,
+        animationStyle: AnimationStyle.noAnimation,
+        builder: (ctx) => WatchFlowPage(
+          title: title,
+          center: true,
+          children: [
+            Text(reason, textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              children: [
+                IconButton.filledTonal(
+                  tooltip: '取消',
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size.square(48),
+                  ),
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: () => Navigator.pop(ctx, false),
+                ),
+                IconButton.filled(
+                  tooltip: '确认',
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size.square(48),
+                  ),
+                  icon: const Icon(Icons.check_rounded),
+                  onPressed: () => Navigator.pop(ctx, true),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ) ??
+      false;
+}
+
+Future<void> confirmWatchLogout(BuildContext context) async {
+  final ok = await _confirm(context, '退出登录？', '下次收藏歌曲时需要重新登录。');
+  if (ok && context.mounted && ModalRoute.of(context)?.isCurrent == true) {
+    context.read<AuthProvider>().logout();
+  }
+}
+
+class WatchWifiQualityScreen extends StatelessWidget {
+  const WatchWifiQualityScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    final settings = context.watch<AudioSettingsProvider>();
+    return WatchFlowPage(
+      title: 'Wi-Fi 音质',
       children: [
-        RoundListTile(
-          title: '导出日志',
-          subtitle: '导出完整日志用于反馈问题',
-          leading: const Icon(Icons.bug_report_outlined),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const WatchLogExportScreen(),
-              ),
-            );
-          },
-        ),
-        const RoundListTile(
-          title: 'NGS-KG+ Watch',
-          subtitle: 'v1.5.3-preview-watch-hotfix1 · Wear OS',
-          leading: Icon(Icons.info_outline_rounded),
-        ),
+        for (final level in Quality.levels)
+          RoundListTile(
+            title: Quality.label(level),
+            selected: level == settings.wifiQuality,
+            trailing: level == settings.wifiQuality
+                ? const Icon(Icons.check_rounded)
+                : null,
+            onTap: () async {
+              if (ModalRoute.of(context)?.isCurrent != true) return;
+              Navigator.pop(context);
+              await settings.setWifiQuality(level);
+            },
+          ),
       ],
     );
   }

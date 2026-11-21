@@ -1,28 +1,17 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
-//
-// 首次启动引导 — 第 1 页：欢迎 + 旋转表冠；第 2 页：核心手势教学
-
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../utils/watch_layout.dart';
 import '../utils/watch_motion.dart';
+import 'login_screen.dart';
 
-/// 首次启动引导（两页，左右滑动/点击切换）。
-///
-/// 完成后写入 `watch_onboarding_done = true`，之后不再出现。
 class WatchOnboardingScreen extends StatefulWidget {
-  final VoidCallback onDone;
-
   const WatchOnboardingScreen({super.key, required this.onDone});
-
-  /// SharedPreferences 键。
+  final VoidCallback onDone;
   static const String kDoneKey = 'watch_onboarding_done';
 
-  /// 读取是否已完成引导。
   static Future<bool> isDone() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -32,315 +21,123 @@ class WatchOnboardingScreen extends StatefulWidget {
     }
   }
 
-  Future<void> _finish() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(kDoneKey, true);
-    } catch (_) {}
-    onDone();
-  }
-
   @override
   State<WatchOnboardingScreen> createState() => _WatchOnboardingScreenState();
 }
 
 class _WatchOnboardingScreenState extends State<WatchOnboardingScreen> {
-  final _pageController = PageController();
+  final _pages = PageController();
   int _page = 0;
+  bool _finishing = false;
+
+  Future<void> _finish() async {
+    if (_finishing) return;
+    setState(() => _finishing = true);
+    WatchMotion.confirm();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(WatchOnboardingScreen.kDoneKey, true);
+    } catch (_) {
+      // 偏好设置不可用时仍允许进入主页。
+    }
+    if (mounted) widget.onDone();
+  }
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _pages.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final layout = WatchLayout.of(context);
-    final cs = Theme.of(context).colorScheme;
-
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Column(
-        children: [
-          // 页面内容（占满剩余空间）
-          Expanded(
-            child: PageView(
-              controller: _pageController,
-              onPageChanged: (i) => setState(() => _page = i),
-              children: [
-                _CrownPage(layout: layout),
-                _GesturePage(layout: layout),
-              ],
-            ),
-          ),
-          // 底部固定区：页指示 + 操作按钮（不被圆边裁切）
-          Padding(
-            padding: EdgeInsets.only(
-              bottom: layout.bottomInset * 0.5 + 6,
-              top: 4,
-            ),
+    return PageView.builder(
+      controller: _pages,
+      itemCount: 2,
+      onPageChanged: (index) => setState(() => _page = index),
+      itemBuilder: (context, index) {
+        final crown = index == 0;
+        final colors = Theme.of(context).colorScheme;
+        return WatchFlowPage(
+          title: crown ? '转动表冠' : '滑动和轻点',
+          center: true,
+          active: _page == index,
+          swipeBack: false,
+          symbol: Semantics(
+            label: '第 ${index + 1} 页，共 2 页',
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 页指示：双圆点
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(2, (i) {
-                    final active = i == _page;
-                    return AnimatedContainer(
-                      duration: WatchMotion.durShort4,
-                      curve: WatchMotion.curveEmphasized,
-                      width: active ? 14 : 5,
-                      height: 5,
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      decoration: BoxDecoration(
-                        color: active
-                            ? cs.primary
-                            : cs.onSurface.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    );
-                  }),
-                ),
-                const SizedBox(height: 8),
-                // 操作按钮：第 1 页「下一步」，第 2 页「开始使用」
-                Center(
-                  child: FilledButton(
-                    onPressed: () {
-                      WatchMotion.confirm();
-                      if (_page == 0) {
-                        _pageController.nextPage(
-                          duration: WatchMotion.durMedium2,
-                          curve: WatchMotion.curveStandard,
-                        );
-                      } else {
-                        widget._finish();
-                      }
-                    },
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(96, 40),
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                    ),
-                    child: Text(_page == 0 ? '下一步' : '开始使用'),
+                Container(
+                  width: crown ? 52 : 96,
+                  height: crown ? 52 : 38,
+                  decoration: BoxDecoration(
+                    color: colors.primaryContainer,
+                    borderRadius: BorderRadius.circular(40),
+                  ),
+                  child: Icon(
+                    crown ? Icons.gesture_rounded : Icons.swipe_rounded,
+                    size: 29,
+                    color: colors.onPrimaryContainer,
                   ),
                 ),
+                if (crown)
+                  CustomPaint(
+                    size: const Size(16, 7),
+                    painter: _HintPointer(colors.primaryContainer),
+                  ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 第 1 页：欢迎 + 旋转表冠功能介绍（旋转动画示意）。
-class _CrownPage extends StatefulWidget {
-  final WatchLayout layout;
-  const _CrownPage({required this.layout});
-
-  @override
-  State<_CrownPage> createState() => _CrownPageState();
-}
-
-class _CrownPageState extends State<_CrownPage>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _crown = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1600),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _crown.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = widget.layout;
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final ringSize = layout.diameter * 0.30;
-
-    // 可滚动兜底：小屏（192dp）内容超高时不溢出
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          physics: const ClampingScrollPhysics(),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Padding(
-              padding:
-                  EdgeInsets.symmetric(horizontal: layout.contentHorizontal),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(height: layout.topInset * 0.5),
-                  Text(
-                    'NGS-KG+ Watch',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: cs.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text('转动表冠', style: theme.textTheme.bodySmall),
-                  SizedBox(height: layout.diameter * 0.06),
-                  // 表冠动画：外圈滚动刻度
-                  AnimatedBuilder(
-                    animation: _crown,
-                    builder: (context, _) {
-                      return SizedBox(
-                        width: ringSize,
-                        height: ringSize,
-                        child: CustomPaint(
-                          painter: _CrownPainter(
-                            phase: _crown.value,
-                            color: cs.primary,
-                            track: cs.surfaceContainerHighest,
-                          ),
-                          child: Center(
-                            child: Icon(
-                              Icons.watch_rounded,
-                              size: ringSize * 0.34,
-                              color: cs.onSurface.withValues(alpha: 0.85),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  SizedBox(height: layout.diameter * 0.06),
-                  Text(
-                    '首页翻页，歌单里滚动\n播放时调音量',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurface.withValues(alpha: 0.7),
-                      height: 1.5,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  // 底部避让「下一步」按钮
-                  SizedBox(height: layout.diameter * 0.06),
-                ],
-              ),
+          children: [
+            Text(
+              crown ? '转动表冠浏览列表，在播放页调节音量。' : '首页左右滑动翻页，向上快滑打开快捷面板。双击播放页可暂停或继续。',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
-          ),
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: _finishing
+                  ? null
+                  : () {
+                      if (_page != index) return;
+                      if (crown) {
+                        WatchMotion.tap();
+                        if (MediaQuery.disableAnimationsOf(context)) {
+                          _pages.jumpToPage(1);
+                        } else {
+                          _pages.nextPage(
+                            duration: WatchMotion.durMedium2,
+                            curve: WatchMotion.curveStandard,
+                          );
+                        }
+                      } else {
+                        _finish();
+                      }
+                    },
+              child: Text(crown ? '下一步' : '开始使用'),
+            ),
+          ],
         );
       },
     );
   }
 }
 
-class _CrownPainter extends CustomPainter {
-  final double phase;
+class _HintPointer extends CustomPainter {
+  const _HintPointer(this.color);
   final Color color;
-  final Color track;
-
-  const _CrownPainter(
-      {required this.phase, required this.color, required this.track});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = size.shortestSide / 2 - 3;
-
-    final trackPaint = Paint()
-      ..color = track
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-    canvas.drawCircle(center, radius, trackPaint);
-
-    // 旋转的高亮弧段，示意表冠旋转
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-    final start = phase * math.pi * 2 - math.pi / 2;
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), start,
-        math.pi * 0.6, false, paint);
+    final triangle = Path()
+      ..moveTo(0, -2)
+      ..lineTo(size.width, -2)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(triangle, Paint()..color = color);
   }
 
   @override
-  bool shouldRepaint(_CrownPainter old) => old.phase != phase;
-}
-
-/// 第 2 页：核心手势教学。
-class _GesturePage extends StatelessWidget {
-  final WatchLayout layout;
-  const _GesturePage({required this.layout});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-
-    final gestures = [
-      (Icons.swipe_rounded, '左右滑', '在首页切换栏目'),
-      (Icons.swipe_up_rounded, '向上快滑', '在首页打开快捷面板'),
-      (Icons.touch_app_rounded, '双击播放页', '播放或暂停'),
-    ];
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: layout.contentHorizontal),
-      child: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        child: Column(
-          children: [
-            SizedBox(height: layout.topInset * 0.5),
-            Text(
-              '核心手势',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: cs.primary,
-              ),
-            ),
-            SizedBox(height: 8 * layout.scale),
-            for (final (icon, title, desc) in gestures)
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: 3 * layout.scale),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 30 * layout.scale,
-                      height: 30 * layout.scale,
-                      decoration: BoxDecoration(
-                        color: cs.surfaceContainerHigh,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(icon,
-                          size: 15 * layout.scale, color: cs.primary),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                          Text(
-                            desc,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: cs.onSurface.withValues(alpha: 0.6),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            // 底部避让「开始使用」按钮
-            SizedBox(height: layout.diameter * 0.04),
-          ],
-        ),
-      ),
-    );
-  }
+  bool shouldRepaint(_HintPointer previous) => color != previous.color;
 }

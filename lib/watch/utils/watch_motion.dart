@@ -3,6 +3,19 @@
 
 import 'package:flutter/animation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/physics.dart';
+
+class _WatchSpringCurve extends Curve {
+  const _WatchSpringCurve();
+  static final _spring = SpringSimulation(
+    SpringDescription.withDampingRatio(mass: 1, stiffness: 380, ratio: .8),
+    0,
+    1,
+    0,
+  );
+  @override
+  double transformInternal(double t) => _spring.x(t * .45).clamp(0.0, 1.0);
+}
 
 class WatchMotion {
   WatchMotion._();
@@ -15,10 +28,10 @@ class WatchMotion {
   static const Duration durMedium4 = Duration(milliseconds: 400);
   static const Duration durLong1 = Duration(milliseconds: 450);
 
-  static const Curve curveStandard = Curves.easeInOutCubic;
-  static const Curve curveEmphasized = Curves.easeOutBack;
-  static const Curve curveDecelerate = Curves.easeOutCubic;
-  static const Curve curveAccelerate = Curves.easeInCubic;
+  static const Curve curveStandard = _WatchSpringCurve();
+  static const Curve curveEmphasized = curveStandard;
+  static const Curve curveDecelerate = curveStandard;
+  static const Curve curveAccelerate = curveStandard;
 
   static void tap() => HapticFeedback.selectionClick();
   static void confirm() => HapticFeedback.lightImpact();

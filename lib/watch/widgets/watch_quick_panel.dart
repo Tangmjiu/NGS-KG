@@ -1,267 +1,292 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
-//
-// 底部快捷面板 — 底缘上滑调出的半圆形高频操作区
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:wearable_rotary/wearable_rotary.dart';
 
-import '../../providers/auth_provider.dart';
+import '../../models/song.dart';
 import '../../providers/liked_songs_provider.dart';
 import '../../providers/player_provider.dart';
-import '../../utils/login_required_dialog.dart';
-import '../screens/login_screen.dart';
-import '../utils/watch_layout.dart';
+import '../screens/queue_screen.dart';
 import '../utils/watch_motion.dart';
+import 'watch_album_backdrop.dart';
+import 'watch_like_button.dart';
+import 'watch_player_primitives.dart';
+import 'watch_transport_face.dart';
 
-/// 从屏幕底缘上滑调出的半圆快捷面板。
-///
-/// 高频操作：上一首 / 播放暂停 / 下一首 / 收藏 / 播放模式。
-/// 所有操作均可点击完成；点击面板外或下滑关闭。
-class WatchQuickPanel extends StatelessWidget {
+class WatchQuickPanel extends StatefulWidget {
+  const WatchQuickPanel({super.key, required this.onClose});
   final VoidCallback onClose;
 
-  const WatchQuickPanel({super.key, required this.onClose});
-
-  /// 以底部弹出层方式展示。
   static Future<void> show(BuildContext context) {
     WatchMotion.heavy();
-    return showGeneralDialog(
+    return showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
       barrierLabel: '关闭快捷面板',
-      barrierColor: Colors.black.withValues(alpha: 0.72),
-      transitionDuration: WatchMotion.durMedium2,
-      pageBuilder: (context, _, __) =>
+      barrierColor: Colors.black,
+      transitionDuration: Duration.zero,
+      pageBuilder: (context, _, _) =>
           WatchQuickPanel(onClose: () => Navigator.of(context).pop()),
-      transitionBuilder: (context, anim, _, child) {
-        final curved = CurvedAnimation(
-          parent: anim,
-          curve: WatchMotion.curveDecelerate,
-        );
-        return SlideTransition(
-          position: Tween(begin: const Offset(0, 1), end: Offset.zero)
-              .animate(curved),
-          child: child,
-        );
-      },
     );
   }
 
   @override
-  Widget build(BuildContext context) {
-    final layout = WatchLayout.of(context);
-    final d = layout.diameter;
-    final cs = Theme.of(context).colorScheme;
-
-    return GestureDetector(
-      onTap: onClose,
-      onVerticalDragUpdate: (d) {
-        if (d.delta.dy > 8) onClose();
-      },
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Align(
-          alignment: Alignment.bottomCenter,
-          child: GestureDetector(
-            onTap: () {}, // 拦截：点击面板本身不关闭
-            child: Container(
-              // 圆屏底部是窄弦，宽度收窄；方屏全宽
-              width: layout.isRound ? d * 0.88 : double.infinity,
-              // 半圆形观感：高度约为宽的一半，顶部大圆角
-              height: d * 0.56,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(d * 0.48),
-                ),
-                border: Border(
-                  top: BorderSide(
-                    color: cs.outlineVariant.withValues(alpha: 0.5),
-                  ),
-                ),
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 8),
-                  // 抓手
-                  Container(
-                    width: 32,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: cs.onSurface.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const Spacer(),
-                  Consumer<PlayerProvider>(
-                    builder: (context, player, _) {
-                      // 5 个按钮在小屏上放不下时整体缩小（FittedBox 兜底）
-                      return FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _PanelAction(
-                              icon: Icons.skip_previous_rounded,
-                              label: '上一首',
-                              onTap: player.playPrevious,
-                            ),
-                            _PanelAction(
-                              icon: player.isPlaying
-                                  ? Icons.pause_rounded
-                                  : Icons.play_arrow_rounded,
-                              label: player.isPlaying ? '暂停' : '播放',
-                              primary: true,
-                              onTap: () {
-                                WatchMotion.confirm();
-                                player.togglePlayPause();
-                              },
-                            ),
-                            _PanelAction(
-                              icon: Icons.skip_next_rounded,
-                              label: '下一首',
-                              onTap: player.playNext,
-                            ),
-                            _LikeAction(),
-                            _PanelAction(
-                              icon: switch (player.playMode) {
-                                PlayMode.shuffle => Icons.shuffle_rounded,
-                                PlayMode.repeatOne => Icons.repeat_one_rounded,
-                                _ => Icons.repeat_rounded,
-                              },
-                              label: '模式',
-                              onTap: () {
-                                const modes = [
-                                  PlayMode.sequential,
-                                  PlayMode.shuffle,
-                                  PlayMode.repeatOne,
-                                ];
-                                final next = modes[
-                                    (modes.indexOf(player.playMode) + 1) %
-                                        modes.length];
-                                player.setPlayMode(next);
-                              },
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  SizedBox(height: layout.bottomInset * 0.4),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  State<WatchQuickPanel> createState() => _WatchQuickPanelState();
 }
 
-class _PanelAction extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool primary;
-
-  const _PanelAction({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.primary = false,
-  });
+class _WatchQuickPanelState extends State<WatchQuickPanel> {
+  final ScrollController _scroll = RotaryScrollController();
+  double? _dismissStart;
 
   @override
-  Widget build(BuildContext context) {
-    final layout = WatchLayout.of(context);
-    final cs = Theme.of(context).colorScheme;
-    final size = layout.touchTarget;
-
-    return Semantics(
-      button: true,
-      label: label,
-      child: Material(
-        color: primary ? cs.primary : cs.surfaceContainerHighest,
-        shape: const CircleBorder(),
-        child: InkWell(
-          onTap: () {
-            WatchMotion.tap();
-            onTap();
-          },
-          customBorder: const CircleBorder(),
-          child: SizedBox(
-            width: size,
-            height: size,
-            child: Icon(
-              icon,
-              size: size * 0.46,
-              color: primary ? cs.onPrimary : cs.onSurface,
-            ),
-          ),
-        ),
-      ),
-    );
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
   }
-}
 
-/// 面板内的收藏按钮（复用登录门控逻辑，面板内联实现避免路由冲突）。
-class _LikeAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final layout = WatchLayout.of(context);
-    final cs = Theme.of(context).colorScheme;
-    final size = layout.touchTarget;
-
-    return Consumer2<PlayerProvider, LikedSongsProvider>(
-      builder: (context, player, likedSongs, _) {
-        final song = player.currentSong;
-        final isLiked = song != null && likedSongs.likedIds.contains(song.id);
-        return Semantics(
-          button: true,
-          label: isLiked ? '取消收藏' : '收藏',
-          child: Material(
-            color: cs.surfaceContainerHighest,
-            shape: const CircleBorder(),
-            child: InkWell(
-              onTap: () async {
-                if (song == null) return;
-                final auth = context.read<AuthProvider>();
-                if (!auth.isLoggedIn) {
-                  final goLogin = await showLoginRequiredDialog(context);
-                  if (goLogin && context.mounted) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (_) => const WatchLoginScreen()),
-                    );
+    final player = context.watch<PlayerProvider>();
+    final song = player.currentSong;
+    final tone = player.palette?.dominant ?? const Color(0xff91839f);
+    final mode = player.playMode;
+    final modeLabel = switch (mode) {
+      PlayMode.shuffle => '随机播放',
+      PlayMode.repeatOne => '单曲循环',
+      PlayMode.radio => '电台播放',
+      _ => '顺序播放',
+    };
+    final next = _upNext(player);
+    return Material(
+      color: Colors.black,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          WatchPlaybackBackdrop(art: song?.albumCoverUrl, tone: tone),
+          GestureDetector(
+            onTap: widget.onClose,
+            behavior: HitTestBehavior.opaque,
+          ),
+          WatchPlayerInsets(
+            child: WatchSpringReveal(
+              child: Listener(
+                onPointerDown: (event) {
+                  _dismissStart = _scroll.hasClients && _scroll.offset <= 0
+                      ? event.position.dy
+                      : null;
+                },
+                onPointerCancel: (_) => _dismissStart = null,
+                onPointerUp: (event) {
+                  final start = _dismissStart;
+                  _dismissStart = null;
+                  if (start != null &&
+                      event.position.dy - start > 44 &&
+                      ModalRoute.of(context)?.isCurrent == true) {
+                    widget.onClose();
                   }
-                  return;
-                }
-                await likedSongs.toggle(SongInfo(
-                  id: song.id,
-                  name: song.name,
-                  hash: song.hash ?? '',
-                  albumId: song.albumId,
-                  audioId: 0,
-                ));
-                WatchMotion.confirm();
-              },
-              customBorder: const CircleBorder(),
-              child: SizedBox(
-                width: size,
-                height: size,
-                child: Icon(
-                  isLiked
-                      ? Icons.favorite_rounded
-                      : Icons.favorite_outline_rounded,
-                  size: size * 0.42,
-                  color: isLiked ? cs.error : cs.onSurface,
+                },
+                child: ListView(
+                  controller: _scroll,
+                  padding: EdgeInsets.zero,
+                  children: [
+                    Text(
+                      song?.name ?? '暂无播放',
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                    if (song != null)
+                      Text(
+                        song.artistDisplay,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      alignment: WrapAlignment.spaceEvenly,
+                      children: [
+                        if (!player.isFmMode)
+                          _button(
+                            switch (mode) {
+                              PlayMode.shuffle => Icons.shuffle_rounded,
+                              PlayMode.repeatOne => Icons.repeat_one_rounded,
+                              _ => Icons.repeat_rounded,
+                            },
+                            '播放模式：$modeLabel',
+                            song == null
+                                ? null
+                                : () => player.setPlayMode(switch (mode) {
+                                    PlayMode.sequential => PlayMode.shuffle,
+                                    PlayMode.shuffle => PlayMode.repeatOne,
+                                    _ => PlayMode.sequential,
+                                  }),
+                          ),
+                        if (song != null)
+                          Selector<LikedSongsProvider, bool>(
+                            selector: (_, likes) =>
+                                likes.likedIds.contains(song.id),
+                            builder: (_, liked, child) => Tooltip(
+                              message: liked ? '取消收藏' : '收藏',
+                              child: child!,
+                            ),
+                            child: SizedBox.square(
+                              dimension: 48,
+                              child: WatchLikeButton(song: song, size: 23),
+                            ),
+                          ),
+                        _button(
+                          player.isPlaying
+                              ? Icons.pause_circle_outline_rounded
+                              : Icons.play_circle_outline_rounded,
+                          player.isPlaying ? '暂停' : '播放',
+                          song == null ? null : player.togglePlayPause,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Material(
+                      color: Colors.transparent,
+                      shape: const StadiumBorder(),
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: WatchAlbumBackdrop(
+                              art: next?.albumCoverUrl,
+                              tone: tone,
+                            ),
+                          ),
+                          Positioned.fill(
+                            child: ColoredBox(
+                              color: Colors.black.withValues(alpha: .32),
+                            ),
+                          ),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const WatchQueueScreen(),
+                                ),
+                              ),
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  minHeight: 48,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 6,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              next == null ? '播放队列' : '下一首',
+                                              style: const TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 10,
+                                              ),
+                                            ),
+                                            Text(
+                                              next?.name ??
+                                                  '${player.playlist.length} 首歌曲',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const Icon(
+                                        Icons.chevron_right_rounded,
+                                        color: Colors.white70,
+                                        size: 16,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Wrap(
+                      alignment: WrapAlignment.spaceEvenly,
+                      children: [
+                        _button(
+                          player.isFmMode
+                              ? Icons.thumb_down_outlined
+                              : Icons.skip_previous_rounded,
+                          player.isFmMode ? '不喜欢，跳过' : '上一首',
+                          song == null ? null : player.playPrevious,
+                        ),
+                        _button(Icons.close_rounded, '关闭快捷面板', widget.onClose),
+                        _button(
+                          Icons.skip_next_rounded,
+                          '下一首',
+                          song == null ? null : player.playNext,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-        );
-      },
+        ],
+      ),
+    );
+  }
+
+  // Shuffle order and the next batch of FM recommendations are private to the
+  // playback engine. Show the actual queue instead of guessing the next track.
+  Song? _upNext(PlayerProvider player) {
+    final queue = player.playlist;
+    if (queue.isEmpty || player.playMode == PlayMode.shuffle) return null;
+    if (player.playMode == PlayMode.repeatOne) return player.currentSong;
+    final index = player.currentIndex + 1;
+    if (index >= 0 && index < queue.length) return queue[index];
+    return player.playlistEndProvider == null ? queue.first : null;
+  }
+
+  Widget _button(IconData icon, String label, VoidCallback? action) {
+    return SizedBox.square(
+      dimension: 48,
+      child: IconButton(
+        tooltip: label,
+        padding: EdgeInsets.zero,
+        icon: Icon(icon, size: 24),
+        color: Colors.white,
+        onPressed: action == null
+            ? null
+            : () {
+                WatchMotion.tap();
+                action();
+              },
+      ),
     );
   }
 }

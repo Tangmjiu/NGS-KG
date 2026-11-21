@@ -6,8 +6,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart' show SpringSimulation;
 
 import '../utils/watch_layout.dart';
+import 'watch_player_primitives.dart';
 
 /// 手表屏幕骨架（Wear M3 风格）。
 ///
@@ -38,7 +40,7 @@ class WatchScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final layout = WatchLayout.of(context);
-    Widget content = body;
+    Widget content = showTime ? WatchPlayerInsets(child: body) : body;
 
     if (swipeBack) content = _SwipeBackWrapper(child: content);
 
@@ -47,7 +49,7 @@ class WatchScaffold extends StatelessWidget {
       body: Stack(
         children: [
           Padding(
-            padding: EdgeInsets.only(top: showTime ? layout.topInset : 0),
+            padding: EdgeInsets.only(top: showTime && !layout.isRound ? 12 : 0),
             child: content,
           ),
           if (showTime)
@@ -89,8 +91,10 @@ class _WatchTimeTextState extends State<WatchTimeText> {
   void _scheduleTick() {
     // 对齐到下一分钟边界，减少漂移
     final now = DateTime.now();
-    final delay =
-        Duration(seconds: 60 - now.second, milliseconds: -now.millisecond);
+    final delay = Duration(
+      seconds: 60 - now.second,
+      milliseconds: -now.millisecond,
+    );
     _timer = Timer(delay, () {
       if (!mounted) return;
       setState(() => _now = DateTime.now());
@@ -135,6 +139,7 @@ class _SwipeBackWrapperState extends State<_SwipeBackWrapper>
     with TickerProviderStateMixin {
   double _drag = 0;
   AnimationController? _resetController;
+  bool _edge = false;
 
   @override
   void dispose() {
@@ -144,35 +149,38 @@ class _SwipeBackWrapperState extends State<_SwipeBackWrapper>
 
   void _animateBack() {
     _resetController?.dispose();
-    _resetController = AnimationController(
+    _resetController = null;
+    if (_drag == 0 || MediaQuery.disableAnimationsOf(context)) {
+      setState(() => _drag = 0);
+      return;
+    }
+    final controller = _resetController = AnimationController.unbounded(
       vsync: this,
-      duration: const Duration(milliseconds: 180),
     );
-    _resetController!.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _resetController!.dispose();
-        _resetController = null;
+    controller.addListener(() {
+      if (mounted) {
+        setState(() => _drag = controller.value.clamp(0.0, double.infinity));
       }
     });
-    final animation = Tween(begin: _drag, end: 0.0).animate(
-      CurvedAnimation(parent: _resetController!, curve: Curves.easeOutCubic),
-    );
-    animation.addListener(() {
-      if (mounted) setState(() => _drag = animation.value);
-    });
-    _resetController!.forward();
+    controller.animateWith(SpringSimulation(watchPlayerSpring, _drag, 0, 0));
   }
 
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     return GestureDetector(
+      onHorizontalDragDown: (d) {
+        _edge = d.globalPosition.dx <= width * .16;
+        if (_edge) _resetController?.stop();
+      },
       onHorizontalDragUpdate: (details) {
+        if (!_edge) return;
         // 只响应向右（返回方向）的拖动
         final next = _drag + details.delta.dx;
         if (next > 0) setState(() => _drag = next);
       },
       onHorizontalDragEnd: (details) {
+        if (!_edge) return;
         final velocity = details.primaryVelocity ?? 0;
         if (_drag > width * 0.35 || velocity > 700) {
           Navigator.of(context).maybePop();
@@ -227,10 +235,9 @@ class _EdgeScrollIndicator extends StatelessWidget {
                     width: 3,
                     height: thumbHeight,
                     decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.35),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(1.5),
                     ),
                   ),

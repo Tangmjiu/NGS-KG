@@ -1,162 +1,194 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
-//
-// 手表歌单列表 + 歌单歌曲页（全屏页取代 BottomSheet，符合 Wear 规范）
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/playlist.dart';
+import '../../models/song.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/liked_songs_provider.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/playlist_provider.dart';
-import '../utils/watch_layout.dart';
-import '../widgets/round_list_tile.dart';
 import '../widgets/watch_scaffold.dart';
 import '../widgets/watch_scroll_list.dart';
 import '../widgets/watch_song_tile.dart';
+import 'login_screen.dart';
 
-/// 手表端歌单列表（外壳 PageView 第 2 页）。
 class WatchPlaylistListScreen extends StatefulWidget {
   const WatchPlaylistListScreen({super.key});
-
   @override
   State<WatchPlaylistListScreen> createState() =>
       _WatchPlaylistListScreenState();
 }
 
 class _WatchPlaylistListScreenState extends State<WatchPlaylistListScreen> {
+  int? _userId;
+
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final auth = Provider.of<AuthProvider>(context);
+    final next = auth.isLoggedIn ? auth.user?.userId : null;
+    if (next == _userId) return;
+    _userId = next;
+    if (next != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _userId == next) _load();
+      });
+    }
   }
 
-  Future<void> _loadData() async {
-    if (!mounted) return;
-    final auth = context.read<AuthProvider>();
-    if (auth.isLoggedIn && auth.user?.userId != null) {
-      await Future.wait([
-        context.read<PlaylistProvider>().fetchUserPlaylist(auth.user!.userId),
-        context.read<LikedSongsProvider>().load(),
-      ]);
-    }
+  Future<void> _load() async {
+    final user = _userId;
+    if (user == null) return;
+    await Future.wait([
+      context.read<PlaylistProvider>().fetchUserPlaylist(user),
+      context.read<LikedSongsProvider>().load(),
+    ]);
   }
 
   @override
   Widget build(BuildContext context) {
-    final layout = WatchLayout.of(context);
     final auth = context.watch<AuthProvider>();
-    final playlists = context.watch<PlaylistProvider>().userPlaylists;
-
-    if (!auth.isLoggedIn) {
-      return Padding(
-        padding: EdgeInsets.only(top: layout.topInset),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.queue_music_rounded,
-                size: 36,
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.3),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '登录后查看歌单',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.5),
-                    ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: EdgeInsets.only(top: layout.topInset),
-      child: RefreshIndicator(
-        onRefresh: _loadData,
-        child: playlists.isEmpty
-            ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  const SizedBox(height: 60),
-                  Center(
-                    child: Text(
-                      '暂无歌单',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.5),
-                          ),
-                    ),
-                  ),
-                ],
-              )
-            : WatchScrollList(
-                itemCount: playlists.length + 1,
-                itemExtent: 54,
-                topPadding: 4,
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          '我的歌单',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w600),
+    final provider = context.watch<PlaylistProvider>();
+    final playlists = provider.userPlaylists;
+    return WatchScaffold(
+      body: Column(
+        children: [
+          const WatchCatalogTitle('我的歌单'),
+          Expanded(
+            child: !auth.isLoggedIn
+                ? WatchCatalogNotice(
+                    '登录后查看歌单',
+                    icon: Icons.library_music_outlined,
+                    action: FilledButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const WatchLoginScreen(),
                         ),
                       ),
-                    );
-                  }
-                  final playlist = playlists[index - 1];
-                  return RoundListTile(
-                    title: playlist.name,
-                    subtitle: '${playlist.trackCount} 首',
-                    leading: const Icon(Icons.queue_music_rounded),
-                    trailing: Icon(
-                      Icons.chevron_right_rounded,
-                      size: 18,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.4),
+                      child: const Text('登录'),
                     ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            WatchPlaylistSongsScreen(playlist: playlist),
-                      ),
-                    ),
-                  );
-                },
-              ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: playlists.isEmpty
+                        ? WatchCatalogNotice(
+                            provider.isLoading ? '正在读取歌单' : '还没有歌单',
+                            icon: Icons.library_music_outlined,
+                            busy: provider.isLoading,
+                          )
+                        : WatchScrollList(
+                            itemCount: playlists.length,
+                            itemExtent: 54,
+                            itemBuilder: (_, index) =>
+                                _PlaylistPill(playlist: playlists[index]),
+                          ),
+                  ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// 歌单歌曲页（推入式全屏页，支持右滑返回 + 表冠滚动）
-class WatchPlaylistSongsScreen extends StatefulWidget {
+class _PlaylistPill extends StatelessWidget {
+  const _PlaylistPill({required this.playlist});
   final Playlist playlist;
 
-  const WatchPlaylistSongsScreen({super.key, required this.playlist});
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cover = playlist.coverUrl;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Material(
+        color: theme.colorScheme.secondaryContainer,
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Align(
+              alignment: const Alignment(.72, 0),
+              child: Icon(
+                Icons.library_music_rounded,
+                color: theme.colorScheme.onSecondaryContainer.withValues(
+                  alpha: .4,
+                ),
+                size: 42,
+              ),
+            ),
+            if (cover?.isNotEmpty == true)
+              CachedNetworkImage(
+                imageUrl: cover!,
+                fit: BoxFit.cover,
+                memCacheWidth: 320,
+                fadeInDuration: Duration.zero,
+                errorWidget: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xDD000000),
+                    Color(0x99000000),
+                    Color(0x45000000),
+                  ],
+                ),
+              ),
+            ),
+            Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        WatchPlaylistSongsScreen(playlist: playlist),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        playlist.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        '${playlist.trackCount} 首',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
+class WatchPlaylistSongsScreen extends StatefulWidget {
+  const WatchPlaylistSongsScreen({super.key, required this.playlist});
+  final Playlist playlist;
   @override
   State<WatchPlaylistSongsScreen> createState() =>
       _WatchPlaylistSongsScreenState();
@@ -164,133 +196,110 @@ class WatchPlaylistSongsScreen extends StatefulWidget {
 
 class _WatchPlaylistSongsScreenState extends State<WatchPlaylistSongsScreen> {
   bool _loading = true;
-  String? _error;
+  List<Song>? _songs;
 
   @override
   void initState() {
     super.initState();
-    // initState 阶段处于父级 build 锁内，setState/notifyListeners 会炸，推迟到首帧后
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _load();
     });
   }
 
   Future<void> _load() async {
-    // 与安卓端一致：优先用 globalCollectionId，否则按 collection_3_{createUserId}_{listid}_0 组装
-    final p = widget.playlist;
-    final gcId = p.globalCollectionId ??
-        (p.createUserId != null
-            ? 'collection_3_${p.createUserId}_${p.id}_0'
-            : p.id.toString());
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    final playlist = widget.playlist;
+    final id =
+        playlist.globalCollectionId ??
+        (playlist.createUserId != null
+            ? 'collection_3_${playlist.createUserId}_${playlist.id}_0'
+            : playlist.id.toString());
+    setState(() => _loading = true);
+    final provider = context.read<PlaylistProvider>();
+    List<Song>? result;
     try {
-      await context.read<PlaylistProvider>().fetchPlaylistDetail(gcId);
-      if (!mounted) return;
-      setState(() => _loading = false);
-    } catch (e) {
-      if (!mounted) return;
+      await provider.fetchPlaylistDetail(id);
+      result = provider.currentPlaylist?.songs;
+    } catch (_) {
+      result = null;
+    }
+    if (mounted) {
       setState(() {
+        _songs = result;
         _loading = false;
-        _error = e.toString();
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final detail = context.watch<PlaylistProvider>().currentPlaylist;
-    final songs = detail?.songs ?? [];
-
+    final current = context.select((PlayerProvider p) => p.currentSong);
+    final songs = _songs;
     return WatchScaffold(
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.playlist.name,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w600),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (songs.isNotEmpty)
-                  Text(
-                    '${songs.length} 首',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.5),
-                        ),
-                  ),
-              ],
-            ),
+          WatchCatalogTitle(
+            widget.playlist.name,
+            caption: songs == null ? null : '${songs.length} 首',
           ),
-          Expanded(child: _buildContent(songs)),
+          Expanded(
+            child: _loading
+                ? const WatchCatalogNotice('正在读取歌曲', busy: true)
+                : songs == null
+                ? WatchCatalogNotice(
+                    '歌单没能加载',
+                    icon: Icons.cloud_off_rounded,
+                    action: TextButton(
+                      onPressed: _load,
+                      child: const Text('重试'),
+                    ),
+                  )
+                : songs.isEmpty
+                ? const WatchCatalogNotice(
+                    '歌单里还没有歌',
+                    icon: Icons.queue_music_rounded,
+                  )
+                : WatchScrollList(
+                    itemCount: songs.length + 1,
+                    itemExtent: 52,
+                    itemBuilder: (context, index) {
+                      final player = context.read<PlayerProvider>();
+                      if (index == 0) {
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton.filledTonal(
+                              tooltip: '随机播放',
+                              icon: const Icon(Icons.shuffle_rounded),
+                              onPressed: () {
+                                final shuffled = List<Song>.of(songs)
+                                  ..shuffle();
+                                player.playSong(
+                                  shuffled.first,
+                                  playlist: shuffled,
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton.filled(
+                              tooltip: '播放全部',
+                              icon: const Icon(Icons.play_arrow_rounded),
+                              onPressed: () =>
+                                  player.playSong(songs.first, playlist: songs),
+                            ),
+                          ],
+                        );
+                      }
+                      final song = songs[index - 1];
+                      return WatchSongTile.fromSong(
+                        song: song,
+                        isPlaying: watchSameSong(current, song),
+                        onTap: () => player.playSong(song, playlist: songs),
+                      );
+                    },
+                  ),
+          ),
         ],
       ),
-    );
-  }
-
-  Widget _buildContent(List songs) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2.5));
-    }
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline_rounded,
-                size: 32, color: Theme.of(context).colorScheme.error),
-            TextButton.icon(
-              onPressed: _load,
-              icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: const Text('重试'),
-            ),
-          ],
-        ),
-      );
-    }
-    if (songs.isEmpty) {
-      return Center(
-        child: Text(
-          '暂无歌曲',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.5),
-              ),
-        ),
-      );
-    }
-    return WatchScrollList(
-      itemCount: songs.length,
-      itemExtent: 52,
-      bottomPadding: 24,
-      itemBuilder: (context, index) {
-        final song = songs[index];
-        return Consumer<PlayerProvider>(
-          builder: (context, player, _) => WatchSongTile.fromSong(
-            song: song,
-            isPlaying: player.currentSong?.id == song.id,
-            onTap: () => context
-                .read<PlayerProvider>()
-                .playSong(song, playlist: songs.cast()),
-          ),
-        );
-      },
     );
   }
 }

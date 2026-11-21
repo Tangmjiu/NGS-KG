@@ -1,7 +1,5 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
-//
-// 收藏按钮 — 统一登录门控、动效与触觉反馈（播放器/FM 共用）
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -9,66 +7,74 @@ import 'package:provider/provider.dart';
 import '../../models/song.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/liked_songs_provider.dart';
+import '../../utils/error_dialog.dart';
 import '../../utils/login_required_dialog.dart';
-import '../screens/login_screen.dart';
 import '../utils/watch_motion.dart';
+import 'watch_player_primitives.dart';
 
-/// 收藏（喜欢）切换按钮。
-///
-/// 内部处理：登录检查 → 收藏切换 → 触觉反馈。未登录时引导去登录页。
-class WatchLikeButton extends StatelessWidget {
+class WatchLikeButton extends StatefulWidget {
+  const WatchLikeButton({super.key, required this.song, this.size = 20});
   final Song song;
   final double size;
 
-  const WatchLikeButton({super.key, required this.song, this.size = 20});
+  @override
+  State<WatchLikeButton> createState() => _WatchLikeButtonState();
+}
+
+class _WatchLikeButtonState extends State<WatchLikeButton> {
+  bool _busy = false;
+
+  Future<void> _toggle() async {
+    if (_busy || ModalRoute.of(context)?.isCurrent != true) return;
+    setState(() => _busy = true);
+    try {
+      if (!context.read<AuthProvider>().isLoggedIn) {
+        await showLoginRequiredDialog(context);
+        return;
+      }
+      final song = widget.song;
+      final ok = await context.read<LikedSongsProvider>().toggle(
+        SongInfo(
+          id: song.id,
+          name: song.name,
+          hash: song.hash ?? '',
+          albumId: song.albumId,
+          audioId: 0,
+        ),
+      );
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      if (ok) {
+        WatchMotion.confirm();
+      } else {
+        showErrorDialog(title: '没能更新收藏', message: '请检查网络后再试。');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Consumer<LikedSongsProvider>(
-      builder: (context, likedSongs, _) {
-        final isLiked = likedSongs.likedIds.contains(song.id);
-        return IconButton(
-          icon: AnimatedSwitcher(
-            duration: WatchMotion.durShort3,
-            transitionBuilder: (child, anim) =>
-                ScaleTransition(scale: anim, child: child),
-            child: Icon(
-              isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
-              key: ValueKey(isLiked),
-              size: size,
-              color: isLiked
-                  ? colorScheme.error
-                  : colorScheme.onSurface.withValues(alpha: 0.6),
-            ),
+    final colors = Theme.of(context).colorScheme;
+    final liked = context.select<LikedSongsProvider, bool>(
+      (songs) => songs.likedIds.contains(widget.song.id),
+    );
+    return Semantics(
+      toggled: liked,
+      child: IconButton(
+        tooltip: liked ? '取消收藏' : '收藏',
+        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+        padding: EdgeInsets.zero,
+        onPressed: _busy ? null : _toggle,
+        icon: WatchSpringReveal(
+          key: ValueKey(liked),
+          child: Icon(
+            liked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+            size: widget.size,
+            color: liked ? colors.error : colors.onSurfaceVariant,
           ),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-          onPressed: () async {
-            final auth = context.read<AuthProvider>();
-            if (!auth.isLoggedIn) {
-              final goLogin = await showLoginRequiredDialog(context);
-              if (goLogin && context.mounted) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const WatchLoginScreen(),
-                  ),
-                );
-              }
-              return;
-            }
-            await likedSongs.toggle(SongInfo(
-              id: song.id,
-              name: song.name,
-              hash: song.hash ?? '',
-              albumId: song.albumId,
-              audioId: 0,
-            ));
-            WatchMotion.confirm();
-          },
-        );
-      },
+        ),
+      ),
     );
   }
 }

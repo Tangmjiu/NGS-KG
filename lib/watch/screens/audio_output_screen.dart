@@ -1,139 +1,122 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
-//
-// 音频输出设备页 — 列出可用输出，实时跟随蓝牙连接变化
 
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../services/audio_route_service.dart';
-import '../utils/watch_layout.dart';
-import '../utils/watch_motion.dart';
 import '../widgets/round_list_tile.dart';
-import '../widgets/watch_scaffold.dart';
+import 'login_screen.dart';
 
-/// 音频输出设备列表。
-///
-/// - 启动时枚举一次，随后跟随原生路由变化事件自动刷新
-/// - 点击设备请求切换；系统不允许程序化切换时自动打开系统面板
-/// - 蓝牙设备电量可用时显示，不可用则隐藏（不臆造数值）
 class WatchAudioOutputScreen extends StatefulWidget {
   const WatchAudioOutputScreen({super.key});
-
   @override
   State<WatchAudioOutputScreen> createState() => _WatchAudioOutputScreenState();
 }
 
-class _WatchAudioOutputScreenState extends State<WatchAudioOutputScreen> {
+class _WatchAudioOutputScreenState extends State<WatchAudioOutputScreen>
+    with WidgetsBindingObserver {
+  final _routes = AudioRouteService.instance;
   List<AudioOutputDevice> _devices = const [];
   bool _loading = true;
-  StreamSubscription<void>? _sub;
+  bool _switching = false;
+  int _revision = 0;
+  late final StreamSubscription<void> _changes;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _changes = _routes.devicesChanged.listen((_) => _refresh());
     _refresh();
-    _sub = AudioRouteService.instance.devicesChanged.listen((_) => _refresh());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refresh();
   }
 
   @override
   void dispose() {
-    _sub?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _changes.cancel();
     super.dispose();
   }
 
   Future<void> _refresh() async {
-    final devices = await AudioRouteService.instance.getDevices();
-    if (!mounted) return;
+    final revision = ++_revision;
+    final devices = await _routes.getDevices();
+    if (!mounted || revision != _revision) return;
     setState(() {
-      _devices = devices;
+      _devices = [
+        for (final device in devices)
+          if (device.isActive) device,
+        for (final device in devices)
+          if (!device.isActive) device,
+      ];
       _loading = false;
     });
   }
 
-  Future<void> _select(AudioOutputDevice device) async {
-    WatchMotion.tap();
-    final ok = await AudioRouteService.instance.setDevice(device.id);
-    if (!ok) {
-      // 系统不允许程序化切换 → 打开系统媒体输出面板
-      await AudioRouteService.instance.openSystemSwitcher();
+  Future<void> _select([AudioOutputDevice? device]) async {
+    if (_switching || ModalRoute.of(context)?.isCurrent != true) return;
+    setState(() => _switching = true);
+    try {
+      final accepted = device != null && await _routes.setDevice(device.id);
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      if (!accepted) await _routes.openSystemSwitcher();
+      if (mounted) await _refresh();
+    } finally {
+      if (mounted) setState(() => _switching = false);
     }
-    // 无论结果如何都刷新：由系统状态作为唯一事实来源
-    await _refresh();
   }
-
-  IconData _iconFor(AudioOutputDevice d) => switch (d.type) {
-        'speaker' => Icons.watch_rounded,
-        'bluetooth' => Icons.bluetooth_rounded,
-        'wired' => Icons.headphones_rounded,
-        _ => Icons.speaker_rounded,
-      };
 
   @override
-  Widget build(BuildContext context) {
-    final layout = WatchLayout.of(context);
-    final cs = Theme.of(context).colorScheme;
-
-    return WatchScaffold(
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-          : ListView(
-              padding: EdgeInsets.fromLTRB(
-                layout.listHorizontal,
-                4,
-                layout.listHorizontal,
-                layout.bottomInset + 16,
-              ),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Center(
-                    child: Text(
-                      '音频输出',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-                if (_devices.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Center(
-                      child: Text(
-                        '未检测到输出设备',
-                        style: TextStyle(
-                          color: cs.onSurface.withValues(alpha: 0.6),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  for (final d in _devices)
-                    RoundListTile(
-                      title: d.name,
-                      subtitle: d.isActive ? '当前输出' : null,
-                      selected: d.isActive,
-                      leading: Icon(_iconFor(d)),
-                      trailing: d.batteryLevel != null
-                          ? Text(
-                              '${d.batteryLevel}%',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: cs.onSurface.withValues(alpha: 0.6),
-                              ),
-                            )
-                          : (d.isActive
-                              ? Icon(Icons.check_rounded,
-                                  size: 16, color: cs.primary)
-                              : null),
-                      onTap: d.isActive ? null : () => _select(d),
-                    ),
-              ],
+  Widget build(BuildContext context) => WatchFlowPage(
+    title: '音频输出',
+    children: [
+      if (_loading)
+        const Center(child: CircularProgressIndicator(semanticsLabel: '正在查找设备'))
+      else ...[
+        if (_devices.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text('没有找到输出设备', textAlign: TextAlign.center),
+          ),
+        for (final device in _devices)
+          Semantics(
+            selected: device.isActive,
+            child: RoundListTile(
+              key: ValueKey(device.id),
+              title: device.name,
+              selected: device.isActive,
+              subtitle: device.isActive ? '当前输出' : null,
+              leading: Icon(switch (device.type) {
+                'speaker' => Icons.watch_outlined,
+                'bluetooth' => Icons.bluetooth_audio_rounded,
+                'wired' => Icons.headphones_rounded,
+                _ => Icons.speaker_outlined,
+              }),
+              trailing:
+                  device.batteryLevel != null &&
+                      device.batteryLevel! >= 0 &&
+                      device.batteryLevel! <= 100
+                  ? Text(
+                      '${device.batteryLevel}%',
+                      semanticsLabel: '电量 ${device.batteryLevel}%',
+                    )
+                  : null,
+              onTap: _switching || device.isActive
+                  ? null
+                  : () => _select(device),
             ),
-    );
-  }
+          ),
+        const SizedBox(height: 6),
+        OutlinedButton(
+          onPressed: _switching ? null : () => _select(),
+          child: const Text('系统输出设置'),
+        ),
+      ],
+    ],
+  );
 }

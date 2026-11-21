@@ -1,28 +1,25 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
-//
-// 手表歌曲列表项 — M3E 胶囊条目，适配固定行高列表
 
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
+import 'package:provider/provider.dart';
 
-import '../../models/song.dart' show Song;
-import '../theme/watch_theme.dart';
+import '../../models/song.dart';
+import '../../providers/player_provider.dart';
 import '../utils/watch_motion.dart';
+import 'watch_player_primitives.dart' show watchPlayerSpring;
 
-/// 歌曲条目。设计高度 ≤ 52，配合 [WatchScrollList] 的 itemExtent 使用。
+bool watchSameSong(Song? current, Song song) {
+  if (current == null) return false;
+  if (current.isLocal || song.isLocal) return current.filePath == song.filePath;
+  if (current.hash?.isNotEmpty == true && song.hash?.isNotEmpty == true) {
+    return current.hash!.toLowerCase() == song.hash!.toLowerCase();
+  }
+  return identical(current, song) || (song.id != 0 && current.id == song.id);
+}
+
 class WatchSongTile extends StatefulWidget {
-  final String title;
-  final String? artist;
-  final String? subtitle;
-  final bool isPlaying;
-  final VoidCallback? onTap;
-
-  /// 前置插槽（序号、图标等）
-  final Widget? leading;
-
-  /// 后置插槽（操作按钮等）
-  final Widget? trailing;
-
   const WatchSongTile({
     super.key,
     required this.title,
@@ -32,7 +29,19 @@ class WatchSongTile extends StatefulWidget {
     this.onTap,
     this.leading,
     this.trailing,
+    this.art,
+    this.rank,
   });
+
+  final String title;
+  final String? artist;
+  final String? subtitle;
+  final bool isPlaying;
+  final VoidCallback? onTap;
+  final Widget? leading;
+  final Widget? trailing;
+  final ImageProvider? art;
+  final int? rank;
 
   factory WatchSongTile.fromSong({
     required Song song,
@@ -40,6 +49,7 @@ class WatchSongTile extends StatefulWidget {
     VoidCallback? onTap,
     Widget? leading,
     Widget? trailing,
+    int? rank,
   }) {
     return WatchSongTile(
       title: song.name,
@@ -49,6 +59,12 @@ class WatchSongTile extends StatefulWidget {
       onTap: onTap,
       leading: leading,
       trailing: trailing,
+      rank: rank,
+      art:
+          song.albumCoverUrl?.isNotEmpty == true ||
+              song.coverData?.isNotEmpty == true
+          ? song.coverImageProvider
+          : null,
     );
   }
 
@@ -56,98 +72,202 @@ class WatchSongTile extends StatefulWidget {
   State<WatchSongTile> createState() => _WatchSongTileState();
 }
 
-class _WatchSongTileState extends State<WatchSongTile> {
-  bool _pressed = false;
+class _WatchSongTileState extends State<WatchSongTile>
+    with SingleTickerProviderStateMixin {
+  late final _press = AnimationController.unbounded(vsync: this, value: 1);
+
+  void _highlight(bool down) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _press.value = 1;
+      return;
+    }
+    _press.animateWith(
+      SpringSimulation(
+        watchPlayerSpring,
+        _press.value,
+        down ? 0.96 : 1,
+        _press.velocity,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _press.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    final subtitleText = (widget.artist != null && widget.artist!.isNotEmpty)
-        ? widget.artist!
-        : (widget.subtitle != null && widget.subtitle!.isNotEmpty)
-            ? widget.subtitle!
-            : null;
-
-    return AnimatedScale(
-      scale: _pressed ? 0.96 : 1.0,
-      duration: WatchMotion.durShort2,
-      curve: WatchMotion.curveEmphasized,
-      child: Material(
-        color: widget.isPlaying
-            ? colorScheme.primaryContainer.withValues(alpha: 0.35)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(WatchShapeTokens.full),
-        child: InkWell(
-          onTap: widget.onTap == null
-              ? null
-              : () {
-                  WatchMotion.tap();
-                  widget.onTap!();
-                },
-          onTapDown: (_) => setState(() => _pressed = true),
-          onTapUp: (_) => setState(() => _pressed = false),
-          onTapCancel: () => setState(() => _pressed = false),
-          borderRadius: BorderRadius.circular(WatchShapeTokens.full),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            child: Row(
-              children: [
-                if (widget.leading != null) ...[
-                  widget.leading!,
-                  const SizedBox(width: 10),
-                ],
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        widget.title,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: widget.isPlaying
-                              ? FontWeight.bold
-                              : FontWeight.w500,
-                          color: widget.isPlaying
-                              ? colorScheme.primary
-                              : colorScheme.onSurface,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (subtitleText != null)
-                        Text(
-                          subtitleText,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: widget.isPlaying
-                                ? colorScheme.primary.withValues(alpha: 0.7)
-                                : colorScheme.onSurface.withValues(alpha: 0.55),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                    ],
-                  ),
+    final colors = theme.colorScheme;
+    final selected = widget.isPlaying;
+    final pigment = selected
+        ? context.select((PlayerProvider? p) => p?.palette?.dominant) ??
+              colors.primary
+        : colors.surfaceContainerHigh;
+    // Derive both text colors from the actual fill, including dark album palettes.
+    final ink = selected
+        ? (pigment.computeLuminance() > 0.179 ? Colors.black : Colors.white)
+        : colors.onSurface;
+    final artist = widget.artist?.isNotEmpty == true
+        ? widget.artist
+        : widget.subtitle;
+    final fallback = ColoredBox(
+      color: colors.secondaryContainer,
+      child: Icon(
+        Icons.album_rounded,
+        size: 20,
+        color: colors.onSecondaryContainer,
+      ),
+    );
+    final art = widget.art;
+    return Semantics(
+      selected: selected,
+      button: widget.onTap != null,
+      child: ScaleTransition(
+        scale: _press,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Material(
+            color: pigment,
+            shape: const StadiumBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onHighlightChanged: _highlight,
+              onTap: widget.onTap == null
+                  ? null
+                  : () {
+                      WatchMotion.tap();
+                      widget.onTap!();
+                    },
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 5,
+                  right: widget.trailing == null ? 10 : 2,
                 ),
-                if (widget.isPlaying && widget.trailing == null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4),
-                    child: Icon(
-                      Icons.graphic_eq_rounded,
-                      size: 16,
-                      color: colorScheme.primary,
+                child: Row(
+                  children: [
+                    widget.leading ??
+                        SizedBox.square(
+                          dimension: 34,
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: ClipOval(
+                                  child: art == null
+                                      ? fallback
+                                      : Image(
+                                          image: ResizeImage.resizeIfNeeded(
+                                            96,
+                                            null,
+                                            art,
+                                          ),
+                                          fit: BoxFit.cover,
+                                          excludeFromSemantics: true,
+                                          errorBuilder: (_, __, ___) =>
+                                              fallback,
+                                        ),
+                                ),
+                              ),
+                              if (widget.rank != null)
+                                Align(
+                                  alignment: Alignment.bottomRight,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 3,
+                                    ),
+                                    decoration: const ShapeDecoration(
+                                      color: Colors.black87,
+                                      shape: StadiumBorder(),
+                                    ),
+                                    child: Text(
+                                      '${widget.rank}',
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (_, constraints) => FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: _SongLabels(
+                            title: widget.title,
+                            artist: artist,
+                            ink: ink,
+                            width: constraints.maxWidth,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                if (widget.trailing != null) ...[
-                  const SizedBox(width: 4),
-                  widget.trailing!,
-                ],
-              ],
+                    if (widget.trailing != null)
+                      IconTheme(
+                        data: IconThemeData(color: ink),
+                        child: widget.trailing!,
+                      )
+                    else if (selected)
+                      Icon(Icons.graphic_eq_rounded, size: 16, color: ink),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SongLabels extends StatelessWidget {
+  const _SongLabels({
+    required this.title,
+    required this.artist,
+    required this.ink,
+    this.width,
+  });
+  final String title;
+  final String? artist;
+  final Color ink;
+  final double? width;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: width,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              height: 1.1,
+              color: ink,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (artist?.isNotEmpty == true)
+            Text(
+              artist!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                height: 1.1,
+                color: ink.withValues(alpha: .85),
+              ),
+            ),
+        ],
       ),
     );
   }

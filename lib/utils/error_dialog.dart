@@ -1,25 +1,29 @@
+// Copyright (c) 2025-2026 mjiutang
+// SPDX-License-Identifier: MIT
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../watch/screens/login_screen.dart';
-import '../watch/widgets/watch_player_primitives.dart';
+import 'login_required_dialog.dart';
 import 'navigation.dart' as app;
 
 final _visibleErrors = <(String, String, String?)>{};
 final _sensitiveField = RegExp(
-  r'''\b(?:authorization|bearer|(?:set-)?cookie|(?:access[_-]?|refresh[_-]?)?token|session(?:id)?|password|api[_-]?key|secret|user[_-]?id|dfid|mid|guid|serverdev|mac|phone|mobile|signature|sign)\b''',
+  r'''\b(?:authorization|bearer|(?:set-)?cookie|(?:access[_-]?|refresh[_-]?)?token|session(?:id)?|password|(?:api[_-]?)?key|secret|user[_-]?id|dfid|mid|guid|serverdev|mac|phone|mobile|signature|sign|captcha|otp|qrcode(?:_img)?|qrimg|base64)\b|\bcode["' ]*[:=]|\b1\d{10}\b|验证码\s*[:：=]?\s*\d+''',
   caseSensitive: false,
 );
 
-// 请求参数可携带完整 Cookie 和设备标识。只展示路径；含凭据的行整体遮蔽。
-String _mask(String value) => value.split('\n').map((line) {
-  final query = line.indexOf('?');
-  final visible = query < 0 ? line : line.substring(0, query);
-  if (_sensitiveField.hasMatch(visible)) return '［敏感信息已隐藏］';
-  return query < 0 ? visible : '$visible?…';
-}).join('\n');
+String _mask(String text) => text
+    .split('\n')
+    .map((line) {
+      final query = line.indexOf('?');
+      final visible = query < 0 ? line : line.substring(0, query);
+      if (_sensitiveField.hasMatch(visible)) return '［敏感信息已隐藏］';
+      return query < 0 ? visible : '$visible?…';
+    })
+    .join('\n');
 
-/// 使用全局导航器显示错误。同一错误关闭后可再次显示。
 void showErrorDialog({
   String title = '错误',
   required String message,
@@ -27,41 +31,41 @@ void showErrorDialog({
   String? detail,
   bool showLogin = false,
 }) {
-  final ctx = app.navKey.currentContext;
-  if (ctx == null) return;
-
+  final context = app.navKey.currentContext;
+  if (context == null) return;
   final login = showLogin || errorCode == 'API 20010' || errorCode == '20010';
-  final key = login ? ('登录失效', '', null) : (title, message, errorCode);
-  if (!_visibleErrors.add(key)) return;
-
-  final heading = _mask(title);
+  final heading = login ? '请重新登录' : _mask(title);
   final reason = _mask(message).trim();
-  final summary = reason.isEmpty ? '发生未知错误' : reason.split('\n').first;
+  final code = errorCode == null ? null : _mask(errorCode);
+  final key = login ? (heading, '', null) : (heading, reason, code);
+  if (!_visibleErrors.add(key)) return;
   final report = [
-    '标题: $heading',
-    if (errorCode != null) '错误代码: ${_mask(errorCode)}',
-    '原因: $reason',
-    if (detail != null && detail.isNotEmpty) '详情: ${_mask(detail)}',
-    'NGS-KG+',
+    heading,
+    if (code != null) '错误代码：$code',
+    if (reason.isNotEmpty) reason,
+    if (detail != null && detail.isNotEmpty) _mask(detail),
   ].join('\n');
-
   showDialog<bool>(
-    context: ctx,
-    barrierDismissible: false,
-    animationStyle: AnimationStyle.noAnimation,
-    builder: (_) => _WatchErrorDialog(
-      heading: heading,
-      summary: summary,
-      report: report,
-      login: login,
-    ),
-  ).whenComplete(() => _visibleErrors.remove(key)).then((openLogin) {
-    if (openLogin == true) {
-      app.navKey.currentState?.push<void>(
-        MaterialPageRoute<void>(builder: (_) => const WatchLoginScreen()),
-      );
-    }
-  });
+        context: context,
+        useSafeArea: false,
+        barrierDismissible: false,
+        animationStyle: AnimationStyle.noAnimation,
+        builder: (_) => _WatchErrorDialog(
+          heading: heading,
+          login: login,
+          report: report,
+          summary: login
+              ? '账号登录已过期。'
+              : (reason.isEmpty ? '操作未完成' : reason.split('\n').first),
+        ),
+      )
+      .then((open) {
+        final navigator = app.navKey.currentState;
+        if (open == true && navigator != null) openWatchLogin(navigator);
+      })
+      .whenComplete(() {
+        _visibleErrors.remove(key);
+      });
 }
 
 class _WatchErrorDialog extends StatefulWidget {
@@ -71,96 +75,103 @@ class _WatchErrorDialog extends StatefulWidget {
     required this.report,
     required this.login,
   });
-
   final String heading;
   final String summary;
   final String report;
   final bool login;
-
   @override
   State<_WatchErrorDialog> createState() => _WatchErrorDialogState();
 }
 
 class _WatchErrorDialogState extends State<_WatchErrorDialog> {
-  bool _expanded = false;
-  bool _copied = false;
+  bool _details = false;
+  String _copyLabel = '复制详情';
 
   Future<void> _copy() async {
-    await Clipboard.setData(ClipboardData(text: widget.report));
-    if (mounted) setState(() => _copied = true);
+    try {
+      await Clipboard.setData(ClipboardData(text: widget.report));
+      if (mounted) setState(() => _copyLabel = '已复制');
+    } catch (_) {
+      if (mounted) setState(() => _copyLabel = '复制失败，重试');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final buttonStyle = TextButton.styleFrom(
-      minimumSize: const Size(0, 48),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-    );
-    return Dialog(
-      insetPadding: EdgeInsets.zero,
-      constraints: const BoxConstraints(maxWidth: 360),
-      clipBehavior: Clip.antiAlias,
-      child: WatchPlayerInsets(
-        child: WatchSpringReveal(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Icon(Icons.error_outline_rounded, color: colors.error),
-                const SizedBox(height: 4),
-                Semantics(
-                  header: true,
-                  child: Text(widget.heading, textAlign: TextAlign.center,
-                      style: theme.textTheme.titleMedium),
-                ),
-                const SizedBox(height: 4),
-                Text(widget.summary, maxLines: 3, overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
-                const SizedBox(height: 8),
-                FilledButton(
-                  style: FilledButton.styleFrom(minimumSize: const Size(0, 48),
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4)),
-                  onPressed: () => Navigator.pop(context, widget.login),
-                  child: Text(widget.login ? '登录' : '我知道了', textAlign: TextAlign.center),
-                ),
-                TextButton(
-                  style: buttonStyle,
-                  onPressed: () => setState(() => _expanded = !_expanded),
-                  child: Text(_expanded ? '收起详情' : '查看详情', textAlign: TextAlign.center),
-                ),
-                if (_expanded)
-                  WatchSpringReveal(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        DecoratedBox(
-                          decoration: BoxDecoration(color: colors.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(12)),
-                          child: Padding(
-                            padding: const EdgeInsets.all(8),
-                            child: SelectableText(widget.report, style: theme.textTheme.bodySmall),
-                          ),
-                        ),
-                        TextButton(style: buttonStyle, onPressed: _copy,
-                            child: Text(_copied ? '已复制' : '复制详情', textAlign: TextAlign.center)),
-                      ],
-                    ),
-                  ),
-                TextButton(style: buttonStyle, onPressed: () => Navigator.pop(context),
-                    child: const Text('取消')),
-              ],
-            ),
+    final colors = Theme.of(context).colorScheme;
+    if (_details) {
+      return WatchFlowPage(
+        key: const ValueKey('detail'),
+        title: '错误详情',
+        children: [
+          SelectableText(
+            widget.report,
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
+          const SizedBox(height: 8),
+          FilledButton(onPressed: _copy, child: Text(_copyLabel)),
+          TextButton(
+            onPressed: () => setState(() => _details = false),
+            child: const Text('收起详情'),
+          ),
+        ],
+      );
+    }
+    final iconStyle = IconButton.styleFrom(
+      minimumSize: const Size.square(48),
+      shape: const CircleBorder(),
+    );
+    return WatchFlowPage(
+      title: widget.heading,
+      center: true,
+      children: [
+        Text(
+          widget.summary,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
-      ),
+        const SizedBox(height: 8),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          children: [
+            IconButton.filledTonal(
+              style: iconStyle,
+              tooltip: widget.login ? '暂不登录' : '查看详情',
+              icon: Icon(
+                widget.login ? Icons.close_rounded : Icons.info_outline_rounded,
+              ),
+              onPressed: () {
+                if (widget.login) {
+                  Navigator.pop(context, false);
+                } else {
+                  setState(() => _details = true);
+                }
+              },
+            ),
+            IconButton.filled(
+              style: iconStyle,
+              tooltip: widget.login ? '重新登录' : '知道了',
+              icon: Icon(
+                widget.login ? Icons.login_rounded : Icons.check_rounded,
+              ),
+              onPressed: () => Navigator.pop(context, widget.login),
+            ),
+          ],
+        ),
+        if (widget.login)
+          TextButton(
+            onPressed: () => setState(() => _details = true),
+            style: TextButton.styleFrom(
+              foregroundColor: colors.onSurfaceVariant,
+            ),
+            child: const Text('查看详情'),
+          ),
+      ],
     );
   }
 }
 
-/// 从异常对象提取可读的错误消息
 String errorMessage(dynamic error) {
   if (error == null) return '未知错误';
   if (error is String) return error;

@@ -1,7 +1,5 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
-//
-// 手表收藏歌曲列表
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -14,150 +12,125 @@ import '../widgets/watch_scroll_list.dart';
 import '../widgets/watch_song_tile.dart';
 import 'login_screen.dart';
 
-/// 收藏歌曲页：已登录显示列表（点击播放、右侧心形取消收藏），
-/// 未登录引导登录。
 class WatchLikedSongsScreen extends StatefulWidget {
   const WatchLikedSongsScreen({super.key});
-
   @override
   State<WatchLikedSongsScreen> createState() => _WatchLikedSongsScreenState();
 }
 
 class _WatchLikedSongsScreenState extends State<WatchLikedSongsScreen> {
+  int? _user;
+  bool _failed = false;
+
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final auth = Provider.of<AuthProvider>(context);
+    final next = auth.isLoggedIn ? auth.user?.userId : null;
+    if (_user == next) return;
+    _user = next;
+    _failed = false;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final liked = context.read<LikedSongsProvider>();
-      if (!liked.isLoaded) liked.load();
+      if (mounted &&
+          next != null &&
+          _user == next &&
+          !context.read<LikedSongsProvider>().isLoaded) {
+        _load();
+      }
     });
+  }
+
+  Future<void> _load() async {
+    final liked = context.read<LikedSongsProvider>();
+    final user = _user;
+    if (_failed) setState(() => _failed = false);
+    await liked.load();
+    if (mounted && _user == user) setState(() => _failed = !liked.isLoaded);
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    if (!auth.isLoggedIn) return _buildNotLoggedIn();
-
-    return WatchScaffold(
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
-            child: Text(
-              '我的收藏',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w600),
-            ),
+    final liked = context.watch<LikedSongsProvider>();
+    final current = context.select((PlayerProvider p) => p.currentSong);
+    final songs = liked.likedSongs;
+    Widget body;
+    if (!auth.isLoggedIn) {
+      body = WatchCatalogNotice(
+        '登录后查看收藏',
+        icon: Icons.favorite_border_rounded,
+        action: FilledButton(
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(builder: (_) => const WatchLoginScreen()),
           ),
-          Expanded(
-            child: Consumer2<LikedSongsProvider, PlayerProvider>(
-              builder: (context, liked, player, _) {
-                if (!liked.isLoaded) {
-                  return const Center(
-                    child: CircularProgressIndicator(strokeWidth: 2.5),
-                  );
-                }
-                if (liked.likedSongs.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.favorite_border_rounded,
-                          size: 40,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.3),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '暂无收藏歌曲',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withValues(alpha: 0.5),
-                                  ),
-                        ),
-                      ],
+          child: const Text('登录'),
+        ),
+      );
+    } else if (!liked.isLoaded) {
+      body = _failed
+          ? WatchCatalogNotice(
+              '收藏没能加载',
+              icon: Icons.cloud_off_rounded,
+              action: TextButton(onPressed: _load, child: const Text('重试')),
+            )
+          : const WatchCatalogNotice('正在读取收藏', busy: true);
+    } else {
+      body = RefreshIndicator(
+        onRefresh: _load,
+        child: songs.isEmpty
+            ? const WatchCatalogNotice(
+                '还没有收藏歌曲',
+                icon: Icons.favorite_border_rounded,
+              )
+            : WatchScrollList(
+                itemExtent: 52,
+                itemCount: songs.length,
+                itemBuilder: (context, i) {
+                  final song = songs[i];
+                  return WatchSongTile.fromSong(
+                    song: song,
+                    isPlaying: watchSameSong(current, song),
+                    onTap: () => context.read<PlayerProvider>().playSong(
+                      song,
+                      playlist: List.of(songs),
+                    ),
+                    trailing: IconButton(
+                      tooltip: '取消收藏',
+                      icon: const Icon(Icons.favorite_rounded, size: 17),
+                      onPressed: () async {
+                        final ok = await liked.toggle(
+                          SongInfo(
+                            id: song.id,
+                            name: song.name,
+                            hash: song.hash ?? '',
+                            albumId: song.albumId,
+                            audioId: 0,
+                          ),
+                        );
+                        if (!ok && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('取消收藏失败')),
+                          );
+                        }
+                      },
                     ),
                   );
-                }
-                return WatchScrollList(
-                  itemCount: liked.likedSongs.length,
-                  itemExtent: 52,
-                  bottomPadding: 24,
-                  itemBuilder: (context, index) {
-                    final song = liked.likedSongs[index];
-                    return WatchSongTile.fromSong(
-                      song: song,
-                      isPlaying: player.currentSong?.id == song.id,
-                      onTap: () => context
-                          .read<PlayerProvider>()
-                          .playSong(song, playlist: liked.likedSongs),
-                      trailing: IconButton(
-                        icon: Icon(
-                          Icons.favorite_rounded,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                        padding: EdgeInsets.zero,
-                        constraints:
-                            const BoxConstraints(minWidth: 32, minHeight: 32),
-                        onPressed: () => liked.toggle(SongInfo(
-                          id: song.id,
-                          name: song.name,
-                          hash: song.hash ?? '',
-                          albumId: song.albumId,
-                          audioId: 0,
-                        )),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNotLoggedIn() {
-    final theme = Theme.of(context);
+                },
+              ),
+      );
+    }
     return WatchScaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.favorite_border_rounded,
-              size: 40,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '登录后可查看收藏',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-              ),
-            ),
-            const SizedBox(height: 14),
-            FilledButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const WatchLoginScreen()),
-              ),
-              child: const Text('登录'),
-            ),
-          ],
-        ),
+      body: Column(
+        children: [
+          WatchCatalogTitle(
+            '我的收藏',
+            caption: auth.isLoggedIn && liked.isLoaded
+                ? '${songs.length} 首'
+                : null,
+          ),
+          Expanded(child: body),
+        ],
       ),
     );
   }

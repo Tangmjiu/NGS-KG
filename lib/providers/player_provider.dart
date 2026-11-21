@@ -173,7 +173,7 @@ class PlayerProvider extends ChangeNotifier
         return [
           _backgroundColor!,
           _backgroundColor!.withValues(alpha: 0.7),
-          _backgroundColor!.withValues(alpha: 0.5)
+          _backgroundColor!.withValues(alpha: 0.5),
         ];
       }
       return const [Color(0xFF121212), Color(0xFF1DB954), Color(0xFF2A2D28)];
@@ -195,8 +195,9 @@ class PlayerProvider extends ChangeNotifier
     }
 
     // Linearly remap each colour's lightness so the set spans [0.12, 0.85].
-    final lightnesses =
-        colors.map((c) => HSLColor.fromColor(c).lightness).toList();
+    final lightnesses = colors
+        .map((c) => HSLColor.fromColor(c).lightness)
+        .toList();
     final minL = lightnesses.reduce((a, b) => a < b ? a : b);
     final maxL = lightnesses.reduce((a, b) => a > b ? a : b);
     const targetMin = 0.12;
@@ -240,8 +241,7 @@ class PlayerProvider extends ChangeNotifier
     _queue.playlistEndProvider = v;
   }
 
-  PlayerProvider(this._musicService,
-      {this._audioSettings, this._likedSongs}) {
+  PlayerProvider(this._musicService, {this._audioSettings, this._likedSongs}) {
     _engine = AudioEngine(_musicService);
     _queue = PlaylistQueue();
 
@@ -388,17 +388,19 @@ class PlayerProvider extends ChangeNotifier
       // 序列化完整队列（上限 200 首），包含 filePath 以支持本地歌曲恢复
       final queueLimit = _queue.playlist.take(200);
       final queueJson = queueLimit
-          .map((s) => {
-                'id': s.id,
-                'name': s.name,
-                'hash': s.hash ?? '',
-                'artist': s.artistDisplay,
-                'cover': s.albumCoverUrl ?? '',
-                'albumId': s.albumId,
-                'filePath': s.filePath ?? '',
-                'isLocal': s.isLocal,
-                'lyrics': s.lyrics ?? '',
-              })
+          .map(
+            (s) => {
+              'id': s.id,
+              'name': s.name,
+              'hash': s.hash ?? '',
+              'artist': s.artistDisplay,
+              'cover': s.albumCoverUrl ?? '',
+              'albumId': s.albumId,
+              'filePath': s.filePath ?? '',
+              'isLocal': s.isLocal,
+              'lyrics': s.lyrics ?? '',
+            },
+          )
           .toList();
       await prefs.setString(_keySavedQueueJson, jsonEncode(queueJson));
       await prefs.setInt(_keySavedQueueIndex, _queue.currentIndex);
@@ -437,8 +439,8 @@ class PlayerProvider extends ChangeNotifier
             artists: (m['artist'] as String? ?? '').split(' / '),
             albumCoverUrl:
                 (m['cover'] is String && (m['cover'] as String).isNotEmpty)
-                    ? m['cover'] as String
-                    : null,
+                ? m['cover'] as String
+                : null,
             albumId: (m['albumId'] as num?)?.toInt() ?? 0,
             hash: (m['hash'] is String && (m['hash'] as String).isNotEmpty)
                 ? m['hash'] as String
@@ -489,8 +491,11 @@ class PlayerProvider extends ChangeNotifier
     final s = song ?? _queue.currentSong;
     if (s == null) return;
     _applyQualityFromSettings();
-    _engine.play(s,
-        version: version ?? _engine.currentVersion, effectKey: _effectKey);
+    _engine.play(
+      s,
+      version: version ?? _engine.currentVersion,
+      effectKey: _effectKey,
+    );
   }
 
   void _onComplete() {
@@ -507,9 +512,10 @@ class PlayerProvider extends ChangeNotifier
     if (_queue.type == QueueType.fm) {
       _fmPlaybackUpdateCallback?.call(current, playtime: current.duration);
       debugPrint(
-          '[FM] _onComplete: idx=${_queue.currentIndex}/${_queue.playlist.length}'
-          ' hasEndProvider=${_queue.playlistEndProvider != null}'
-          ' song=${current.name}');
+        '[FM] _onComplete: idx=${_queue.currentIndex}/${_queue.playlist.length}'
+        ' hasEndProvider=${_queue.playlistEndProvider != null}'
+        ' song=${current.name}',
+      );
     }
     switch (_queue.playMode) {
       case PlayMode.repeatOne:
@@ -571,8 +577,10 @@ class PlayerProvider extends ChangeNotifier
     debugPrint('[FM] _loadMoreAndContinue: START type=${_queue.type}');
     try {
       final moreSongs = await _queue.playlistEndProvider?.call() ?? [];
-      debugPrint('[FM] _loadMoreAndContinue: got ${moreSongs.length} songs,'
-          ' queueLen=${_queue.playlist.length} curIdx=${_queue.currentIndex}');
+      debugPrint(
+        '[FM] _loadMoreAndContinue: got ${moreSongs.length} songs,'
+        ' queueLen=${_queue.playlist.length} curIdx=${_queue.currentIndex}',
+      );
       if (moreSongs.isNotEmpty) {
         _queue.append(moreSongs);
         _queue.setLoadingMore(false);
@@ -666,10 +674,7 @@ class PlayerProvider extends ChangeNotifier
       final lines = text
           .split(RegExp(r'[\r\n]+'))
           .where((l) => l.trim().isNotEmpty)
-          .map((l) => LyricLine(
-                start: Duration.zero,
-                text: l.trim(),
-              ))
+          .map((l) => LyricLine(start: Duration.zero, text: l.trim()))
           .toList();
       if (lines.isNotEmpty) {
         _lyricController.loadLyricModel(LyricModel(lines: lines));
@@ -700,8 +705,10 @@ class PlayerProvider extends ChangeNotifier
     if (hash == null || hash.isEmpty) return;
 
     try {
-      final searchRes =
-          await _musicService.searchLyricByHash(hash, keywords: song.name);
+      final searchRes = await _musicService.searchLyricByHash(
+        hash,
+        keywords: song.name,
+      );
       final data = searchRes['data'] as Map<String, dynamic>? ?? searchRes;
       final candidates = data['candidates'] as List<dynamic>? ?? [];
       if (candidates.isEmpty) return;
@@ -728,8 +735,9 @@ class PlayerProvider extends ChangeNotifier
               );
               final krcLang = KrcLanguage.fromJson(langJson);
               for (final content in krcLang.content) {
-                _lyricLangMap[content.language] =
-                    content.lyricContent.map((words) => words.join()).toList();
+                _lyricLangMap[content.language] = content.lyricContent
+                    .map((words) => words.join())
+                    .toList();
               }
             } catch (e, s) {
               Log.e('player_provider', 'krc lang parse error', e, s);
@@ -747,8 +755,10 @@ class PlayerProvider extends ChangeNotifier
           if (hash == _queue.currentSong?.hash) {
             _lyricController.loadLyricModel(LyricModel(lines: lyricLines));
           }
-          Log.i('player_provider',
-              'KRC 歌词加载成功: ${song.name} (${lyricLines.length} 行)');
+          Log.i(
+            'player_provider',
+            'KRC 歌词加载成功: ${song.name} (${lyricLines.length} 行)',
+          );
           return;
         } catch (e, s) {
           Log.e('player_provider', 'krc parse error', e, s);
@@ -818,21 +828,25 @@ class PlayerProvider extends ChangeNotifier
           if (w.word == null || w.word!.isEmpty) continue;
           final ws = (w.startTime ?? 0) + lineStart;
           final we = ws + (w.duration ?? 0);
-          words.add(LyricWord(
-            text: w.word!,
-            start: Duration(milliseconds: ws),
-            end: Duration(milliseconds: we),
-          ));
+          words.add(
+            LyricWord(
+              text: w.word!,
+              start: Duration(milliseconds: ws),
+              end: Duration(milliseconds: we),
+            ),
+          );
         }
       }
 
-      result.add(LyricLine(
-        start: Duration(milliseconds: line.startTime),
-        end: Duration(milliseconds: line.startTime + line.duration),
-        text: text,
-        words: words.isNotEmpty ? words : null,
-        translation: _showTranslation ? transMap[line.startTime] : null,
-      ));
+      result.add(
+        LyricLine(
+          start: Duration(milliseconds: line.startTime),
+          end: Duration(milliseconds: line.startTime + line.duration),
+          text: text,
+          words: words.isNotEmpty ? words : null,
+          translation: _showTranslation ? transMap[line.startTime] : null,
+        ),
+      );
     }
     return result;
   }
@@ -864,10 +878,12 @@ class PlayerProvider extends ChangeNotifier
   ///
   /// 自动保存当前普通队列快照，切换到 FM 独立队列（QueueType.fm）。
   /// 退出 FM 模式后自动恢复普通队列。
-  void startFmPlaylist(List<Song> songs,
-      {required Future<List<Song>> Function() bufferProvider,
-      VoidCallback? onDislike,
-      void Function(Song song, {int playtime})? onPlaybackUpdate}) {
+  void startFmPlaylist(
+    List<Song> songs, {
+    required Future<List<Song>> Function() bufferProvider,
+    VoidCallback? onDislike,
+    void Function(Song song, {int playtime})? onPlaybackUpdate,
+  }) {
     if (songs.isEmpty) return;
     // 进入 FM 模式前保存当前普通队列快照
     if (_queue.type != QueueType.fm) {
@@ -895,8 +911,10 @@ class PlayerProvider extends ChangeNotifier
   /// 恢复的快照会被覆盖，这是预期行为。
   void exitFmMode() {
     if (_queue.type != QueueType.fm) return;
-    debugPrint('[FM] exitFmMode: restoring saved queue'
-        ' (${_fmSavedNormalSnapshot?.songs.length ?? 0} songs)');
+    debugPrint(
+      '[FM] exitFmMode: restoring saved queue'
+      ' (${_fmSavedNormalSnapshot?.songs.length ?? 0} songs)',
+    );
     _queue.playlistEndProvider = null;
     _fmDislikeCallback = null;
     _fmPlaybackUpdateCallback = null;
@@ -1055,7 +1073,9 @@ class PlayerProvider extends ChangeNotifier
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-          _keySavedQueueNames, jsonEncode(_savedQueues.keys.toList()));
+        _keySavedQueueNames,
+        jsonEncode(_savedQueues.keys.toList()),
+      );
     } catch (_) {}
   }
 
@@ -1133,8 +1153,12 @@ class PlayerProvider extends ChangeNotifier
     _engine.qualityLevel = idx;
 
     // 用 engine 的无缝切换
-    final success = await _engine.switchQuality(song, qualityKey,
-        currentPosition: _position, effectKey: _effectKey);
+    final success = await _engine.switchQuality(
+      song,
+      qualityKey,
+      currentPosition: _position,
+      effectKey: _effectKey,
+    );
 
     // 切换成功后强制刷新歌词
     if (success) {
@@ -1156,8 +1180,11 @@ class PlayerProvider extends ChangeNotifier
       final song = _queue.currentSong;
       if (song != null && song.hash != null && song.hash!.isNotEmpty) {
         await _engine.switchQuality(
-            song, Quality.levels[_qualityLevel % Quality.levels.length],
-            currentPosition: _position, effectKey: _effectKey);
+          song,
+          Quality.levels[_qualityLevel % Quality.levels.length],
+          currentPosition: _position,
+          effectKey: _effectKey,
+        );
       }
     }
     return true;
@@ -1182,8 +1209,10 @@ class PlayerProvider extends ChangeNotifier
     try {
       _cachedPaletteColors = null;
       final provider = song.coverImageProvider;
-      _palette = await PaletteExtractor.instance
-          .extractFromProvider(provider, song.albumCoverUrl!);
+      _palette = await PaletteExtractor.instance.extractFromProvider(
+        provider,
+        song.albumCoverUrl!,
+      );
       _backgroundColor = _palette?.dominant;
       notifyListeners();
     } catch (_) {
@@ -1214,6 +1243,8 @@ class PlayerProvider extends ChangeNotifier
     _engine.pause();
     _isPlaying = false;
   }
+
+  double get volume => _engine.volume;
 
   void setVolume(double volume) {
     _engine.setVolume(volume);

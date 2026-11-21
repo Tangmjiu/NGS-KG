@@ -1,37 +1,26 @@
 // Copyright (c) 2025-2026 mjiutang
 // SPDX-License-Identifier: MIT
-//
-// 手表全屏播放器 — 标准化布局
-// Flex 列布局：顶部歌名歌手 → 中心圆形封面 → 底部控制+细线进度环
-// 角落图标统一偏移，所有数据来自 PlayerProvider 真实状态
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wear_plus/wear_plus.dart';
 import 'package:wearable_rotary/wearable_rotary.dart';
 
-import '../../constants/quality.dart';
-import '../../models/song.dart';
 import '../../providers/player_provider.dart';
 import '../utils/format.dart';
 import '../utils/watch_layout.dart';
 import '../utils/watch_motion.dart';
-import '../widgets/faded_album_art.dart';
-import '../widgets/partial_arc_progress.dart';
 import '../widgets/round_list_tile.dart';
 import '../widgets/watch_like_button.dart';
+import '../widgets/watch_player_primitives.dart';
+import '../widgets/watch_scaffold.dart';
+import '../widgets/watch_transport_face.dart';
 import 'lyrics_screen.dart';
 import 'queue_screen.dart';
 
-/// Wear OS 全屏音乐播放器。
-///
-/// 布局结构（Flex 列，垂直居中）：
-/// 1. 顶部：歌名（大）+ 歌手（小），不与封面重叠
-/// 2. 中心：圆形封面
-/// 3. 底部：三键控制（上一首/播放暂停/下一首）+ 细线进度环环绕
-/// 4. 角落图标：左上音质、右上歌词、右下队列，统一偏移量
 class WatchPlayerScreen extends StatefulWidget {
   const WatchPlayerScreen({super.key});
 
@@ -40,769 +29,457 @@ class WatchPlayerScreen extends StatefulWidget {
 }
 
 class _WatchPlayerScreenState extends State<WatchPlayerScreen> {
-  bool _isAmbient = false;
-  StreamSubscription<RotaryEvent>? _rotarySub;
-  double _volume = 1.0;
+  late final StreamSubscription<RotaryEvent> _rotary;
+  bool _ambient = false;
+  double? _volumeFeedback;
+  Timer? _hideVolume;
 
   @override
   void initState() {
     super.initState();
-    _rotarySub = rotaryEvents.listen(_onRotary);
+    _rotary = rotaryEvents.listen((event) {
+      if (!mounted || _ambient || ModalRoute.of(context)?.isCurrent != true) {
+        return;
+      }
+      final steps = ((event.magnitude ?? 25) / 25).clamp(1, 4).round();
+      final delta = event.direction == RotaryDirection.clockwise ? .04 : -.04;
+      _adjustVolume(steps * delta);
+    });
+  }
+
+  void _adjustVolume(double delta) {
+    final player = context.read<PlayerProvider>();
+    final volume = ((_volumeFeedback ?? player.volume) + delta).clamp(0.0, 1.0);
+    player.setVolume(volume);
+    setState(() => _volumeFeedback = volume);
+    _hideVolume?.cancel();
+    _hideVolume = Timer(const Duration(milliseconds: 1300), () {
+      if (mounted) setState(() => _volumeFeedback = null);
+    });
   }
 
   @override
   void dispose() {
-    _rotarySub?.cancel();
+    _rotary.cancel();
+    _hideVolume?.cancel();
     super.dispose();
   }
 
-  void _onRotary(RotaryEvent event) {
-    if (!mounted || _isAmbient) return;
-    final ticks = event.magnitude != null
-        ? (event.magnitude! / 25).clamp(1, 4).round()
-        : 1;
-    final clockwise = event.direction == RotaryDirection.clockwise;
-    setState(() {
-      _volume = (_volume + (clockwise ? 0.04 : -0.04) * ticks).clamp(0.0, 1.0);
-    });
-    context.read<PlayerProvider>().setVolume(_volume);
+  void _open(Widget page) {
+    WatchMotion.tap();
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
   @override
   Widget build(BuildContext context) {
     return AmbientMode(
-      builder: (context, mode, child) {
-        _isAmbient = mode == WearMode.ambient;
-        return _isAmbient ? const _AmbientPlayerView() : _buildActiveView();
+      builder: (context, mode, _) {
+        _ambient = mode == WearMode.ambient;
+        if (_ambient) return const WatchChronoFace();
+        final volume = _volumeFeedback;
+        if (volume != null) {
+          return _VolumeHalo(value: volume, onAdjust: _adjustVolume);
+        }
+        return Consumer<PlayerProvider>(
+          builder: (context, player, _) {
+            final song = player.currentSong;
+            if (song == null) {
+              return const WatchScaffold(
+                showTime: false,
+                body: WatchPlayerInsets(child: Center(child: Text('暂无播放'))),
+              );
+            }
+            final tone = player.palette?.dominant ?? const Color(0xff81a6a6);
+            final layout = WatchLayout.of(context);
+            final lyricController = player.lyricController;
+            final lines = lyricController.lyricNotifier.value?.lines;
+            final index = lyricController.activeIndexNotifiter.value;
+            final lyric = lines != null && index >= 0 && index < lines.length
+                ? lines[index].text
+                : null;
+            return WatchScaffold(
+              showTime: false,
+              body: Stack(
+                fit: StackFit.expand,
+                children: [
+                  WatchPlaybackBackdrop(art: song.albumCoverUrl, tone: tone),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onDoubleTap: player.togglePlayPause,
+                  ),
+                  if (layout.isRound)
+                    Positioned(
+                      top: math.max(4, layout.systemPadding.top),
+                      left: 0,
+                      right: 0,
+                      child: const IgnorePointer(child: WatchTimeText()),
+                    ),
+                  WatchPlayerInsets(
+                    child: WatchSpringReveal(
+                      key: ValueKey((song.id, song.hash, song.filePath)),
+                      child: WatchTransportFace(
+                        title: song.name,
+                        subtitle: player.isFmMode
+                            ? '私人 FM · ${song.artistDisplay}'
+                            : song.artistDisplay,
+                        playing: player.isPlaying,
+                        fm: player.isFmMode,
+                        progress: player.progress,
+                        position: player.position,
+                        duration: player.duration,
+                        lyric: lyric,
+                        tone: tone,
+                        onPrevious: player.playPrevious,
+                        onNext: player.playNext,
+                        onToggle: () {
+                          WatchMotion.confirm();
+                          player.togglePlayPause();
+                        },
+                        onLyrics: () => _open(const WatchLyricsScreen()),
+                        onOptions: () => _open(const _PlayerOptions()),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
       },
     );
   }
-
-  Widget _buildActiveView() {
-    final layout = WatchLayout.of(context);
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Consumer<PlayerProvider>(
-        builder: (context, player, _) {
-          final song = player.currentSong;
-          if (song == null) return _buildEmpty(context);
-
-          final palette = player.palette;
-          final accent = palette?.lightVibrant ??
-              palette?.vibrant ??
-              palette?.muted ??
-              Colors.white;
-
-          return GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onDoubleTap: () {
-              WatchMotion.confirm();
-              player.togglePlayPause();
-            },
-            child: SafeArea(
-              minimum: layout.isRound
-                  ? EdgeInsets.symmetric(
-                      horizontal: layout.diameter * 0.08,
-                      vertical: layout.diameter * 0.06,
-                    )
-                  : const EdgeInsets.all(8),
-              child: Stack(
-                children: [
-                  // ── 主内容：Flex 列布局，垂直居中 ──
-                  _PlayerColumn(
-                    layout: layout,
-                    player: player,
-                    song: song,
-                    accent: accent,
-                    volume: _volume,
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildEmpty(BuildContext context) {
-    return Center(
-      child: Text(
-        '暂无播放',
-        style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-          fontSize: 13,
-        ),
-      ),
-    );
-  }
 }
 
-// ═══════════════════════════════════════════════════════
-//  主内容列 — Flex column，垂直居中
-// ═══════════════════════════════════════════════════════
-
-class _PlayerColumn extends StatefulWidget {
-  final WatchLayout layout;
-  final PlayerProvider player;
-  final Song song;
-  final Color accent;
-  final double volume;
-
-  const _PlayerColumn({
-    required this.layout,
-    required this.player,
-    required this.song,
-    required this.accent,
-    required this.volume,
-  });
+class _PlayerOptions extends StatefulWidget {
+  const _PlayerOptions();
 
   @override
-  State<_PlayerColumn> createState() => _PlayerColumnState();
+  State<_PlayerOptions> createState() => _PlayerOptionsState();
 }
 
-class _PlayerColumnState extends State<_PlayerColumn> {
-  /// 拖动中的本地进度预览（非空时优先显示，松手后清除并 seek）
-  double? _dragProgress;
-
-  void _seekTo(double v) {
-    final dur = widget.player.duration.inMilliseconds;
-    if (dur > 0) {
-      widget.player.seek(Duration(milliseconds: (v * dur).round()));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = widget.layout;
-    final player = widget.player;
-    final song = widget.song;
-    final accent = widget.accent;
-    final isRound = layout.isRound;
-    // 拖动中优先显示本地预览进度（跟手平滑），否则显示真实进度
-    final displayProgress = _dragProgress ?? player.progress;
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // ── 1. 顶部行：音质标签(左) | 歌名+歌手(中) | 歌词入口(右) ──
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _QualityTag(player: player),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      song.name,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13 * layout.scale,
-                        fontWeight: FontWeight.w800,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      song.artistDisplay,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.55),
-                        fontSize: 10 * layout.scale,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            _CornerIcon(
-              icon: Icons.lyrics_rounded,
-              label: '歌词',
-              onTap: () {
-                WatchMotion.tap();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const WatchLyricsScreen()),
-                );
-              },
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 6),
-
-        // ── 2. 中心封面：圆屏双弧+圆形封面 / 方屏圆角封面+可拖动进度条 ──
-        Flexible(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final maxSide = constraints.maxWidth < constraints.maxHeight
-                  ? constraints.maxWidth
-                  : constraints.maxHeight;
-              if (maxSide < 56) return const SizedBox.shrink();
-
-              if (isRound) {
-                // 圆屏：双弧环绕圆形封面
-                final ringSize = maxSide;
-                final coverSize = (maxSide - 16).clamp(40.0, double.infinity);
-                return SizedBox(
-                  width: ringSize,
-                  height: ringSize,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // 进度弧（可拖动，拖动中加粗提亮，松手 seek）
-                      PartialArcProgress(
-                        progress: displayProgress,
-                        size: ringSize,
-                        strokeWidth: 2.5,
-                        startAngle: 210,
-                        sweep: 120,
-                        color: accent.withValues(alpha: 0.35),
-                        semanticsLabel: '播放进度',
-                        onSeek: (v) => setState(() => _dragProgress = v),
-                        onDragStart: () =>
-                            setState(() => _dragProgress = player.progress),
-                        onDragEnd: () {
-                          final v = _dragProgress;
-                          if (v != null) _seekTo(v);
-                          setState(() => _dragProgress = null);
-                        },
-                      ),
-                      // 音量弧
-                      PartialArcProgress(
-                        progress: widget.volume,
-                        size: ringSize,
-                        strokeWidth: 1.5,
-                        startAngle: 30,
-                        sweep: 120,
-                        color: accent.withValues(alpha: 0.15),
-                        semanticsLabel: '音量',
-                      ),
-                      FadedAlbumArt(
-                        imageUrl: song.albumCoverUrl,
-                        size: coverSize,
-                        alpha: 0.85,
-                        fadeStart: 0.7,
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              // 方屏：圆角封面 + 底部 MD3 可拖动进度条
-              final coverSize = (maxSide - 24).clamp(40.0, double.infinity);
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(coverSize * 0.12),
-                    child: SizedBox(
-                      width: coverSize,
-                      height: coverSize,
-                      child: FadedAlbumArt(
-                        imageUrl: song.albumCoverUrl,
-                        size: coverSize,
-                        alpha: 0.95,
-                        fadeStart: 0.7,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  SizedBox(
-                    width: constraints.maxWidth * 0.85,
-                    child: Slider(
-                      value: displayProgress.clamp(0.0, 1.0),
-                      onChanged: (v) => setState(() => _dragProgress = v),
-                      onChangeEnd: (v) {
-                        _seekTo(v);
-                        setState(() => _dragProgress = null);
-                      },
-                      activeColor: accent,
-                      inactiveColor: Colors.white.withValues(alpha: 0.15),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-
-        const SizedBox(height: 6),
-
-        // ── 3. 底部行：收藏(左) | 控制按钮(中) | 队列(右) ──
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            WatchLikeButton(song: song, size: 16),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${formatWatchDuration(player.position)} / ${formatWatchDuration(player.duration)}',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.45),
-                      fontSize: 9 * layout.scale,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  _ControlRow(
-                    player: player,
-                    song: song,
-                    accent: accent,
-                    layout: layout,
-                  ),
-                  const SizedBox(height: 4),
-                  _CurrentLyricLine(player: player),
-                ],
-              ),
-            ),
-            _CornerIcon(
-              icon: Icons.queue_music_rounded,
-              label: '队列',
-              onTap: () {
-                WatchMotion.tap();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const WatchQueueScreen()),
-                );
-              },
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-// //  控制按钮行 — 透明底，横向排列
-// ═══════════════════════════════════════════════════════
-
-class _ControlRow extends StatelessWidget {
-  final PlayerProvider player;
-  final Song song;
-  final Color accent;
-  final WatchLayout layout;
-
-  const _ControlRow({
-    required this.player,
-    required this.song,
-    required this.accent,
-    required this.layout,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _CircleBtn(
-            icon: Icons.skip_previous_rounded,
-            label: '上一首',
-            size: 26 * layout.scale,
-            onTap: player.playPrevious,
-          ),
-          const SizedBox(width: 14),
-          _CircleBtn(
-            icon: player.isPlaying
-                ? Icons.pause_rounded
-                : Icons.play_arrow_rounded,
-            label: player.isPlaying ? '暂停' : '播放',
-            size: 36 * layout.scale,
-            accent: accent,
-            onTap: () {
-              WatchMotion.confirm();
-              player.togglePlayPause();
-            },
-          ),
-          const SizedBox(width: 14),
-          _CircleBtn(
-            icon: Icons.skip_next_rounded,
-            label: '下一首',
-            size: 26 * layout.scale,
-            onTap: player.playNext,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 圆形透明按钮（白色图标 + 阴影保证可读性，触摸目标 >= 48dp）。
-class _CircleBtn extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final double size;
-  final VoidCallback onTap;
-  final Color? accent;
-
-  const _CircleBtn({
-    required this.icon,
-    required this.label,
-    required this.size,
-    required this.onTap,
-    this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: label,
-      child: InkWell(
-        onTap: () {
-          WatchMotion.tap();
-          onTap();
-        },
-        customBorder: const CircleBorder(),
-        child: Container(
-          width: 48,
-          height: 48,
-          alignment: Alignment.center,
-          child: Icon(
-            icon,
-            size: size,
-            color: accent ?? Colors.white,
-            shadows: const [
-              Shadow(color: Colors.black87, blurRadius: 4),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-//  当前歌词行（动画切换）
-// ═══════════════════════════════════════════════════════
-
-class _CurrentLyricLine extends StatefulWidget {
-  final PlayerProvider player;
-
-  const _CurrentLyricLine({required this.player});
-
-  @override
-  State<_CurrentLyricLine> createState() => _CurrentLyricLineState();
-}
-
-class _CurrentLyricLineState extends State<_CurrentLyricLine> {
-  String? _line;
-  int _lastIdx = -1;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.player.lyricController.activeIndexNotifiter.addListener(_onLyric);
-    _onLyric();
-  }
+class _PlayerOptionsState extends State<_PlayerOptions> {
+  double? _drag;
+  static const speeds = [.5, .75, 1.0, 1.25, 1.5, 2.0];
+  final ScrollController _scroll = RotaryScrollController();
 
   @override
   void dispose() {
-    widget.player.lyricController.activeIndexNotifiter.removeListener(_onLyric);
+    _scroll.dispose();
     super.dispose();
   }
 
-  void _onLyric() {
-    final idx = widget.player.lyricController.activeIndexNotifiter.value;
-    if (idx == _lastIdx) return;
-    _lastIdx = idx;
-    final model = widget.player.lyricController.lyricNotifier.value;
-    if (model != null && idx >= 0 && idx < model.lines.length) {
-      final text = model.lines[idx].text;
-      if (mounted) setState(() => _line = text);
-    } else {
-      if (mounted) setState(() => _line = null);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_line == null || _line!.isEmpty) return const SizedBox.shrink();
-    return AnimatedSwitcher(
-      duration: WatchMotion.durMedium1,
-      transitionBuilder: (child, anim) => FadeTransition(
-        opacity: anim,
-        child: SlideTransition(
-          position: Tween(
-            begin: const Offset(0, 0.3),
-            end: Offset.zero,
-          ).animate(anim),
-          child: child,
-        ),
-      ),
-      child: Text(
-        _line!,
-        key: ValueKey(_line),
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.7),
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-        ),
-        textAlign: TextAlign.center,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-//  角落图标 — 统一样式
-// ═══════════════════════════════════════════════════════
-
-class _CornerIcon extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _CornerIcon({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: label,
-      child: InkWell(
-        onTap: () {
-          WatchMotion.tap();
-          onTap();
-        },
-        customBorder: const CircleBorder(),
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Icon(
-            icon,
-            size: 16,
-            color: Colors.white.withValues(alpha: 0.5),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 音质标签（左上角）。
-class _QualityTag extends StatelessWidget {
-  final PlayerProvider player;
-  const _QualityTag({required this.player});
-
-  @override
-  Widget build(BuildContext context) {
-    final qualityKey = player.resolvedQuality ??
-        Quality.levels[player.qualityLevel % Quality.levels.length];
-    return Padding(
-      padding: const EdgeInsets.all(6),
-      child: Text(
-        Quality.label(qualityKey),
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.4),
-          fontSize: 9,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-//  播放菜单页
-// ═══════════════════════════════════════════════════════
-
-// ignore: unused_element
-class _PlayerMenuScreen extends StatelessWidget {
-  final PlayerProvider player;
-  const _PlayerMenuScreen({required this.player});
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = WatchLayout.of(context);
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(
-          layout.listHorizontal,
-          layout.topInset + 8,
-          layout.listHorizontal,
-          layout.bottomInset + 16,
-        ),
+    final player = context.watch<PlayerProvider>();
+    final song = player.currentSong;
+    final duration = player.duration;
+    final fraction = _drag ?? player.progress.clamp(0.0, 1.0);
+    final elapsed = _drag == null ? player.position : duration * fraction;
+    final modeLabel = switch (player.playMode) {
+      PlayMode.shuffle => '随机播放',
+      PlayMode.repeatOne => '单曲循环',
+      PlayMode.radio => '电台播放',
+      _ => '顺序播放',
+    };
+    return WatchScaffold(
+      showTime: false,
+      scrollController: _scroll,
+      body: Stack(
+        fit: StackFit.expand,
         children: [
-          Consumer<PlayerProvider>(
-            builder: (context, p, _) => RoundListTile(
-              title: '播放模式',
-              subtitle: _modeLabel(p.playMode),
-              leading: Icon(_modeIcon(p.playMode)),
-              onTap: () => p.setPlayMode(_nextMode(p.playMode)),
-            ),
+          WatchPlaybackBackdrop(
+            art: song?.albumCoverUrl,
+            tone: player.palette?.dominant ?? const Color(0xff9789ae),
           ),
-          Consumer<PlayerProvider>(
-            builder: (context, p, _) => RoundListTile(
-              title: '倍速',
-              subtitle: '${p.currentSpeed.toStringAsFixed(2)}x',
-              leading: const Icon(Icons.speed_rounded),
-              onTap: () {
-                const speeds = [1.0, 0.5, 0.75, 1.25, 1.5, 2.0];
-                final idx =
-                    speeds.indexWhere((s) => (s - p.currentSpeed).abs() < 0.01);
-                p.setSpeed(speeds[(idx + 1) % speeds.length]);
-              },
+          WatchPlayerInsets(
+            child: ListView(
+              controller: _scroll,
+              padding: EdgeInsets.zero,
+              children: [
+                Text(
+                  '播放选项',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${formatWatchDuration(elapsed)} / ${formatWatchDuration(duration)}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                ),
+                Slider(
+                  value: fraction,
+                  semanticFormatterCallback: (v) =>
+                      formatWatchDuration(duration * v),
+                  onChanged: duration > Duration.zero
+                      ? (v) => setState(() => _drag = v)
+                      : null,
+                  onChangeEnd: (v) {
+                    player.seek(duration * v);
+                    setState(() => _drag = null);
+                  },
+                ),
+                RoundListTile(
+                  title: '播放队列',
+                  subtitle: '${player.playlist.length} 首',
+                  leading: const Icon(Icons.queue_music_rounded),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const WatchQueueScreen(),
+                    ),
+                  ),
+                ),
+                if (song != null)
+                  RoundListTile(
+                    title: '收藏',
+                    trailing: SizedBox.square(
+                      dimension: 48,
+                      child: WatchLikeButton(song: song),
+                    ),
+                  ),
+                if (!player.isFmMode)
+                  RoundListTile(
+                    title: '播放模式',
+                    subtitle: modeLabel,
+                    leading: const Icon(Icons.repeat_rounded),
+                    onTap: () => player.setPlayMode(switch (player.playMode) {
+                      PlayMode.sequential => PlayMode.shuffle,
+                      PlayMode.shuffle => PlayMode.repeatOne,
+                      _ => PlayMode.sequential,
+                    }),
+                  ),
+                RoundListTile(
+                  title: '播放速度',
+                  subtitle: '${player.currentSpeed}×',
+                  leading: const Icon(Icons.speed_rounded),
+                  onTap: () => player.setSpeed(
+                    speeds[(speeds.indexOf(player.currentSpeed) + 1) %
+                        speeds.length],
+                  ),
+                ),
+                RoundListTile(
+                  title: '音质',
+                  subtitle: player.resolvedQualityLabel,
+                  leading: const Icon(Icons.audiotrack_rounded),
+                ),
+              ],
             ),
-          ),
-          RoundListTile(
-            title: '播放队列',
-            subtitle: '${player.playlist.length} 首',
-            leading: const Icon(Icons.queue_music_rounded),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const WatchQueueScreen()),
-              );
-            },
           ),
         ],
       ),
     );
   }
-
-  static IconData _modeIcon(PlayMode mode) => switch (mode) {
-        PlayMode.shuffle => Icons.shuffle_rounded,
-        PlayMode.repeatOne => Icons.repeat_one_rounded,
-        _ => Icons.repeat_rounded,
-      };
-
-  static String _modeLabel(PlayMode mode) => switch (mode) {
-        PlayMode.shuffle => '随机播放',
-        PlayMode.repeatOne => '单曲循环',
-        PlayMode.radio => '电台模式',
-        _ => '顺序播放',
-      };
-
-  static PlayMode _nextMode(PlayMode mode) => switch (mode) {
-        PlayMode.sequential => PlayMode.shuffle,
-        PlayMode.shuffle => PlayMode.repeatOne,
-        _ => PlayMode.sequential,
-      };
 }
 
-// ═══════════════════════════════════════════════════════
-//  Ambient Mode
-// ═══════════════════════════════════════════════════════
-
-class _AmbientPlayerView extends StatefulWidget {
-  const _AmbientPlayerView();
+class _VolumeHalo extends StatelessWidget {
+  const _VolumeHalo({required this.value, required this.onAdjust});
+  final double value;
+  final ValueChanged<double> onAdjust;
 
   @override
-  State<_AmbientPlayerView> createState() => _AmbientPlayerViewState();
+  Widget build(BuildContext context) {
+    final percent = '${(value * 100).round()}%';
+    return WatchScaffold(
+      showTime: false,
+      body: CustomPaint(
+        painter: _HaloArc(value),
+        child: WatchPlayerInsets(
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox.square(
+                  dimension: 48,
+                  child: IconButton(
+                    tooltip: '调低音量',
+                    icon: const Icon(Icons.volume_down_rounded),
+                    onPressed: () => onAdjust(-.04),
+                  ),
+                ),
+                Flexible(
+                  child: Semantics(
+                    liveRegion: true,
+                    label: '音量 $percent',
+                    excludeSemantics: true,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 4,
+                      ),
+                      decoration: ShapeDecoration(
+                        shape: StadiumBorder(
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: .4),
+                          ),
+                        ),
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          percent,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox.square(
+                  dimension: 48,
+                  child: IconButton(
+                    tooltip: '调高音量',
+                    icon: const Icon(Icons.volume_up_rounded),
+                    onPressed: () => onAdjust(.04),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _AmbientPlayerViewState extends State<_AmbientPlayerView> {
-  Timer? _timer;
+class _HaloArc extends CustomPainter {
+  const _HaloArc(this.value);
+  final double value;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromCircle(
+      center: size.center(Offset.zero),
+      radius: size.shortestSide * .477,
+    );
+    final pen = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 3
+      ..color = const Color(0xff332b30);
+    const start = math.pi * .7;
+    const sweep = -math.pi * .4;
+    canvas.drawArc(rect, start, sweep, false, pen);
+    pen.color = const Color(0xffdfb6c2);
+    canvas.drawArc(rect, start, sweep * value, false, pen);
+  }
+
+  @override
+  bool shouldRepaint(_HaloArc old) => old.value != value;
+}
+
+/// Ambient rendering has one timer aligned to the next minute and no audio ticker.
+class WatchChronoFace extends StatefulWidget {
+  const WatchChronoFace({super.key});
+
+  @override
+  State<WatchChronoFace> createState() => _WatchChronoFaceState();
+}
+
+class _WatchChronoFaceState extends State<WatchChronoFace> {
+  Timer? _minute;
   DateTime _now = DateTime.now();
 
   @override
   void initState() {
     super.initState();
-    _scheduleTick();
+    _scheduleMinute();
   }
 
-  void _scheduleTick() {
+  void _scheduleMinute() {
     final now = DateTime.now();
-    _timer = Timer(
+    _minute = Timer(
       Duration(seconds: 60 - now.second, milliseconds: -now.millisecond),
       () {
         if (!mounted) return;
         setState(() => _now = DateTime.now());
-        _scheduleTick();
+        _scheduleMinute();
       },
     );
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _minute?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final layout = WatchLayout.of(context);
-    final timeStr =
-        '${_now.hour.toString().padLeft(2, '0')}:${_now.minute.toString().padLeft(2, '0')}';
-    return Consumer<PlayerProvider>(
-      builder: (context, player, _) {
-        final song = player.currentSong;
-        final accent = player.palette?.lightVibrant ??
-            player.palette?.vibrant ??
-            Colors.white38;
-        return Scaffold(
-          backgroundColor: Colors.black,
-          body: Center(
-            child: Padding(
-              padding: EdgeInsets.all(layout.diameter * 0.16),
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                radius: .54,
+                colors: [Color(0xff221f16), Color(0xff100f0a), Colors.black],
+              ),
+            ),
+          ),
+          CustomPaint(painter: _MinuteMarks(_now.minute)),
+          WatchPlayerInsets(
+            child: Center(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    timeStr,
+                    '${_now.hour}:${_now.minute.toString().padLeft(2, '0')}',
                     style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
                       fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(1),
-                    child: LinearProgressIndicator(
-                      value: player.progress.clamp(0.0, 1.0),
-                      minHeight: 2,
-                      color: accent.withValues(alpha: 0.4),
-                      backgroundColor: Colors.white12,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    song?.name ?? '',
-                    style: TextStyle(
-                      color: accent.withValues(alpha: 0.7),
-                      fontSize: 13,
+                      fontSize: 24,
+                      height: 1.15,
                       fontWeight: FontWeight.w600,
+                      color: Color(0xffbcb8ac),
                     ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
-                  Icon(
-                    player.isPlaying
-                        ? Icons.play_arrow_rounded
-                        : Icons.pause_rounded,
-                    color: Colors.white38,
-                    size: 16,
+                  const SizedBox(height: 4),
+                  Container(
+                    width: 42,
+                    height: 1,
+                    color: const Color(0xff706c5c),
                   ),
                 ],
               ),
             ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
+}
+
+class _MinuteMarks extends CustomPainter {
+  const _MinuteMarks(this.minute);
+  final int minute;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.shortestSide * .478;
+    final pen = Paint()..strokeCap = StrokeCap.round;
+    for (var i = 0; i < 60; i++) {
+      final unit = Offset.fromDirection(i * math.pi / 30 - math.pi / 2);
+      final selected = i == minute;
+      pen.color = selected ? const Color(0xff8d846b) : const Color(0xff2a2822);
+      pen.strokeWidth = selected ? 2 : 1;
+      canvas.drawLine(
+        center + unit * (radius - (i % 5 == 0 || selected ? 3 : 1)),
+        center + unit * radius,
+        pen,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MinuteMarks old) => old.minute != minute;
 }

@@ -95,6 +95,15 @@ class PlaybackService : android.app.Service() {
 
     override fun onBind(intent: Intent): IBinder = binder
 
+    override fun onUnbind(intent: Intent): Boolean {
+        requestTileUpdate()
+        return super.onUnbind(intent)
+    }
+
+    private fun requestTileUpdate() {
+        androidx.wear.tiles.TileService.getUpdater(this).requestUpdate(PlaybackTileService::class.java)
+    }
+
     // ─── 生命周期 ───
 
     override fun onCreate() {
@@ -182,8 +191,10 @@ class PlaybackService : android.app.Service() {
         durationSec: Long,       // 秒
         lyricLine: String?
     ) {
+        val trackChanged = currentTitle != title || currentArtist != artist
         currentTitle = title
         currentArtist = artist
+        if (trackChanged) requestTileUpdate()
         currentDuration = durationSec * 1000L  // 毫秒
         currentLyricLine = lyricLine
 

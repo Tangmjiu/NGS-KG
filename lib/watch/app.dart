@@ -63,10 +63,10 @@ class _NGSKGWearAppState extends State<NGSKGWearApp> {
               home: done == null
                   ? const Scaffold(backgroundColor: Colors.black)
                   : done
-                      ? const WatchHome()
-                      : WatchOnboardingScreen(
-                          onDone: () => setState(() => _onboardingDone = true),
-                        ),
+                  ? const WatchHome()
+                  : WatchOnboardingScreen(
+                      onDone: () => setState(() => _onboardingDone = true),
+                    ),
             );
           },
         );
@@ -86,10 +86,10 @@ class WatchHome extends StatefulWidget {
 class _WatchHomeState extends State<WatchHome> {
   final _pageController = PageController();
   int _currentPage = 0;
+  final _hubScroll = List.generate(4, (_) => ScrollController());
   StreamSubscription<RotaryEvent>? _rotarySub;
 
-  /// 表冠翻页节流：避免一次旋拧连跳多页
-  DateTime _lastRotaryPageTurn = DateTime.fromMillisecondsSinceEpoch(0);
+  bool _ambient = false;
 
   static const _pages = [
     ListenHubPage(),
@@ -101,19 +101,21 @@ class _WatchHomeState extends State<WatchHome> {
   @override
   void initState() {
     super.initState();
-    // 旋转表冠：在主视图层左右翻页（仅当外壳为当前路由，
-    // 避免被推到上层的滚动页面重复消费）
     _rotarySub = rotaryEvents.listen((event) {
-      if (!mounted) return;
-      if (ModalRoute.of(context)?.isCurrent != true) return;
-      final now = DateTime.now();
-      if (now.difference(_lastRotaryPageTurn).inMilliseconds < 280) return;
-      _lastRotaryPageTurn = now;
-      if (event.direction == RotaryDirection.clockwise) {
-        _goToPage((_currentPage + 1).clamp(0, _pages.length - 1));
-      } else {
-        _goToPage((_currentPage - 1).clamp(0, _pages.length - 1));
+      if (!mounted || _ambient || ModalRoute.of(context)?.isCurrent != true) {
+        return;
       }
+      final scroll = _hubScroll[_currentPage];
+      if (!scroll.hasClients || !scroll.position.hasContentDimensions) return;
+      final position = scroll.position;
+      final step = (event.magnitude?.abs() ?? 28.0).clamp(6.0, 60.0);
+      final delta = event.direction == RotaryDirection.clockwise ? step : -step;
+      scroll.jumpTo(
+        (position.pixels + delta).clamp(
+          position.minScrollExtent,
+          position.maxScrollExtent,
+        ),
+      );
     });
   }
 
@@ -121,6 +123,9 @@ class _WatchHomeState extends State<WatchHome> {
   void dispose() {
     _rotarySub?.cancel();
     _pageController.dispose();
+    for (final scroll in _hubScroll) {
+      scroll.dispose();
+    }
     super.dispose();
   }
 
@@ -138,7 +143,8 @@ class _WatchHomeState extends State<WatchHome> {
 
     return AmbientMode(
       builder: (context, mode, child) {
-        if (mode == WearMode.ambient) return const _AmbientHomeView();
+        _ambient = mode == WearMode.ambient;
+        if (_ambient) return const WatchChronoFace();
         return _buildActive(context, layout);
       },
     );
@@ -167,7 +173,13 @@ class _WatchHomeState extends State<WatchHome> {
               PageView(
                 controller: _pageController,
                 onPageChanged: (i) => setState(() => _currentPage = i),
-                children: _pages,
+                children: [
+                  for (var i = 0; i < _pages.length; i++)
+                    PrimaryScrollController(
+                      controller: _hubScroll[i],
+                      child: _pages[i],
+                    ),
+                ],
               ),
 
               // ── 顶部时间 ──
@@ -226,112 +238,6 @@ class _WatchHomeState extends State<WatchHome> {
 // ═══════════════════════════════════════════════════════
 //  全局息屏（Ambient）：纯黑底、单色白、细进度弧、无动画
 // ═══════════════════════════════════════════════════════
-
-class _AmbientHomeView extends StatefulWidget {
-  const _AmbientHomeView();
-
-  @override
-  State<_AmbientHomeView> createState() => _AmbientHomeViewState();
-}
-
-class _AmbientHomeViewState extends State<_AmbientHomeView> {
-  Timer? _minuteTimer;
-  DateTime _now = DateTime.now();
-
-  @override
-  void initState() {
-    super.initState();
-    _scheduleTick();
-  }
-
-  void _scheduleTick() {
-    final now = DateTime.now();
-    _minuteTimer = Timer(
-      Duration(seconds: 60 - now.second, milliseconds: -now.millisecond),
-      () {
-        if (!mounted) return;
-        setState(() => _now = DateTime.now());
-        _scheduleTick();
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    _minuteTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = WatchLayout.of(context);
-    final timeStr =
-        '${_now.hour.toString().padLeft(2, '0')}:${_now.minute.toString().padLeft(2, '0')}';
-
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Consumer<PlayerProvider>(
-        builder: (context, player, _) {
-          final song = player.currentSong;
-          return Center(
-            child: Padding(
-              padding: EdgeInsets.all(layout.diameter * 0.16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    timeStr,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  // 细进度线
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(1),
-                    child: LinearProgressIndicator(
-                      value: player.progress.clamp(0.0, 1.0),
-                      minHeight: 2,
-                      color: Colors.white38,
-                      backgroundColor: Colors.white12,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (song != null) ...[
-                    Text(
-                      song.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Icon(
-                      player.isPlaying
-                          ? Icons.play_arrow_rounded
-                          : Icons.pause_rounded,
-                      color: Colors.white54,
-                      size: 16,
-                    ),
-                  ] else
-                    const Icon(Icons.music_note_rounded,
-                        color: Colors.white38, size: 18),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
 
 /// 右缘纵向页面指示（Wear M3 风格：当前页为长胶囊，其余为圆点）。
 class _EdgePageIndicator extends StatelessWidget {

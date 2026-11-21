@@ -105,13 +105,17 @@ class AudioEngine {
 
   void _initSession() {
     AudioSession.instance
-        .then((session) => session.configure(const AudioSessionConfiguration(
+        .then(
+          (session) => session.configure(
+            const AudioSessionConfiguration(
               androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
               androidWillPauseWhenDucked: true,
-            )))
+            ),
+          ),
+        )
         .catchError((e) {
-      Log.e('audio_engine', 'AudioSession init failed', e);
-    });
+          Log.e('audio_engine', 'AudioSession init failed', e);
+        });
   }
 
   int get requestVersion => _playRequestVersion;
@@ -146,7 +150,9 @@ class AudioEngine {
   /// 1. 优先使用 /privilege/lite 获取歌曲可用音质变体（含独立 hash）
   /// 2. 回退到根据 qualityLevel 构建降级链（使用歌曲原始 hash）
   Future<List<_Candidate>> _buildCandidates(
-      Song song, String preferredQuality) async {
+    Song song,
+    String preferredQuality,
+  ) async {
     final hash = song.hash;
 
     // 本地歌曲不需要特权查询
@@ -168,19 +174,27 @@ class AudioEngine {
         if (info.options.isNotEmpty || info.effectOptions.isNotEmpty) {
           _currentQualityOptions = info.options;
           _currentEffectOptions = info.effectOptions;
-          final candidates =
-              info.candidates(preferredQuality, fallbackHash: hash);
+          final candidates = info.candidates(
+            preferredQuality,
+            fallbackHash: hash,
+          );
           return candidates
-              .map((opt) => _Candidate(
-                    quality: opt.value,
-                    hash: opt.hash,
-                    label: opt.label,
-                  ))
+              .map(
+                (opt) => _Candidate(
+                  quality: opt.value,
+                  hash: opt.hash,
+                  label: opt.label,
+                ),
+              )
               .toList();
         }
       } catch (e, s) {
         Log.w(
-            'audio_engine', 'privilege query failed, fallback to chain', e, s);
+          'audio_engine',
+          'privilege query failed, fallback to chain',
+          e,
+          s,
+        );
       }
     }
 
@@ -190,17 +204,19 @@ class AudioEngine {
     _currentEffectOptions = [];
     final chain = Quality.fallbackChain(preferredQuality);
     return chain
-        .map((q) => _Candidate(
-              quality: q,
-              hash: hash ?? '',
-              label: Quality.label(q),
-            ))
+        .map(
+          (q) =>
+              _Candidate(quality: q, hash: hash ?? '', label: Quality.label(q)),
+        )
         .toList();
   }
 
   /// ─── 核心播放方法 ───
-  Future<void> play(Song song,
-      {int? version, String effectKey = 'none'}) async {
+  Future<void> play(
+    Song song, {
+    int? version,
+    String effectKey = 'none',
+  }) async {
     version ??= _playRequestVersion;
     if (version != _playRequestVersion) {
       isLoading.value = false;
@@ -268,7 +284,9 @@ class AudioEngine {
               }
               if (!songUrl.isVideo && songUrl.url.isNotEmpty) {
                 await _playWithCache(
-                    songUrl.url, opt.hash.isNotEmpty ? opt.hash : song.hash);
+                  songUrl.url,
+                  opt.hash.isNotEmpty ? opt.hash : song.hash,
+                );
                 if (version != _playRequestVersion) {
                   isLoading.value = false;
                   return;
@@ -278,8 +296,10 @@ class AudioEngine {
                 _hasActivePlayback = true;
                 played = true;
                 resolvedQualityNotifier.value = opt.value;
-                Log.i('audio_engine',
-                    'effect resolved: ${opt.value} (${opt.label})');
+                Log.i(
+                  'audio_engine',
+                  'effect resolved: ${opt.value} (${opt.label})',
+                );
               }
             } catch (_) {
               // 效果失败，降级到编码音质
@@ -318,7 +338,9 @@ class AudioEngine {
 
             if (songUrl.url.isNotEmpty) {
               await _playWithCache(
-                  songUrl.url, c.hash.isNotEmpty ? c.hash : song.hash);
+                songUrl.url,
+                c.hash.isNotEmpty ? c.hash : song.hash,
+              );
               if (version != _playRequestVersion) {
                 isLoading.value = false;
                 return;
@@ -331,8 +353,10 @@ class AudioEngine {
 
               // ✅ 记录最终解析到的音质
               resolvedQualityNotifier.value = c.quality;
-              Log.i('audio_engine',
-                  'resolved quality: ${c.quality} (${c.label})');
+              Log.i(
+                'audio_engine',
+                'resolved quality: ${c.quality} (${c.label})',
+              );
               break;
             }
           } catch (e) {
@@ -367,7 +391,10 @@ class AudioEngine {
       if (e is NeedLoginException) {
         error.value = '播放失败: $e';
         showErrorDialog(
-            title: '登录失效', errorCode: 'API 20010', message: '播放需要重新登录');
+          title: '登录失效',
+          errorCode: 'API 20010',
+          message: '播放需要重新登录',
+        );
         return;
       }
       if (_playAttempts <= _maxRetries) {
@@ -394,7 +421,8 @@ class AudioEngine {
         await play(currentSong);
       } else {
         final lastFetch = _lastUrlFetchTime;
-        final isStale = lastFetch != null &&
+        final isStale =
+            lastFetch != null &&
             DateTime.now().difference(lastFetch) > _urlStaleDuration;
         if (isStale && !currentSong.isLocal) {
           await _refreshUrlAndPlay(currentSong);
@@ -409,8 +437,11 @@ class AudioEngine {
     try {
       final quality = _currentQualityKey();
       final pos = position.value;
-      final songUrl = await _musicService.getSongUrl(song.id,
-          hash: song.hash, quality: quality);
+      final songUrl = await _musicService.getSongUrl(
+        song.id,
+        hash: song.hash,
+        quality: quality,
+      );
       if (songUrl.url.isEmpty) return;
       _lastUrlFetchTime = DateTime.now();
       await _playWithCache(songUrl.url, song.hash);
@@ -427,8 +458,12 @@ class AudioEngine {
   ///
   /// [qualityKey] 编码音质 key，[effectKey] 可选音效 key（'none' 表示无效果）。
   /// 有效果时优先尝试音效 URL，失败后回退到编码音质候选链。
-  Future<bool> switchQuality(Song song, String qualityKey,
-      {Duration? currentPosition, String effectKey = 'none'}) async {
+  Future<bool> switchQuality(
+    Song song,
+    String qualityKey, {
+    Duration? currentPosition,
+    String effectKey = 'none',
+  }) async {
     if (song.hash == null || song.hash!.isEmpty) return false;
 
     final pos = currentPosition ?? position.value;
@@ -460,14 +495,18 @@ class AudioEngine {
               );
               if (!songUrl.isVideo && songUrl.url.isNotEmpty) {
                 await _playWithCache(
-                    songUrl.url, opt.hash.isNotEmpty ? opt.hash : song.hash);
+                  songUrl.url,
+                  opt.hash.isNotEmpty ? opt.hash : song.hash,
+                );
                 _lastUrlFetchTime = DateTime.now();
                 resolvedQualityNotifier.value = opt.value;
                 await _player.seek(pos);
                 if (wasPlaying) await _player.play();
                 played = true;
-                Log.i('audio_engine',
-                    'effect switch: -> ${opt.value} (${opt.label})');
+                Log.i(
+                  'audio_engine',
+                  'effect switch: -> ${opt.value} (${opt.label})',
+                );
               }
             } catch (_) {
               // 效果失败，降级到编码音质
@@ -489,7 +528,9 @@ class AudioEngine {
             if (songUrl.isVideo) continue;
             if (songUrl.url.isNotEmpty) {
               await _playWithCache(
-                  songUrl.url, c.hash.isNotEmpty ? c.hash : song.hash);
+                songUrl.url,
+                c.hash.isNotEmpty ? c.hash : song.hash,
+              );
               _lastUrlFetchTime = DateTime.now();
               resolvedQualityNotifier.value = c.quality;
 
@@ -499,8 +540,10 @@ class AudioEngine {
                 await _player.play();
               }
               played = true;
-              Log.i('audio_engine',
-                  'quality switch: -> ${c.quality} (${c.label})');
+              Log.i(
+                'audio_engine',
+                'quality switch: -> ${c.quality} (${c.label})',
+              );
               break;
             }
           } catch (_) {
@@ -572,6 +615,8 @@ class AudioEngine {
   Future<void> pause() async {
     await _player.pause();
   }
+
+  double get volume => _player.volume;
 
   void setVolume(double volume) {
     _player.setVolume(volume);

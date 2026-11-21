@@ -29,6 +29,7 @@ class _WatchLyricsScreenState extends State<WatchLyricsScreen>
   late final StreamSubscription<RotaryEvent> _rotary;
   bool _following = true;
   bool _showTranslation = true;
+  bool _hasTranslation = false;
   int _active = -1;
   double _viewport = 0;
   List<LyricLine>? _lines;
@@ -47,9 +48,11 @@ class _WatchLyricsScreenState extends State<WatchLyricsScreen>
         return;
       }
       _browse();
-      final step = _scroll.position.viewportDimension * 0.3;
-      _jumpTo(_scroll.offset +
-          (event.direction == RotaryDirection.clockwise ? step : -step));
+      final step = _scroll.position.viewportDimension * .3;
+      _jumpTo(
+        _scroll.offset +
+            (event.direction == RotaryDirection.clockwise ? step : -step),
+      );
     });
   }
 
@@ -63,9 +66,12 @@ class _WatchLyricsScreenState extends State<WatchLyricsScreen>
 
   void _jumpTo(double offset) {
     if (!_scroll.hasClients) return;
-    final pos = _scroll.position;
-    final target = offset.clamp(pos.minScrollExtent, pos.maxScrollExtent);
-    if (target != pos.pixels) _scroll.jumpTo(target.toDouble());
+    final position = _scroll.position;
+    final target = offset.clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if (target != position.pixels) _scroll.jumpTo(target);
   }
 
   void _browse() {
@@ -80,105 +86,176 @@ class _WatchLyricsScreenState extends State<WatchLyricsScreen>
 
   void _centerAfterLayout({bool immediately = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_following || !_scroll.hasClients || _active < 0 ||
+      if (!mounted ||
+          !_following ||
+          !_scroll.hasClients ||
+          _active < 0 ||
           _active + 1 >= _edges.length) {
         return;
       }
       final height = _edges[_active + 1] - _edges[_active];
-      // 两端各留半屏。超长行优先露出开头，再由用户向下阅读。
       final target = _edges[_active] + math.min(height, _viewport) / 2;
       final velocity = _spring.isAnimating ? _spring.velocity : 0.0;
       _spring.stop();
       if (immediately || MediaQuery.disableAnimationsOf(context)) {
         _jumpTo(target);
       } else {
-        _spring.animateWith(SpringSimulation(
-          watchPlayerSpring, _scroll.offset, target, velocity,
-        ));
+        _spring.animateWith(
+          SpringSimulation(watchPlayerSpring, _scroll.offset, target, velocity),
+        );
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final player = context.select((PlayerProvider p) => p.lyricController);
+    final controller = context.select((PlayerProvider p) => p.lyricController);
+    final tone =
+        context.select((PlayerProvider p) => p.palette?.dominant) ??
+        const Color(0xff83a8a8);
+    final pastel = Color.lerp(tone, Colors.white, .54)!;
     return WatchScaffold(
       showTime: false,
-      body: WatchPlayerInsets(
-        child: ValueListenableBuilder(
-          valueListenable: player.lyricNotifier,
-          builder: (context, model, _) {
-            final lines = model?.lines ?? const <LyricLine>[];
-            if (lines.isEmpty) {
-              _spring.stop();
-              _lines = null;
-              return const Center(child: Text('暂无歌词'));
-            }
-            if (!identical(lines, _lines)) {
-              _spring.stop();
-              _lines = lines;
-              _following = true;
-              _measurementKey = null;
-            }
-            return Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: const Alignment(0, 1.12),
+                radius: .65,
+                colors: [Color.lerp(Colors.black, tone, .34)!, Colors.black],
+              ),
+            ),
+          ),
+          WatchPlayerInsets(
+            child: ValueListenableBuilder(
+              valueListenable: controller.lyricNotifier,
+              builder: (context, model, _) {
+                final lines = model?.lines ?? const <LyricLine>[];
+                if (lines.isEmpty) {
+                  _spring.stop();
+                  _lines = null;
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.music_note_rounded, size: 18, color: pastel),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '暂无歌词',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                if (!identical(lines, _lines)) {
+                  _spring.stop();
+                  _lines = lines;
+                  _following = true;
+                  _measurementKey = null;
+                  _hasTranslation = lines.any(
+                    (line) => line.translation?.isNotEmpty == true,
+                  );
+                }
+                return Column(
                   children: [
-                    if (!_following)
-                      IconButton(
-                        tooltip: '回到当前歌词',
-                        icon: const Icon(Icons.my_location_rounded, size: 18),
-                        onPressed: _follow,
+                    Expanded(
+                      child: ShaderMask(
+                        blendMode: BlendMode.dstIn,
+                        shaderCallback: (rect) => const LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Color(0x38ffffff),
+                            Colors.white,
+                            Colors.white,
+                            Color(0x38ffffff),
+                          ],
+                          stops: [0, .30, .70, 1],
+                        ).createShader(rect),
+                        child: ValueListenableBuilder<int>(
+                          valueListenable: controller.activeIndexNotifiter,
+                          builder: (context, index, _) => LayoutBuilder(
+                            builder: (context, box) =>
+                                _list(context, lines, index, box, pastel),
+                          ),
+                        ),
                       ),
-                    IconButton(
-                      tooltip: _showTranslation ? '隐藏译文' : '显示译文',
-                      isSelected: _showTranslation,
-                      icon: const Icon(Icons.translate_rounded, size: 18),
-                      selectedIcon: Icon(Icons.translate_rounded, size: 18,
-                          color: Theme.of(context).colorScheme.primary),
-                      onPressed: () => setState(() {
-                        _showTranslation = !_showTranslation;
-                      }),
                     ),
+                    if (!_following || _hasTranslation)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (!_following)
+                            SizedBox.square(
+                              dimension: 48,
+                              child: IconButton(
+                                tooltip: '回到当前歌词',
+                                icon: const Icon(
+                                  Icons.my_location_rounded,
+                                  size: 18,
+                                ),
+                                onPressed: _follow,
+                              ),
+                            ),
+                          if (_hasTranslation)
+                            SizedBox.square(
+                              dimension: 48,
+                              child: IconButton(
+                                tooltip: _showTranslation ? '隐藏译文' : '显示译文',
+                                icon: Icon(
+                                  Icons.translate_rounded,
+                                  size: 18,
+                                  color: _showTranslation
+                                      ? pastel
+                                      : Colors.white60,
+                                ),
+                                onPressed: () => setState(
+                                  () => _showTranslation = !_showTranslation,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                   ],
-                ),
-                Expanded(
-                  child: ValueListenableBuilder<int>(
-                    valueListenable: player.activeIndexNotifiter,
-                    builder: (context, index, _) => LayoutBuilder(
-                      builder: (context, box) => _list(context, lines, index, box),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _list(BuildContext context, List<LyricLine> lines, int active,
-      BoxConstraints box) {
-    final colors = Theme.of(context).colorScheme;
-    final base = Theme.of(context).textTheme.bodyMedium ?? const TextStyle();
-    final primary = base.copyWith(fontSize: box.maxWidth < 140 ? 15 : 17,
-        height: 1.3, fontWeight: FontWeight.w600);
-    final secondary = base.copyWith(fontSize: 12, height: 1.3);
+  Widget _list(
+    BuildContext context,
+    List<LyricLine> lines,
+    int active,
+    BoxConstraints box,
+    Color pastel,
+  ) {
+    const primary = TextStyle(
+      fontFamily: 'serif',
+      fontFamilyFallback: ['Roboto'],
+      fontSize: 16,
+      height: 1.22,
+      fontWeight: FontWeight.w500,
+    );
+    const secondary = TextStyle(fontSize: 12, height: 1.22);
     final scaler = MediaQuery.textScalerOf(context);
     final locale = Localizations.maybeLocaleOf(context);
     final direction = Directionality.of(context);
-    final key = (box.maxWidth, scaler, locale, direction, primary, secondary,
-        _showTranslation);
+    final key = (box.maxWidth, scaler, locale, direction, _showTranslation);
     final changed = _measurementKey != key;
-
-    // 测量与渲染共用宽度、字体和缩放，焦点切换只变颜色，不改变行高。
     if (changed) {
       double measure(String text, TextStyle style) {
         final painter = TextPainter(
           text: TextSpan(text: text, style: style),
-          textDirection: direction, locale: locale, textScaler: scaler,
+          textDirection: direction,
+          locale: locale,
+          textScaler: scaler,
           textAlign: TextAlign.center,
         )..layout(maxWidth: box.maxWidth);
         final height = painter.height;
@@ -188,11 +265,13 @@ class _WatchLyricsScreenState extends State<WatchLyricsScreen>
 
       final edges = <double>[0];
       for (final line in lines) {
-        var height = measure(line.text, primary) + 12;
+        // Reserve the note and underline even when inactive, so changing the
+        // highlighted line never shifts its neighbours or invalidates offsets.
+        var height = measure(line.text, primary) + 25;
         if (_showTranslation && line.translation?.isNotEmpty == true) {
           height += 3 + measure(line.translation!, secondary);
         }
-        edges.add(edges.last + height);
+        edges.add(edges.last + math.max(48.0, height));
       }
       _edges = edges;
       _measurementKey = key;
@@ -202,14 +281,14 @@ class _WatchLyricsScreenState extends State<WatchLyricsScreen>
       _viewport = box.maxHeight;
       if (_following) _centerAfterLayout(immediately: changed);
     }
-
     Widget paragraph(String value, TextStyle style) => RichText(
       text: TextSpan(text: value, style: style),
-      textDirection: direction, locale: locale, textScaler: scaler,
+      textDirection: direction,
+      locale: locale,
+      textScaler: scaler,
       textAlign: TextAlign.center,
     );
     return Listener(
-      onPointerDown: (_) => _spring.stop(),
       onPointerSignal: (event) {
         if (event is PointerScrollEvent) _browse();
       },
@@ -225,10 +304,12 @@ class _WatchLyricsScreenState extends State<WatchLyricsScreen>
           controller: _scroll,
           padding: EdgeInsets.symmetric(vertical: box.maxHeight / 2),
           itemCount: lines.length,
-          itemExtentBuilder: (i, _) => i < lines.length ? _edges[i + 1] - _edges[i] : null,
+          itemExtentBuilder: (i, _) =>
+              i < lines.length ? _edges[i + 1] - _edges[i] : null,
           itemBuilder: (context, i) {
             final line = lines[i];
             final focused = i == active;
+            final ink = focused ? pastel : const Color(0xff9e9c9a);
             return Semantics(
               selected: focused,
               button: true,
@@ -239,20 +320,30 @@ class _WatchLyricsScreenState extends State<WatchLyricsScreen>
                   player.lyricController.setProgress(line.start);
                   _follow();
                 },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      paragraph(line.text, primary.copyWith(color: focused
-                          ? colors.primary : colors.onSurfaceVariant)),
-                      if (_showTranslation && line.translation?.isNotEmpty == true) ...[
-                        const SizedBox(height: 3),
-                        paragraph(line.translation!, secondary.copyWith(color: focused
-                            ? colors.onSurface : colors.onSurfaceVariant)),
-                      ],
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (focused)
+                      Icon(Icons.music_note_rounded, size: 13, color: pastel),
+                    if (focused) const SizedBox(height: 3),
+                    paragraph(line.text, primary.copyWith(color: ink)),
+                    if (_showTranslation &&
+                        line.translation?.isNotEmpty == true) ...[
+                      const SizedBox(height: 3),
+                      paragraph(
+                        line.translation!,
+                        secondary.copyWith(color: ink),
+                      ),
                     ],
-                  ),
+                    if (focused) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        height: 1,
+                        width: 20,
+                        color: pastel.withValues(alpha: .65),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             );
