@@ -9,20 +9,20 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-1.5.0--preview-blue?style=flat-square" alt="v1.5.0 preview">
+  <img src="https://img.shields.io/badge/Version-1.5.9--preview--watch-blue?style=flat-square" alt="v1.5.9-preview-watch">
   <img src="https://img.shields.io/badge/Nightcord-v2.0.0-purple?style=flat-square" alt="Nightcord v2.0.0">
 </p>
 
 <p align="center">
-  <sub>代号 **Nightcord** 来源于 QQ 群代号投票——至于为什么选这个，我也不知道。</sub>
+  <sub>代号 Nightcord 来自 QQ 群代号投票。至于为什么选这个，我也不知道。</sub>
 </p>
 
 <p align="center">
   <a href="#功能">功能</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#构建">构建</a> ·
-  <a href="#赞助支持">赞助支持</a> ·
   <a href="#交流群组">交流群组</a> ·
+  <a href="#赞助支持">赞助支持</a> ·
   <a href="#API">API</a> ·
   <a href="#免责声明">免责声明</a>
 </p>
@@ -32,32 +32,29 @@
 > **NGS** = 凪砂（出自《偶像梦幻祭2》）
 > **KG** = 酷狗 (KuGou)
 >
-> 本项目是作者（本人 ngs 推🚩）基于酷狗音乐第三方 API 开发的 Flutter 音乐播放器。
-> 内置图片素材来源于《偶像梦幻祭2》国服官方表情包，支持通过 ZIP 主题包自定义全套图片与配色。
+> 这是作者（本人 ngs 推🚩）基于酷狗音乐第三方 API 做的 Flutter 音乐播放器。
+> 当前分支只保留手表版需要的功能。
 
 ---
 
 ## 功能
 
-- **登录**：手机验证码 / 二维码登录
-- **首页**：每日推荐、新歌速递、6 种推荐卡片、继续播放
-- **发现**：推荐歌单、热门榜单、新碟上架、场景音乐、电台、编辑精选
-- **搜索**：综合 / 单曲 / 歌单 / 专辑 / 歌手 / 歌词 多类型搜索
-- **播放器**：专辑封面、滚动歌词、音质切换、播放列表、后台播放
-- **歌手**：歌手详情、热门单曲、专辑列表
-- **专辑**：专辑详情、歌曲列表、专辑简介
-- **歌单**：创建 / 收藏 / 删除歌单
-- **音质**：WiFi / 蜂窝 / 下载 三套独立音质设置
-- **本地音乐**：扫描设备音频文件并播放
+- **登录**：二维码登录、手机验证码登录
+- **聆听**：继续播放、快捷操作、私人 FM、排行榜、播放队列
+- **发现**：搜索、私人 FM、排行榜
+- **音乐库**：歌单、收藏、本地音乐、播放队列
+- **设备与我**：账号、Wi-Fi 音质、音频输出、设置、日志导出
+- **播放**：专辑封面、同步歌词、音量、播放模式、倍速、音质信息
+- **系统入口**：桌面磁贴显示当前曲目，点击打开应用
 
-### Wear OS 手表专属
+### Wear OS 手表适配
 
-- **圆形屏幕适配**：RoundSafeArea 组件，确保内容不被圆形屏幕裁剪
-- **旋钮支持**：wearable_rotary 包，支持旋转表冠滚动内容
-- **独立运行**：无需手机 companion，可独立安装和使用
-- **语音搜索**：支持语音识别搜索歌曲
-- **紧凑布局**：针对手表小屏幕优化的 UI 布局
-- **始终深色模式**：手表端强制深色主题，适配 AMOLED 屏幕
+- 圆形屏幕按直径 12% 留白，适配 192dp 和 225dp 表盘
+- 表冠按当前页面滚动列表，播放页转动表冠调音量
+- 支持右滑返回、双击播放页暂停或继续
+- 独立运行，不依赖手机 companion
+- 深色主题，适配 AMOLED 屏幕
+- 息屏显示时间、曲目和播放状态
 
 ---
 
@@ -65,9 +62,9 @@
 
 ### 环境要求
 
-- Flutter SDK（最新稳定版）
-- Android SDK（API 33+，Wear OS 3.0+）
-- JDK 17+
+- Flutter SDK 3.44.0
+- Android SDK API 36
+- JDK 17
 
 ### 配置镜像源（国内）
 
@@ -79,7 +76,7 @@ export PUB_HOSTED_URL="https://pub.flutter-io.cn"
 ### 获取依赖
 
 ```bash
-flutter pub get
+flutter pub get --enforce-lockfile
 ```
 
 ### 运行
@@ -90,27 +87,21 @@ flutter run -d <emulator_id>
 
 ### API 服务器
 
-默认使用 mjiutang 提供的 Cloudflare 公共节点，可在 **设置 → API 服务器** 中选择路线或自定义地址。
+默认使用 mjiutang 提供的 Cloudflare 公共节点。设置页可切换内置路线，也可自建服务端：
 
-也可自建服务端：https://github.com/MakcRe/KuGouMusicApi
+https://github.com/MakcRe/KuGouMusicApi
 
 ## 构建
 
-### Debug 构建
+本地构建会同时生成 arm64-v8a 和 armeabi-v7a 架构的 APK：
 
 ```bash
-flutter build apk --debug
+flutter build apk --debug --target-platform android-arm64,android-arm
+flutter build apk --release --target-platform android-arm64,android-arm
 ```
 
-### Release 构建
+Watch CI 先执行静态分析和单元测试，再构建 Debug 与 Release APK：
 
-```bash
-flutter build apk --release
-```
-
-### GitHub Actions
-
-每次推送分支自动编译：\
 https://github.com/Tangmjiu/NGS-KG/actions
 
 ## 交流群组
