@@ -40,7 +40,7 @@ package="$(extract "name='[^']+'" "$(grep '^package:' <<<"$badging")" | sed "s/n
 
 version_code="$(extract "versionCode='[0-9]+'" "$badging" | grep -oE '[0-9]+' || true)"
 version_name="$(extract "versionName='[^']*'" "$badging" | sed "s/versionName='//;s/'$//")"
-min_sdk="$(extract "sdkVersion:'[0-9]+'" "$badging" | grep -oE '[0-9]+' || true)"
+min_sdk="$(extract "minSdkVersion:'[0-9]+'" "$badging" | grep -oE '[0-9]+' || true)"
 target_sdk="$(extract "targetSdkVersion:'[0-9]+'" "$badging" | grep -oE '[0-9]+' || true)"
 
 if [ -z "$min_sdk" ] || [ -z "$target_sdk" ] || [ -z "$version_code" ]; then
